@@ -13,79 +13,177 @@ The application supports optional base annotations overlaid on signal data when 
 ### Application Stack
 - **GUI Framework**: PySide6 (Qt for Python) - provides cross-platform desktop UI
 - **Data Processing**: pod5 library for reading Oxford Nanopore POD5 files
-- **BAM Support**: pysam library (optional) for reading basecall data from BAM files
+- **Signal Processing**: ont-remora library for advanced signal analysis
 - **Visualization**: plotnine (ggplot2-style) for generating squiggle plots from signal data
 - **Distribution**: PyInstaller packages the app into standalone executables/bundles
+- **Documentation**: MkDocs with Material theme for user documentation
+- **Testing**: pytest for unit and integration tests
+
+### Project Structure
+
+The codebase is organized as a standard Python package in `src/squiggy/`:
+
+```
+src/squiggy/
+├── __init__.py         # Package initialization with version info
+├── main.py            # Entry point and CLI argument parsing
+├── viewer.py          # SquiggleViewer - Main QMainWindow GUI
+├── plotter.py         # SquigglePlotter - Plotting logic and visualization
+├── dialogs.py         # Custom dialog windows (About, etc.)
+├── utils.py           # Utility functions (file I/O, data processing)
+├── constants.py       # Application constants and configuration
+└── data/              # Bundled resources
+    ├── squiggy.png    # Application logo (PNG)
+    ├── squiggy.ico    # Windows icon
+    ├── squiggy.icns   # macOS icon
+    └── *.pod5         # Sample POD5 files for testing
+```
 
 ### Key Components
 
-**squiggy/squiggy/main.py** - Single-file application containing:
-- `SquigglePlotter`: Static plotting logic that converts raw signal data into time-series plots with optional base annotations
-- `SquiggleViewer`: Main QMainWindow with file selectors (POD5 + optional BAM), read list with search, plot display, and base annotation toggle
-- Plot rendering workflow: POD5 → signal data → (optional: BAM → basecalls + move table) → plotnine plot → PNG buffer → QPixmap → display
-- Base annotation visualization inspired by ONT's remora: colored rectangles (A=green, C=blue, G=orange, T=red) with base labels
+**src/squiggy/main.py** - Application entry point:
+- Parses command-line arguments (`--file` to pre-load POD5 files)
+- Initializes Qt application and launches SquiggleViewer
+- Defines `main()` function as console script entry point
 
-**squiggy.spec** - PyInstaller configuration for building native apps:
-- Specifies entry point as `squiggy/main.py`
-- Declares hidden imports (pod5, plotnine, PySide6 modules) that PyInstaller can't auto-detect
-- Creates macOS .app bundle with proper Info.plist configuration
+**src/squiggy/viewer.py** - Main GUI window (SquiggleViewer):
+- File menu with "Open POD5 File" and "Open Sample Data" options
+- Read list widget with search/filter functionality
+- Plot display area showing squiggle plots
+- Status bar with file information
+
+**src/squiggy/plotter.py** - Plotting logic (SquigglePlotter):
+- Converts raw signal data into time-series DataFrames
+- Generates plotnine plots with customizable styling
+- Renders plots to PNG buffers for Qt display
+- Handles plot caching and performance optimization
+
+**src/squiggy/dialogs.py** - Custom dialog windows:
+- About dialog with version and license information
+- Potentially other dialogs for settings/preferences
+
+**src/squiggy/utils.py** - Utility functions:
+- POD5 file reading and validation
+- Signal data extraction and processing
+- Sample data location and loading
+
+**src/squiggy/constants.py** - Application constants:
+- Color schemes for plots
+- Default window sizes and UI settings
+- File format specifications
 
 ### Data Flow
 
-**Basic (POD5 only):**
-1. User selects POD5 file → `pod5.Reader` loads file
-2. All read IDs extracted and displayed in searchable list
-3. User selects read → signal data retrieved with sample rate
-4. Signal converted to time-series DataFrame
-5. Plotnine generates plot → saved to BytesIO buffer as PNG
-6. PNG loaded as QPixmap and displayed in Qt widget
+**Application Startup:**
+1. `main.py` parses CLI arguments (optional `--file` parameter)
+2. Qt application initialized
+3. SquiggleViewer window created and displayed
+4. If `--file` provided, POD5 file automatically loaded
 
-**Enhanced (POD5 + BAM):**
-1. User additionally selects BAM file → `pysam.AlignmentFile` opens file
-2. User enables "Show base annotations" checkbox
-3. When read is selected, BAM is queried for matching read_id
-4. Move table extracted from BAM 'mv' tag → converted to seq_to_sig_map array
-5. Base sequence and mapping passed to plotter
-6. Plotnine adds colored `geom_rect` and `geom_text` layers for bases
-7. Combined plot rendered and displayed
+**POD5 File Loading:**
+1. User selects "Open POD5 File" or "Open Sample Data" from File menu
+2. `utils.py` validates and opens file with `pod5.Reader`
+3. All read IDs extracted and loaded into searchable QListWidget
+4. File path displayed in status bar
+
+**Read Visualization:**
+1. User selects read from list (or searches by ID)
+2. `utils.py` extracts signal data and metadata for selected read
+3. Signal data passed to `plotter.py` SquigglePlotter
+4. Plotnine generates time-series plot → saved to BytesIO buffer as PNG
+5. PNG loaded as QPixmap and displayed in QLabel widget
+6. Read information displayed in status bar
 
 ## Development Commands
 
 ### Environment Setup
 ```bash
-# Install dependencies (use uv or pip)
+# Clone the repository
+git clone https://github.com/rnabioco/squiggy.git
+cd squiggy
+
+# Install dependencies (using pip)
 pip install -r requirements.txt
 
-# Install with dev dependencies
+# Or install as editable package with dev dependencies
 pip install -e ".[dev]"
 ```
 
 ### Running the Application
 ```bash
-# Run from source
-python squiggy/squiggy/main.py
-
-# Or using the installed console script
+# Run using installed console script (recommended)
 squiggy
+
+# Run with a specific POD5 file pre-loaded
+squiggy --file /path/to/file.pod5
+
+# Run directly from source
+python -m squiggy.main
+
+# Or run the module directly
+python src/squiggy/main.py
 ```
 
-### Code Formatting
+### Code Formatting and Linting
 ```bash
-# Format code with black
-black squiggy/
+# Format code with ruff
+ruff format src/ tests/
+
+# Lint and auto-fix issues with ruff
+ruff check --fix src/ tests/
+
+# Check without auto-fixing
+ruff check src/ tests/
 ```
 
 ### Testing
 ```bash
-# Run tests (when test suite exists)
+# Run all tests
 pytest tests/
+
+# Run with verbose output
+pytest -v tests/
+
+# Run specific test file
+pytest tests/test_plotting.py
+
+# Run with coverage report
+pytest --cov=squiggy tests/
+```
+
+### Documentation
+
+```bash
+# Serve documentation locally with live reload
+mkdocs serve
+
+# Build documentation
+mkdocs build
+
+# Deploy documentation to GitHub Pages
+mkdocs gh-deploy
 ```
 
 ### Building Standalone Executables
 
+**Prerequisites:**
+```bash
+# Install PyInstaller
+pip install pyinstaller
+```
+
 **Local build (any platform):**
 ```bash
+# Build using spec file (if available)
 pyinstaller squiggy.spec
+
+# Or build directly from source
+pyinstaller --name Squiggy \
+    --windowed \
+    --icon src/squiggy/data/squiggy.ico \
+    --add-data "src/squiggy/data:squiggy/data" \
+    src/squiggy/main.py
+
 # Output: dist/Squiggy (Linux), dist/Squiggy.exe (Windows), dist/Squiggy.app (macOS)
 ```
 
@@ -94,7 +192,14 @@ pyinstaller squiggy.spec
 # macOS: Create DMG installer (requires create-dmg)
 brew install create-dmg
 pyinstaller squiggy.spec
-create-dmg --volname "Squiggy Installer" --app-drop-link 600 185 Squiggy-macos.dmg dist/Squiggy.app
+create-dmg \
+  --volname "Squiggy Installer" \
+  --window-pos 200 120 \
+  --window-size 800 400 \
+  --icon-size 100 \
+  --app-drop-link 600 185 \
+  Squiggy-macos.dmg \
+  dist/Squiggy.app
 
 # Windows: Create ZIP archive
 pyinstaller squiggy.spec
@@ -105,48 +210,71 @@ pyinstaller squiggy.spec
 tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
 ```
 
+**Note:** The build process is automated via GitHub Actions for releases. See `.github/workflows/build.yml` for the CI/CD configuration.
+
 ## Release Process
 
 Releases are automated via GitHub Actions (`.github/workflows/build.yml`):
-- Triggered on version tags (e.g., `v0.1.0`) or manual workflow dispatch
+- **Version Releases**: Triggered on version tags (e.g., `v0.1.0`)
+- **Development Builds**: Triggered on pushes to `main` branch (macOS only)
 - Builds executables for Windows, macOS, and Linux in parallel
 - Creates GitHub release with platform-specific installers attached
 - Release artifacts: `.zip` (Windows), `.dmg` (macOS), `.tar.gz` (Linux)
 
-To create a release:
+**To create a version release:**
 ```bash
+# Update version in src/squiggy/__init__.py and pyproject.toml
+# Commit changes
+git add src/squiggy/__init__.py pyproject.toml
+git commit -m "Bump version to 0.1.0"
+
+# Create and push tag
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
+**Development builds:**
+- Automatically created on every push to `main`
+- Available as "latest" pre-release on GitHub
+- macOS .dmg only (for faster CI builds)
+
 ## Important Constraints
+
+### Project Structure
+- **Source code location**: `src/squiggy/` (standard Python package layout)
+- **Virtual environment**: `.venv/` at project root (do NOT edit files here)
+- **Tests**: `tests/` directory with pytest fixtures in `conftest.py`
+- **Documentation**: `docs/` directory with MkDocs markdown files
+- When editing source code, always modify files in `src/squiggy/`, not `.venv/`
 
 ### PyInstaller Considerations
 - All non-standard-library imports must be listed in `squiggy.spec` `hiddenimports` if PyInstaller fails to detect them
-- Resource files (icons, data files) must be declared in `datas` list
-- The spec file uses `console=False` to hide the terminal window on launch
+- Resource files (icons, sample data) in `src/squiggy/data/` must be included via `--add-data` flag
+- Application icons available in multiple formats: `.png`, `.ico` (Windows), `.icns` (macOS)
+- The spec file uses `--windowed` to hide the terminal window on launch
+- Sample POD5 files are bundled with the application for "Open Sample Data" feature
 
 ### POD5 File Handling
 - POD5 files use HDF5 format with VBZ compression (requires `vbz_h5py_plugin`)
 - Always use context managers (`with pod5.Reader(...)`) to ensure proper file cleanup
 - Read objects contain: `read_id`, `signal` (numpy array), `sample_rate`, and metadata
+- Signal data is float16 (half-precision) to save memory
+- Large POD5 files (>10,000 reads) may require lazy loading strategies
 
-### BAM File Handling (Optional Feature)
-- BAM support requires pysam library (installed via requirements.txt)
-- The app gracefully degrades if pysam is not available (BAM button disabled)
-- BAM files must contain move tables in 'mv' tag (standard in modern Dorado basecaller output)
-- Move table format: uint8 array where 1 indicates new base, 0 indicates same base (stride)
-- Seq-to-sig mapping computed by accumulating signal positions for each base transition
+### ONT Remora Integration
+- `ont-remora` library is used for advanced signal analysis
+- Remora provides signal normalization and preprocessing utilities
+- May be used for future features like base modification detection
 
 ### Qt/PySide6 Notes
 - Plot display uses QLabel with QPixmap (not matplotlib embedding) for simplicity
-- Plotnine plots are rendered to PNG buffers rather than displayed directly
-- Window geometry: 1200x800 default, with 1:3 split between read list and plot area
+- Plotnine plots are rendered to PNG buffers (BytesIO) rather than displayed directly
+- Window geometry: 1200x800 default, with optimal split between read list and plot area
+- File dialogs use native OS dialogs via Qt
+- Search functionality is case-insensitive and filters the read list in real-time
 
-### Source Code Location
-The actual source code is in `squiggy/squiggy/` (nested directory structure):
-- `squiggy/` is the virtual environment directory (created by venv/virtualenv)
-- `squiggy/squiggy/` contains the installable package source code
-- Note: There is also `.venv/` at the project root (alternate venv)
-
-When editing source code, always modify files in `squiggy/squiggy/`, not the venv site-packages.
+### Testing Considerations
+- Tests require sample POD5 files in `tests/data/` directory
+- If sample data is missing, tests are skipped (not failed) via `pytest.skip()`
+- Use `conftest.py` fixtures for shared test resources
+- Mock POD5 file I/O for unit tests to avoid large test data files
