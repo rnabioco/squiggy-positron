@@ -1,15 +1,15 @@
 """Main entry point for Squiggy GUI application"""
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication, QMessageBox
 
-from .constants import APP_NAME, APP_DESCRIPTION, APP_VERSION
-from .viewer import SquiggleViewer
+from .constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
 from .utils import get_icon_path
+from .viewer import SquiggleViewer
 
 
 def main():

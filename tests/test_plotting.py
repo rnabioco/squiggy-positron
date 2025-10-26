@@ -1,8 +1,8 @@
 """Tests for plotting functionality."""
 
-import pytest
-import numpy as np
 from io import BytesIO
+
+import numpy as np
 
 
 class TestPlotGeneration:
@@ -10,8 +10,9 @@ class TestPlotGeneration:
 
     def test_plot_to_png_buffer(self, sample_pod5_file):
         """Test that plots can be saved to PNG buffers."""
-        from squiggy.plotter import SquigglePlotter
         import pod5
+
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -36,8 +37,9 @@ class TestPlotGeneration:
 
     def test_plot_with_subsampled_signal(self, sample_pod5_file):
         """Test plotting with subsampled signal data."""
-        from squiggy.plotter import SquigglePlotter
         import pod5
+
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())

@@ -1,7 +1,7 @@
 """Main application window for Squiggy"""
 
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
 
 import pod5
 
@@ -12,38 +12,38 @@ try:
 except ImportError:
     PYSAM_AVAILABLE = False
 
-from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QLineEdit,
-    QLabel,
-    QFileDialog,
-    QListWidget,
-    QSplitter,
-    QMessageBox,
-    QCheckBox,
-)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .constants import (
-    APP_NAME,
     APP_DESCRIPTION,
-    DEFAULT_WINDOW_WIDTH,
+    APP_NAME,
     DEFAULT_WINDOW_HEIGHT,
-    PLOT_MIN_WIDTH,
-    PLOT_MIN_HEIGHT,
-    SPLITTER_RATIO,
+    DEFAULT_WINDOW_WIDTH,
     PLOT_DPI,
-    PLOT_WIDTH,
     PLOT_HEIGHT,
+    PLOT_MIN_HEIGHT,
+    PLOT_MIN_WIDTH,
+    PLOT_WIDTH,
+    SPLITTER_RATIO,
 )
-from .plotter import SquigglePlotter
 from .dialogs import AboutDialog
-from .utils import get_sample_data_path, get_basecall_data
+from .plotter import SquigglePlotter
+from .utils import get_basecall_data, get_sample_data_path
 
 
 class SquiggleViewer(QMainWindow):

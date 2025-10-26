@@ -1,7 +1,5 @@
 """Tests for main application functionality."""
 
-import pytest
-from pathlib import Path
 import pod5
 
 
@@ -29,13 +27,16 @@ class TestSquigglePlotter:
 
     def test_signal_to_dataframe(self, sample_pod5_file):
         """Test conversion of signal data to time-series DataFrame."""
-        from squiggy.plotter import SquigglePlotter
         import numpy as np
+
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            df = SquigglePlotter.signal_to_dataframe(read.signal, read.run_info.sample_rate)
+            df = SquigglePlotter.signal_to_dataframe(
+                read.signal, read.run_info.sample_rate
+            )
 
             # Verify DataFrame structure
             assert "time" in df.columns

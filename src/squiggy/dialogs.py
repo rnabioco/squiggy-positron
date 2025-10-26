@@ -1,10 +1,10 @@
 """Dialog windows for Squiggy application"""
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QDialog, QLabel, QPushButton, QVBoxLayout
 
-from .constants import APP_NAME, APP_VERSION, APP_DESCRIPTION
+from .constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
 from .utils import get_logo_path
 
 
@@ -65,7 +65,7 @@ class AboutDialog(QDialog):
             "• POD5 file visualization<br>"
             "• Optional BAM base annotations<br>"
             "• Interactive squiggle plots<br>"
-            "• Remora-style base coloring<br>"
+            "• Color-coded base visualization<br>"
             "</p>"
         )
         features_label.setAlignment(Qt.AlignCenter)

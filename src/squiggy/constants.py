@@ -21,7 +21,8 @@ PLOT_HEIGHT = 6
 SIGNAL_LINE_COLOR = "#2E86AB"
 SIGNAL_LINE_WIDTH = 0.5
 
-# Base colors from remora visualization
+# Base colors for visualization
+# Inspired by common nanopore visualization conventions
 BASE_COLORS = {
     "A": "#00CC00",  # Green
     "C": "#0000CC",  # Blue

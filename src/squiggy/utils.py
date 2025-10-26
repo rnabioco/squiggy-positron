@@ -1,10 +1,11 @@
 """Utility functions for Squiggy application"""
 
-import sys
 import platform
-import tempfile
 import shutil
+import sys
+import tempfile
 from pathlib import Path
+
 import numpy as np
 
 try:
@@ -58,7 +59,7 @@ def get_icon_path():
             )
             if icon_path.exists():
                 return icon_path
-    except:
+    except Exception:
         pass
 
     # 3. Development location (relative to package)
@@ -107,7 +108,7 @@ def get_logo_path():
             )
             if logo_path.exists():
                 return logo_path
-    except:
+    except Exception:
         pass
 
     # 3. Development location
@@ -162,7 +163,7 @@ def get_sample_data_path():
         sample_path = package_dir / "data" / "sample.pod5"
         if sample_path.exists():
             return sample_path
-        raise FileNotFoundError(f"Sample data not found. Error: {e}")
+        raise FileNotFoundError(f"Sample data not found. Error: {e}") from None
 
 
 def get_basecall_data(bam_file, read_id):
@@ -194,7 +195,7 @@ def get_basecall_data(bam_file, read_id):
                     # Convert move table to signal-to-sequence mapping
                     seq_to_sig_map = []
                     sig_pos = 0
-                    for i, move in enumerate(move_table):
+                    for move in move_table:
                         if move == 1:
                             seq_to_sig_map.append(sig_pos)
                         sig_pos += 1

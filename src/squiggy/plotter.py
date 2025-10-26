@@ -3,27 +3,27 @@
 import numpy as np
 import pandas as pd
 from plotnine import (
-    ggplot,
     aes,
+    element_text,
     geom_line,
     geom_rect,
     geom_text,
+    ggplot,
     labs,
-    theme_minimal,
-    theme,
-    element_text,
-    scale_fill_manual,
     scale_color_manual,
+    scale_fill_manual,
+    theme,
+    theme_minimal,
 )
 
 from .constants import (
+    BASE_ANNOTATION_ALPHA,
     BASE_COLORS,
+    BASE_LABEL_SIZE,
     SIGNAL_LINE_COLOR,
     SIGNAL_LINE_WIDTH,
-    BASE_ANNOTATION_ALPHA,
-    BASE_LABEL_SIZE,
-    SIGNAL_PERCENTILE_LOW,
     SIGNAL_PERCENTILE_HIGH,
+    SIGNAL_PERCENTILE_LOW,
 )
 
 
@@ -61,7 +61,7 @@ class SquigglePlotter:
             read_id=read_id,
             sample_rate=sample_rate,
             sequence=None,
-            seq_to_sig_map=None
+            seq_to_sig_map=None,
         )
 
     @staticmethod
