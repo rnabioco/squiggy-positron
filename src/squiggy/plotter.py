@@ -31,6 +31,40 @@ class SquigglePlotter:
     """Handle squiggle plot generation using plotnine"""
 
     @staticmethod
+    def signal_to_dataframe(signal, sample_rate):
+        """Convert signal array to time-series DataFrame
+
+        Args:
+            signal: Raw signal array (numpy array)
+            sample_rate: Sampling rate in Hz
+
+        Returns:
+            pandas DataFrame with 'time' and 'signal' columns
+        """
+        time = np.arange(len(signal)) / sample_rate
+        return pd.DataFrame({"time": time, "signal": signal.astype(np.float64)})
+
+    @staticmethod
+    def create_plot(signal, sample_rate, read_id):
+        """Create a squiggle plot from signal data (simplified interface)
+
+        Args:
+            signal: Raw signal array (numpy array)
+            sample_rate: Sampling rate in Hz
+            read_id: Read identifier for title
+
+        Returns:
+            plotnine plot object
+        """
+        return SquigglePlotter.plot_squiggle(
+            signal=signal,
+            read_id=read_id,
+            sample_rate=sample_rate,
+            sequence=None,
+            seq_to_sig_map=None
+        )
+
+    @staticmethod
     def plot_squiggle(
         signal, read_id, sample_rate=4000, sequence=None, seq_to_sig_map=None
     ):

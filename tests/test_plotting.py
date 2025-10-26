@@ -10,7 +10,7 @@ class TestPlotGeneration:
 
     def test_plot_to_png_buffer(self, sample_pod5_file):
         """Test that plots can be saved to PNG buffers."""
-        from squiggy.main import SquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         import pod5
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -18,7 +18,7 @@ class TestPlotGeneration:
 
             plot = SquigglePlotter.create_plot(
                 signal=read.signal,
-                sample_rate=read.sample_rate,
+                sample_rate=read.run_info.sample_rate,
                 read_id=str(read.read_id),
             )
 
@@ -36,7 +36,7 @@ class TestPlotGeneration:
 
     def test_plot_with_subsampled_signal(self, sample_pod5_file):
         """Test plotting with subsampled signal data."""
-        from squiggy.main import SquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         import pod5
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -47,7 +47,7 @@ class TestPlotGeneration:
 
             plot = SquigglePlotter.create_plot(
                 signal=subsampled_signal,
-                sample_rate=read.sample_rate,
+                sample_rate=read.run_info.sample_rate,
                 read_id=str(read.read_id),
             )
 
@@ -55,7 +55,7 @@ class TestPlotGeneration:
 
     def test_signal_dataframe_time_calculation(self):
         """Test that time values are calculated correctly."""
-        from squiggy.main import SquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         # Create synthetic signal
         signal = np.array([1.0, 2.0, 3.0, 4.0, 5.0])

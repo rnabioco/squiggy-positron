@@ -10,7 +10,7 @@ class TestSquigglePlotter:
 
     def test_plot_creation_with_sample_data(self, sample_pod5_file):
         """Test that we can create a plot from sample POD5 data."""
-        from squiggy.main import SquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         # Read the first read from the sample file
         with pod5.Reader(sample_pod5_file) as reader:
@@ -19,7 +19,7 @@ class TestSquigglePlotter:
             # Create a plot
             plot = SquigglePlotter.create_plot(
                 signal=read.signal,
-                sample_rate=read.sample_rate,
+                sample_rate=read.run_info.sample_rate,
                 read_id=str(read.read_id),
             )
 
@@ -29,13 +29,13 @@ class TestSquigglePlotter:
 
     def test_signal_to_dataframe(self, sample_pod5_file):
         """Test conversion of signal data to time-series DataFrame."""
-        from squiggy.main import SquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         import numpy as np
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            df = SquigglePlotter.signal_to_dataframe(read.signal, read.sample_rate)
+            df = SquigglePlotter.signal_to_dataframe(read.signal, read.run_info.sample_rate)
 
             # Verify DataFrame structure
             assert "time" in df.columns
@@ -60,9 +60,10 @@ class TestPOD5Reading:
 
             assert hasattr(read, "read_id")
             assert hasattr(read, "signal")
-            assert hasattr(read, "sample_rate")
+            assert hasattr(read, "run_info")
+            assert hasattr(read.run_info, "sample_rate")
             assert len(read.signal) > 0
-            assert read.sample_rate > 0
+            assert read.run_info.sample_rate > 0
 
     def test_get_read_ids(self, sample_pod5_file):
         """Test extracting all read IDs from a POD5 file."""

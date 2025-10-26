@@ -31,3 +31,5 @@ build/*.spec.log
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
+tests/data/sample.pod5
