@@ -12,11 +12,19 @@ def test_data_dir():
 
 @pytest.fixture
 def sample_pod5_file(test_data_dir):
-    """Return the path to the sample POD5 file.
+    """Return the path to a sample POD5 file.
 
-    Note: You'll need to add an actual POD5 file to tests/data/
+    Prefers sample.pod5, but will use any available POD5 file in tests/data/
     """
+    # First try sample.pod5 (may be a symlink)
     pod5_path = test_data_dir / "sample.pod5"
-    if not pod5_path.exists():
-        pytest.skip(f"Sample POD5 file not found at {pod5_path}")
-    return pod5_path
+    if pod5_path.exists():
+        return pod5_path
+
+    # Otherwise, find any POD5 file
+    pod5_files = list(test_data_dir.glob("*.pod5"))
+    if pod5_files:
+        return pod5_files[0]
+
+    pytest.skip(f"No POD5 files found in {test_data_dir}")
+    return None
