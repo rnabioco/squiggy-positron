@@ -186,6 +186,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Oxford Nanopore Technologies for the POD5 file format and libraries
 - The Python scientific computing community (NumPy, Pandas, Matplotlib ecosystems)
 
+### Note on Implementation
+
+Squiggy's plotting and I/O functionality is independently implemented using standard scientific Python libraries (plotnine, pod5, pysam). While inspired by common nanopore visualization conventions, the implementation does not use or depend on ont-remora. This design choice was made to:
+- Avoid heavy dependencies (particularly PyTorch)
+- Maintain MIT license compatibility
+- Keep the application lightweight and focused on visualization
+
 ## Citation
 
 If you use Squiggy in your research, please cite:

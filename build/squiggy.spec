@@ -24,7 +24,6 @@ a = Analysis(
         'PySide6.QtGui',
         'PySide6.QtWidgets',
         'importlib.resources',
-        'ont_remora',
     ],
     hookspath=[],
     hooksconfig={},

@@ -6,14 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing data ("squiggle plots") from POD5 files. It's built as a standalone application that can be distributed as native executables for Windows, macOS, and Linux.
 
-The application supports optional base annotations overlaid on signal data when a BAM file with basecalls is provided, inspired by ONT's remora visualization approach.
+The application supports optional base annotations overlaid on signal data when a BAM file with basecalls is provided.
 
 ## Architecture
 
 ### Application Stack
 - **GUI Framework**: PySide6 (Qt for Python) - provides cross-platform desktop UI
 - **Data Processing**: pod5 library for reading Oxford Nanopore POD5 files
-- **Signal Processing**: ont-remora library for advanced signal analysis
 - **Visualization**: plotnine (ggplot2-style) for generating squiggle plots from signal data
 - **Distribution**: PyInstaller packages the app into standalone executables/bundles
 - **Documentation**: MkDocs with Material theme for user documentation
@@ -278,10 +277,10 @@ git push origin v0.1.0
 - Signal data is float16 (half-precision) to save memory
 - Large POD5 files (>10,000 reads) may require lazy loading strategies
 
-### ONT Remora Integration
-- `ont-remora` library is used for advanced signal analysis
-- Remora provides signal normalization and preprocessing utilities
-- May be used for future features like base modification detection
+### Signal Analysis
+- Signal normalization and preprocessing is handled using numpy operations
+- Base annotation visualization uses standard color-coding conventions for DNA bases
+- Future features may include base modification detection
 
 ### Qt/PySide6 Notes
 - Plot display uses QLabel with QPixmap (not matplotlib embedding) for simplicity
