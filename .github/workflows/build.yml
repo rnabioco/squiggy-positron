@@ -14,6 +14,17 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            - name: Set version
+              id: version
+              shell: bash
+              run: |
+                  if [[ $GITHUB_REF == refs/tags/* ]]; then
+                    VERSION=${GITHUB_REF#refs/tags/}
+                  else
+                    VERSION="latest"
+                  fi
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
@@ -31,18 +42,28 @@ jobs:
 
             - name: Create archive
               run: |
-                  Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-windows-x64.zip
+                  Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-${{ steps.version.outputs.VERSION }}-windows-x64.zip
 
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                   name: squiggy-windows
-                  path: Squiggy-windows-x64.zip
+                  path: Squiggy-${{ steps.version.outputs.VERSION }}-windows-x64.zip
 
     build-macos:
         runs-on: macos-latest
         steps:
             - uses: actions/checkout@v4
+
+            - name: Set version
+              id: version
+              run: |
+                  if [[ $GITHUB_REF == refs/tags/* ]]; then
+                    VERSION=${GITHUB_REF#refs/tags/}
+                  else
+                    VERSION="latest"
+                  fi
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
             - name: Set up Python
               uses: actions/setup-python@v5
@@ -68,19 +89,29 @@ jobs:
                     --window-size 800 400 \
                     --icon-size 100 \
                     --app-drop-link 600 185 \
-                    "Squiggy-macos.dmg" \
+                    "Squiggy-${{ steps.version.outputs.VERSION }}-macos.dmg" \
                     "dist/Squiggy.app"
 
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                   name: squiggy-macos
-                  path: Squiggy-macos.dmg
+                  path: Squiggy-${{ steps.version.outputs.VERSION }}-macos.dmg
 
     build-linux:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+
+            - name: Set version
+              id: version
+              run: |
+                  if [[ $GITHUB_REF == refs/tags/* ]]; then
+                    VERSION=${GITHUB_REF#refs/tags/}
+                  else
+                    VERSION="latest"
+                  fi
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
             - name: Set up Python
               uses: actions/setup-python@v5
@@ -99,13 +130,13 @@ jobs:
 
             - name: Create archive
               run: |
-                  tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
+                  tar -czf Squiggy-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz -C dist Squiggy
 
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                   name: squiggy-linux
-                  path: Squiggy-linux-x64.tar.gz
+                  path: Squiggy-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
 
     release:
         needs: [build-windows, build-macos, build-linux]
@@ -119,9 +150,9 @@ jobs:
               uses: softprops/action-gh-release@v1
               with:
                   files: |
-                      squiggy-windows/Squiggy-windows-x64.zip
-                      squiggy-macos/Squiggy-macos.dmg
-                      squiggy-linux/Squiggy-linux-x64.tar.gz
+                      squiggy-windows/Squiggy-*-windows-x64.zip
+                      squiggy-macos/Squiggy-*-macos.dmg
+                      squiggy-linux/Squiggy-*-linux-x64.tar.gz
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -148,7 +179,7 @@ jobs:
                       **Note:** This is a development build and may be unstable.
 
                       Built from commit: ${{ github.sha }}
-                  files: Squiggy-macos.dmg
+                  files: Squiggy-latest-macos.dmg
                   prerelease: true
                   draft: false
               env:
