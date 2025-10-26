@@ -278,3 +278,43 @@ git push origin v0.1.0
 - If sample data is missing, tests are skipped (not failed) via `pytest.skip()`
 - Use `conftest.py` fixtures for shared test resources
 - Mock POD5 file I/O for unit tests to avoid large test data files
+
+## Coding Style and Conventions
+
+### Code Formatting
+- **Always** use `ruff` for formatting and linting (configured in `pyproject.toml`)
+- Run `ruff format src/ tests/` before committing
+- Run `ruff check --fix src/ tests/` to auto-fix linting issues
+- Follow PEP 8 style guidelines (enforced by ruff)
+- Line length: 88 characters (Black-compatible)
+- Python compatibility: 3.8+ (specified in `target-version`)
+
+### Code Organization
+- Keep modules focused and single-purpose
+- Separate GUI code (`viewer.py`, `dialogs.py`) from logic (`plotter.py`, `utils.py`)
+- Put constants and configuration in `constants.py`
+- Use type hints for function signatures (Python 3.8+ compatible)
+
+### Documentation
+- Add docstrings to all public functions and classes
+- Use Google-style docstrings for consistency
+- Update MkDocs documentation when adding user-facing features
+- Keep CLAUDE.md updated with architectural changes
+
+### Imports
+- Use absolute imports: `from squiggy.utils import load_pod5`
+- Group imports: stdlib, third-party, local (separated by blank lines)
+- Avoid wildcard imports (`from module import *`)
+
+### Error Handling
+- Use specific exception types (not bare `except:`)
+- Show user-friendly error messages via Qt dialogs
+- Log errors for debugging (consider adding logging module)
+
+### Git Commit Messages
+- Use conventional commits format: `type(scope): description`
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+- Examples:
+  - `feat(viewer): add export plot functionality`
+  - `fix(plotter): correct signal normalization`
+  - `docs: update installation instructions`
