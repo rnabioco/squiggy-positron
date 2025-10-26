@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "astral-sh.ty",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "charliermarsh.ruff"
     ]
 }
