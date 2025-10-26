@@ -1,4 +1,5 @@
 """Tests for main application functionality."""
+
 import pytest
 from pathlib import Path
 import pod5
@@ -19,12 +20,12 @@ class TestSquigglePlotter:
             plot = SquigglePlotter.create_plot(
                 signal=read.signal,
                 sample_rate=read.sample_rate,
-                read_id=str(read.read_id)
+                read_id=str(read.read_id),
             )
 
             # Verify plot was created
             assert plot is not None
-            assert hasattr(plot, 'save')
+            assert hasattr(plot, "save")
 
     def test_signal_to_dataframe(self, sample_pod5_file):
         """Test conversion of signal data to time-series DataFrame."""
@@ -34,16 +35,13 @@ class TestSquigglePlotter:
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            df = SquigglePlotter.signal_to_dataframe(
-                read.signal,
-                read.sample_rate
-            )
+            df = SquigglePlotter.signal_to_dataframe(read.signal, read.sample_rate)
 
             # Verify DataFrame structure
-            assert 'time' in df.columns
-            assert 'signal' in df.columns
+            assert "time" in df.columns
+            assert "signal" in df.columns
             assert len(df) == len(read.signal)
-            assert df['signal'].dtype == np.float64
+            assert df["signal"].dtype == np.float64
 
 
 class TestPOD5Reading:
@@ -60,9 +58,9 @@ class TestPOD5Reading:
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            assert hasattr(read, 'read_id')
-            assert hasattr(read, 'signal')
-            assert hasattr(read, 'sample_rate')
+            assert hasattr(read, "read_id")
+            assert hasattr(read, "signal")
+            assert hasattr(read, "sample_rate")
             assert len(read.signal) > 0
             assert read.sample_rate > 0
 

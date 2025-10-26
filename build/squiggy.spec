@@ -3,12 +3,19 @@
 block_cipher = None
 
 a = Analysis(
-    ['src/squiggy/main.py'],
+    ['../src/squiggy/main.py'],
     pathex=[],
     binaries=[],
     datas=[
-        ('src/squiggy/data/*.pod5', 'squiggy/data'),
-        ('src/squiggy/data/README.md', 'squiggy/data'),
+        ('../src/squiggy/data/*.pod5', 'squiggy/data'),
+        ('../src/squiggy/data/README.md', 'squiggy/data'),
+        ('../src/squiggy/data/squiggy.png', 'squiggy/data'),
+        ('../src/squiggy/data/squiggy.ico', 'squiggy/data'),
+        ('../src/squiggy/data/squiggy.icns', 'squiggy/data'),
+        # Also bundle icons at root level for easy access
+        ('squiggy.png', '.'),
+        ('squiggy.ico', '.'),
+        ('squiggy.icns', '.'),
     ],
     hiddenimports=[
         'pod5',
@@ -52,17 +59,20 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon='icon.ico' if you have one
+    icon='squiggy.icns',  # macOS and Linux will use this
 )
 
 # For macOS, create an app bundle
 app = BUNDLE(
     exe,
     name='Squiggy.app',
-    icon=None,
-    bundle_identifier='com.yourname.squiggy',
+    icon='squiggy.icns',
+    bundle_identifier='com.rnabioco.squiggy',
     info_plist={
         'NSPrincipalClass': 'NSApplication',
         'NSHighResolutionCapable': 'True',
+        'CFBundleDisplayName': 'Squiggy',
+        'CFBundleName': 'Squiggy',
+        'CFBundleShortVersionString': '0.1.0',
     },
 )

@@ -1,4 +1,5 @@
 """Tests for plotting functionality."""
+
 import pytest
 import numpy as np
 from io import BytesIO
@@ -18,12 +19,12 @@ class TestPlotGeneration:
             plot = SquigglePlotter.create_plot(
                 signal=read.signal,
                 sample_rate=read.sample_rate,
-                read_id=str(read.read_id)
+                read_id=str(read.read_id),
             )
 
             # Save to buffer
             buffer = BytesIO()
-            plot.save(buffer, format='png', dpi=100)
+            plot.save(buffer, format="png", dpi=100)
 
             # Verify buffer has content
             assert buffer.tell() > 0
@@ -31,7 +32,7 @@ class TestPlotGeneration:
 
             # Verify it's a valid PNG
             png_signature = buffer.read(8)
-            assert png_signature == b'\x89PNG\r\n\x1a\n'
+            assert png_signature == b"\x89PNG\r\n\x1a\n"
 
     def test_plot_with_subsampled_signal(self, sample_pod5_file):
         """Test plotting with subsampled signal data."""
@@ -47,7 +48,7 @@ class TestPlotGeneration:
             plot = SquigglePlotter.create_plot(
                 signal=subsampled_signal,
                 sample_rate=read.sample_rate,
-                read_id=str(read.read_id)
+                read_id=str(read.read_id),
             )
 
             assert plot is not None
@@ -64,7 +65,7 @@ class TestPlotGeneration:
 
         # Verify time values
         expected_times = np.arange(len(signal)) / sample_rate
-        np.testing.assert_array_almost_equal(df['time'].values, expected_times)
+        np.testing.assert_array_almost_equal(df["time"].values, expected_times)
 
         # Verify signal values
-        np.testing.assert_array_equal(df['signal'].values, signal)
+        np.testing.assert_array_equal(df["signal"].values, signal)
