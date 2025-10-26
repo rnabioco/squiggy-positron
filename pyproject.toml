@@ -52,7 +52,7 @@ Issues = "https://github.com/rnabioco/squiggy/issues"
 
 [tool.setuptools]
 packages = ["squiggy"]
-package-dir = {"" = "squiggy"}
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 squiggy = ["data/*.pod5", "data/README.md"]
