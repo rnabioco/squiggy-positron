@@ -31,12 +31,18 @@ src/squiggy/
 ├── plotter.py         # SquigglePlotter - Plotting logic and visualization
 ├── dialogs.py         # Custom dialog windows (About, etc.)
 ├── utils.py           # Utility functions (file I/O, data processing)
-├── constants.py       # Application constants and configuration
-└── data/              # Bundled resources
-    ├── squiggy.png    # Application logo (PNG)
-    ├── squiggy.ico    # Windows icon
-    ├── squiggy.icns   # macOS icon
-    └── *.pod5         # Sample POD5 files for testing
+└── constants.py       # Application constants and configuration
+
+build/
+├── squiggy.spec       # PyInstaller build specification
+├── squiggy.png        # Application logo (PNG)
+├── squiggy.ico        # Windows icon
+└── squiggy.icns       # macOS icon
+
+tests/data/
+├── README.md          # Sample data documentation
+├── *.pod5             # Sample POD5 files for testing
+└── *.bam              # Sample BAM alignment files
 ```
 
 ### Key Components
@@ -174,14 +180,19 @@ pip install pyinstaller
 
 **Local build (any platform):**
 ```bash
-# Build using spec file (if available)
+# Build using spec file (recommended - run from build/ directory)
+cd build
 pyinstaller squiggy.spec
 
-# Or build directly from source
+# Or build directly from source (run from project root)
 pyinstaller --name Squiggy \
     --windowed \
-    --icon src/squiggy/data/squiggy.ico \
-    --add-data "src/squiggy/data:squiggy/data" \
+    --icon build/squiggy.icns \
+    --add-data "tests/data/*.pod5:squiggy/data" \
+    --add-data "tests/data/README.md:squiggy/data" \
+    --add-data "build/squiggy.png:squiggy/data" \
+    --add-data "build/squiggy.ico:squiggy/data" \
+    --add-data "build/squiggy.icns:squiggy/data" \
     src/squiggy/main.py
 
 # Output: dist/Squiggy (Linux), dist/Squiggy.exe (Windows), dist/Squiggy.app (macOS)
@@ -191,6 +202,7 @@ pyinstaller --name Squiggy \
 ```bash
 # macOS: Create DMG installer (requires create-dmg)
 brew install create-dmg
+cd build
 pyinstaller squiggy.spec
 create-dmg \
   --volname "Squiggy Installer" \
@@ -202,10 +214,12 @@ create-dmg \
   dist/Squiggy.app
 
 # Windows: Create ZIP archive
+cd build
 pyinstaller squiggy.spec
 Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-windows-x64.zip
 
 # Linux: Create tarball
+cd build
 pyinstaller squiggy.spec
 tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
 ```
@@ -248,11 +262,14 @@ git push origin v0.1.0
 - When editing source code, always modify files in `src/squiggy/`, not `.venv/`
 
 ### PyInstaller Considerations
-- All non-standard-library imports must be listed in `squiggy.spec` `hiddenimports` if PyInstaller fails to detect them
-- Resource files (icons, sample data) in `src/squiggy/data/` must be included via `--add-data` flag
+- All non-standard-library imports must be listed in `build/squiggy.spec` `hiddenimports` if PyInstaller fails to detect them
+- Resource files are in two locations:
+  - Icons: `build/` directory (squiggy.png, squiggy.ico, squiggy.icns)
+  - Sample data: `tests/data/` directory (*.pod5 files and README.md)
 - Application icons available in multiple formats: `.png`, `.ico` (Windows), `.icns` (macOS)
 - The spec file uses `--windowed` to hide the terminal window on launch
-- Sample POD5 files are bundled with the application for "Open Sample Data" feature
+- Sample POD5 files from `tests/data/` are bundled with the application for "Open Sample Data" feature
+- All data files are bundled into `squiggy/data` in the final distribution
 
 ### POD5 File Handling
 - POD5 files use HDF5 format with VBZ compression (requires `vbz_h5py_plugin`)
