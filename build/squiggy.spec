@@ -2,6 +2,8 @@
 
 block_cipher = None
 
+import sys
+
 a = Analysis(
     ['../src/squiggy/main.py'],
     pathex=[],
@@ -56,11 +58,12 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='squiggy.icns',  # macOS and Linux will use this
+    icon='squiggy.ico' if sys.platform == 'win32' else 'squiggy.icns',
 )
 
 # For macOS, create an app bundle
-app = BUNDLE(
+if sys.platform == 'darwin':
+    app = BUNDLE(
     exe,
     name='Squiggy.app',
     icon='squiggy.icns',
