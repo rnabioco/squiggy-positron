@@ -1,0 +1,155 @@
+name: Build and Release
+
+on:
+    push:
+        tags:
+            - "v*"
+        branches:
+            - main
+    workflow_dispatch:
+
+jobs:
+    build-windows:
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install pyinstaller
+
+            - name: Build with PyInstaller
+              run: |
+                  pyinstaller squiggy.spec
+
+            - name: Create archive
+              run: |
+                  Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-windows-x64.zip
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: squiggy-windows
+                  path: Squiggy-windows-x64.zip
+
+    build-macos:
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install pyinstaller
+
+            - name: Build with PyInstaller
+              run: |
+                  pyinstaller squiggy.spec
+
+            - name: Create DMG
+              run: |
+                  brew install create-dmg
+                  create-dmg \
+                    --volname "Squiggy Installer" \
+                    --window-pos 200 120 \
+                    --window-size 800 400 \
+                    --icon-size 100 \
+                    --app-drop-link 600 185 \
+                    "Squiggy-macos.dmg" \
+                    "dist/Squiggy.app"
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: squiggy-macos
+                  path: Squiggy-macos.dmg
+
+    build-linux:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install pyinstaller
+
+            - name: Build with PyInstaller
+              run: |
+                  pyinstaller squiggy.spec
+
+            - name: Create archive
+              run: |
+                  tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: squiggy-linux
+                  path: Squiggy-linux-x64.tar.gz
+
+    release:
+        needs: [build-windows, build-macos, build-linux]
+        runs-on: ubuntu-latest
+        if: startsWith(github.ref, 'refs/tags/')
+        steps:
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: |
+                      squiggy-windows/Squiggy-windows-x64.zip
+                      squiggy-macos/Squiggy-macos.dmg
+                      squiggy-linux/Squiggy-linux-x64.tar.gz
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    release-latest:
+        needs: [build-macos]
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/main'
+        permissions:
+            contents: write
+        steps:
+            - name: Download macOS artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: squiggy-macos
+
+            - name: Update latest release
+              uses: softprops/action-gh-release@v1
+              with:
+                  tag_name: latest
+                  name: Latest Development Build
+                  body: |
+                      Latest build from the main branch.
+
+                      **Note:** This is a development build and may be unstable.
+
+                      Built from commit: ${{ github.sha }}
+                  files: Squiggy-macos.dmg
+                  prerelease: true
+                  draft: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
