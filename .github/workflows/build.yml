@@ -27,7 +27,7 @@ jobs:
 
             - name: Build with PyInstaller
               run: |
-                  pyinstaller squiggy.spec
+                  pyinstaller build/squiggy.spec
 
             - name: Create archive
               run: |
@@ -57,7 +57,7 @@ jobs:
 
             - name: Build with PyInstaller
               run: |
-                  pyinstaller squiggy.spec
+                  pyinstaller build/squiggy.spec
 
             - name: Create DMG
               run: |
@@ -95,7 +95,7 @@ jobs:
 
             - name: Build with PyInstaller
               run: |
-                  pyinstaller squiggy.spec
+                  pyinstaller build/squiggy.spec
 
             - name: Create archive
               run: |
