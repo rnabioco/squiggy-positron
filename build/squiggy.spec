@@ -7,15 +7,11 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('../src/squiggy/data/*.pod5', 'squiggy/data'),
-        ('../src/squiggy/data/README.md', 'squiggy/data'),
-        ('../src/squiggy/data/squiggy.png', 'squiggy/data'),
-        ('../src/squiggy/data/squiggy.ico', 'squiggy/data'),
-        ('../src/squiggy/data/squiggy.icns', 'squiggy/data'),
-        # Also bundle icons at root level for easy access
-        ('squiggy.png', '.'),
-        ('squiggy.ico', '.'),
-        ('squiggy.icns', '.'),
+        ('../tests/data/*.pod5', 'squiggy/data'),
+        ('../tests/data/README.md', 'squiggy/data'),
+        ('squiggy.png', 'squiggy/data'),
+        ('squiggy.ico', 'squiggy/data'),
+        ('squiggy.icns', 'squiggy/data'),
     ],
     hiddenimports=[
         'pod5',
@@ -26,6 +22,7 @@ a = Analysis(
         'PySide6.QtGui',
         'PySide6.QtWidgets',
         'importlib.resources',
+        'ont_remora',
     ],
     hookspath=[],
     hooksconfig={},
