@@ -12,6 +12,7 @@ The application supports optional base annotations overlaid on signal data when 
 
 ### Application Stack
 - **GUI Framework**: PySide6 (Qt for Python) - provides cross-platform desktop UI
+- **Async Framework**: qasync - integrates Python's asyncio with Qt event loop for non-blocking I/O
 - **Data Processing**: pod5 library for reading Oxford Nanopore POD5 files
 - **Visualization**: plotnine (ggplot2-style) for generating squiggle plots from signal data
 - **Distribution**: PyInstaller packages the app into standalone executables/bundles
@@ -48,7 +49,8 @@ tests/data/
 
 **src/squiggy/main.py** - Application entry point:
 - Parses command-line arguments (`--file` to pre-load POD5 files)
-- Initializes Qt application and launches SquiggleViewer
+- Initializes Qt application with qasync event loop for async/await support
+- Launches SquiggleViewer with async file loading if `--file` provided
 - Defines `main()` function as console script entry point
 
 **src/squiggy/viewer.py** - Main GUI window (SquiggleViewer):
@@ -56,6 +58,7 @@ tests/data/
 - Read list widget with search/filter functionality
 - Plot display area showing squiggle plots
 - Status bar with file information
+- Uses async methods (@qasync.asyncSlot) for non-blocking file I/O and plot generation
 
 **src/squiggy/plotter.py** - Plotting logic (SquigglePlotter):
 - Converts raw signal data into time-series DataFrames
@@ -288,6 +291,23 @@ git push origin v0.1.0
 - Window geometry: 1200x800 default, with optimal split between read list and plot area
 - File dialogs use native OS dialogs via Qt
 - Search functionality is case-insensitive and filters the read list in real-time
+
+### Async Programming with qasync
+- **qasync** integrates Python's `asyncio` with Qt's event loop for non-blocking operations
+- All blocking I/O operations (POD5 file reading, plot generation) run in thread pools via `asyncio.to_thread()`
+- UI methods that perform blocking operations are decorated with `@qasync.asyncSlot()` for async execution
+- Status messages are shown during async operations to inform users of progress
+- **Best practices:**
+  - Use `async def` for any method that performs file I/O, network requests, or heavy computation
+  - Decorate async slot handlers (connected to Qt signals) with `@qasync.asyncSlot()`
+  - Move blocking operations to separate `_blocking()` methods and call them with `asyncio.to_thread()`
+  - Always update UI elements on the main thread after awaiting async operations
+  - Provide user feedback (status bar messages, loading indicators) for long-running async tasks
+- **Key async methods:**
+  - `load_read_ids()` - Loads POD5 read IDs without blocking the UI
+  - `update_file_info()` - Calculates file statistics asynchronously
+  - `display_squiggle()` - Generates plots in background thread
+  - `open_pod5_file()` / `open_sample_data()` - File opening with async loading
 
 ### Testing Considerations
 - Tests require sample POD5 files in `tests/data/` directory

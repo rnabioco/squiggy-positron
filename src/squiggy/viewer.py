@@ -1,9 +1,11 @@
 """Main application window for Squiggy"""
 
+import asyncio
 from io import BytesIO
 from pathlib import Path
 
 import pod5
+import qasync
 
 try:
     import pysam
@@ -17,6 +19,8 @@ from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -24,7 +28,10 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSplitter,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -44,6 +51,51 @@ from .constants import (
 from .dialogs import AboutDialog
 from .plotter import SquigglePlotter
 from .utils import get_basecall_data, get_sample_data_path
+
+
+class CollapsibleBox(QWidget):
+    """A collapsible widget with a toggle button to show/hide content"""
+
+    def __init__(self, title="", parent=None):
+        super().__init__(parent)
+
+        self.toggle_button = QToolButton()
+        self.toggle_button.setText(title)
+        self.toggle_button.setCheckable(True)
+        self.toggle_button.setChecked(False)
+        self.toggle_button.setStyleSheet(
+            "QToolButton { border: none; font-weight: bold; }"
+        )
+        self.toggle_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.toggle_button.setArrowType(Qt.RightArrow)
+        self.toggle_button.clicked.connect(self.on_toggle)
+
+        self.content_area = QScrollArea()
+        self.content_area.setMaximumHeight(0)
+        self.content_area.setMinimumHeight(0)
+        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.content_area.setFrameShape(QFrame.NoFrame)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.toggle_button)
+        layout.addWidget(self.content_area)
+
+    def on_toggle(self):
+        """Toggle the collapsible section"""
+        checked = self.toggle_button.isChecked()
+        self.toggle_button.setArrowType(Qt.DownArrow if checked else Qt.RightArrow)
+        if checked:
+            self.content_area.setMaximumHeight(200)
+        else:
+            self.content_area.setMaximumHeight(0)
+
+    def set_content_layout(self, layout):
+        """Set the layout for the content area"""
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.content_area.setWidget(widget)
 
 
 class SquiggleViewer(QMainWindow):
@@ -95,6 +147,11 @@ class SquiggleViewer(QMainWindow):
         bam_layout.addWidget(self.bam_button)
         main_layout.addLayout(bam_layout)
 
+        # POD5 file information collapsible panel
+        self.file_info_box = CollapsibleBox("POD5 File Information")
+        self.create_file_info_content()
+        main_layout.addWidget(self.file_info_box)
+
         # Search section
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
@@ -140,6 +197,41 @@ class SquiggleViewer(QMainWindow):
         # Status bar
         self.statusBar().showMessage("Ready")
 
+    def create_file_info_content(self):
+        """Create the content layout for the file information panel"""
+        content_layout = QGridLayout()
+        content_layout.setContentsMargins(10, 5, 10, 5)
+        content_layout.setSpacing(5)
+
+        # Create labels for file information
+        self.info_filename_label = QLabel("—")
+        self.info_filesize_label = QLabel("—")
+        self.info_num_reads_label = QLabel("—")
+        self.info_sample_rate_label = QLabel("—")
+        self.info_total_samples_label = QLabel("—")
+
+        # Add labels to grid layout
+        row = 0
+        content_layout.addWidget(QLabel("File name:"), row, 0)
+        content_layout.addWidget(self.info_filename_label, row, 1)
+        row += 1
+        content_layout.addWidget(QLabel("File size:"), row, 0)
+        content_layout.addWidget(self.info_filesize_label, row, 1)
+        row += 1
+        content_layout.addWidget(QLabel("Number of reads:"), row, 0)
+        content_layout.addWidget(self.info_num_reads_label, row, 1)
+        row += 1
+        content_layout.addWidget(QLabel("Sample rate:"), row, 0)
+        content_layout.addWidget(self.info_sample_rate_label, row, 1)
+        row += 1
+        content_layout.addWidget(QLabel("Total samples:"), row, 0)
+        content_layout.addWidget(self.info_total_samples_label, row, 1)
+
+        # Set column stretch to make labels expand
+        content_layout.setColumnStretch(1, 1)
+
+        self.file_info_box.set_content_layout(content_layout)
+
     def create_menu_bar(self):
         """Create the application menu bar"""
         menubar = self.menuBar()
@@ -180,8 +272,9 @@ class SquiggleViewer(QMainWindow):
         dialog = AboutDialog(self)
         dialog.exec()
 
-    def open_sample_data(self):
-        """Open the bundled sample POD5 file"""
+    @qasync.asyncSlot()
+    async def open_sample_data(self):
+        """Open the bundled sample POD5 file (async)"""
         try:
             sample_path = get_sample_data_path()
             if not sample_path.exists():
@@ -195,7 +288,7 @@ class SquiggleViewer(QMainWindow):
 
             self.pod5_file = sample_path
             self.file_label.setText(f"{sample_path.name} (sample)")
-            self.load_read_ids()
+            await self.load_read_ids()
             self.statusBar().showMessage(
                 f"Loaded {len(self.read_dict)} reads from sample data"
             )
@@ -204,8 +297,9 @@ class SquiggleViewer(QMainWindow):
                 self, "Error", f"Failed to load sample data:\n{str(e)}"
             )
 
-    def open_pod5_file(self):
-        """Open and load a POD5 file"""
+    @qasync.asyncSlot()
+    async def open_pod5_file(self):
+        """Open and load a POD5 file (async)"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Open POD5 File", "", "POD5 Files (*.pod5);;All Files (*)"
         )
@@ -214,26 +308,103 @@ class SquiggleViewer(QMainWindow):
             try:
                 self.pod5_file = Path(file_path)
                 self.file_label.setText(self.pod5_file.name)
-                self.load_read_ids()
+                await self.load_read_ids()
                 self.statusBar().showMessage(f"Loaded {len(self.read_dict)} reads")
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to load POD5 file:\n{str(e)}"
                 )
 
-    def load_read_ids(self):
-        """Load all read IDs from the POD5 file"""
+    def _load_read_ids_blocking(self):
+        """Blocking function to load read IDs from POD5 file"""
+        read_dict = {}
+        with pod5.Reader(self.pod5_file) as reader:
+            for read in reader.reads():
+                read_id = str(read.read_id)
+                # Store just the read_id, not the read object (which becomes invalid)
+                read_dict[read_id] = read_id
+        return read_dict
+
+    async def load_read_ids(self):
+        """Load all read IDs from the POD5 file (async)"""
         self.read_dict.clear()
         self.read_list.clear()
+        self.statusBar().showMessage("Loading reads...")
 
         try:
-            with pod5.Reader(self.pod5_file) as reader:
-                for read in reader:
-                    read_id = str(read.read_id)
-                    self.read_dict[read_id] = read
-                    self.read_list.addItem(read_id)
+            # Run blocking I/O in thread pool
+            read_dict = await asyncio.to_thread(self._load_read_ids_blocking)
+
+            # Update UI on main thread
+            self.read_dict = read_dict
+            for read_id in read_dict.keys():
+                self.read_list.addItem(read_id)
+
+            # Update file information panel
+            await self.update_file_info()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to read POD5 file:\n{str(e)}")
+
+    def _get_file_stats_blocking(self):
+        """Blocking function to get file statistics"""
+        sample_rates = set()
+        total_samples = 0
+        with pod5.Reader(self.pod5_file) as reader:
+            for read in reader.reads():
+                sample_rates.add(read.run_info.sample_rate)
+                total_samples += len(read.signal)
+        return sample_rates, total_samples
+
+    async def update_file_info(self):
+        """Update the file information panel with POD5 metadata (async)"""
+        if not self.pod5_file:
+            return
+
+        try:
+            # File name
+            self.info_filename_label.setText(str(self.pod5_file.name))
+
+            # File size
+            file_size_bytes = self.pod5_file.stat().st_size
+            file_size_mb = file_size_bytes / (1024 * 1024)
+            if file_size_mb < 1:
+                file_size_str = f"{file_size_bytes / 1024:.2f} KB"
+            elif file_size_mb < 1024:
+                file_size_str = f"{file_size_mb:.2f} MB"
+            else:
+                file_size_str = f"{file_size_mb / 1024:.2f} GB"
+            self.info_filesize_label.setText(file_size_str)
+
+            # Number of reads
+            num_reads = len(self.read_dict)
+            self.info_num_reads_label.setText(f"{num_reads:,}")
+
+            # Sample rate and total samples (run in thread pool)
+            sample_rates, total_samples = await asyncio.to_thread(
+                self._get_file_stats_blocking
+            )
+
+            # Display sample rate (show range if multiple rates exist)
+            if len(sample_rates) == 1:
+                rate = list(sample_rates)[0]
+                self.info_sample_rate_label.setText(f"{rate:,} Hz")
+            else:
+                min_rate = min(sample_rates)
+                max_rate = max(sample_rates)
+                self.info_sample_rate_label.setText(
+                    f"{min_rate:,} - {max_rate:,} Hz (variable)"
+                )
+
+            # Total samples
+            self.info_total_samples_label.setText(f"{total_samples:,}")
+
+        except Exception:
+            # If there's an error, just show error message
+            self.info_filename_label.setText("Error reading file")
+            self.info_filesize_label.setText("—")
+            self.info_num_reads_label.setText("—")
+            self.info_sample_rate_label.setText("—")
+            self.info_total_samples_label.setText("—")
 
     def open_bam_file(self):
         """Open and load a BAM file for base annotations"""
@@ -266,12 +437,13 @@ class SquiggleViewer(QMainWindow):
                     self, "Error", f"Failed to load BAM file:\n{str(e)}"
                 )
 
-    def toggle_base_annotations(self, state):
-        """Toggle display of base annotations"""
+    @qasync.asyncSlot()
+    async def toggle_base_annotations(self, state):
+        """Toggle display of base annotations (async)"""
         self.show_bases = state == Qt.Checked
         # Refresh current plot if one is displayed
         if self.current_read_item:
-            self.display_squiggle(self.current_read_item)
+            await self.display_squiggle(self.current_read_item)
 
     def filter_reads(self):
         """Filter the read list based on search input"""
@@ -284,40 +456,61 @@ class SquiggleViewer(QMainWindow):
             else:
                 item.setHidden(True)
 
-    def display_squiggle(self, item):
-        """Display squiggle plot for selected read"""
+    def _generate_plot_blocking(self, read_id):
+        """Blocking function to generate plot"""
+        # Get signal data
+        with pod5.Reader(self.pod5_file) as reader:
+            # Find the specific read by iterating through all reads
+            read = None
+            for r in reader.reads():
+                if str(r.read_id) == read_id:
+                    read = r
+                    break
+
+            if read is None:
+                raise ValueError(f"Read {read_id} not found in POD5 file")
+
+            signal = read.signal
+            sample_rate = read.run_info.sample_rate
+
+        # Get basecall data if available and requested
+        sequence = None
+        seq_to_sig_map = None
+        if self.show_bases and self.bam_file:
+            sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
+
+        # Generate plot
+        plot = SquigglePlotter.plot_squiggle(
+            signal,
+            read_id,
+            sample_rate,
+            sequence=sequence,
+            seq_to_sig_map=seq_to_sig_map,
+        )
+
+        # Save plot to buffer
+        buffer = BytesIO()
+        plot.save(
+            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
+        )
+        buffer.seek(0)
+
+        return buffer, signal, sequence
+
+    @qasync.asyncSlot()
+    async def display_squiggle(self, item):
+        """Display squiggle plot for selected read (async)"""
         read_id = item.text()
         self.current_read_item = item
+        self.statusBar().showMessage(f"Generating plot for {read_id}...")
 
         try:
-            # Get signal data
-            with pod5.Reader(self.pod5_file) as reader:
-                read = reader.get_read(read_id)
-                signal = read.signal
-                sample_rate = read.sample_rate
-
-            # Get basecall data if available and requested
-            sequence = None
-            seq_to_sig_map = None
-            if self.show_bases and self.bam_file:
-                sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
-
-            # Generate plot
-            plot = SquigglePlotter.plot_squiggle(
-                signal,
-                read_id,
-                sample_rate,
-                sequence=sequence,
-                seq_to_sig_map=seq_to_sig_map,
+            # Generate plot in thread pool
+            buffer, signal, sequence = await asyncio.to_thread(
+                self._generate_plot_blocking, read_id
             )
 
-            # Save plot to buffer and display
-            buffer = BytesIO()
-            plot.save(
-                buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-            )
-            buffer.seek(0)
-
+            # Display on main thread
             pixmap = QPixmap()
             pixmap.loadFromData(buffer.read())
             self.plot_label.setPixmap(
