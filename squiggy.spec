@@ -3,12 +3,12 @@
 block_cipher = None
 
 a = Analysis(
-    ['squiggy/squiggy/main.py'],
+    ['src/squiggy/main.py'],
     pathex=[],
     binaries=[],
     datas=[
-        ('squiggy/squiggy/data/*.pod5', 'squiggy/data'),
-        ('squiggy/squiggy/data/README.md', 'squiggy/data'),
+        ('src/squiggy/data/*.pod5', 'squiggy/data'),
+        ('src/squiggy/data/README.md', 'squiggy/data'),
     ],
     hiddenimports=[
         'pod5',
