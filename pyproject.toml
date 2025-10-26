@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "squiggy"
+version = "0.1.0"
+description = "Nanopore squiggle visualization tool for POD5 files"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Jay Hesselberth", email = "jay.hesselberth@gmail.com"}
+]
+keywords = ["nanopore", "pod5", "squiggle", "visualization", "oxford-nanopore"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "numpy>=1.20.0",
+    "pandas>=1.3.0",
+    "pod5>=0.3.0",
+    "PySide6>=6.5.0",
+    "plotnine>=0.12.0",
+    "ont-remora>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "pyinstaller>=5.0",
+]
+
+[project.scripts]
+squiggy = "squiggy.main:main"
+
+[project.urls]
+Homepage = "https://github.com/rnabioco/squiggy"
+Repository = "https://github.com/rnabioco/squiggy"
+Issues = "https://github.com/rnabioco/squiggy/issues"
+
+[tool.setuptools]
+packages = ["squiggy"]
+package-dir = {"" = "squiggy"}
+
+[tool.setuptools.package-data]
+squiggy = ["data/*.pod5", "data/README.md"]
