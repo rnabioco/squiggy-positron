@@ -1,5 +1,7 @@
 # Squiggy
 
+🚧 **squiggy is under active development.** *Caveat emptor*. 🚧
+
 A desktop application for visualizing Oxford Nanopore sequencing data from POD5 files.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
