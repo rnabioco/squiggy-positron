@@ -1,11 +1,12 @@
 """Main application window for Squiggy"""
 
 import asyncio
+import time
 from pathlib import Path
 
 import pod5
 import qasync
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
@@ -94,7 +95,7 @@ class CollapsibleBox(QWidget):
         checked = self.toggle_button.isChecked()
         self.toggle_button.setArrowType(Qt.DownArrow if checked else Qt.RightArrow)
         if checked:
-            self.content_area.setMaximumHeight(200)
+            self.content_area.setMaximumHeight(350)
         else:
             self.content_area.setMaximumHeight(0)
 
@@ -656,7 +657,7 @@ class SquiggleViewer(QMainWindow):
         """Set the plot mode and refresh display"""
         self.plot_mode = mode
         # Refresh plot if reads are selected
-        if self.read_list.selectedItems():
+        if hasattr(self, 'read_list') and self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
@@ -666,7 +667,7 @@ class SquiggleViewer(QMainWindow):
         """Set the normalization method and refresh display"""
         self.normalization_method = self.norm_combo.itemData(index)
         # Refresh plot if reads are selected
-        if self.read_list.selectedItems():
+        if hasattr(self, 'read_list') and self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
@@ -959,13 +960,14 @@ class SquiggleViewer(QMainWindow):
     @qasync.asyncSlot()
     async def toggle_base_annotations(self, state):
         """Toggle display of base annotations (async)"""
-        self.show_bases = state == Qt.Checked
+        # Use integer comparison since Qt.CheckState enum comparison may not work
+        self.show_bases = (state == 2)  # Qt.CheckState.Checked = 2
         # Refresh current plot if one is displayed
         if self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
-            asyncio.create_task(self.update_plot_with_delay())
+            await self.update_plot_with_delay()
 
     @qasync.asyncSlot()
     async def on_read_selection_changed(self):
@@ -1487,8 +1489,9 @@ class SquiggleViewer(QMainWindow):
             self.current_plot_html = html
             self.export_action.setEnabled(True)
 
-            # Display on main thread
-            self.plot_view.setHtml(html)
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
@@ -1545,8 +1548,9 @@ class SquiggleViewer(QMainWindow):
             self.current_plot_html = html
             self.export_action.setEnabled(True)
 
-            # Display on main thread
-            self.plot_view.setHtml(html)
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
@@ -1621,8 +1625,9 @@ class SquiggleViewer(QMainWindow):
             self.current_plot_html = html
             self.export_action.setEnabled(True)
 
-            # Display on main thread
-            self.plot_view.setHtml(html)
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
