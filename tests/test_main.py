@@ -41,7 +41,9 @@ class TestSquigglePlotter:
             # Verify DataFrame structure
             assert "time" in df.columns
             assert "signal" in df.columns
-            assert len(df) == len(read.signal)
+            # Note: length may differ due to auto-downsampling for large signals
+            assert len(df) <= len(read.signal)
+            assert len(df) > 0
             assert df["signal"].dtype == np.float64
 
 

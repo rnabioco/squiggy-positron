@@ -6,18 +6,12 @@ from pathlib import Path
 
 import pod5
 import qasync
-
-try:
-    import pysam
-
-    PYSAM_AVAILABLE = True
-except ImportError:
-    PYSAM_AVAILABLE = False
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -28,6 +22,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QSizePolicy,
     QSplitter,
@@ -41,16 +36,27 @@ from .constants import (
     APP_NAME,
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
+    MAX_OVERLAY_READS,
     PLOT_DPI,
     PLOT_HEIGHT,
     PLOT_MIN_HEIGHT,
     PLOT_MIN_WIDTH,
     PLOT_WIDTH,
     SPLITTER_RATIO,
+    NormalizationMethod,
+    PlotMode,
 )
-from .dialogs import AboutDialog
+from .dialogs import AboutDialog, ReferenceBrowserDialog
 from .plotter import SquigglePlotter
-from .utils import get_basecall_data, get_sample_data_path
+from .utils import (
+    get_bam_references,
+    get_basecall_data,
+    get_reads_in_region,
+    get_sample_data_path,
+    index_bam_file,
+    parse_region,
+    validate_bam_reads_in_pod5,
+)
 
 
 class CollapsibleBox(QWidget):
@@ -106,8 +112,13 @@ class SquiggleViewer(QMainWindow):
         self.pod5_file = None
         self.bam_file = None
         self.read_dict = {}
+        self.alignment_info = {}  # Maps read_id -> alignment metadata
         self.current_read_item = None
         self.show_bases = False
+        self.plot_mode = PlotMode.SINGLE
+        self.normalization_method = NormalizationMethod.NONE
+        self.current_plot = None  # Store current plot object for export
+        self.search_mode = "read_id"  # "read_id" or "region"
 
         self.init_ui()
 
@@ -139,9 +150,6 @@ class SquiggleViewer(QMainWindow):
         self.bam_label = QLabel("No BAM file (optional)")
         self.bam_button = QPushButton("Open BAM File")
         self.bam_button.clicked.connect(self.open_bam_file)
-        if not PYSAM_AVAILABLE:
-            self.bam_button.setEnabled(False)
-            self.bam_button.setToolTip("Install pysam to enable BAM support")
         bam_layout.addWidget(QLabel("BAM File:"))
         bam_layout.addWidget(self.bam_label, 1)
         bam_layout.addWidget(self.bam_button)
@@ -152,16 +160,45 @@ class SquiggleViewer(QMainWindow):
         self.create_file_info_content()
         main_layout.addWidget(self.file_info_box)
 
+        # Plot options collapsible panel
+        self.plot_options_box = CollapsibleBox("Plot Options")
+        self.create_plot_options_content()
+        main_layout.addWidget(self.plot_options_box)
+
         # Search section
         search_layout = QHBoxLayout()
+
+        # Search mode selector
+        self.search_mode_combo = QComboBox()
+        self.search_mode_combo.addItem("Read ID", "read_id")
+        self.search_mode_combo.addItem("Reference Region", "region")
+        self.search_mode_combo.currentIndexChanged.connect(self.on_search_mode_changed)
+        self.search_mode_combo.setToolTip(
+            "Switch between searching by read ID or by genomic region"
+        )
+        search_layout.addWidget(QLabel("Search by:"))
+        search_layout.addWidget(self.search_mode_combo)
+
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search read ID...")
-        self.search_input.textChanged.connect(self.filter_reads)
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        self.search_input.returnPressed.connect(self.execute_search)
+
         self.search_button = QPushButton("Search")
-        self.search_button.clicked.connect(self.filter_reads)
-        search_layout.addWidget(QLabel("Search:"))
+        self.search_button.clicked.connect(self.execute_search)
+
+        # Browse references button (for region search mode)
+        self.browse_refs_button = QPushButton("Browse References...")
+        self.browse_refs_button.clicked.connect(self.browse_references)
+        self.browse_refs_button.setEnabled(False)
+        self.browse_refs_button.setVisible(False)  # Hidden by default
+        self.browse_refs_button.setToolTip(
+            "View available reference sequences in BAM file"
+        )
+
         search_layout.addWidget(self.search_input, 1)
         search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.browse_refs_button)
 
         # Add base annotation toggle
         self.base_checkbox = QCheckBox("Show base annotations")
@@ -174,9 +211,10 @@ class SquiggleViewer(QMainWindow):
         # Create splitter for read list and plot area
         splitter = QSplitter(Qt.Horizontal)
 
-        # Read list widget
+        # Read list widget with multi-selection enabled
         self.read_list = QListWidget()
-        self.read_list.itemClicked.connect(self.display_squiggle)
+        self.read_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.read_list.itemSelectionChanged.connect(self.on_read_selection_changed)
         splitter.addWidget(self.read_list)
 
         # Plot display area
@@ -232,6 +270,96 @@ class SquiggleViewer(QMainWindow):
 
         self.file_info_box.set_content_layout(content_layout)
 
+    def create_plot_options_content(self):
+        """Create the content layout for the plot options panel"""
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(10, 5, 10, 5)
+        content_layout.setSpacing(10)
+
+        # Plot mode selection
+        mode_label = QLabel("Plot Mode:")
+        mode_label.setStyleSheet("font-weight: bold;")
+        content_layout.addWidget(mode_label)
+
+        self.mode_button_group = QButtonGroup()
+
+        self.mode_single = QRadioButton("Single Read")
+        self.mode_single.setChecked(True)
+        self.mode_single.setToolTip("Display one read at a time")
+        self.mode_single.toggled.connect(
+            lambda checked: self.set_plot_mode(PlotMode.SINGLE) if checked else None
+        )
+        self.mode_button_group.addButton(self.mode_single)
+        content_layout.addWidget(self.mode_single)
+
+        self.mode_overlay = QRadioButton("Overlay (multiple reads)")
+        self.mode_overlay.setToolTip(
+            f"Overlay multiple reads on same axes (max {MAX_OVERLAY_READS})"
+        )
+        self.mode_overlay.toggled.connect(
+            lambda checked: self.set_plot_mode(PlotMode.OVERLAY) if checked else None
+        )
+        self.mode_button_group.addButton(self.mode_overlay)
+        content_layout.addWidget(self.mode_overlay)
+
+        self.mode_stacked = QRadioButton("Stacked (squigualiser-style)")
+        self.mode_stacked.setToolTip("Stack multiple reads vertically with offset")
+        self.mode_stacked.toggled.connect(
+            lambda checked: self.set_plot_mode(PlotMode.STACKED) if checked else None
+        )
+        self.mode_button_group.addButton(self.mode_stacked)
+        content_layout.addWidget(self.mode_stacked)
+
+        self.mode_eventalign = QRadioButton("Event-aligned (base annotations)")
+        self.mode_eventalign.setToolTip(
+            "Show event-aligned reads with base annotations (requires BAM file)"
+        )
+        self.mode_eventalign.toggled.connect(
+            lambda checked: self.set_plot_mode(PlotMode.EVENTALIGN) if checked else None
+        )
+        self.mode_eventalign.setEnabled(False)  # Disabled until BAM file loaded
+        self.mode_button_group.addButton(self.mode_eventalign)
+        content_layout.addWidget(self.mode_eventalign)
+
+        # Normalization method selection
+        norm_label = QLabel("Signal Normalization:")
+        norm_label.setStyleSheet("font-weight: bold;")
+        content_layout.addWidget(norm_label)
+
+        self.norm_combo = QComboBox()
+        self.norm_combo.addItem("None (raw signal)", NormalizationMethod.NONE)
+        self.norm_combo.addItem("Z-score", NormalizationMethod.ZNORM)
+        self.norm_combo.addItem("Median", NormalizationMethod.MEDIAN)
+        self.norm_combo.addItem("MAD (robust)", NormalizationMethod.MAD)
+        self.norm_combo.currentIndexChanged.connect(self.set_normalization_method)
+        content_layout.addWidget(self.norm_combo)
+
+        # Info label
+        info_label = QLabel(
+            "💡 Tip: Use Ctrl/Cmd+Click or Shift+Click to select multiple reads"
+        )
+        info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        info_label.setWordWrap(True)
+        content_layout.addWidget(info_label)
+
+        content_layout.addStretch()
+
+        self.plot_options_box.set_content_layout(content_layout)
+
+    def set_plot_mode(self, mode):
+        """Set the plot mode and refresh display"""
+        self.plot_mode = mode
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            self.update_plot_from_selection()
+
+    def set_normalization_method(self, index):
+        """Set the normalization method and refresh display"""
+        self.normalization_method = self.norm_combo.itemData(index)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            self.update_plot_from_selection()
+
     def create_menu_bar(self):
         """Create the application menu bar"""
         menubar = self.menuBar()
@@ -250,6 +378,15 @@ class SquiggleViewer(QMainWindow):
         sample_action.setShortcut("Ctrl+Shift+O")
         sample_action.triggered.connect(self.open_sample_data)
         file_menu.addAction(sample_action)
+
+        file_menu.addSeparator()
+
+        # Export plot action
+        self.export_action = QAction("Export Plot...", self)
+        self.export_action.setShortcut("Ctrl+E")
+        self.export_action.triggered.connect(self.export_plot)
+        self.export_action.setEnabled(False)  # Disabled until plot is displayed
+        file_menu.addAction(self.export_action)
 
         file_menu.addSeparator()
 
@@ -406,13 +543,16 @@ class SquiggleViewer(QMainWindow):
             self.info_sample_rate_label.setText("—")
             self.info_total_samples_label.setText("—")
 
-    def open_bam_file(self):
-        """Open and load a BAM file for base annotations"""
-        if not PYSAM_AVAILABLE:
+    @qasync.asyncSlot()
+    async def open_bam_file(self):
+        """Open and load a BAM file for base annotations (async with validation)"""
+        # Check if POD5 file is loaded first
+        if not self.pod5_file:
             QMessageBox.warning(
                 self,
-                "pysam Not Available",
-                "Please install pysam to use BAM file support:\n\npip install pysam",
+                "POD5 File Required",
+                "Please load a POD5 file before loading a BAM file.\n\n"
+                "The BAM file will be validated against the POD5 file.",
             )
             return
 
@@ -423,14 +563,77 @@ class SquiggleViewer(QMainWindow):
         if file_path:
             try:
                 bam_path = Path(file_path)
-                # Open BAM file to verify it's valid
-                bam = pysam.AlignmentFile(str(bam_path), "rb", check_sq=False)
-                bam.close()
 
+                # Check for BAM index, create if missing
+                bai_path = Path(str(bam_path) + ".bai")
+                if not bai_path.exists():
+                    # Ask user if they want to create index
+                    reply = QMessageBox.question(
+                        self,
+                        "BAM Index Missing",
+                        "The BAM file is not indexed (.bai file not found).\n\n"
+                        "Would you like to create an index now?\n"
+                        "This may take a few minutes for large files.",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.Yes,
+                    )
+
+                    if reply == QMessageBox.Yes:
+                        self.statusBar().showMessage("Indexing BAM file...")
+                        try:
+                            await asyncio.to_thread(index_bam_file, bam_path)
+                            self.statusBar().showMessage(
+                                "BAM index created successfully"
+                            )
+                        except Exception as e:
+                            QMessageBox.critical(
+                                self,
+                                "Indexing Failed",
+                                f"Failed to create BAM index:\n{str(e)}",
+                            )
+                            return
+                    else:
+                        return
+
+                # Validate BAM file against POD5 file
+                self.statusBar().showMessage("Validating BAM file against POD5...")
+                validation_result = await asyncio.to_thread(
+                    validate_bam_reads_in_pod5, bam_path, self.pod5_file
+                )
+
+                if not validation_result["is_valid"]:
+                    error_msg = (
+                        f"BAM validation failed!\n\n"
+                        f"Found {validation_result['bam_read_count']} reads in BAM file.\n"
+                        f"Found {validation_result['pod5_read_count']} reads in POD5 file.\n"
+                        f"{validation_result['missing_count']} BAM reads are NOT in POD5 file.\n\n"
+                        f"This indicates a serious mismatch between files.\n"
+                        f"Please ensure the BAM file corresponds to the loaded POD5 file."
+                    )
+                    if validation_result["missing_reads"]:
+                        # Show first few missing reads as examples
+                        examples = list(validation_result["missing_reads"])[:5]
+                        error_msg += "\n\nExample missing reads:\n" + "\n".join(
+                            f"  - {r}" for r in examples
+                        )
+
+                    QMessageBox.critical(self, "BAM Validation Failed", error_msg)
+                    return
+
+                # Validation passed, load BAM file
                 self.bam_file = bam_path
                 self.bam_label.setText(bam_path.name)
                 self.base_checkbox.setEnabled(True)
-                self.statusBar().showMessage(f"Loaded BAM file: {bam_path.name}")
+                self.mode_eventalign.setEnabled(True)
+
+                # Enable browse references button if in region search mode
+                if self.search_mode == "region":
+                    self.browse_refs_button.setEnabled(True)
+
+                self.statusBar().showMessage(
+                    f"Loaded and validated BAM file: {bam_path.name} "
+                    f"({validation_result['bam_read_count']} reads)"
+                )
 
             except Exception as e:
                 QMessageBox.critical(
@@ -442,19 +645,227 @@ class SquiggleViewer(QMainWindow):
         """Toggle display of base annotations (async)"""
         self.show_bases = state == Qt.Checked
         # Refresh current plot if one is displayed
-        if self.current_read_item:
-            await self.display_squiggle(self.current_read_item)
+        if self.read_list.selectedItems():
+            await self.update_plot_from_selection()
 
-    def filter_reads(self):
-        """Filter the read list based on search input"""
+    @qasync.asyncSlot()
+    async def on_read_selection_changed(self):
+        """Handle read selection changes"""
+        await self.update_plot_from_selection()
+
+    @qasync.asyncSlot()
+    async def update_plot_from_selection(self):
+        """Update plot based on current selection and plot mode"""
+        selected_items = self.read_list.selectedItems()
+
+        if not selected_items:
+            return
+
+        # Get selected read IDs
+        read_ids = [item.text() for item in selected_items]
+
+        if self.plot_mode == PlotMode.SINGLE:
+            # Single read mode: display first selected read
+            await self.display_single_read(read_ids[0])
+        elif self.plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
+            # Multi-read modes
+            await self.display_multiple_reads(read_ids)
+        elif self.plot_mode == PlotMode.EVENTALIGN:
+            # Event-aligned mode requires BAM file
+            if not self.bam_file:
+                QMessageBox.warning(
+                    self,
+                    "BAM File Required",
+                    "Event-aligned mode requires a BAM file with base call information.\n\n"
+                    "Please load a BAM file first.",
+                )
+                return
+            await self.display_eventaligned_reads(read_ids)
+        else:
+            QMessageBox.warning(
+                self,
+                "Unsupported Mode",
+                f"Plot mode {self.plot_mode} not yet implemented",
+            )
+
+    def on_search_mode_changed(self, index):
+        """Handle search mode change"""
+        self.search_mode = self.search_mode_combo.itemData(index)
+
+        # Update placeholder text
+        if self.search_mode == "read_id":
+            self.search_input.setPlaceholderText("Search read ID...")
+            self.search_input.setToolTip("Filter reads by read ID (case-insensitive)")
+            # Hide browse button for read ID mode
+            self.browse_refs_button.setVisible(False)
+        else:  # region
+            self.search_input.setPlaceholderText("e.g., chr1:1000-2000 or chr1")
+            self.search_input.setToolTip(
+                "Search reads by genomic region (requires BAM file)\n"
+                "Format: chr1, chr1:1000, or chr1:1000-2000"
+            )
+            # Show browse button for region mode (enabled only if BAM loaded)
+            self.browse_refs_button.setVisible(True)
+            self.browse_refs_button.setEnabled(self.bam_file is not None)
+
+        # Clear search
+        self.search_input.clear()
+
+    def on_search_text_changed(self):
+        """Handle real-time search for read ID mode"""
+        if self.search_mode == "read_id":
+            # Real-time filtering for read ID mode
+            self.filter_reads_by_id()
+
+    @qasync.asyncSlot()
+    async def execute_search(self):
+        """Execute search based on current mode"""
+        if self.search_mode == "read_id":
+            self.filter_reads_by_id()
+        else:  # region mode
+            await self.filter_reads_by_region()
+
+    def filter_reads_by_id(self):
+        """Filter the read list based on read ID search input"""
         search_text = self.search_input.text().lower()
 
         for i in range(self.read_list.count()):
             item = self.read_list.item(i)
-            if search_text in item.text().lower():
+            # Extract read ID from item text (may include alignment info)
+            item_text = item.text()
+            read_id = item_text.split("[")[
+                0
+            ].strip()  # Remove alignment info if present
+
+            if search_text in read_id.lower():
                 item.setHidden(False)
             else:
                 item.setHidden(True)
+
+    @qasync.asyncSlot()
+    async def filter_reads_by_region(self):
+        """Filter reads based on genomic region query (requires BAM file)"""
+        region_str = self.search_input.text().strip()
+
+        if not region_str:
+            # Clear filter - show all reads
+            for i in range(self.read_list.count()):
+                item = self.read_list.item(i)
+                item.setHidden(False)
+            self.statusBar().showMessage("Ready")
+            return
+
+        # Check if BAM file is loaded
+        if not self.bam_file:
+            QMessageBox.warning(
+                self,
+                "BAM File Required",
+                "Reference region search requires a BAM file.\n\n"
+                "Please load a BAM file first.",
+            )
+            return
+
+        # Parse region
+        chromosome, start, end = parse_region(region_str)
+        if chromosome is None:
+            QMessageBox.warning(
+                self,
+                "Invalid Region",
+                f"Could not parse region: {region_str}\n\n"
+                "Expected format: chr1, chr1:1000, or chr1:1000-2000",
+            )
+            return
+
+        # Query BAM file for reads in region
+        self.statusBar().showMessage(f"Querying BAM for region {region_str}...")
+
+        try:
+            # Run query in background thread
+            reads_in_region = await asyncio.to_thread(
+                get_reads_in_region, self.bam_file, chromosome, start, end
+            )
+
+            # Store alignment info
+            self.alignment_info = reads_in_region
+
+            # Update read list to show only reads in region
+            reads_found = set(reads_in_region.keys())
+            visible_count = 0
+
+            for i in range(self.read_list.count()):
+                item = self.read_list.item(i)
+                item_text = item.text()
+                read_id = item_text.split("[")[0].strip()
+
+                if read_id in reads_found:
+                    item.setHidden(False)
+                    visible_count += 1
+
+                    # Update item text to show alignment info
+                    aln_info = reads_in_region[read_id]
+                    item.setText(
+                        f"{read_id} [{aln_info['chromosome']}:"
+                        f"{aln_info['start']}-{aln_info['end']} "
+                        f"{aln_info['strand']}]"
+                    )
+                else:
+                    item.setHidden(True)
+
+            # Update status
+            region_desc = f"{chromosome}"
+            if start is not None and end is not None:
+                region_desc += f":{start}-{end}"
+            elif start is not None:
+                region_desc += f":{start}"
+
+            self.statusBar().showMessage(
+                f"Found {visible_count} reads in region {region_desc}"
+            )
+
+        except ValueError as e:
+            QMessageBox.critical(self, "Query Failed", str(e))
+            self.statusBar().showMessage("Query failed")
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Unexpected error querying BAM file:\n{str(e)}"
+            )
+            self.statusBar().showMessage("Error")
+
+    @qasync.asyncSlot()
+    async def browse_references(self):
+        """Open dialog to browse available references in BAM file"""
+        if not self.bam_file:
+            QMessageBox.warning(
+                self,
+                "No BAM File",
+                "Please load a BAM file first to view available references.",
+            )
+            return
+
+        try:
+            # Get references in background thread
+            self.statusBar().showMessage("Loading BAM references...")
+            references = await asyncio.to_thread(get_bam_references, self.bam_file)
+
+            # Open dialog
+            dialog = ReferenceBrowserDialog(references, self)
+            result = dialog.exec()
+
+            if result == ReferenceBrowserDialog.Accepted and dialog.selected_reference:
+                # User selected a reference - populate search field
+                self.search_input.setText(dialog.selected_reference)
+                # Automatically execute search
+                await self.execute_search()
+
+            self.statusBar().showMessage("Ready")
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to load BAM references:\n{str(e)}",
+            )
+            self.statusBar().showMessage("Error")
 
     def _generate_plot_blocking(self, read_id):
         """Blocking function to generate plot"""
@@ -495,20 +906,21 @@ class SquiggleViewer(QMainWindow):
         )
         buffer.seek(0)
 
-        return buffer, signal, sequence
+        return buffer, signal, sequence, plot
 
-    @qasync.asyncSlot()
-    async def display_squiggle(self, item):
-        """Display squiggle plot for selected read (async)"""
-        read_id = item.text()
-        self.current_read_item = item
+    async def display_single_read(self, read_id):
+        """Display squiggle plot for a single read (async)"""
         self.statusBar().showMessage(f"Generating plot for {read_id}...")
 
         try:
             # Generate plot in thread pool
-            buffer, signal, sequence = await asyncio.to_thread(
+            buffer, signal, sequence, plot = await asyncio.to_thread(
                 self._generate_plot_blocking, read_id
             )
+
+            # Store plot for export
+            self.current_plot = plot
+            self.export_action.setEnabled(True)
 
             # Display on main thread
             pixmap = QPixmap()
@@ -527,4 +939,211 @@ class SquiggleViewer(QMainWindow):
         except Exception as e:
             QMessageBox.critical(
                 self, "Error", f"Failed to display squiggle:\n{str(e)}"
+            )
+
+    def _generate_multi_read_plot_blocking(self, read_ids):
+        """Blocking function to generate multi-read plot"""
+        reads_data = []
+
+        # Collect signal data for all reads
+        with pod5.Reader(self.pod5_file) as reader:
+            for r in reader.reads():
+                read_id_str = str(r.read_id)
+                if read_id_str in read_ids:
+                    reads_data.append((read_id_str, r.signal, r.run_info.sample_rate))
+                    if len(reads_data) == len(read_ids):
+                        break
+
+        if not reads_data:
+            raise ValueError("No matching reads found in POD5 file")
+
+        # Generate multi-read plot
+        plot = SquigglePlotter.plot_multiple_reads(
+            reads_data,
+            mode=self.plot_mode,
+            normalization=self.normalization_method,
+        )
+
+        # Save plot to buffer
+        buffer = BytesIO()
+        plot.save(
+            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
+        )
+        buffer.seek(0)
+
+        return buffer, reads_data, plot
+
+    async def display_multiple_reads(self, read_ids):
+        """Display multiple reads in overlay or stacked mode (async)"""
+        self.statusBar().showMessage(f"Generating plot for {len(read_ids)} reads...")
+
+        try:
+            # Generate plot in thread pool
+            buffer, reads_data, plot = await asyncio.to_thread(
+                self._generate_multi_read_plot_blocking, read_ids
+            )
+
+            # Store plot for export
+            self.current_plot = plot
+            self.export_action.setEnabled(True)
+
+            # Display on main thread
+            pixmap = QPixmap()
+            pixmap.loadFromData(buffer.read())
+            self.plot_label.setPixmap(
+                pixmap.scaled(
+                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+            )
+
+            mode_name = "overlaid" if self.plot_mode == PlotMode.OVERLAY else "stacked"
+            self.statusBar().showMessage(
+                f"Displaying {len(reads_data)} reads ({mode_name}, {self.normalization_method.value} normalization)"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to display multi-read plot:\n{str(e)}"
+            )
+
+    def _generate_eventalign_plot_blocking(self, read_ids):
+        """Blocking function to generate event-aligned plot"""
+        from .alignment import extract_alignment_from_bam
+
+        reads_data = []
+        aligned_reads = []
+
+        # Collect signal data and alignment info for all reads
+        with pod5.Reader(self.pod5_file) as reader:
+            for r in reader.reads():
+                read_id_str = str(r.read_id)
+                if read_id_str in read_ids:
+                    # Get signal data
+                    reads_data.append((read_id_str, r.signal, r.run_info.sample_rate))
+
+                    # Get alignment info from BAM
+                    aligned_read = extract_alignment_from_bam(
+                        self.bam_file, read_id_str
+                    )
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id_str} in BAM file"
+                        )
+                    aligned_reads.append(aligned_read)
+
+                    if len(reads_data) == len(read_ids):
+                        break
+
+        if not reads_data:
+            raise ValueError("No matching reads found in POD5 file")
+
+        # Generate event-aligned plot
+        plot = SquigglePlotter.plot_multiple_reads(
+            reads_data,
+            mode=self.plot_mode,
+            normalization=self.normalization_method,
+            aligned_reads=aligned_reads,
+        )
+
+        # Save plot to buffer
+        buffer = BytesIO()
+        plot.save(
+            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
+        )
+        buffer.seek(0)
+
+        return buffer, reads_data, aligned_reads, plot
+
+    async def display_eventaligned_reads(self, read_ids):
+        """Display multiple reads in event-aligned mode (async)"""
+        self.statusBar().showMessage(
+            f"Generating event-aligned plot for {len(read_ids)} reads..."
+        )
+
+        try:
+            # Generate plot in thread pool
+            buffer, reads_data, aligned_reads, plot = await asyncio.to_thread(
+                self._generate_eventalign_plot_blocking, read_ids
+            )
+
+            # Store plot for export
+            self.current_plot = plot
+            self.export_action.setEnabled(True)
+
+            # Display on main thread
+            pixmap = QPixmap()
+            pixmap.loadFromData(buffer.read())
+            self.plot_label.setPixmap(
+                pixmap.scaled(
+                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+            )
+
+            # Build status message
+            total_bases = sum(len(ar.bases) for ar in aligned_reads)
+            self.statusBar().showMessage(
+                f"Displaying {len(reads_data)} reads (event-aligned, {total_bases} bases, {self.normalization_method.value} normalization)"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to display event-aligned plot:\n{str(e)}"
+            )
+
+    def export_plot(self):
+        """Export the current plot to a file"""
+        if self.current_plot is None:
+            QMessageBox.warning(
+                self,
+                "No Plot",
+                "No plot to export. Please display a plot first.",
+            )
+            return
+
+        # Get file path from user
+        file_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Export Plot",
+            "",
+            "PNG Image (*.png);;PDF Document (*.pdf);;SVG Vector (*.svg);;All Files (*)",
+        )
+
+        if not file_path:
+            return  # User cancelled
+
+        try:
+            # Determine format from extension or filter
+            file_path = Path(file_path)
+            if not file_path.suffix:
+                # Add extension based on filter
+                if "PNG" in selected_filter:
+                    file_path = file_path.with_suffix(".png")
+                elif "PDF" in selected_filter:
+                    file_path = file_path.with_suffix(".pdf")
+                elif "SVG" in selected_filter:
+                    file_path = file_path.with_suffix(".svg")
+                else:
+                    file_path = file_path.with_suffix(".png")  # Default to PNG
+
+            format_str = file_path.suffix[1:]  # Remove leading dot
+
+            # Save plot
+            self.current_plot.save(
+                str(file_path),
+                format=format_str,
+                dpi=300,  # High DPI for export
+                width=12,
+                height=8,
+            )
+
+            self.statusBar().showMessage(f"Plot exported to {file_path.name}")
+            QMessageBox.information(
+                self,
+                "Export Successful",
+                f"Plot successfully exported to:\n{file_path}",
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Export Failed", f"Failed to export plot:\n{str(e)}"
             )

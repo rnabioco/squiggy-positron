@@ -33,6 +33,7 @@ dependencies = [
     "PySide6>=6.5.0",
     "qasync>=0.24.0",
     "plotnine>=0.12.0",
+    "pysam>=0.20.0",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +44,9 @@ dev = [
     "pyinstaller>=5.0",
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.0.0",
+]
+macos = [
+    "pyobjc-framework-Cocoa>=9.0",
 ]
 
 [project.scripts]
@@ -88,3 +92,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore:Saving.*in image:UserWarning",
+    "ignore:Filename.*BytesIO:UserWarning",
+]
