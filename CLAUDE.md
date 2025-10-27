@@ -14,7 +14,8 @@ The application supports optional base annotations overlaid on signal data when 
 - **GUI Framework**: PySide6 (Qt for Python) - provides cross-platform desktop UI
 - **Async Framework**: qasync - integrates Python's asyncio with Qt event loop for non-blocking I/O
 - **Data Processing**: pod5 library for reading Oxford Nanopore POD5 files
-- **Visualization**: plotnine (ggplot2-style) for generating squiggle plots from signal data
+- **Visualization**: Bokeh for interactive squiggle plots with zoom, pan, and hover tools
+- **Web Rendering**: QWebEngineView for displaying interactive Bokeh plots in Qt
 - **Distribution**: PyInstaller packages the app into standalone executables/bundles
 - **Documentation**: MkDocs with Material theme for user documentation
 - **Testing**: pytest for unit and integration tests
@@ -28,8 +29,11 @@ src/squiggy/
 ├── __init__.py         # Package initialization with version info
 ├── main.py            # Entry point and CLI argument parsing
 ├── viewer.py          # SquiggleViewer - Main QMainWindow GUI
-├── plotter.py         # SquigglePlotter - Plotting logic and visualization
-├── dialogs.py         # Custom dialog windows (About, etc.)
+├── plotter.py         # SquigglePlotter - Legacy plotnine plotting (deprecated)
+├── plotter_bokeh.py   # BokehSquigglePlotter - Interactive bokeh plotting
+├── alignment.py       # Base annotation data structures (BaseAnnotation, AlignedRead)
+├── normalization.py   # Signal normalization functions (z-norm, median, MAD)
+├── dialogs.py         # Custom dialog windows (About, Reference Browser, etc.)
 ├── utils.py           # Utility functions (file I/O, data processing)
 └── constants.py       # Application constants and configuration
 
@@ -55,30 +59,49 @@ tests/data/
 
 **src/squiggy/viewer.py** - Main GUI window (SquiggleViewer):
 - File menu with "Open POD5 File" and "Open Sample Data" options
-- Read list widget with search/filter functionality
-- Plot display area showing squiggle plots
-- Status bar with file information
+- Three-panel layout: read list (left), plot display (center), controls (right)
+- Bottom search panel with three modes: Read ID, Reference Region, Sequence
+- CollapsibleBox widgets for organizing file info and plot settings
+- QWebEngineView for displaying interactive Bokeh plots
 - Uses async methods (@qasync.asyncSlot) for non-blocking file I/O and plot generation
 
-**src/squiggy/plotter.py** - Plotting logic (SquigglePlotter):
-- Converts raw signal data into time-series DataFrames
-- Generates plotnine plots with customizable styling
-- Renders plots to PNG buffers for Qt display
-- Handles plot caching and performance optimization
+**src/squiggy/plotter_bokeh.py** - Bokeh plotting engine (BokehSquigglePlotter):
+- Converts raw signal data into interactive Bokeh figures
+- Four plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN
+- Interactive features: zoom, pan, reset, hover tooltips, base annotation toggle
+- Generates HTML with embedded JavaScript for Qt WebEngine display
+- Handles signal normalization and downsampling for performance
+
+**src/squiggy/alignment.py** - Base annotation data structures:
+- BaseAnnotation dataclass: maps bases to signal positions
+- AlignedRead dataclass: stores read sequence with genomic alignment info
+- extract_alignment_from_bam(): parses BAM files for event-aligned data
+
+**src/squiggy/normalization.py** - Signal normalization:
+- normalize_signal(): dispatcher for normalization methods
+- z_normalize(): Z-score normalization (mean=0, std=1)
+- median_normalize(): Median-centered normalization
+- mad_normalize(): Median absolute deviation (robust to outliers)
 
 **src/squiggy/dialogs.py** - Custom dialog windows:
 - About dialog with version and license information
-- Potentially other dialogs for settings/preferences
+- ReferenceBrowserDialog: browsable table of reference sequences from BAM files
+- CollapsibleBox widget: reusable UI component for expandable sections
 
 **src/squiggy/utils.py** - Utility functions:
 - POD5 file reading and validation
-- Signal data extraction and processing
+- Signal data extraction and processing with downsampling
+- BAM file operations: indexing, reference extraction, region queries
 - Sample data location and loading
+- reverse_complement(): DNA sequence utilities
+- get_reference_sequence_for_read(): extract reference sequence for alignment
 
 **src/squiggy/constants.py** - Application constants:
-- Color schemes for plots
-- Default window sizes and UI settings
-- File format specifications
+- PlotMode enum: SINGLE, OVERLAY, STACKED, EVENTALIGN
+- NormalizationMethod enum: NONE, ZNORM, MEDIAN, MAD
+- Okabe-Ito colorblind-friendly base colors (purines=orange, pyrimidines=blue)
+- Default window sizes (1200x800) and UI settings
+- Signal downsampling thresholds for performance
 
 ### Data Flow
 
@@ -95,12 +118,22 @@ tests/data/
 4. File path displayed in status bar
 
 **Read Visualization:**
-1. User selects read from list (or searches by ID)
-2. `utils.py` extracts signal data and metadata for selected read
-3. Signal data passed to `plotter.py` SquigglePlotter
-4. Plotnine generates time-series plot → saved to BytesIO buffer as PNG
-5. PNG loaded as QPixmap and displayed in QLabel widget
-6. Read information displayed in status bar
+1. User selects read(s) from list (supports multi-select with Ctrl/Cmd/Shift)
+2. `utils.py` extracts signal data and metadata for selected read(s)
+3. Signal data passed to `plotter_bokeh.py` BokehSquigglePlotter
+4. Signal normalized using selected method (NONE, ZNORM, MEDIAN, or MAD)
+5. Bokeh generates interactive figure with zoom/pan tools and hover tooltips
+6. HTML with embedded JavaScript generated via `file_html()` with CDN resources
+7. HTML loaded into QWebEngineView for display
+8. Read information and statistics displayed in status bar
+
+**Event-Aligned Visualization (with BAM file):**
+1. User loads BAM file with base-to-signal alignment ("mv" tag required)
+2. Select read from list and switch to EVENTALIGN plot mode
+3. `alignment.py` extracts base annotations from BAM alignment
+4. Bokeh renders bases as colored rectangles over signal trace
+5. Interactive toggle button allows showing/hiding base letters
+6. Base colors use Okabe-Ito palette for colorblind accessibility
 
 ## Development Commands
 
@@ -281,16 +314,27 @@ git push origin v0.1.0
 - Large POD5 files (>10,000 reads) may require lazy loading strategies
 
 ### Signal Analysis
-- Signal normalization and preprocessing is handled using numpy operations
-- Base annotation visualization uses standard color-coding conventions for DNA bases
-- Future features may include base modification detection
+- Signal normalization handled by `normalization.py` module with four methods:
+  - NONE: Raw signal values (picoamperes)
+  - ZNORM: Z-score normalization (mean=0, std=1) - best for comparing across reads
+  - MEDIAN: Median-centered (median=0) - simple baseline correction
+  - MAD: Median absolute deviation - robust to outliers
+- Signal downsampling uses LTTB algorithm for >100K samples to maintain visual fidelity
+- Base annotation visualization uses Okabe-Ito colorblind-friendly palette
+- Base-to-signal alignment extracted from BAM "mv" (move table) tag
+- Future features may include base modification detection and methylation calling
 
 ### Qt/PySide6 Notes
-- Plot display uses QLabel with QPixmap (not matplotlib embedding) for simplicity
-- Plotnine plots are rendered to PNG buffers (BytesIO) rather than displayed directly
-- Window geometry: 1200x800 default, with optimal split between read list and plot area
+- Plot display uses QWebEngineView to render interactive Bokeh HTML plots
+- Bokeh plots are generated as HTML with embedded JavaScript and loaded via `setHtml()`
+- Window geometry: 1200x800 default, with three-panel splitter layout
 - File dialogs use native OS dialogs via Qt
-- Search functionality is case-insensitive and filters the read list in real-time
+- Search functionality has three modes:
+  - Read ID: case-insensitive filtering of read list in real-time
+  - Reference Region: queries BAM file for reads in genomic regions (chr1:1000-2000)
+  - Sequence: searches reference sequences for DNA motifs (with reverse complement option)
+- CollapsibleBox widgets provide expandable sections for file info and plot controls
+- JavaScript interaction: viewer.py can execute JavaScript on Bokeh plots for programmatic zoom
 
 ### Async Programming with qasync
 - **qasync** integrates Python's `asyncio` with Qt's event loop for non-blocking operations
@@ -306,8 +350,11 @@ git push origin v0.1.0
 - **Key async methods:**
   - `load_read_ids()` - Loads POD5 read IDs without blocking the UI
   - `update_file_info()` - Calculates file statistics asynchronously
-  - `display_squiggle()` - Generates plots in background thread
+  - `display_squiggle()` - Generates Bokeh HTML plots in background thread
   - `open_pod5_file()` / `open_sample_data()` - File opening with async loading
+  - `filter_reads_by_region()` - Queries BAM file for reads in genomic regions
+  - `search_sequence()` - Searches reference sequences for DNA motifs
+  - `_generate_plot_blocking()` - Blocking function for Bokeh HTML generation (called via `asyncio.to_thread()`)
 
 ### Testing Considerations
 - Tests require sample POD5 files in `tests/data/` directory
@@ -327,16 +374,44 @@ git push origin v0.1.0
 
 ### Testing with Sample Data
 The repository includes sample data in `tests/data/`:
-- `simplex_reads.pod5` - Small POD5 file with ~10 reads for quick testing
-- `simplex_reads_mapped.bam` - Corresponding BAM file with basecalls and alignments
-- Use these for development: `squiggy -p tests/data/simplex_reads.pod5 -b tests/data/simplex_reads_mapped.bam`
+- `mod_reads.pod5` - Small POD5 file with reads for quick testing
+- `mod_mappings.bam` - Corresponding BAM file with basecalls and alignments
+- Use these for development: `squiggy -p tests/data/mod_reads.pod5 -b tests/data/mod_mappings.bam`
+- To test event-aligned mode with base annotations: load files with `-p` and `-b` flags, select read, switch to EVENTALIGN mode
 
 ### Debugging Tips
 - **Qt issues**: Check Qt Designer documentation and PySide6 examples
 - **Async issues**: Ensure all blocking I/O is wrapped in `asyncio.to_thread()`
-- **Plot issues**: Test plotting functions independently in `plotter.py`
+- **Plot issues**: Test plotting functions independently in `plotter_bokeh.py`
 - **BAM parsing**: Use `pysam.AlignmentFile(..., check_sq=False)` to avoid header issues
 - **POD5 files**: Always use context managers to ensure proper cleanup
+- **Bokeh JavaScript**: Use browser dev tools to debug Bokeh interactions - QWebEngineView uses Chromium
+- **WebEngine debugging**: Enable remote debugging with `--remote-debugging-port=9222` environment variable
+
+### UI Design Patterns
+
+**CollapsibleBox Widget (`viewer.py:63-107`)**:
+The CollapsibleBox is a reusable expandable/collapsible section widget:
+- Uses QToolButton with arrow icon that rotates on toggle
+- QScrollArea with animated height transition (QPropertyAnimation)
+- Height animates from 0 to content height over 300ms
+- Usage: `box = CollapsibleBox("Title")` then `box.set_content_layout(your_layout)`
+- Default state: collapsed (height=0)
+
+**Three-Panel Splitter Layout**:
+Main window uses QSplitter with three sections:
+- Left panel (20%): Collapsible file info and plot controls
+- Center panel (60%): QWebEngineView for Bokeh plots
+- Right panel (20%): Read list with multi-select support
+- Bottom: Search panel with mode-specific controls
+
+**Color Scheme (Okabe-Ito Palette)**:
+Base colors changed from standard to colorblind-friendly palette:
+- Purines (A, G): Orange/warm colors (#E69F00, #D55E00)
+- Pyrimidines (C, T): Blue/cool colors (#0072B2, #56B4E9)
+- Signal line: Gray (#A9A9A9) for better contrast with base annotations
+- Unknown (N): Gray (#808080)
+- See `constants.py:33-43` for full color definitions
 
 ### Working with the Reference Browser
 The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer.py:834-868`:
@@ -344,11 +419,25 @@ The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer
 - Data comes from `utils.py:get_bam_references()` which returns list of dict with keys: name, length, read_count
 - Selection populates the search field and triggers automatic search
 
+### Using Sequence Search
+The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in reference sequences:
+- Requires: BAM file loaded, read selected, EVENTALIGN plot mode
+- Search modes: forward strand only, or include reverse complement
+- Search function (`_search_sequence_in_reference()`) runs in background thread
+- Results displayed in CollapsibleBox with clickable items
+- Clicking result executes JavaScript to zoom Bokeh plot to matched region
+- Uses `utils.py:get_reference_sequence_for_read()` to extract reference sequence
+- Uses `utils.py:reverse_complement()` for reverse complement searches
+
 ### Making Changes to Plotting
-- Main plotting logic is in `plotter.py` using plotnine (ggplot2-style)
+- Main plotting logic is in `plotter_bokeh.py` using Bokeh for interactive plots
 - Four plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN (defined in `constants.py`)
-- All plots are rendered to BytesIO PNG buffers then displayed via QPixmap in QLabel
-- Signal normalization methods: NONE, ZNORM, MEDIAN, MAD (defined in `constants.py`)
+- Plots are generated as Bokeh figure objects, converted to HTML with `file_html()`
+- HTML loaded into QWebEngineView via `setHtml()` for interactive display
+- Signal normalization handled by `normalization.py`: NONE, ZNORM, MEDIAN, MAD
+- Interactive tools: zoom (wheel/box), pan, reset, hover tooltips
+- Base annotations use LabelSet and Rect glyphs with CustomJS toggle callbacks
+- Color scheme uses Okabe-Ito palette for colorblind accessibility
 
 ### Adding New File Format Support
 1. Add parsing logic to `utils.py`
@@ -366,8 +455,10 @@ The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer
 ### Qt/PySide6 Issues
 - **Signal/slot connections**: Must connect before showing widget, or connection won't fire
 - **Main thread requirement**: All UI updates must happen on main thread (safe in `@qasync.asyncSlot()`)
-- **QPixmap from buffer**: Must reset BytesIO buffer (`buffer.seek(0)`) before reading
+- **QWebEngineView loading**: HTML content loads asynchronously - use `loadFinished` signal if timing matters
 - **Layout updates**: Call `layout.update()` or `widget.adjustSize()` after dynamic changes
+- **CollapsibleBox animation**: Use `QPropertyAnimation` on `maximumHeight` for smooth expand/collapse
+- **Splitter sizes**: Set proportional sizes with `setSizes([left_ratio, right_ratio])` based on total width
 
 ### Async/qasync Gotchas
 - **Decorator required**: Qt slots that use `await` MUST have `@qasync.asyncSlot()` decorator
@@ -387,11 +478,24 @@ The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer
 - **Move table tag**: Base-to-signal mapping requires "mv" tag in BAM (created by dorado/guppy)
 - **Read iteration**: Use `fetch(until_eof=True)` to iterate all reads without index
 
-### plotnine/Plotting
-- **Memory usage**: Large plots consume significant memory - consider downsampling for >100K samples
-- **Save to buffer**: Use `BytesIO()` not filename for in-memory rendering
-- **DPI settings**: High DPI increases file size and memory usage exponentially
-- **Theme imports**: Import plotnine theme components explicitly to avoid missing elements
+### Bokeh/Plotting
+- **Memory usage**: Large plots with many data points can slow rendering - automatic downsampling applied for >100K samples
+- **HTML generation**: Use `file_html(figure, CDN)` to generate standalone HTML with CDN resources
+- **Interactive tools**: Configure tools in figure creation: `tools="pan,wheel_zoom,box_zoom,reset,save"`
+- **JavaScript callbacks**: Use `CustomJS` for client-side interactions (e.g., toggle base annotations)
+- **CDN resources**: Bokeh uses CDN for JavaScript libraries - requires internet connection on first load
+- **Data sources**: Use `ColumnDataSource` for all glyphs - enables hover tooltips and dynamic updates
+- **Color mapping**: Use `LinearColorMapper` with `transform()` for continuous color scales
+- **Performance**: For event-aligned plots with many bases, consider limiting label rendering to visible zoom range
+
+### QWebEngineView/Web Rendering
+- **setHtml() vs setUrl()**: Use `setHtml(html_content, baseUrl)` for embedding generated HTML
+- **Base URL required**: Set `baseUrl=QUrl("http://localhost/")` to enable CDN resource loading
+- **JavaScript execution**: Use `page().runJavaScript(js_code)` to execute JS on loaded Bokeh plots
+- **Async rendering**: Page loads asynchronously - wait for `loadFinished` signal if needed
+- **Context isolation**: JavaScript runs in separate context from Python - no direct object sharing
+- **Debugging**: Enable web inspector with `settings().setAttribute(QWebEngineSettings.JavascriptEnabled, True)`
+- **Memory**: Each QWebEngineView instance runs a separate Chromium process - can be resource intensive
 
 ### Testing Gotchas
 - **Sample data required**: Tests skip (not fail) if `tests/data/*.pod5` missing
@@ -401,10 +505,13 @@ The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer
 
 ### PyInstaller Build Issues
 - **Hidden imports**: Some imports aren't auto-detected - add to `hiddenimports` in spec file
+  - Bokeh may require: `bokeh.models`, `bokeh.palettes`, `bokeh.transform`
+  - QWebEngine requires: `PySide6.QtWebEngineCore`, `PySide6.QtWebEngineWidgets`
 - **Data files**: Must explicitly list in `datas` parameter
 - **Platform differences**: Test builds on target platform (macOS != Linux != Windows)
 - **Permissions**: macOS requires code signing for distribution outside App Store
-- **Size**: Bundled Qt adds ~100MB to executable size
+- **Size**: Bundled Qt + QWebEngine adds ~150MB to executable size (increased from plotnine due to Chromium)
+- **WebEngine resources**: QWebEngine requires additional resources - ensure Qt plugins are bundled correctly
 
 ## Coding Style and Conventions
 
@@ -418,9 +525,11 @@ The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer
 
 ### Code Organization
 - Keep modules focused and single-purpose
-- Separate GUI code (`viewer.py`, `dialogs.py`) from logic (`plotter.py`, `utils.py`)
+- Separate GUI code (`viewer.py`, `dialogs.py`) from logic (`plotter_bokeh.py`, `utils.py`)
+- Separate data structures (`alignment.py`) from algorithms (`normalization.py`)
 - Put constants and configuration in `constants.py`
 - Use type hints for function signatures (Python 3.8+ compatible)
+- New modules should be added to the Project Structure documentation in CLAUDE.md
 
 ### Documentation
 - Add docstrings to all public functions and classes

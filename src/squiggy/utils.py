@@ -473,3 +473,79 @@ def get_reads_in_region(bam_file, chromosome, start=None, end=None):
         raise ValueError(f"Error querying BAM file: {str(e)}") from e
 
     return reads_dict
+
+
+def reverse_complement(seq):
+    """
+    Return the reverse complement of a DNA sequence.
+
+    Args:
+        seq: DNA sequence string (A, C, G, T, N)
+
+    Returns:
+        Reverse complement sequence
+    """
+    complement = {"A": "T", "T": "A", "C": "G", "G": "C", "N": "N"}
+    return "".join(complement.get(base, base) for base in reversed(seq))
+
+
+def get_reference_sequence_for_read(bam_file, read_id):
+    """
+    Extract the reference sequence for a given aligned read.
+
+    Args:
+        bam_file: Path to BAM file
+        read_id: Read identifier
+
+    Returns:
+        Tuple of (reference_sequence, reference_start, aligned_read)
+        Returns (None, None, None) if read not found or not aligned
+    """
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            # Find the alignment for this read
+            aligned_read = None
+            for aln in bam.fetch(until_eof=True):
+                if aln.query_name == read_id:
+                    aligned_read = aln
+                    break
+
+            if not aligned_read or aligned_read.is_unmapped:
+                return None, None, None
+
+            # Get reference sequence from the alignment
+            ref_name = aligned_read.reference_name
+            ref_start = aligned_read.reference_start
+
+            # Check if reference sequence is available in BAM header
+            if bam.header.get("SQ"):
+                # Try to get reference sequence from header (if embedded)
+                for sq in bam.header["SQ"]:
+                    if sq["SN"] == ref_name:
+                        # Some BAMs have embedded reference sequences
+                        if "M5" in sq or "UR" in sq:
+                            # Reference not embedded, need to reconstruct from alignment
+                            break
+
+            # Reconstruct reference sequence from aligned read
+            # Use the aligned pairs to build the reference sequence
+            ref_seq_list = []
+            ref_positions = []
+
+            for query_pos, ref_pos in aligned_read.get_aligned_pairs():
+                if ref_pos is not None:  # Skip insertions in read
+                    ref_positions.append(ref_pos)
+                    if query_pos is not None:
+                        # Match or mismatch
+                        base = aligned_read.query_sequence[query_pos]
+                        ref_seq_list.append(base)
+                    else:
+                        # Deletion in read (gap in query)
+                        ref_seq_list.append("N")  # Use N for deletions
+
+            ref_seq = "".join(ref_seq_list)
+
+            return ref_seq, ref_start, aligned_read
+
+    except Exception as e:
+        raise ValueError(f"Error extracting reference sequence: {str(e)}") from e

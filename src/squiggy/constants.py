@@ -20,7 +20,7 @@ SPLITTER_RATIO = (1, 3)
 PLOT_DPI = 100
 PLOT_WIDTH = 10
 PLOT_HEIGHT = 6
-SIGNAL_LINE_COLOR = "#2E86AB"
+SIGNAL_LINE_COLOR = "#A9A9A9"
 SIGNAL_LINE_WIDTH = 0.5
 
 # Signal downsampling settings
@@ -30,18 +30,19 @@ MIN_POINTS_FOR_DOWNSAMPLING = (
 )
 
 # Base colors for visualization
-# Inspired by common nanopore visualization conventions
+# Using Okabe-Ito colorblind-friendly palette
+# Purines (A, G) = orange/warm colors, Pyrimidines (C, T) = blue/cool colors
 BASE_COLORS = {
-    "A": "#00CC00",  # Green
-    "C": "#0000CC",  # Blue
-    "G": "#FFB300",  # Orange
-    "T": "#CC0000",  # Red
-    "U": "#CC0000",  # Red (for RNA)
-    "N": "#FFFFFF",  # White (unknown)
+    "A": "#E69F00",  # Orange (purine)
+    "C": "#0072B2",  # Blue (pyrimidine)
+    "G": "#D55E00",  # Vermillion/reddish-orange (purine)
+    "T": "#56B4E9",  # Sky blue (pyrimidine)
+    "U": "#56B4E9",  # Sky blue (for RNA, same as T)
+    "N": "#808080",  # Gray (unknown)
 }
 
 # Base annotation settings
-BASE_ANNOTATION_ALPHA = 0.1
+BASE_ANNOTATION_ALPHA = 0.2
 BASE_LABEL_SIZE = 8
 SIGNAL_PERCENTILE_LOW = 2.5
 SIGNAL_PERCENTILE_HIGH = 97.5

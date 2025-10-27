@@ -140,50 +140,6 @@ class SquiggleViewer(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        # Search section - at the top
-        search_layout = QHBoxLayout()
-
-        # Search mode selector
-        self.search_mode_combo = QComboBox()
-        self.search_mode_combo.addItem("Read ID", "read_id")
-        self.search_mode_combo.addItem("Reference Region", "region")
-        self.search_mode_combo.currentIndexChanged.connect(self.on_search_mode_changed)
-        self.search_mode_combo.setToolTip(
-            "Switch between searching by read ID or by genomic region"
-        )
-        search_layout.addWidget(QLabel("Search by:"))
-        search_layout.addWidget(self.search_mode_combo)
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search read ID...")
-        self.search_input.textChanged.connect(self.on_search_text_changed)
-        self.search_input.returnPressed.connect(self.execute_search)
-
-        self.search_button = QPushButton("Search")
-        self.search_button.clicked.connect(self.execute_search)
-
-        # Browse references button (for region search mode)
-        self.browse_refs_button = QPushButton("Browse References...")
-        self.browse_refs_button.clicked.connect(self.browse_references)
-        self.browse_refs_button.setEnabled(False)
-        self.browse_refs_button.setVisible(False)  # Hidden by default
-        self.browse_refs_button.setToolTip(
-            "View available reference sequences in BAM file"
-        )
-
-        search_layout.addWidget(self.search_input, 1)
-        search_layout.addWidget(self.search_button)
-        search_layout.addWidget(self.browse_refs_button)
-
-        # Add base annotation toggle
-        self.base_checkbox = QCheckBox("Show base annotations")
-        self.base_checkbox.setChecked(True)  # Checked by default
-        self.base_checkbox.setEnabled(False)
-        self.base_checkbox.stateChanged.connect(self.toggle_base_annotations)
-        search_layout.addWidget(self.base_checkbox)
-
-        main_layout.addLayout(search_layout)
-
         # Create splitter for left panel, plot area, and read list
         splitter = QSplitter(Qt.Horizontal)
 
@@ -261,8 +217,76 @@ class SquiggleViewer(QMainWindow):
 
         main_layout.addWidget(splitter, 1)
 
+        # Bottom search panel
+        self.create_search_panel()
+        main_layout.addWidget(self.search_panel)
+
         # Status bar
         self.statusBar().showMessage("Ready")
+
+    def create_search_panel(self):
+        """Create the bottom search panel with all search modes"""
+        self.search_panel = QWidget()
+        search_panel_layout = QVBoxLayout(self.search_panel)
+        search_panel_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Main search controls row
+        search_layout = QHBoxLayout()
+
+        # Search mode selector
+        self.search_mode_combo = QComboBox()
+        self.search_mode_combo.addItem("Read ID", "read_id")
+        self.search_mode_combo.addItem("Reference Region", "region")
+        self.search_mode_combo.addItem("Sequence", "sequence")
+        self.search_mode_combo.currentIndexChanged.connect(self.on_search_mode_changed)
+        self.search_mode_combo.setToolTip(
+            "Switch between searching by read ID, genomic region, or sequence"
+        )
+        search_layout.addWidget(QLabel("Search by:"))
+        search_layout.addWidget(self.search_mode_combo)
+
+        # Search input
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search read ID...")
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        self.search_input.returnPressed.connect(self.execute_search)
+        search_layout.addWidget(self.search_input, 1)
+
+        # Search button
+        self.search_button = QPushButton("Search")
+        self.search_button.clicked.connect(self.execute_search)
+        search_layout.addWidget(self.search_button)
+
+        # Browse references button (for region search mode)
+        self.browse_refs_button = QPushButton("Browse References...")
+        self.browse_refs_button.clicked.connect(self.browse_references)
+        self.browse_refs_button.setEnabled(False)
+        self.browse_refs_button.setVisible(False)  # Hidden by default
+        self.browse_refs_button.setToolTip(
+            "View available reference sequences in BAM file"
+        )
+        search_layout.addWidget(self.browse_refs_button)
+
+        # Reverse complement checkbox (for sequence search mode)
+        self.revcomp_checkbox = QCheckBox("Include reverse complement")
+        self.revcomp_checkbox.setChecked(True)
+        self.revcomp_checkbox.setVisible(False)  # Hidden by default
+        self.revcomp_checkbox.setToolTip(
+            "Also search for the reverse complement of the query sequence"
+        )
+        search_layout.addWidget(self.revcomp_checkbox)
+
+        search_panel_layout.addLayout(search_layout)
+
+        # Sequence search results area (collapsible, hidden by default)
+        self.sequence_results_box = CollapsibleBox("Search Results")
+        self.sequence_results_list = QListWidget()
+        self.sequence_results_list.itemClicked.connect(self.zoom_to_sequence_match)
+        results_layout = QVBoxLayout()
+        results_layout.addWidget(self.sequence_results_list)
+        self.sequence_results_box.set_content_layout(results_layout)
+        self.sequence_results_box.setVisible(False)  # Hidden by default
+        search_panel_layout.addWidget(self.sequence_results_box)
 
     def create_file_info_content(self):
         """Create the content layout for the file information panel"""
@@ -386,6 +410,20 @@ class SquiggleViewer(QMainWindow):
         self.norm_combo.setCurrentIndex(2)  # Default to Median
         self.norm_combo.currentIndexChanged.connect(self.set_normalization_method)
         content_layout.addWidget(self.norm_combo)
+
+        # Base annotations toggle
+        base_label = QLabel("Base Annotations:")
+        base_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        content_layout.addWidget(base_label)
+
+        self.base_checkbox = QCheckBox("Show base annotations")
+        self.base_checkbox.setChecked(True)  # Checked by default
+        self.base_checkbox.setEnabled(False)  # Disabled until BAM file loaded
+        self.base_checkbox.setToolTip(
+            "Show base letters on event-aligned plots (requires BAM file)"
+        )
+        self.base_checkbox.stateChanged.connect(self.toggle_base_annotations)
+        content_layout.addWidget(self.base_checkbox)
 
         # Info label
         info_label = QLabel(
@@ -979,25 +1017,32 @@ class SquiggleViewer(QMainWindow):
         """Handle search mode change"""
         self.search_mode = self.search_mode_combo.itemData(index)
 
-        # Update placeholder text and visibility
+        # Update placeholder text and visibility based on mode
         if self.search_mode == "read_id":
             self.search_input.setPlaceholderText("Search read ID...")
             self.search_input.setToolTip("Filter reads by read ID (case-insensitive)")
-            # Hide browse button for read ID mode
             self.browse_refs_button.setVisible(False)
-            # Show read list in read ID mode
-            self.read_list.setVisible(True)
-        else:  # region
+            self.revcomp_checkbox.setVisible(False)
+            self.sequence_results_box.setVisible(False)
+        elif self.search_mode == "region":
             self.search_input.setPlaceholderText("e.g., chr1:1000-2000 or chr1")
             self.search_input.setToolTip(
                 "Search reads by genomic region (requires BAM file)\n"
                 "Format: chr1, chr1:1000, or chr1:1000-2000"
             )
-            # Show browse button for region mode (enabled only if BAM loaded)
             self.browse_refs_button.setVisible(True)
             self.browse_refs_button.setEnabled(self.bam_file is not None)
-            # Hide read list in region mode
-            self.read_list.setVisible(False)
+            self.revcomp_checkbox.setVisible(False)
+            self.sequence_results_box.setVisible(False)
+        else:  # sequence
+            self.search_input.setPlaceholderText("e.g., ATCGATCG")
+            self.search_input.setToolTip(
+                "Search for a DNA sequence in the reference (requires BAM file)\n"
+                "Enter sequence in 5' to 3' direction"
+            )
+            self.browse_refs_button.setVisible(False)
+            self.revcomp_checkbox.setVisible(True)
+            # Results box will be shown when search is performed
 
         # Clear search
         self.search_input.clear()
@@ -1013,8 +1058,10 @@ class SquiggleViewer(QMainWindow):
         """Execute search based on current mode"""
         if self.search_mode == "read_id":
             self.filter_reads_by_id()
-        else:  # region mode
+        elif self.search_mode == "region":
             await self.filter_reads_by_region()
+        else:  # sequence mode
+            await self.search_sequence()
 
     def filter_reads_by_id(self):
         """Filter the read list based on read ID search input"""
@@ -1157,6 +1204,236 @@ class SquiggleViewer(QMainWindow):
                 f"Failed to load BAM references:\n{str(e)}",
             )
             self.statusBar().showMessage("Error")
+
+    @qasync.asyncSlot()
+    async def search_sequence(self):
+        """Search for a DNA sequence in the reference"""
+        query_seq = self.search_input.text().strip().upper()
+
+        if not query_seq:
+            self.sequence_results_box.setVisible(False)
+            self.statusBar().showMessage("Ready")
+            return
+
+        # Check if BAM file is loaded
+        if not self.bam_file:
+            QMessageBox.warning(
+                self,
+                "BAM File Required",
+                "Sequence search requires a BAM file with reference alignment.\n\n"
+                "Please load a BAM file first.",
+            )
+            return
+
+        # Validate sequence (should be DNA: A, C, G, T, N)
+        valid_bases = set("ACGTN")
+        if not all(base in valid_bases for base in query_seq):
+            QMessageBox.warning(
+                self,
+                "Invalid Sequence",
+                f"Invalid DNA sequence: {query_seq}\n\n"
+                "Only A, C, G, T, N characters are allowed.",
+            )
+            return
+
+        # Check if reads are selected and in event-aligned mode
+        if not self.read_list.selectedItems():
+            QMessageBox.warning(
+                self,
+                "No Read Selected",
+                "Please select a read first to search its reference sequence.",
+            )
+            return
+
+        if self.plot_mode != PlotMode.EVENTALIGN:
+            QMessageBox.warning(
+                self,
+                "Event-Aligned Mode Required",
+                "Sequence search requires event-aligned mode.\n\n"
+                "Please switch to event-aligned mode first.",
+            )
+            return
+
+        # Get first selected read
+        read_id = self.read_list.selectedItems()[0].text().split("[")[0].strip()
+
+        self.statusBar().showMessage(f"Searching for sequence: {query_seq}...")
+
+        try:
+            # Search for sequence in background thread
+            include_revcomp = self.revcomp_checkbox.isChecked()
+            matches = await asyncio.to_thread(
+                self._search_sequence_in_reference,
+                read_id,
+                query_seq,
+                include_revcomp
+            )
+
+            # Display results
+            self.sequence_results_list.clear()
+
+            if not matches:
+                self.sequence_results_list.addItem(
+                    f"No matches found for '{query_seq}'"
+                    + (" (or reverse complement)" if include_revcomp else "")
+                )
+                self.sequence_results_box.setVisible(True)
+                self.sequence_results_box.toggle_button.setChecked(True)
+                self.sequence_results_box.on_toggle()
+                self.statusBar().showMessage("No matches found")
+            else:
+                for match in matches:
+                    item_text = (
+                        f"{match['strand']} strand: position {match['ref_start']}-{match['ref_end']} "
+                        f"(base {match['base_start']}-{match['base_end']})"
+                    )
+                    item = QListWidget().item(0)  # Create item
+                    item = self.sequence_results_list.addItem(item_text)
+                    # Store match data for zoom functionality
+                    self.sequence_results_list.item(
+                        self.sequence_results_list.count() - 1
+                    ).setData(Qt.UserRole, match)
+
+                self.sequence_results_box.setVisible(True)
+                self.sequence_results_box.toggle_button.setChecked(True)
+                self.sequence_results_box.on_toggle()
+                self.statusBar().showMessage(
+                    f"Found {len(matches)} match(es) for '{query_seq}'"
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Search Failed", f"Failed to search sequence:\n{str(e)}"
+            )
+            self.statusBar().showMessage("Search failed")
+
+    def _search_sequence_in_reference(self, read_id, query_seq, include_revcomp=True):
+        """Search for sequence in the reference (blocking function)"""
+        from .utils import get_reference_sequence_for_read, reverse_complement
+
+        # Get reference sequence for this read
+        ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+            self.bam_file, read_id
+        )
+
+        if not ref_seq:
+            raise ValueError(f"Could not extract reference sequence for read {read_id}")
+
+        matches = []
+
+        # Search forward strand
+        start_pos = 0
+        while True:
+            pos = ref_seq.find(query_seq, start_pos)
+            if pos == -1:
+                break
+
+            # Convert reference position to base position in alignment
+            ref_pos = ref_start + pos
+            ref_end = ref_pos + len(query_seq)
+
+            # Map to base position (0-indexed in the aligned read)
+            base_start = pos
+            base_end = pos + len(query_seq)
+
+            matches.append({
+                "strand": "Forward",
+                "ref_start": ref_pos,
+                "ref_end": ref_end,
+                "base_start": base_start,
+                "base_end": base_end,
+                "sequence": query_seq,
+            })
+
+            start_pos = pos + 1
+
+        # Search reverse complement if requested
+        if include_revcomp:
+            revcomp_seq = reverse_complement(query_seq)
+            if revcomp_seq != query_seq:  # Only search if different
+                start_pos = 0
+                while True:
+                    pos = ref_seq.find(revcomp_seq, start_pos)
+                    if pos == -1:
+                        break
+
+                    ref_pos = ref_start + pos
+                    ref_end = ref_pos + len(revcomp_seq)
+                    base_start = pos
+                    base_end = pos + len(revcomp_seq)
+
+                    matches.append({
+                        "strand": "Reverse",
+                        "ref_start": ref_pos,
+                        "ref_end": ref_end,
+                        "base_start": base_start,
+                        "base_end": base_end,
+                        "sequence": revcomp_seq,
+                    })
+
+                    start_pos = pos + 1
+
+        return matches
+
+    def zoom_to_sequence_match(self, item):
+        """Zoom plot to show a sequence match"""
+        match = item.data(Qt.UserRole)
+        if not match:
+            return
+
+        # Extract base position range
+        base_start = match["base_start"]
+        base_end = match["base_end"]
+
+        # Add some padding (show 20 bases before and after)
+        padding = 20
+        zoom_start = max(0, base_start - padding)
+        zoom_end = base_end + padding
+
+        # JavaScript to zoom the plot
+        js_code = f"""
+        (function() {{
+            try {{
+                if (typeof Bokeh === 'undefined') {{
+                    return;
+                }}
+
+                const plots = Bokeh.documents[0].roots();
+                if (plots.length > 0) {{
+                    let plot = plots[0];
+
+                    // If it's a layout, find the actual plot figure
+                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
+                        for (let child of plot.children) {{
+                            if (child.constructor.name === 'Figure') {{
+                                plot = child;
+                                break;
+                            }}
+                            if (child.children) {{
+                                for (let nested of child.children) {{
+                                    if (nested.constructor.name === 'Figure') {{
+                                        plot = nested;
+                                        break;
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+
+                    // Zoom to the region
+                    plot.x_range.start = {zoom_start};
+                    plot.x_range.end = {zoom_end};
+                }}
+            }} catch (e) {{
+                console.error('Error zooming to sequence:', e);
+            }}
+        }})();
+        """
+
+        self.plot_view.page().runJavaScript(js_code)
+        self.statusBar().showMessage(
+            f"Zoomed to {match['strand']} match at position {match['base_start']}-{match['base_end']}"
+        )
 
     def _generate_plot_blocking(self, read_id):
         """Blocking function to generate bokeh plot HTML"""
