@@ -152,19 +152,65 @@ Squiggy is built with:
 - **Visualization**: plotnine (ggplot2-style) for creating squiggle plots
 - **Distribution**: PyInstaller for packaging as standalone executables
 
+## AI-Assisted Development
+
+Squiggy is optimized for development with [Claude Code](https://claude.ai/code). The repository includes:
+
+- **CLAUDE.md** - Comprehensive project guide for AI-assisted development
+- Detailed architecture documentation and coding conventions
+- Common development tasks and debugging tips
+- Context about async/Qt patterns and data flow
+
+Contributors using Claude Code will benefit from rich context about the codebase structure, testing strategies, and implementation patterns.
+
+### Quick Start with Claude Code
+
+```bash
+# Clone and setup
+git clone https://github.com/rnabioco/squiggy.git
+cd squiggy
+pip install -e ".[dev]"
+
+# Validate environment
+python scripts/check_dev_env.py
+
+# Start Claude Code session
+# Claude will automatically use CLAUDE.md for context
+```
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+### Quick Contributor Setup
+
+```bash
+# Setup environment
+pip install -e ".[dev]"
+
+# macOS users also install
+pip install -e ".[macos]"
+
+# Validate setup
+python scripts/check_dev_env.py
+
+# Run with sample data
+squiggy -p tests/data/simplex_reads.pod5 -b tests/data/simplex_reads_mapped.bam
+```
 
 ### Development Workflow
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Format code with black (`black squiggy/`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+3. Make your changes in `src/squiggy/`
+4. Format code: `ruff format src/ tests/`
+5. Check linting: `ruff check --fix src/ tests/`
+6. Run tests: `pytest tests/`
+7. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+8. Push to the branch (`git push origin feature/amazing-feature`)
+9. Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details on code style, testing, and PR guidelines.
 
 ## Release Process
 

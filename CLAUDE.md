@@ -315,6 +315,97 @@ git push origin v0.1.0
 - Use `conftest.py` fixtures for shared test resources
 - Mock POD5 file I/O for unit tests to avoid large test data files
 
+## Common Development Tasks
+
+### Adding a New Feature to the UI
+1. **Add UI elements** in `viewer.py` `init_ui()` method or related layout methods
+2. **Connect signals** using Qt's signal/slot mechanism (e.g., `button.clicked.connect(handler)`)
+3. **Create async handler** using `@qasync.asyncSlot()` decorator for any blocking operations
+4. **Update constants** in `constants.py` if adding new configuration values
+5. **Write tests** in `tests/` directory using pytest fixtures from `conftest.py`
+6. **Update documentation** in `docs/` if user-facing feature
+
+### Testing with Sample Data
+The repository includes sample data in `tests/data/`:
+- `simplex_reads.pod5` - Small POD5 file with ~10 reads for quick testing
+- `simplex_reads_mapped.bam` - Corresponding BAM file with basecalls and alignments
+- Use these for development: `squiggy -p tests/data/simplex_reads.pod5 -b tests/data/simplex_reads_mapped.bam`
+
+### Debugging Tips
+- **Qt issues**: Check Qt Designer documentation and PySide6 examples
+- **Async issues**: Ensure all blocking I/O is wrapped in `asyncio.to_thread()`
+- **Plot issues**: Test plotting functions independently in `plotter.py`
+- **BAM parsing**: Use `pysam.AlignmentFile(..., check_sq=False)` to avoid header issues
+- **POD5 files**: Always use context managers to ensure proper cleanup
+
+### Working with the Reference Browser
+The reference browser dialog (`dialogs.py:102-263`) is instantiated from `viewer.py:834-868`:
+- To test: Load a BAM file, switch to "Reference Region" search mode, click "Browse References"
+- Data comes from `utils.py:get_bam_references()` which returns list of dict with keys: name, length, read_count
+- Selection populates the search field and triggers automatic search
+
+### Making Changes to Plotting
+- Main plotting logic is in `plotter.py` using plotnine (ggplot2-style)
+- Four plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN (defined in `constants.py`)
+- All plots are rendered to BytesIO PNG buffers then displayed via QPixmap in QLabel
+- Signal normalization methods: NONE, ZNORM, MEDIAN, MAD (defined in `constants.py`)
+
+### Adding New File Format Support
+1. Add parsing logic to `utils.py`
+2. Update file dialogs in `viewer.py` to accept new extensions
+3. Ensure async loading with `asyncio.to_thread()` for blocking I/O
+4. Add validation similar to `validate_bam_reads_in_pod5()`
+
+## Known Issues and Gotchas
+
+### macOS-Specific
+- **"Python" in menu bar**: Requires PyObjC (`pip install -e ".[macos]"`). Fixed via `set_macos_app_name()` in `main.py:17-29`
+- **App icon**: Works in .app bundle but may not show when running from CLI
+- **File dialogs**: Use native macOS dialogs automatically via Qt
+
+### Qt/PySide6 Issues
+- **Signal/slot connections**: Must connect before showing widget, or connection won't fire
+- **Main thread requirement**: All UI updates must happen on main thread (safe in `@qasync.asyncSlot()`)
+- **QPixmap from buffer**: Must reset BytesIO buffer (`buffer.seek(0)`) before reading
+- **Layout updates**: Call `layout.update()` or `widget.adjustSize()` after dynamic changes
+
+### Async/qasync Gotchas
+- **Decorator required**: Qt slots that use `await` MUST have `@qasync.asyncSlot()` decorator
+- **Blocking calls**: Any I/O or CPU-intensive work must be wrapped in `asyncio.to_thread()`
+- **Background threads**: Never call Qt methods from background threads (use signals or await back to main thread)
+- **Event loop**: Only one event loop per app - initialized in `main()` via `qasync.QEventLoop(app)`
+
+### POD5 File Handling
+- **Read objects are temporary**: Don't store Read objects outside context manager
+- **Store IDs only**: Store `str(read.read_id)` not the Read object itself
+- **Large files**: Files with >10,000 reads may require batched loading
+- **VBZ compression**: Requires `vbz_h5py_plugin` (installed automatically with pod5)
+
+### BAM/pysam Issues
+- **check_sq=False required**: Use `pysam.AlignmentFile(..., check_sq=False)` to avoid SQ line issues
+- **Index required for region queries**: BAM must be indexed (.bai) for `fetch(chrom, start, end)`
+- **Move table tag**: Base-to-signal mapping requires "mv" tag in BAM (created by dorado/guppy)
+- **Read iteration**: Use `fetch(until_eof=True)` to iterate all reads without index
+
+### plotnine/Plotting
+- **Memory usage**: Large plots consume significant memory - consider downsampling for >100K samples
+- **Save to buffer**: Use `BytesIO()` not filename for in-memory rendering
+- **DPI settings**: High DPI increases file size and memory usage exponentially
+- **Theme imports**: Import plotnine theme components explicitly to avoid missing elements
+
+### Testing Gotchas
+- **Sample data required**: Tests skip (not fail) if `tests/data/*.pod5` missing
+- **Relative paths**: Run pytest from project root, not `tests/` directory
+- **Qt application**: Can't create multiple QApplication instances in same process
+- **Async tests**: Use pytest-asyncio or run async functions via `asyncio.run()`
+
+### PyInstaller Build Issues
+- **Hidden imports**: Some imports aren't auto-detected - add to `hiddenimports` in spec file
+- **Data files**: Must explicitly list in `datas` parameter
+- **Platform differences**: Test builds on target platform (macOS != Linux != Windows)
+- **Permissions**: macOS requires code signing for distribution outside App Store
+- **Size**: Bundled Qt adds ~100MB to executable size
+
 ## Coding Style and Conventions
 
 ### Code Formatting
