@@ -6,17 +6,21 @@ import numpy as np
 from bokeh.embed import file_html
 from bokeh.layouts import column, row
 from bokeh.models import (
+    ColorBar,
     ColumnDataSource,
     CustomJS,
     HoverTool,
     LabelSet,
-    Range1d,
+    LinearColorMapper,
     Toggle,
+    WheelZoomTool,
 )
+from bokeh.transform import transform
 from bokeh.plotting import figure
 from bokeh.resources import CDN
 
 from .constants import (
+    BASE_ANNOTATION_ALPHA,
     BASE_COLORS,
     PLOT_DPI,
     PLOT_HEIGHT,
@@ -56,6 +60,8 @@ class BokehSquigglePlotter:
         sequence: Optional[str] = None,
         seq_to_sig_map: Optional[List[int]] = None,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
+        downsample: int = 1,
+        show_dwell_time: bool = False,
     ) -> str:
         """
         Plot a single nanopore read with optional base annotations
@@ -67,6 +73,8 @@ class BokehSquigglePlotter:
             sequence: Optional basecall sequence
             seq_to_sig_map: Optional mapping from sequence positions to signal indices
             normalization: Signal normalization method
+            downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
+            show_dwell_time: Color bases by dwell time instead of base type
 
         Returns:
             HTML string containing the bokeh plot
@@ -74,78 +82,246 @@ class BokehSquigglePlotter:
         # Normalize signal
         signal = BokehSquigglePlotter.normalize_signal(signal, normalization)
 
+        # Apply downsampling if requested
+        if downsample > 1:
+            signal = signal[::downsample]
+            # Adjust seq_to_sig_map if present
+            if seq_to_sig_map is not None:
+                seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
+
         # Create time axis in milliseconds
         time_ms = np.arange(len(signal)) * 1000 / sample_rate
 
-        # Create figure
+        # Create figure with responsive sizing
         p = figure(
-            width=int(PLOT_WIDTH * PLOT_DPI),
-            height=int(PLOT_HEIGHT * PLOT_DPI),
             title=f"Read: {read_id}",
             x_axis_label="Time (ms)",
             y_axis_label=f"Signal ({normalization.value})",
-            tools="pan,box_zoom,wheel_zoom,reset,save",
-            active_scroll="wheel_zoom",
+            tools="pan,xbox_zoom,box_zoom,reset,save",
+            active_drag="xbox_zoom",
+            sizing_mode="stretch_both",
         )
 
-        # Plot signal
+        # Add x-only wheel zoom
+        wheel_zoom = WheelZoomTool(dimensions="width")
+        p.add_tools(wheel_zoom)
+        p.toolbar.active_scroll = wheel_zoom
+
+        # Add base annotations as background patches if available
+        base_sources = []
+        color_mapper = None
+        if sequence and seq_to_sig_map is not None and len(seq_to_sig_map) > 0:
+            # Calculate signal range for background patches
+            signal_min = np.min(signal)
+            signal_max = np.max(signal)
+
+            if show_dwell_time:
+                # Calculate dwell times for each base
+                all_regions = []
+                all_dwell_times = []
+                all_labels_data = []
+
+                for seq_pos in range(len(sequence)):
+                    if seq_pos >= len(seq_to_sig_map):
+                        break
+
+                    base = sequence[seq_pos]
+                    if base not in BASE_COLORS:
+                        continue
+
+                    sig_idx = seq_to_sig_map[seq_pos]
+                    if sig_idx >= len(signal):
+                        continue
+
+                    # Calculate start time for this base
+                    start_time = time_ms[sig_idx]
+
+                    # Calculate end time and dwell time
+                    if seq_pos + 1 < len(seq_to_sig_map):
+                        next_sig_idx = seq_to_sig_map[seq_pos + 1]
+                        if next_sig_idx < len(time_ms):
+                            end_time = time_ms[next_sig_idx]
+                        else:
+                            end_time = time_ms[-1]
+                        # Dwell time in milliseconds
+                        dwell_time = end_time - start_time
+                    else:
+                        end_time = time_ms[-1]
+                        dwell_time = end_time - start_time
+
+                    # Store region data with dwell time
+                    all_regions.append(
+                        {
+                            "left": start_time,
+                            "right": end_time,
+                            "top": signal_max,
+                            "bottom": signal_min,
+                            "dwell": dwell_time,
+                        }
+                    )
+                    all_dwell_times.append(dwell_time)
+
+                    # Store label data
+                    mid_time = (start_time + end_time) / 2
+                    all_labels_data.append(
+                        {"time": mid_time, "y": signal[sig_idx], "text": f"{base}{seq_pos}"}
+                    )
+
+                if all_regions:
+                    # Create color mapper for dwell time
+                    dwell_array = np.array(all_dwell_times)
+                    color_mapper = LinearColorMapper(
+                        palette="Viridis256",
+                        low=np.percentile(dwell_array, 5),
+                        high=np.percentile(dwell_array, 95),
+                    )
+
+                    # Create datasource for all patches
+                    patch_source = ColumnDataSource(
+                        data={
+                            "left": [r["left"] for r in all_regions],
+                            "right": [r["right"] for r in all_regions],
+                            "top": [r["top"] for r in all_regions],
+                            "bottom": [r["bottom"] for r in all_regions],
+                            "dwell": [r["dwell"] for r in all_regions],
+                        }
+                    )
+
+                    # Draw background patches colored by dwell time
+                    p.quad(
+                        left="left",
+                        right="right",
+                        top="top",
+                        bottom="bottom",
+                        source=patch_source,
+                        fill_color=transform("dwell", color_mapper),
+                        line_color=None,
+                        alpha=0.3,
+                    )
+
+                    # Create single label source
+                    if all_labels_data:
+                        label_source = ColumnDataSource(
+                            data={
+                                "time": [d["time"] for d in all_labels_data],
+                                "y": [d["y"] for d in all_labels_data],
+                                "text": [d["text"] for d in all_labels_data],
+                            }
+                        )
+                        base_sources.append(("all", label_source))
+
+            else:
+                # Group bases by type for legend (original behavior)
+                base_regions = {base: [] for base in ["A", "C", "G", "T"]}
+                base_labels_data = {base: [] for base in ["A", "C", "G", "T"]}
+
+                # Process each base and calculate its region
+                for seq_pos in range(len(sequence)):
+                    if seq_pos >= len(seq_to_sig_map):
+                        break
+
+                    base = sequence[seq_pos]
+                    if base not in BASE_COLORS:
+                        continue
+
+                    sig_idx = seq_to_sig_map[seq_pos]
+                    if sig_idx >= len(signal):
+                        continue
+
+                    # Calculate start time for this base
+                    start_time = time_ms[sig_idx]
+
+                    # Calculate end time (use next base's start or signal end)
+                    if seq_pos + 1 < len(seq_to_sig_map):
+                        next_sig_idx = seq_to_sig_map[seq_pos + 1]
+                        if next_sig_idx < len(time_ms):
+                            end_time = time_ms[next_sig_idx]
+                        else:
+                            end_time = time_ms[-1]
+                    else:
+                        end_time = time_ms[-1]
+
+                    # Store region data
+                    base_regions[base].append(
+                        {
+                            "left": start_time,
+                            "right": end_time,
+                            "top": signal_max,
+                            "bottom": signal_min,
+                        }
+                    )
+
+                    # Store label data (center of region)
+                    mid_time = (start_time + end_time) / 2
+                    base_labels_data[base].append(
+                        {"time": mid_time, "y": signal[sig_idx], "text": f"{base}{seq_pos}"}
+                    )
+
+                # Draw background patches for each base type
+                for base in ["A", "C", "G", "T"]:
+                    if base_regions[base]:
+                        # Create datasource for quad patches
+                        patch_source = ColumnDataSource(
+                            data={
+                                "left": [r["left"] for r in base_regions[base]],
+                                "right": [r["right"] for r in base_regions[base]],
+                                "top": [r["top"] for r in base_regions[base]],
+                                "bottom": [r["bottom"] for r in base_regions[base]],
+                            }
+                        )
+
+                        # Draw shaded background regions
+                        p.quad(
+                            left="left",
+                            right="right",
+                            top="top",
+                            bottom="bottom",
+                            source=patch_source,
+                            color=BASE_COLORS[base],
+                            alpha=BASE_ANNOTATION_ALPHA,
+                            legend_label=f"Base {base}",
+                        )
+
+                        # Create datasource for labels
+                        if base_labels_data[base]:
+                            label_source = ColumnDataSource(
+                                data={
+                                    "time": [d["time"] for d in base_labels_data[base]],
+                                    "y": [d["y"] for d in base_labels_data[base]],
+                                    "text": [d["text"] for d in base_labels_data[base]],
+                                }
+                            )
+                            base_sources.append((base, label_source))
+
+        # Plot signal line on top of background patches
         signal_source = ColumnDataSource(
-            data=dict(time=time_ms, signal=signal, sample=np.arange(len(signal)))
+            data={"time": time_ms, "signal": signal, "sample": np.arange(len(signal))}
         )
 
-        p.line("time", "signal", source=signal_source, line_width=1, color="navy", alpha=0.8)
+        line_renderer = p.line(
+            "time",
+            "signal",
+            source=signal_source,
+            line_width=1,
+            color="navy",
+            alpha=0.8,
+        )
 
-        # Add hover tool
+        # Add hover tool - only for the signal line
         hover = HoverTool(
+            renderers=[line_renderer],
             tooltips=[
                 ("Time", "@time{0.2f} ms"),
                 ("Signal", "@signal{0.2f}"),
                 ("Sample", "@sample"),
-            ]
+            ],
+            mode="mouse",
+            point_policy="snap_to_data",
         )
         p.add_tools(hover)
 
-        # Add base annotations if available
-        if sequence and seq_to_sig_map:
-            base_sources = []
-            base_labels = []
-
-            for base in ["A", "C", "G", "T"]:
-                base_x = []
-                base_y = []
-                base_text = []
-                base_time = []
-
-                for i, (seq_pos, sig_idx) in enumerate(zip(range(len(sequence)), seq_to_sig_map)):
-                    if sequence[seq_pos] == base and sig_idx < len(signal):
-                        t = time_ms[sig_idx]
-                        base_x.append(sig_idx)
-                        base_time.append(t)
-                        base_y.append(signal[sig_idx])
-                        base_text.append(f"{base}{seq_pos}")
-
-                if base_x:
-                    source = ColumnDataSource(
-                        data=dict(
-                            x=base_x,
-                            time=base_time,
-                            y=base_y,
-                            text=base_text,
-                        )
-                    )
-                    base_sources.append((base, source))
-
-                    # Plot base markers
-                    p.circle(
-                        "time",
-                        "y",
-                        source=source,
-                        size=8,
-                        color=BASE_COLORS[base],
-                        alpha=0.6,
-                        legend_label=f"Base {base}",
-                    )
-
+        # Add base labels (if annotations were added)
+        if base_sources:
             # Add base labels (initially hidden)
             for base, source in base_sources:
                 labels = LabelSet(
@@ -153,7 +329,7 @@ class BokehSquigglePlotter:
                     y="y",
                     text="text",
                     source=source,
-                    text_font_size="8pt",
+                    text_font_size="10pt",
                     text_color=BASE_COLORS[base],
                     text_alpha=0.0,  # Initially hidden
                     name=f"labels_{base}",
@@ -161,7 +337,9 @@ class BokehSquigglePlotter:
                 p.add_layout(labels)
 
             # Add toggle button for base labels
-            toggle_labels = Toggle(label="Show Base Labels", active=False, button_type="primary")
+            toggle_labels = Toggle(
+                label="Show Base Labels", active=False, button_type="primary"
+            )
 
             # JavaScript callback to toggle label visibility
             callback_code = """
@@ -172,17 +350,51 @@ class BokehSquigglePlotter:
                 }
             }
             """
-            toggle_labels.js_on_click(
-                CustomJS(args=dict(fig=p), code=callback_code)
+            toggle_labels.js_on_click(CustomJS(args={"fig": p}, code=callback_code))
+
+            # Add automatic zoom-based label visibility
+            # Show labels when zoomed in to < 5000 ms window
+            zoom_callback_code = """
+            const x_range = fig.x_range;
+            const visible_range = x_range.end - x_range.start;
+            const threshold = 5000;  // milliseconds
+
+            // Only auto-show if toggle is not manually activated
+            if (!toggle.active) {
+                const alpha = visible_range < threshold ? 0.8 : 0.0;
+                for (const renderer of fig.renderers) {
+                    if (renderer.name && renderer.name.startsWith('labels_')) {
+                        renderer.text_alpha = alpha;
+                    }
+                }
+            }
+            """
+            p.x_range.js_on_change(
+                "end",
+                CustomJS(
+                    args={"fig": p, "toggle": toggle_labels}, code=zoom_callback_code
+                ),
             )
 
-            p.legend.click_policy = "hide"
-            p.legend.location = "top_right"
+            if not show_dwell_time:
+                p.legend.click_policy = "hide"
+                p.legend.location = "top_right"
 
-            # Return layout with controls
-            layout = column(row(toggle_labels), p)
+            # Return layout with controls (also responsive)
+            layout = column(row(toggle_labels), p, sizing_mode="stretch_both")
         else:
             layout = p
+
+        # Add color bar if showing dwell time
+        if color_mapper is not None:
+            color_bar = ColorBar(
+                color_mapper=color_mapper,
+                label_standoff=12,
+                location=(0, 0),
+                title="Dwell Time (ms)",
+                title_standoff=15,
+            )
+            p.add_layout(color_bar, "right")
 
         # Generate HTML string
         html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
@@ -194,6 +406,8 @@ class BokehSquigglePlotter:
         mode: PlotMode,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
         aligned_reads: Optional[List] = None,
+        downsample: int = 1,
+        show_dwell_time: bool = False,
     ) -> str:
         """
         Plot multiple reads in overlay or stacked mode
@@ -203,16 +417,20 @@ class BokehSquigglePlotter:
             mode: Plot mode (OVERLAY or STACKED)
             normalization: Signal normalization method
             aligned_reads: Optional list of aligned read objects for EVENTALIGN mode
+            downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
+            show_dwell_time: Color bases by dwell time instead of base type
 
         Returns:
             HTML string containing the bokeh plot
         """
         if mode == PlotMode.OVERLAY:
-            return BokehSquigglePlotter._plot_overlay(reads_data, normalization)
+            return BokehSquigglePlotter._plot_overlay(reads_data, normalization, downsample)
         elif mode == PlotMode.STACKED:
-            return BokehSquigglePlotter._plot_stacked(reads_data, normalization)
+            return BokehSquigglePlotter._plot_stacked(reads_data, normalization, downsample)
         elif mode == PlotMode.EVENTALIGN:
-            return BokehSquigglePlotter._plot_eventalign(reads_data, normalization, aligned_reads)
+            return BokehSquigglePlotter._plot_eventalign(
+                reads_data, normalization, aligned_reads, downsample, show_dwell_time
+            )
         else:
             raise ValueError(f"Unsupported plot mode: {mode}")
 
@@ -220,32 +438,44 @@ class BokehSquigglePlotter:
     def _plot_overlay(
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
+        downsample: int = 1,
     ) -> str:
         """Plot multiple reads overlaid on same axes"""
-        # Create figure
+        # Create figure with responsive sizing
         p = figure(
-            width=int(PLOT_WIDTH * PLOT_DPI),
-            height=int(PLOT_HEIGHT * PLOT_DPI),
             title=f"Overlay: {len(reads_data)} reads",
             x_axis_label="Sample",
             y_axis_label=f"Signal ({normalization.value})",
-            tools="pan,box_zoom,wheel_zoom,reset,save",
-            active_scroll="wheel_zoom",
+            tools="pan,xbox_zoom,box_zoom,reset,save",
+            active_drag="xbox_zoom",
+            sizing_mode="stretch_both",
         )
 
-        colors = ["navy", "red", "green", "orange", "purple", "brown", "pink", "gray"]
+        # Add x-only wheel zoom
+        wheel_zoom = WheelZoomTool(dimensions="width")
+        p.add_tools(wheel_zoom)
+        p.toolbar.active_scroll = wheel_zoom
 
-        for idx, (read_id, signal, sample_rate) in enumerate(reads_data):
+        colors = ["navy", "red", "green", "orange", "purple", "brown", "pink", "gray"]
+        line_renderers = []
+
+        for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
             # Normalize signal
             signal = BokehSquigglePlotter.normalize_signal(signal, normalization)
 
+            # Apply downsampling if requested
+            if downsample > 1:
+                signal = signal[::downsample]
+
             # Create data source
             x = np.arange(len(signal))
-            source = ColumnDataSource(data=dict(x=x, y=signal, read_id=[read_id] * len(signal)))
+            source = ColumnDataSource(
+                data={"x": x, "y": signal, "read_id": [read_id] * len(signal)}
+            )
 
             # Plot line
             color = colors[idx % len(colors)]
-            p.line(
+            line = p.line(
                 "x",
                 "y",
                 source=source,
@@ -254,9 +484,15 @@ class BokehSquigglePlotter:
                 alpha=0.7,
                 legend_label=read_id[:12],
             )
+            line_renderers.append(line)
 
-        # Add hover tool
-        hover = HoverTool(tooltips=[("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")])
+        # Add hover tool - only for the signal lines
+        hover = HoverTool(
+            renderers=line_renderers,
+            tooltips=[("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")],
+            mode="mouse",
+            point_policy="snap_to_data",
+        )
         p.add_tools(hover)
 
         p.legend.click_policy = "hide"
@@ -270,18 +506,23 @@ class BokehSquigglePlotter:
     def _plot_stacked(
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
+        downsample: int = 1,
     ) -> str:
         """Plot multiple reads stacked vertically with offset"""
-        # Create figure
+        # Create figure with responsive sizing
         p = figure(
-            width=int(PLOT_WIDTH * PLOT_DPI),
-            height=int(PLOT_HEIGHT * PLOT_DPI),
             title=f"Stacked: {len(reads_data)} reads",
             x_axis_label="Sample",
             y_axis_label=f"Signal ({normalization.value}) + offset",
-            tools="pan,box_zoom,wheel_zoom,reset,save",
-            active_scroll="wheel_zoom",
+            tools="pan,xbox_zoom,box_zoom,reset,save",
+            active_drag="xbox_zoom",
+            sizing_mode="stretch_both",
         )
+
+        # Add x-only wheel zoom
+        wheel_zoom = WheelZoomTool(dimensions="width")
+        p.add_tools(wheel_zoom)
+        p.toolbar.active_scroll = wheel_zoom
 
         colors = ["navy", "red", "green", "orange", "purple", "brown", "pink", "gray"]
         offset_step = 0  # Will be calculated based on signal range
@@ -290,6 +531,11 @@ class BokehSquigglePlotter:
         normalized_signals = []
         for read_id, signal, sample_rate in reads_data:
             norm_signal = BokehSquigglePlotter.normalize_signal(signal, normalization)
+
+            # Apply downsampling if requested
+            if downsample > 1:
+                norm_signal = norm_signal[::downsample]
+
             normalized_signals.append((read_id, norm_signal, sample_rate))
 
             # Calculate offset based on signal range
@@ -297,19 +543,20 @@ class BokehSquigglePlotter:
             offset_step = max(offset_step, signal_range * 1.2)
 
         # Second pass: plot with offsets
-        for idx, (read_id, signal, sample_rate) in enumerate(normalized_signals):
+        line_renderers = []
+        for idx, (read_id, signal, _sample_rate) in enumerate(normalized_signals):
             offset = idx * offset_step
 
             # Create data source
             x = np.arange(len(signal))
             y_offset = signal + offset
             source = ColumnDataSource(
-                data=dict(x=x, y=y_offset, read_id=[read_id] * len(signal))
+                data={"x": x, "y": y_offset, "read_id": [read_id] * len(signal)}
             )
 
             # Plot line
             color = colors[idx % len(colors)]
-            p.line(
+            line = p.line(
                 "x",
                 "y",
                 source=source,
@@ -318,9 +565,15 @@ class BokehSquigglePlotter:
                 alpha=0.8,
                 legend_label=read_id[:12],
             )
+            line_renderers.append(line)
 
-        # Add hover tool
-        hover = HoverTool(tooltips=[("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")])
+        # Add hover tool - only for the signal lines
+        hover = HoverTool(
+            renderers=line_renderers,
+            tooltips=[("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")],
+            mode="mouse",
+            point_policy="snap_to_data",
+        )
         p.add_tools(hover)
 
         p.legend.click_policy = "hide"
@@ -335,40 +588,183 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         aligned_reads: Optional[List],
+        downsample: int = 1,
+        show_dwell_time: bool = False,
     ) -> str:
         """Plot event-aligned reads with base annotations"""
         if not aligned_reads:
             raise ValueError("Event-aligned mode requires aligned_reads data")
 
-        # Create figure
+        # Create figure with responsive sizing
         p = figure(
-            width=int(PLOT_WIDTH * PLOT_DPI),
-            height=int(PLOT_HEIGHT * PLOT_DPI),
             title=f"Event-Aligned: {len(reads_data)} reads",
             x_axis_label="Base Position",
             y_axis_label=f"Signal ({normalization.value})",
-            tools="pan,box_zoom,wheel_zoom,reset,save",
-            active_scroll="wheel_zoom",
+            tools="pan,xbox_zoom,box_zoom,reset,save",
+            active_drag="xbox_zoom",
+            sizing_mode="stretch_both",
         )
 
-        colors = ["navy", "red", "green", "orange", "purple", "brown", "pink", "gray"]
+        # Add x-only wheel zoom
+        wheel_zoom = WheelZoomTool(dimensions="width")
+        p.add_tools(wheel_zoom)
+        p.toolbar.active_scroll = wheel_zoom
 
-        for idx, (read_id, signal, sample_rate) in enumerate(reads_data):
+        colors = ["navy", "red", "green", "orange", "purple", "brown", "pink", "gray"]
+        color_mapper = None
+
+        # First pass: add background patches for base annotations
+        # We'll do this once based on the first read's base annotations
+        if len(reads_data) > 0 and len(aligned_reads) > 0:
+            first_aligned = aligned_reads[0]
+            base_annotations = first_aligned.bases
+
+            # Calculate signal range for background patches (across all reads)
+            all_signals = []
+            for _, signal, _ in reads_data:
+                norm_signal = BokehSquigglePlotter.normalize_signal(signal, normalization)
+                # Note: Not applying downsampling for range calculation in event-aligned mode
+                all_signals.append(norm_signal)
+
+            if all_signals:
+                signal_min = min(np.min(s) for s in all_signals)
+                signal_max = max(np.max(s) for s in all_signals)
+
+                if show_dwell_time:
+                    # Calculate dwell times based on signal differences between bases
+                    all_regions = []
+                    all_dwell_times = []
+
+                    for i, base_annotation in enumerate(base_annotations):
+                        base = base_annotation.base
+                        if base not in BASE_COLORS:
+                            continue
+
+                        # Calculate dwell time from signal indices
+                        if i + 1 < len(base_annotations):
+                            next_annotation = base_annotations[i + 1]
+                            dwell_samples = next_annotation.signal_start - base_annotation.signal_start
+                        else:
+                            # Last base - estimate from remaining signal
+                            dwell_samples = len(all_signals[0]) - base_annotation.signal_start
+
+                        # Convert to milliseconds (sample_rate from first read)
+                        sample_rate = reads_data[0][2]
+                        dwell_time = (dwell_samples / sample_rate) * 1000
+
+                        # Store region data with dwell time
+                        all_regions.append(
+                            {
+                                "left": i - 0.5,
+                                "right": i + 0.5,
+                                "top": signal_max,
+                                "bottom": signal_min,
+                                "dwell": dwell_time,
+                            }
+                        )
+                        all_dwell_times.append(dwell_time)
+
+                    if all_regions:
+                        # Create color mapper for dwell time
+                        dwell_array = np.array(all_dwell_times)
+                        color_mapper = LinearColorMapper(
+                            palette="Viridis256",
+                            low=np.percentile(dwell_array, 5),
+                            high=np.percentile(dwell_array, 95),
+                        )
+
+                        # Create datasource for all patches
+                        patch_source = ColumnDataSource(
+                            data={
+                                "left": [r["left"] for r in all_regions],
+                                "right": [r["right"] for r in all_regions],
+                                "top": [r["top"] for r in all_regions],
+                                "bottom": [r["bottom"] for r in all_regions],
+                                "dwell": [r["dwell"] for r in all_regions],
+                            }
+                        )
+
+                        # Draw background patches colored by dwell time
+                        p.quad(
+                            left="left",
+                            right="right",
+                            top="top",
+                            bottom="bottom",
+                            source=patch_source,
+                            fill_color=transform("dwell", color_mapper),
+                            line_color=None,
+                            alpha=0.3,
+                        )
+
+                else:
+                    # Group bases by type for patches (original behavior)
+                    base_regions = {base: [] for base in ["A", "C", "G", "T"]}
+
+                    # Process each base position
+                    for i, base_annotation in enumerate(base_annotations):
+                        base = base_annotation.base
+                        if base not in BASE_COLORS:
+                            continue
+
+                        # Calculate left and right boundaries (base position coordinates)
+                        left = i - 0.5
+                        right = i + 0.5
+
+                        # Store region data
+                        base_regions[base].append(
+                            {
+                                "left": left,
+                                "right": right,
+                                "top": signal_max,
+                                "bottom": signal_min,
+                            }
+                        )
+
+                    # Draw background patches for each base type
+                    for base in ["A", "C", "G", "T"]:
+                        if base_regions[base]:
+                            patch_source = ColumnDataSource(
+                                data={
+                                    "left": [r["left"] for r in base_regions[base]],
+                                    "right": [r["right"] for r in base_regions[base]],
+                                    "top": [r["top"] for r in base_regions[base]],
+                                    "bottom": [r["bottom"] for r in base_regions[base]],
+                                }
+                            )
+
+                            # Draw shaded background regions
+                            p.quad(
+                                left="left",
+                                right="right",
+                                top="top",
+                                bottom="bottom",
+                                source=patch_source,
+                                color=BASE_COLORS[base],
+                                alpha=BASE_ANNOTATION_ALPHA,
+                                legend_label=f"Base {base}",
+                            )
+
+        # Second pass: plot signal lines on top of background patches
+        line_renderers = []
+        for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
             aligned_read = aligned_reads[idx]
 
             # Normalize signal
             signal = BokehSquigglePlotter.normalize_signal(signal, normalization)
 
             # Extract base-to-signal mapping
-            bases = aligned_read.bases
-            move_starts = aligned_read.move_starts
+            base_annotations = aligned_read.bases
 
             # Create base-aligned x-coordinates
             base_x = []
             base_y = []
             base_labels = []
 
-            for i, (base, start_idx) in enumerate(zip(bases, move_starts)):
+            # Note: Downsampling is not applied in event-aligned mode
+            # because we're already plotting one point per base
+            for i, base_annotation in enumerate(base_annotations):
+                base = base_annotation.base
+                start_idx = base_annotation.signal_start
                 if start_idx < len(signal):
                     base_x.append(i)
                     base_y.append(signal[start_idx])
@@ -376,17 +772,17 @@ class BokehSquigglePlotter:
 
             # Create data source
             source = ColumnDataSource(
-                data=dict(
-                    x=base_x,
-                    y=base_y,
-                    base=base_labels,
-                    read_id=[read_id] * len(base_x),
-                )
+                data={
+                    "x": base_x,
+                    "y": base_y,
+                    "base": base_labels,
+                    "read_id": [read_id] * len(base_x),
+                }
             )
 
-            # Plot line
+            # Plot line on top of background patches
             color = colors[idx % len(colors)]
-            p.line(
+            line = p.line(
                 "x",
                 "y",
                 source=source,
@@ -395,36 +791,39 @@ class BokehSquigglePlotter:
                 alpha=0.8,
                 legend_label=read_id[:12],
             )
+            line_renderers.append(line)
 
-            # Add base markers colored by base type
-            for base_char in ["A", "C", "G", "T"]:
-                base_indices = [i for i, b in enumerate(base_labels) if b == base_char]
-                if base_indices:
-                    base_source = ColumnDataSource(
-                        data=dict(
-                            x=[base_x[i] for i in base_indices],
-                            y=[base_y[i] for i in base_indices],
-                            base=[base_labels[i] for i in base_indices],
-                        )
-                    )
-                    p.circle(
-                        "x",
-                        "y",
-                        source=base_source,
-                        size=6,
-                        color=BASE_COLORS[base_char],
-                        alpha=0.6,
-                    )
-
-        # Add hover tool
+        # Add hover tool - only for the signal lines
         hover = HoverTool(
-            tooltips=[("Read", "@read_id"), ("Base Position", "@x"), ("Base", "@base"), ("Signal", "@y{0.2f}")]
+            renderers=line_renderers,
+            tooltips=[
+                ("Read", "@read_id"),
+                ("Base Position", "@x"),
+                ("Base", "@base"),
+                ("Signal", "@y{0.2f}"),
+            ],
+            mode="mouse",
+            point_policy="snap_to_data",
         )
         p.add_tools(hover)
 
-        p.legend.click_policy = "hide"
-        p.legend.location = "top_right"
+        if not show_dwell_time:
+            p.legend.click_policy = "hide"
+            p.legend.location = "top_right"
+
+        # Add color bar if showing dwell time
+        if color_mapper is not None:
+            color_bar = ColorBar(
+                color_mapper=color_mapper,
+                label_standoff=12,
+                location=(0, 0),
+                title="Dwell Time (ms)",
+                title_standoff=15,
+            )
+            p.add_layout(color_bar, "right")
 
         # Generate HTML string
-        html = file_html(p, CDN, title=f"Squiggy: Event-Aligned ({len(reads_data)} reads)")
+        html = file_html(
+            p, CDN, title=f"Squiggy: Event-Aligned ({len(reads_data)} reads)"
+        )
         return html
