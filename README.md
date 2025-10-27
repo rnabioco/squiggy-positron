@@ -195,7 +195,7 @@ pip install -e ".[macos]"
 python scripts/check_dev_env.py
 
 # Run with sample data
-squiggy -p tests/data/simplex_reads.pod5 -b tests/data/simplex_reads_mapped.bam
+squiggy -p tests/data/mod_reads.pod5 -b tests/data/mod_mappings.bam
 ```
 
 ### Development Workflow
