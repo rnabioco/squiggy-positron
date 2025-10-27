@@ -62,6 +62,7 @@ class BokehSquigglePlotter:
         normalization: NormalizationMethod = NormalizationMethod.NONE,
         downsample: int = 1,
         show_dwell_time: bool = False,
+        show_labels: bool = True,
     ) -> str:
         """
         Plot a single nanopore read with optional base annotations
@@ -320,9 +321,9 @@ class BokehSquigglePlotter:
         )
         p.add_tools(hover)
 
-        # Add base labels (if annotations were added)
-        if base_sources:
-            # Add base labels (initially hidden)
+        # Add base labels (if annotations were added and show_labels is True)
+        if base_sources and show_labels:
+            # Add base labels (visible by default)
             for base, source in base_sources:
                 labels = LabelSet(
                     x="time",
@@ -331,14 +332,14 @@ class BokehSquigglePlotter:
                     source=source,
                     text_font_size="10pt",
                     text_color=BASE_COLORS[base],
-                    text_alpha=0.0,  # Initially hidden
+                    text_alpha=0.8,  # Visible by default
                     name=f"labels_{base}",
                 )
                 p.add_layout(labels)
 
             # Add toggle button for base labels
             toggle_labels = Toggle(
-                label="Show Base Labels", active=False, button_type="primary"
+                label="Show Base Labels", active=True, button_type="primary"
             )
 
             # JavaScript callback to toggle label visibility
@@ -408,6 +409,7 @@ class BokehSquigglePlotter:
         aligned_reads: Optional[List] = None,
         downsample: int = 1,
         show_dwell_time: bool = False,
+        show_labels: bool = True,
     ) -> str:
         """
         Plot multiple reads in overlay or stacked mode
@@ -429,7 +431,7 @@ class BokehSquigglePlotter:
             return BokehSquigglePlotter._plot_stacked(reads_data, normalization, downsample)
         elif mode == PlotMode.EVENTALIGN:
             return BokehSquigglePlotter._plot_eventalign(
-                reads_data, normalization, aligned_reads, downsample, show_dwell_time
+                reads_data, normalization, aligned_reads, downsample, show_dwell_time, show_labels
             )
         else:
             raise ValueError(f"Unsupported plot mode: {mode}")
@@ -590,6 +592,7 @@ class BokehSquigglePlotter:
         aligned_reads: Optional[List],
         downsample: int = 1,
         show_dwell_time: bool = False,
+        show_labels: bool = True,
     ) -> str:
         """Plot event-aligned reads with base annotations"""
         if not aligned_reads:
@@ -696,6 +699,40 @@ class BokehSquigglePlotter:
                             alpha=0.3,
                         )
 
+                        # Add base labels (if show_labels is True) for dwell time mode
+                        if show_labels:
+                            label_data = []
+                            for i, base_annotation in enumerate(base_annotations):
+                                base = base_annotation.base
+                                if base in BASE_COLORS:
+                                    label_data.append({
+                                        "x": i,
+                                        "y": signal_max,  # Position at top of plot
+                                        "text": base,
+                                    })
+
+                            if label_data:
+                                label_source = ColumnDataSource(
+                                    data={
+                                        "x": [d["x"] for d in label_data],
+                                        "y": [d["y"] for d in label_data],
+                                        "text": [d["text"] for d in label_data],
+                                    }
+                                )
+                                labels = LabelSet(
+                                    x="x",
+                                    y="y",
+                                    text="text",
+                                    source=label_source,
+                                    text_font_size="10pt",
+                                    text_color="black",  # Use black for dwell time mode
+                                    text_alpha=0.8,  # Visible by default
+                                    text_align="center",
+                                    text_baseline="bottom",
+                                    y_offset=5,  # Small offset above the plot
+                                )
+                                p.add_layout(labels)
+
                 else:
                     # Group bases by type for patches (original behavior)
                     base_regions = {base: [] for base in ["A", "C", "G", "T"]}
@@ -743,6 +780,42 @@ class BokehSquigglePlotter:
                                 alpha=BASE_ANNOTATION_ALPHA,
                                 legend_label=f"Base {base}",
                             )
+
+                # Add base labels (if show_labels is True)
+                if show_labels:
+                    label_data = []
+                    for i, base_annotation in enumerate(base_annotations):
+                        base = base_annotation.base
+                        if base in BASE_COLORS:
+                            label_data.append({
+                                "x": i,
+                                "y": signal_max,  # Position at top of plot
+                                "text": base,
+                                "color": BASE_COLORS[base]
+                            })
+
+                    if label_data:
+                        label_source = ColumnDataSource(
+                            data={
+                                "x": [d["x"] for d in label_data],
+                                "y": [d["y"] for d in label_data],
+                                "text": [d["text"] for d in label_data],
+                                "color": [d["color"] for d in label_data],
+                            }
+                        )
+                        labels = LabelSet(
+                            x="x",
+                            y="y",
+                            text="text",
+                            source=label_source,
+                            text_font_size="10pt",
+                            text_color="color",
+                            text_alpha=0.8,  # Visible by default
+                            text_align="center",
+                            text_baseline="bottom",
+                            y_offset=5,  # Small offset above the plot
+                        )
+                        p.add_layout(labels)
 
         # Second pass: plot signal lines on top of background patches
         line_renderers = []

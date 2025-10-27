@@ -115,8 +115,8 @@ class SquiggleViewer(QMainWindow):
         self.read_dict = {}
         self.alignment_info = {}  # Maps read_id -> alignment metadata
         self.current_read_item = None
-        self.show_bases = False
-        self.plot_mode = PlotMode.SINGLE
+        self.show_bases = True  # Default to showing base annotations
+        self.plot_mode = PlotMode.EVENTALIGN  # Default to event-aligned mode (primary mode)
         self.normalization_method = NormalizationMethod.MEDIAN
         self.downsample_factor = 1  # 1 = no downsampling, 10 = every 10th point
         self.show_dwell_time = False  # Show dwell time coloring
@@ -177,6 +177,7 @@ class SquiggleViewer(QMainWindow):
 
         # Add base annotation toggle
         self.base_checkbox = QCheckBox("Show base annotations")
+        self.base_checkbox.setChecked(True)  # Checked by default
         self.base_checkbox.setEnabled(False)
         self.base_checkbox.stateChanged.connect(self.toggle_base_annotations)
         search_layout.addWidget(self.base_checkbox)
@@ -340,6 +341,7 @@ class SquiggleViewer(QMainWindow):
         self.mode_eventalign.toggled.connect(
             lambda checked: self.set_plot_mode(PlotMode.EVENTALIGN) if checked else None
         )
+        self.mode_eventalign.setChecked(True)  # Checked by default (visual indication of primary mode)
         self.mode_eventalign.setEnabled(False)  # Disabled until BAM file loaded
         self.mode_button_group.addButton(self.mode_eventalign)
         content_layout.addWidget(self.mode_eventalign)
@@ -364,7 +366,6 @@ class SquiggleViewer(QMainWindow):
 
         # Single read mode (bottom - fallback when no BAM)
         self.mode_single = QRadioButton("Single Read")
-        self.mode_single.setChecked(True)
         self.mode_single.setToolTip("Display one read at a time")
         self.mode_single.toggled.connect(
             lambda checked: self.set_plot_mode(PlotMode.SINGLE) if checked else None
@@ -900,6 +901,7 @@ class SquiggleViewer(QMainWindow):
                 self.base_checkbox.setChecked(True)  # Check by default
                 self.mode_eventalign.setEnabled(True)
                 self.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
+                self.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
                 self.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
 
                 # Enable browse references button if in region search mode
@@ -922,7 +924,10 @@ class SquiggleViewer(QMainWindow):
         self.show_bases = state == Qt.Checked
         # Refresh current plot if one is displayed
         if self.read_list.selectedItems():
-            await self.update_plot_from_selection()
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            asyncio.create_task(self.update_plot_with_delay())
 
     @qasync.asyncSlot()
     async def on_read_selection_changed(self):
@@ -936,6 +941,12 @@ class SquiggleViewer(QMainWindow):
 
         if not selected_items:
             return
+
+        # Automatic fallback: if event-aligned mode is selected but no BAM is loaded,
+        # switch to single read mode for a smoother user experience
+        if self.plot_mode == PlotMode.EVENTALIGN and not self.bam_file:
+            self.plot_mode = PlotMode.SINGLE
+            self.mode_single.setChecked(True)
 
         # Get selected read IDs
         read_ids = [item.text() for item in selected_items]
@@ -1180,6 +1191,7 @@ class SquiggleViewer(QMainWindow):
             normalization=self.normalization_method,
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
+            show_labels=self.show_bases,
         )
 
         return html, signal, sequence
@@ -1237,6 +1249,7 @@ class SquiggleViewer(QMainWindow):
             normalization=self.normalization_method,
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
+            show_labels=self.show_bases,
         )
 
         return html, reads_data
@@ -1310,6 +1323,7 @@ class SquiggleViewer(QMainWindow):
             aligned_reads=aligned_reads,
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
+            show_labels=self.show_bases,
         )
 
         return html, reads_data, aligned_reads
