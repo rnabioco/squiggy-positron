@@ -1,6 +1,5 @@
 """Tests for Bokeh-based plotting functionality."""
 
-import re
 
 import numpy as np
 import pytest
@@ -342,7 +341,6 @@ class TestDownsampling:
 
     def test_downsampling_reduces_signal(self):
         """Test that downsampling reduces the number of data points."""
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
 
         # Create large signal
         signal = np.random.randn(10000)
@@ -466,19 +464,26 @@ class TestDwellTimeVisualization:
                                     show_dwell_time=True,
                                 )
 
-                                # Should return (regions, dwell_times)
-                                assert len(result) == 2
-                                all_regions, all_dwell_times = result
+                                # Should return (base_regions,)
+                                assert len(result) == 1
+                                (base_regions,) = result
 
-                                assert isinstance(all_regions, list)
-                                assert isinstance(all_dwell_times, list)
+                                assert isinstance(base_regions, dict)
 
-                                # Should have same length
-                                assert len(all_regions) == len(all_dwell_times)
+                                # Should have base type keys
+                                assert all(base in ["A", "C", "G", "T", "U"] for base in base_regions.keys())
 
-                                # Each dwell time should be non-negative
-                                for dwell in all_dwell_times:
-                                    assert dwell >= 0
+                                # Each region should have time-based coordinates (left != right)
+                                total_regions = 0
+                                for _base, regions in base_regions.items():
+                                    for region in regions:
+                                        assert "left" in region
+                                        assert "right" in region
+                                        assert region["right"] > region["left"]  # Time-scaled width
+                                        total_regions += 1
+
+                                # Should have some regions
+                                assert total_regions > 0
 
                                 return  # Test passed, exit
 
@@ -559,3 +564,94 @@ class TestPlotFormatting:
         assert fig.title.text == "Test Plot"
         assert fig.xaxis.axis_label == "Time (ms)"
         assert fig.yaxis.axis_label == "Signal (pA)"
+
+
+class TestStrideAwareDwellTime:
+    """Tests for stride-aware dwell time calculations in plotting."""
+
+    def test_dwell_time_respects_stride(self, sample_pod5_file, sample_bam_file):
+        """Test that dwell time calculations account for stride."""
+        import pod5
+        import pysam
+
+        from squiggy.utils import get_basecall_data
+
+        with pod5.Reader(sample_pod5_file) as reader:
+            read = next(reader.reads())
+            read_id = str(read.read_id)
+            sample_rate = read.run_info.sample_rate
+
+            sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, read_id)
+
+            if sequence is not None and len(sequence) > 1:
+                # Check stride from BAM
+                with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+                    for alignment in bam.fetch(until_eof=True):
+                        if alignment.query_name == read_id and alignment.has_tag("mv"):
+                            move_table = np.array(alignment.get_tag("mv"), dtype=np.uint8)
+                            stride = int(move_table[0])
+
+                            # Calculate dwell time manually for first base
+                            if len(seq_to_sig_map) > 1:
+                                signal_samples = seq_to_sig_map[1] - seq_to_sig_map[0]
+                                dwell_time_ms = (signal_samples / sample_rate) * 1000
+
+                                # Dwell time should be realistic (not microseconds)
+                                # Before stride fix: ~0.2 ms (wrong)
+                                # After stride fix: ~1-10 ms (correct)
+                                assert dwell_time_ms >= 0.5, (
+                                    f"Dwell time {dwell_time_ms} ms is too short. "
+                                    f"Expected >= 0.5 ms with stride={stride}"
+                                )
+                                assert dwell_time_ms <= 50, (
+                                    f"Dwell time {dwell_time_ms} ms is too long. "
+                                    f"Expected <= 50 ms"
+                                )
+
+                                # Signal samples should be multiple of stride
+                                assert signal_samples % stride == 0, (
+                                    f"Signal samples {signal_samples} not multiple of stride {stride}"
+                                )
+
+                            return
+
+            pytest.skip("No basecall data available for stride dwell time test")
+
+    def test_realistic_dwell_times_in_plot(self, sample_pod5_file, sample_bam_file):
+        """Test that plotted dwell times are in realistic range."""
+        import pod5
+
+        from squiggy.utils import get_basecall_data
+
+        with pod5.Reader(sample_pod5_file) as reader:
+            read = next(reader.reads())
+            read_id = str(read.read_id)
+            sample_rate = read.run_info.sample_rate
+
+            sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, read_id)
+
+            if sequence is not None and len(seq_to_sig_map) > 10:
+                # Calculate dwell times for first 10 bases
+                dwell_times = []
+                for i in range(min(10, len(seq_to_sig_map) - 1)):
+                    signal_samples = seq_to_sig_map[i + 1] - seq_to_sig_map[i]
+                    dwell_ms = (signal_samples / sample_rate) * 1000
+                    dwell_times.append(dwell_ms)
+
+                # Calculate mean dwell time
+                mean_dwell = np.mean(dwell_times)
+
+                # Mean dwell time should be in realistic range
+                # Typical: 2-8 ms per base for DNA
+                assert mean_dwell >= 0.5, (
+                    f"Mean dwell time {mean_dwell:.2f} ms is too short. "
+                    "This suggests stride is not being applied correctly."
+                )
+                assert mean_dwell <= 30, f"Mean dwell time {mean_dwell:.2f} ms is unusually high"
+
+                # All dwell times should be positive
+                assert all(d > 0 for d in dwell_times)
+
+                return
+
+            pytest.skip("Not enough bases for realistic dwell time test")

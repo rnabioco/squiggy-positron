@@ -143,10 +143,10 @@ tests/data/
 git clone https://github.com/rnabioco/squiggy.git
 cd squiggy
 
-# Install dependencies (using pip)
-pip install -r requirements.txt
+# Install dependencies (using uv - recommended)
+uv pip install -e ".[dev]"
 
-# Or install as editable package with dev dependencies
+# Or using pip
 pip install -e ".[dev]"
 ```
 
@@ -179,17 +179,20 @@ ruff check src/ tests/
 
 ### Testing
 ```bash
-# Run all tests
-pytest tests/
+# Run all tests (using uv - recommended)
+uv run pytest tests/
 
 # Run with verbose output
-pytest -v tests/
+uv run pytest -v tests/
 
 # Run specific test file
-pytest tests/test_plotting.py
+uv run pytest tests/test_bokeh_plotting.py
 
 # Run with coverage report
-pytest --cov=squiggy tests/
+uv run pytest --cov=squiggy tests/
+
+# Or using pytest directly (if installed globally)
+pytest -v tests/
 ```
 
 ### Documentation
@@ -209,7 +212,10 @@ mkdocs gh-deploy
 
 **Prerequisites:**
 ```bash
-# Install PyInstaller
+# Install PyInstaller (using uv - recommended)
+uv pip install pyinstaller
+
+# Or using pip
 pip install pyinstaller
 ```
 
@@ -322,6 +328,10 @@ git push origin v0.1.0
 - Signal downsampling uses LTTB algorithm for >100K samples to maintain visual fidelity
 - Base annotation visualization uses Okabe-Ito colorblind-friendly palette
 - Base-to-signal alignment extracted from BAM "mv" (move table) tag
+  - Move table format: `[stride, move_0, move_1, ...]` where stride is neural network downsampling factor
+  - Stride values: 5 for DNA models (R9.4.1, R10.4.1), 10-12 for RNA models
+  - Each move table position represents `stride` signal samples
+  - Dwell time calculation accounts for stride to produce realistic values (1-20 ms per base)
 - Future features may include base modification detection and methylation calling
 
 ### Qt/PySide6 Notes
@@ -448,7 +458,7 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 ## Known Issues and Gotchas
 
 ### macOS-Specific
-- **"Python" in menu bar**: Requires PyObjC (`pip install -e ".[macos]"`). Fixed via `set_macos_app_name()` in `main.py:17-29`
+- **"Python" in menu bar**: Requires PyObjC (`uv pip install -e ".[macos]"`). Fixed via `set_macos_app_name()` in `main.py:17-29`
 - **App icon**: Works in .app bundle but may not show when running from CLI
 - **File dialogs**: Use native macOS dialogs automatically via Qt
 
@@ -476,6 +486,11 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 - **check_sq=False required**: Use `pysam.AlignmentFile(..., check_sq=False)` to avoid SQ line issues
 - **Index required for region queries**: BAM must be indexed (.bai) for `fetch(chrom, start, end)`
 - **Move table tag**: Base-to-signal mapping requires "mv" tag in BAM (created by dorado/guppy)
+  - Format: `mv:B:c,stride,move_0,move_1,...` (first element is stride, rest are moves)
+  - Extract stride: `stride = int(move_table[0])`
+  - Extract moves: `moves = move_table[1:]`
+  - Signal position calculation: `signal_pos += stride` (not `+= 1`)
+  - Reference: https://github.com/hiruna72/squigualiser/blob/main/docs/move_table.md
 - **Read iteration**: Use `fetch(until_eof=True)` to iterate all reads without index
 
 ### Bokeh/Plotting
@@ -499,7 +514,7 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 
 ### Testing Gotchas
 - **Sample data required**: Tests skip (not fail) if `tests/data/*.pod5` missing
-- **Relative paths**: Run pytest from project root, not `tests/` directory
+- **Relative paths**: Run `uv run pytest` from project root, not `tests/` directory
 - **Qt application**: Can't create multiple QApplication instances in same process
 - **Async tests**: Use pytest-asyncio or run async functions via `asyncio.run()`
 

@@ -9,7 +9,7 @@ import qasync
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from .constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
+from .constants import APP_DESCRIPTION, APP_NAME, APP_VERSION, PlotMode
 from .utils import get_icon_path, validate_bam_reads_in_pod5
 from .viewer import SquiggleViewer
 
@@ -93,7 +93,11 @@ async def main_async(app, viewer, args):
                 viewer.bam_file = bam_path
                 viewer.bam_label.setText(bam_path.name)
                 viewer.base_checkbox.setEnabled(True)
+                viewer.base_checkbox.setChecked(True)  # Check by default
                 viewer.mode_eventalign.setEnabled(True)
+                viewer.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
+                viewer.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
+                viewer.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
                 viewer.statusBar().showMessage(
                     f"Loaded and validated BAM file: {bam_path.name} "
                     f"({validation_result['bam_read_count']} reads)"

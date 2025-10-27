@@ -57,8 +57,9 @@ class BokehSquigglePlotter:
             title=title,
             x_axis_label=x_label,
             y_axis_label=y_label,
-            tools="pan,xbox_zoom,box_zoom,reset,save",
-            active_drag="xbox_zoom",
+            tools="pan,xpan,xbox_zoom,box_zoom,wheel_zoom,reset,save",
+            active_drag="pan",
+            active_scroll="wheel_zoom",
             sizing_mode="stretch_both",
         )
 
@@ -205,12 +206,15 @@ class BokehSquigglePlotter:
         Calculate base regions for position-based plots (event-aligned mode).
 
         Returns:
-            If show_dwell_time: (all_regions, all_dwell_times)
-            Else: (base_regions,)
+            (base_regions,) - dict of base regions grouped by base type (A, C, G, T, U)
+                             with time-scaled or position-based coordinates depending on show_dwell_time
         """
+        # Group by base type (A, C, G, T)
+        base_regions = {base: [] for base in ["A", "C", "G", "T", "U"]}
+
         if show_dwell_time:
-            all_regions = []
-            all_dwell_times = []
+            # Use cumulative time for x-coordinates (time-scaled axis)
+            cumulative_time = 0.0
 
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
@@ -226,21 +230,17 @@ class BokehSquigglePlotter:
 
                 dwell_time = (dwell_samples / sample_rate) * 1000
 
-                all_regions.append({
-                    "left": i - 0.5,
-                    "right": i + 0.5,
+                # Add region with time-based coordinates
+                base_regions[base].append({
+                    "left": cumulative_time,
+                    "right": cumulative_time + dwell_time,
                     "top": signal_max,
                     "bottom": signal_min,
-                    "dwell": dwell_time,
                 })
-                all_dwell_times.append(dwell_time)
-
-            return all_regions, all_dwell_times
+                cumulative_time += dwell_time  # Advance by dwell time
 
         else:
-            # Normal mode: group by base type
-            base_regions = {base: [] for base in ["A", "C", "G", "T"]}
-
+            # Use base position for x-coordinates (evenly spaced)
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
                 if base not in BASE_COLORS:
@@ -253,7 +253,7 @@ class BokehSquigglePlotter:
                     "bottom": signal_min,
                 })
 
-            return (base_regions,)
+        return (base_regions,)
 
     @staticmethod
     def _add_dwell_time_patches(p, all_regions: List[dict], all_dwell_times: List[float]):
@@ -348,18 +348,55 @@ class BokehSquigglePlotter:
         return base_sources
 
     @staticmethod
-    def _add_base_labels_position_mode(p, base_annotations: List, signal_max: float, show_dwell_time: bool):
-        """Add base labels for position-based plots (event-aligned mode)"""
+    def _add_base_labels_position_mode(
+        p,
+        base_annotations: List,
+        signal_max: float,
+        show_dwell_time: bool,
+        sample_rate: int = None,
+        signal_length: int = None,
+    ):
+        """Add base labels for position-based plots (event-aligned mode)
+
+        Args:
+            show_dwell_time: If True, position labels using cumulative time
+            sample_rate: Required if show_dwell_time=True
+            signal_length: Required if show_dwell_time=True
+        """
         label_data = []
-        for i, base_annotation in enumerate(base_annotations):
-            base = base_annotation.base
-            if base in BASE_COLORS:
-                label_data.append({
-                    "x": i,
-                    "y": signal_max,
-                    "text": base,
-                    "color": BASE_COLORS[base] if not show_dwell_time else "black"
-                })
+
+        if show_dwell_time and sample_rate is not None and signal_length is not None:
+            # Use cumulative time for label positioning
+            cumulative_time = 0.0
+            for i, base_annotation in enumerate(base_annotations):
+                base = base_annotation.base
+                if base in BASE_COLORS:
+                    # Calculate dwell time
+                    if i + 1 < len(base_annotations):
+                        dwell_samples = base_annotations[i + 1].signal_start - base_annotation.signal_start
+                    else:
+                        dwell_samples = signal_length - base_annotation.signal_start
+                    dwell_time = (dwell_samples / sample_rate) * 1000
+
+                    # Position label at center of dwell time range
+                    label_data.append({
+                        "x": cumulative_time + (dwell_time / 2),
+                        "y": signal_max,
+                        "text": base,
+                        "color": BASE_COLORS[base]
+                    })
+                    cumulative_time += dwell_time
+        else:
+            # Use base position for label positioning (current behavior)
+            for i, base_annotation in enumerate(base_annotations):
+                base = base_annotation.base
+                if base in BASE_COLORS:
+                    label_data.append({
+                        "x": i,
+                        "y": signal_max,
+                        "text": base,
+                        "color": BASE_COLORS[base]
+                    })
 
         if label_data:
             label_source = ColumnDataSource(
@@ -727,30 +764,32 @@ class BokehSquigglePlotter:
         if not aligned_reads:
             raise ValueError("Event-aligned mode requires aligned_reads data")
 
-        # Create figure
+        # Create figure with conditional x-axis label
         title = BokehSquigglePlotter._format_plot_title("Event-Aligned", reads_data)
+        x_label = "Time (ms)" if show_dwell_time else "Base Position"
         p = BokehSquigglePlotter._create_figure(
             title=title,
-            x_label="Base Position",
+            x_label=x_label,
             y_label=f"Signal ({normalization.value})",
         )
 
         # Add base annotations
-        color_mapper = BokehSquigglePlotter._add_base_annotations_eventalign(
+        BokehSquigglePlotter._add_base_annotations_eventalign(
             p, reads_data, normalization, aligned_reads, show_dwell_time, show_labels
         )
 
         # Plot signal lines
         line_renderers = BokehSquigglePlotter._plot_eventalign_signals(
-            p, reads_data, normalization, aligned_reads
+            p, reads_data, normalization, aligned_reads, show_dwell_time, downsample
         )
 
-        # Add hover tool
+        # Add hover tool with conditional tooltip
+        x_tooltip = ("Time (ms)", "@x{0.2f}") if show_dwell_time else ("Base Position", "@x")
         hover = HoverTool(
             renderers=line_renderers,
             tooltips=[
                 ("Read", "@read_id"),
-                ("Base Position", "@x"),
+                x_tooltip,
                 ("Base", "@base"),
                 ("Signal", "@y{0.2f}"),
             ],
@@ -759,20 +798,8 @@ class BokehSquigglePlotter:
         )
         p.add_tools(hover)
 
-        if not show_dwell_time:
-            p.legend.click_policy = "hide"
-            p.legend.location = "top_right"
-
-        # Add color bar if showing dwell time
-        if color_mapper is not None:
-            color_bar = ColorBar(
-                color_mapper=color_mapper,
-                label_standoff=12,
-                location=(0, 0),
-                title="Dwell Time (ms)",
-                title_standoff=15,
-            )
-            p.add_layout(color_bar, "right")
+        p.legend.click_policy = "hide"
+        p.legend.location = "top_right"
 
         # Generate HTML
         html_title = BokehSquigglePlotter._format_html_title("Event-Aligned", reads_data)
@@ -809,30 +836,19 @@ class BokehSquigglePlotter:
         sample_rate = reads_data[0][2]
         signal_length = len(all_signals[0])
 
-        color_mapper = None
+        # Calculate and add base patches (time-scaled or position-based)
+        (base_regions,) = BokehSquigglePlotter._calculate_base_regions_position_mode(
+            base_annotations, signal_min, signal_max, sample_rate, signal_length, show_dwell_time
+        )
+        BokehSquigglePlotter._add_base_type_patches(p, base_regions)
 
-        if show_dwell_time:
-            # Calculate and add dwell time patches
-            all_regions, all_dwell_times = BokehSquigglePlotter._calculate_base_regions_position_mode(
-                base_annotations, signal_min, signal_max, sample_rate, signal_length, show_dwell_time
+        # Add labels if requested
+        if show_labels:
+            BokehSquigglePlotter._add_base_labels_position_mode(
+                p, base_annotations, signal_max, show_dwell_time, sample_rate, signal_length
             )
-            color_mapper = BokehSquigglePlotter._add_dwell_time_patches(p, all_regions, all_dwell_times)
 
-            # Add labels if requested
-            if show_labels:
-                BokehSquigglePlotter._add_base_labels_position_mode(p, base_annotations, signal_max, show_dwell_time)
-        else:
-            # Calculate and add base type patches
-            (base_regions,) = BokehSquigglePlotter._calculate_base_regions_position_mode(
-                base_annotations, signal_min, signal_max, sample_rate, signal_length, show_dwell_time
-            )
-            BokehSquigglePlotter._add_base_type_patches(p, base_regions)
-
-            # Add labels if requested
-            if show_labels:
-                BokehSquigglePlotter._add_base_labels_position_mode(p, base_annotations, signal_max, show_dwell_time)
-
-        return color_mapper
+        return None
 
     @staticmethod
     def _plot_eventalign_signals(
@@ -840,35 +856,90 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         aligned_reads: List,
+        show_dwell_time: bool = False,
+        downsample: int = 1,
     ):
-        """Plot signal lines for event-aligned reads"""
+        """Plot signal lines for event-aligned reads
+
+        Args:
+            show_dwell_time: If True, use cumulative time for x-axis instead of base position
+            downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
+        """
         line_renderers = []
 
-        for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
+        for idx, (read_id, signal, sample_rate) in enumerate(reads_data):
             aligned_read = aligned_reads[idx]
             signal = BokehSquigglePlotter.normalize_signal(signal, normalization)
             base_annotations = aligned_read.bases
 
-            # Create base-aligned coordinates
-            base_x = []
-            base_y = []
-            base_labels = []
+            # Create signal coordinates - plot ALL signal samples
+            signal_x = []
+            signal_y = []
+            signal_base_labels = []
 
-            for i, base_annotation in enumerate(base_annotations):
-                base = base_annotation.base
-                start_idx = base_annotation.signal_start
-                if start_idx < len(signal):
-                    base_x.append(i)
-                    base_y.append(signal[start_idx])
-                    base_labels.append(base)
+            if show_dwell_time:
+                # Use cumulative time for x-axis - spread samples evenly across each base's time duration
+                cumulative_time = 0.0
+
+                for i, base_annotation in enumerate(base_annotations):
+                    base = base_annotation.base
+                    start_idx = base_annotation.signal_start
+
+                    # Determine end index and dwell time for this base
+                    if i + 1 < len(base_annotations):
+                        end_idx = base_annotations[i + 1].signal_start
+                    else:
+                        end_idx = len(signal)
+
+                    dwell_samples = end_idx - start_idx
+                    dwell_time = (dwell_samples / sample_rate) * 1000  # ms
+
+                    # Plot signal samples within this base's region (with downsampling)
+                    for sample_offset in range(0, dwell_samples, downsample):
+                        sample_idx = start_idx + sample_offset
+                        if sample_idx < len(signal):
+                            # Map sample to time: evenly distribute across base's time duration
+                            time_offset = (sample_offset / dwell_samples) * dwell_time if dwell_samples > 0 else 0
+                            signal_x.append(cumulative_time + time_offset)
+                            signal_y.append(signal[sample_idx])
+                            signal_base_labels.append(base)
+
+                    cumulative_time += dwell_time
+            else:
+                # Use base position for x-axis - spread samples evenly across each base's position region
+                for i, base_annotation in enumerate(base_annotations):
+                    base = base_annotation.base
+                    start_idx = base_annotation.signal_start
+
+                    # Determine end index for this base
+                    if i + 1 < len(base_annotations):
+                        end_idx = base_annotations[i + 1].signal_start
+                    else:
+                        end_idx = len(signal)
+
+                    num_samples = end_idx - start_idx
+
+                    # Plot signal samples within this base's region (with downsampling)
+                    for sample_offset in range(0, num_samples, downsample):
+                        sample_idx = start_idx + sample_offset
+                        if sample_idx < len(signal):
+                            # Map sample to position: evenly distribute from i-0.5 to i+0.5
+                            if num_samples > 1:
+                                # Linear interpolation from -0.5 to +0.5
+                                position_offset = -0.5 + (sample_offset / (num_samples - 1))
+                            else:
+                                position_offset = 0.0
+                            signal_x.append(i + position_offset)
+                            signal_y.append(signal[sample_idx])
+                            signal_base_labels.append(base)
 
             # Create data source and plot
             source = ColumnDataSource(
                 data={
-                    "x": base_x,
-                    "y": base_y,
-                    "base": base_labels,
-                    "read_id": [read_id] * len(base_x),
+                    "x": signal_x,
+                    "y": signal_y,
+                    "base": signal_base_labels,
+                    "read_id": [read_id] * len(signal_x),
                 }
             )
 

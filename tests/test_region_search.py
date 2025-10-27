@@ -175,7 +175,7 @@ class TestRegionQuery:
             assert len(reads) > 0
 
             # Check read info structure
-            for read_id, info in reads.items():
+            for _read_id, info in reads.items():
                 assert "read_id" in info
                 assert "chromosome" in info
                 assert "start" in info

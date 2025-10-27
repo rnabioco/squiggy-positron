@@ -252,13 +252,19 @@ def get_basecall_data(bam_file, read_id):
                 if read.has_tag("mv"):
                     move_table = np.array(read.get_tag("mv"), dtype=np.uint8)
 
+                    # Extract stride (first element) and moves (remaining elements)
+                    # Stride represents the neural network downsampling factor
+                    # Typical values: 5 for DNA models, 10-12 for RNA models
+                    stride = int(move_table[0])
+                    moves = move_table[1:]
+
                     # Convert move table to signal-to-sequence mapping
                     seq_to_sig_map = []
                     sig_pos = 0
-                    for move in move_table:
+                    for move in moves:
                         if move == 1:
                             seq_to_sig_map.append(sig_pos)
-                        sig_pos += 1
+                        sig_pos += stride
 
                     bam.close()
                     return sequence, np.array(seq_to_sig_map)

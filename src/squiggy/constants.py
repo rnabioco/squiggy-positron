@@ -31,13 +31,12 @@ MIN_POINTS_FOR_DOWNSAMPLING = (
 
 # Base colors for visualization
 # Using Okabe-Ito colorblind-friendly palette
-# Purines (A, G) = orange/warm colors, Pyrimidines (C, T) = blue/cool colors
 BASE_COLORS = {
-    "A": "#E69F00",  # Orange (purine)
-    "C": "#0072B2",  # Blue (pyrimidine)
-    "G": "#D55E00",  # Vermillion/reddish-orange (purine)
-    "T": "#56B4E9",  # Sky blue (pyrimidine)
-    "U": "#56B4E9",  # Sky blue (for RNA, same as T)
+    "A": "#009E73",  # Green (purine)
+    "C": "#F0E442",  # Yellow (pyrimidine)
+    "G": "#0072B2",  # Blue (purine)
+    "T": "#D55E00",  # Orange (pyrimidine)
+    "U": "#D55E00",  # Same as T
     "N": "#808080",  # Gray (unknown)
 }
 

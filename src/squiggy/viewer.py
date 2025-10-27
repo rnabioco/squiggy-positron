@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,6 +26,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSlider,
+    QSpinBox,
     QSplitter,
     QToolButton,
     QVBoxLayout,
@@ -39,12 +39,8 @@ from .constants import (
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
     MAX_OVERLAY_READS,
-    PLOT_DPI,
-    PLOT_HEIGHT,
     PLOT_MIN_HEIGHT,
     PLOT_MIN_WIDTH,
-    PLOT_WIDTH,
-    SPLITTER_RATIO,
     NormalizationMethod,
     PlotMode,
 )
@@ -119,7 +115,7 @@ class SquiggleViewer(QMainWindow):
         self.show_bases = True  # Default to showing base annotations
         self.plot_mode = PlotMode.EVENTALIGN  # Default to event-aligned mode (primary mode)
         self.normalization_method = NormalizationMethod.MEDIAN
-        self.downsample_factor = 1  # 1 = no downsampling, 10 = every 10th point
+        self.downsample_factor = 25  # Default downsampling for performance
         self.show_dwell_time = False  # Show dwell time coloring
         self.current_plot_html = None  # Store current plot HTML for export
         self.search_mode = "read_id"  # "read_id" or "region"
@@ -455,22 +451,26 @@ class SquiggleViewer(QMainWindow):
         self.downsample_slider = QSlider(Qt.Horizontal)
         self.downsample_slider.setMinimum(1)
         self.downsample_slider.setMaximum(100)
-        self.downsample_slider.setValue(1)
+        self.downsample_slider.setValue(25)
         self.downsample_slider.setTickPosition(QSlider.TicksBelow)
         self.downsample_slider.setTickInterval(10)
         self.downsample_slider.setToolTip(
             "Downsample signal for faster rendering\n"
             "1 = show all points (no downsampling)\n"
-            "10 = show every 10th point (10x faster)"
+            "25 = show every 25th point (default)\n"
+            "100 = show every 100th point (fastest)"
         )
-        self.downsample_slider.valueChanged.connect(self.set_downsample_factor)
+        self.downsample_slider.valueChanged.connect(self.set_downsample_factor_from_slider)
         downsample_layout.addWidget(self.downsample_slider)
 
-        # Value label showing current downsample factor
-        self.downsample_value_label = QLabel("1")
-        self.downsample_value_label.setMinimumWidth(30)
-        self.downsample_value_label.setStyleSheet("font-weight: bold;")
-        downsample_layout.addWidget(self.downsample_value_label)
+        # SpinBox for direct value entry
+        self.downsample_spinbox = QSpinBox()
+        self.downsample_spinbox.setMinimum(1)
+        self.downsample_spinbox.setMaximum(100)
+        self.downsample_spinbox.setValue(25)
+        self.downsample_spinbox.setToolTip("Enter downsample factor (1-100)")
+        self.downsample_spinbox.valueChanged.connect(self.set_downsample_factor_from_spinbox)
+        downsample_layout.addWidget(self.downsample_spinbox)
 
         content_layout.addLayout(downsample_layout)
 
@@ -487,18 +487,19 @@ class SquiggleViewer(QMainWindow):
         dwell_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
         content_layout.addWidget(dwell_label)
 
-        self.dwell_time_checkbox = QCheckBox("Color bases by dwell time")
+        self.dwell_time_checkbox = QCheckBox("Scale x-axis by dwell time")
         self.dwell_time_checkbox.setToolTip(
-            "Color base annotations by how long each base took to sequence\n"
+            "Scale x-axis by actual sequencing time instead of base position\n"
+            "Bases with longer dwell times take more horizontal space\n"
             "(requires event-aligned mode with BAM file)"
         )
-        self.dwell_time_checkbox.setEnabled(False)  # Enabled when BAM loaded
+        self.dwell_time_checkbox.setEnabled(False)  # Enabled when in EVENTALIGN mode with BAM
         self.dwell_time_checkbox.stateChanged.connect(self.toggle_dwell_time)
         content_layout.addWidget(self.dwell_time_checkbox)
 
         # Dwell time info label
         dwell_info_label = QLabel(
-            "💡 Longer dwell times appear warmer (red), shorter appear cooler (blue)"
+            "💡 Time-scaled x-axis: bases with longer dwell times take more horizontal space"
         )
         dwell_info_label.setStyleSheet("color: #666; font-size: 9pt;")
         dwell_info_label.setWordWrap(True)
@@ -564,23 +565,36 @@ class SquiggleViewer(QMainWindow):
                 ranges = json.loads(result)
                 self.saved_x_range = (ranges['x_start'], ranges['x_end'])
                 self.saved_y_range = (ranges['y_start'], ranges['y_end'])
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 # If parsing fails, just use None (will reset zoom)
                 self.saved_x_range = None
                 self.saved_y_range = None
 
-    def set_downsample_factor(self, value):
-        """Set the downsampling factor and refresh display"""
+    @qasync.asyncSlot()
+    async def set_downsample_factor_from_slider(self, value):
+        """Set the downsampling factor from slider and update spinbox"""
         self.downsample_factor = value
-        # Update value label
-        self.downsample_value_label.setText(str(value))
+        # Update spinbox to match (this won't trigger valueChanged if value is same)
+        self.downsample_spinbox.setValue(value)
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
-            import asyncio
-            asyncio.create_task(self.update_plot_with_delay())
+            await self.update_plot_with_delay()
+
+    @qasync.asyncSlot()
+    async def set_downsample_factor_from_spinbox(self, value):
+        """Set the downsampling factor from spinbox and update slider"""
+        self.downsample_factor = value
+        # Update slider to match (this won't trigger valueChanged if value is same)
+        self.downsample_slider.setValue(value)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
 
     async def update_plot_with_delay(self):
         """Update plot after a short delay to allow JavaScript extraction"""
@@ -643,27 +657,42 @@ class SquiggleViewer(QMainWindow):
         # Execute JavaScript with a delay to ensure plot is loaded
         QTimer.singleShot(200, lambda: self.plot_view.page().runJavaScript(js_code))
 
-    def toggle_dwell_time(self, state):
+    @qasync.asyncSlot()
+    async def toggle_dwell_time(self, state):
         """Toggle dwell time visualization"""
-        self.show_dwell_time = state == Qt.Checked
+        self.show_dwell_time = bool(state)  # state is 0 (unchecked) or 2 (checked)
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
-            asyncio.create_task(self.update_plot_with_delay())
+            await self.update_plot_with_delay()
 
-    def set_plot_mode(self, mode):
+    @qasync.asyncSlot()
+    async def set_plot_mode(self, mode):
         """Set the plot mode and refresh display"""
         self.plot_mode = mode
+
+        # Enable dwell time checkbox only in EVENTALIGN mode with BAM file
+        # Only update checkbox if it exists (may not exist during initialization)
+        if hasattr(self, 'dwell_time_checkbox'):
+            if mode == PlotMode.EVENTALIGN and self.bam_file:
+                self.dwell_time_checkbox.setEnabled(True)
+            else:
+                self.dwell_time_checkbox.setEnabled(False)
+                # Uncheck if disabled to avoid confusion
+                if self.dwell_time_checkbox.isChecked():
+                    self.dwell_time_checkbox.setChecked(False)
+
         # Refresh plot if reads are selected
         if hasattr(self, 'read_list') and self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
-            asyncio.create_task(self.update_plot_with_delay())
+            await self.update_plot_with_delay()
 
-    def set_normalization_method(self, index):
+    @qasync.asyncSlot()
+    async def set_normalization_method(self, index):
         """Set the normalization method and refresh display"""
         self.normalization_method = self.norm_combo.itemData(index)
         # Refresh plot if reads are selected
@@ -671,7 +700,7 @@ class SquiggleViewer(QMainWindow):
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
-            asyncio.create_task(self.update_plot_with_delay())
+            await self.update_plot_with_delay()
 
     def create_menu_bar(self):
         """Create the application menu bar"""
@@ -1289,8 +1318,7 @@ class SquiggleViewer(QMainWindow):
                         f"{match['strand']} strand: position {match['ref_start']}-{match['ref_end']} "
                         f"(base {match['base_start']}-{match['base_end']})"
                     )
-                    item = QListWidget().item(0)  # Create item
-                    item = self.sequence_results_list.addItem(item_text)
+                    self.sequence_results_list.addItem(item_text)
                     # Store match data for zoom functionality
                     self.sequence_results_list.item(
                         self.sequence_results_list.count() - 1

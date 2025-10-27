@@ -341,6 +341,140 @@ class TestMoveTableParsing:
         pytest.skip("No aligned reads found")
 
 
+class TestStrideHandling:
+    """Tests for stride extraction and usage in move table parsing."""
+
+    def test_move_table_stride_extraction(self, indexed_bam_file):
+        """Test that stride is correctly extracted from move table."""
+        import pysam
+
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if alignment.has_tag("mv"):
+                    move_table = np.array(alignment.get_tag("mv"), dtype=np.uint8)
+
+                    # First element should be stride
+                    stride = int(move_table[0])
+
+                    # Stride should be reasonable (typically 5 for DNA, 10-12 for RNA)
+                    assert stride > 0
+                    assert stride <= 20  # Sanity check
+                    assert isinstance(stride, int)
+
+                    # Common values
+                    assert stride in [5, 6, 10, 11, 12] or stride <= 20
+                    return
+
+        pytest.skip("No reads with move tables found")
+
+    def test_signal_positions_use_stride(self, indexed_bam_file):
+        """Test that signal positions are stride-adjusted."""
+        import pysam
+
+        from squiggy.alignment import extract_alignment_from_bam
+
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if alignment.has_tag("mv"):
+                    read_id = alignment.query_name
+                    move_table = np.array(alignment.get_tag("mv"), dtype=np.uint8)
+                    stride = int(move_table[0])
+
+                    aligned_read = extract_alignment_from_bam(indexed_bam_file, read_id)
+
+                    if aligned_read and len(aligned_read.bases) > 1:
+                        # Check that signal positions are multiples of stride
+                        for base in aligned_read.bases:
+                            # Signal positions should be divisible by stride
+                            assert base.signal_start % stride == 0
+                            assert base.signal_end % stride == 0
+
+                        # Check spacing between bases is at least stride
+                        for i in range(len(aligned_read.bases) - 1):
+                            curr = aligned_read.bases[i]
+                            next_base = aligned_read.bases[i + 1]
+                            spacing = next_base.signal_start - curr.signal_start
+                            # Spacing should be a multiple of stride
+                            assert spacing % stride == 0
+                            assert spacing >= stride
+                        return
+
+        pytest.skip("No aligned reads with sufficient bases found")
+
+    def test_dwell_time_with_stride(self, sample_pod5_file, indexed_bam_file):
+        """Test that dwell times are realistic when using stride."""
+        import pod5
+        import pysam
+
+        from squiggy.alignment import extract_alignment_from_bam
+
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if alignment.has_tag("mv"):
+                    read_id = alignment.query_name
+                    aligned_read = extract_alignment_from_bam(indexed_bam_file, read_id)
+
+                    if aligned_read and len(aligned_read.bases) > 0:
+                        # Get sample rate from POD5
+                        with pod5.Reader(sample_pod5_file) as reader:
+                            for read in reader.reads():
+                                if str(read.read_id) == read_id:
+                                    sample_rate = read.run_info.sample_rate
+
+                                    # Calculate dwell time for first base
+                                    base = aligned_read.bases[0]
+                                    dwell_samples = base.signal_end - base.signal_start
+                                    dwell_time_ms = (dwell_samples / sample_rate) * 1000
+
+                                    # Dwell times should be realistic (typically 1-20 ms per base)
+                                    # Not microseconds (which would indicate stride not used)
+                                    assert dwell_time_ms >= 0.5, f"Dwell time too short: {dwell_time_ms} ms"
+                                    assert dwell_time_ms <= 100, f"Dwell time too long: {dwell_time_ms} ms"
+
+                                    # Most bases should be in 1-10 ms range
+                                    if dwell_time_ms < 0.5:
+                                        pytest.fail(
+                                            f"Dwell time {dwell_time_ms} ms is unrealistically short - stride may not be applied"
+                                        )
+
+                                    return
+
+        pytest.skip("No matching reads found in POD5 and BAM")
+
+    def test_stride_in_utils_basecall_data(self, indexed_bam_file):
+        """Test that utils.get_basecall_data properly uses stride."""
+        import pysam
+
+        from squiggy.utils import get_basecall_data
+
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if alignment.has_tag("mv"):
+                    read_id = alignment.query_name
+                    move_table = np.array(alignment.get_tag("mv"), dtype=np.uint8)
+                    stride = int(move_table[0])
+
+                    sequence, seq_to_sig_map = get_basecall_data(
+                        indexed_bam_file, read_id
+                    )
+
+                    if sequence is not None and seq_to_sig_map is not None:
+                        # All signal positions should be multiples of stride
+                        for sig_pos in seq_to_sig_map:
+                            assert sig_pos % stride == 0
+
+                        # Check spacing between consecutive bases
+                        if len(seq_to_sig_map) > 1:
+                            for i in range(len(seq_to_sig_map) - 1):
+                                spacing = seq_to_sig_map[i + 1] - seq_to_sig_map[i]
+                                # Spacing should be multiple of stride
+                                assert spacing % stride == 0
+                                assert spacing >= stride
+                        return
+
+        pytest.skip("No reads with move tables found")
+
+
 class TestEdgeCases:
     """Tests for edge cases in alignment processing."""
 
