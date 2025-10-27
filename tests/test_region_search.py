@@ -240,9 +240,15 @@ class TestRegionQuery:
 
     def test_query_empty_region(self, indexed_bam_file):
         """Test querying region with no reads."""
+        import pysam
+
         from squiggy.utils import get_reads_in_region
 
+        # Find any valid chromosome name from the BAM
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb", check_sq=False) as bam:
+            test_chrom = bam.references[0] if bam.references else "chr1"
+
         # Query very large coordinates unlikely to have reads
-        reads = get_reads_in_region(indexed_bam_file, "chr1", 999999999, 1000000000)
+        reads = get_reads_in_region(indexed_bam_file, test_chrom, 999999999, 1000000000)
         assert isinstance(reads, dict)
         # May or may not have reads, but should not error

@@ -1,13 +1,13 @@
 """Main application window for Squiggy"""
 
 import asyncio
-from io import BytesIO
 from pathlib import Path
 
 import pod5
 import qasync
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtGui import QAction
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -47,7 +47,7 @@ from .constants import (
     PlotMode,
 )
 from .dialogs import AboutDialog, ReferenceBrowserDialog
-from .plotter import SquigglePlotter
+from .plotter_bokeh import BokehSquigglePlotter
 from .utils import (
     get_bam_references,
     get_basecall_data,
@@ -117,7 +117,7 @@ class SquiggleViewer(QMainWindow):
         self.show_bases = False
         self.plot_mode = PlotMode.SINGLE
         self.normalization_method = NormalizationMethod.NONE
-        self.current_plot = None  # Store current plot object for export
+        self.current_plot_html = None  # Store current plot HTML for export
         self.search_mode = "read_id"  # "read_id" or "region"
 
         self.init_ui()
@@ -217,14 +217,18 @@ class SquiggleViewer(QMainWindow):
         self.read_list.itemSelectionChanged.connect(self.on_read_selection_changed)
         splitter.addWidget(self.read_list)
 
-        # Plot display area
-        self.plot_label = QLabel("Select a POD5 file and read to display squiggle plot")
-        self.plot_label.setAlignment(Qt.AlignCenter)
-        self.plot_label.setStyleSheet(
-            "border: 1px solid #ccc; background-color: #f9f9f9;"
+        # Plot display area (using QWebEngineView for interactive bokeh plots)
+        self.plot_view = QWebEngineView()
+        self.plot_view.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
+        self.plot_view.setHtml(
+            "<html><body style='display:flex;align-items:center;justify-content:center;"
+            "height:100vh;margin:0;font-family:sans-serif;color:#666;'>"
+            "<div style='text-align:center;'>"
+            "<h2>Squiggy</h2>"
+            "<p>Select a POD5 file and read to display squiggle plot</p>"
+            "</div></body></html>"
         )
-        self.plot_label.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
-        splitter.addWidget(self.plot_label)
+        splitter.addWidget(self.plot_view)
 
         # Set splitter proportions
         splitter.setStretchFactor(0, SPLITTER_RATIO[0])
@@ -868,7 +872,7 @@ class SquiggleViewer(QMainWindow):
             self.statusBar().showMessage("Error")
 
     def _generate_plot_blocking(self, read_id):
-        """Blocking function to generate plot"""
+        """Blocking function to generate bokeh plot HTML"""
         # Get signal data
         with pod5.Reader(self.pod5_file) as reader:
             # Find the specific read by iterating through all reads
@@ -890,23 +894,17 @@ class SquiggleViewer(QMainWindow):
         if self.show_bases and self.bam_file:
             sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
 
-        # Generate plot
-        plot = SquigglePlotter.plot_squiggle(
+        # Generate bokeh plot HTML
+        html = BokehSquigglePlotter.plot_single_read(
             signal,
             read_id,
             sample_rate,
             sequence=sequence,
             seq_to_sig_map=seq_to_sig_map,
+            normalization=self.normalization_method,
         )
 
-        # Save plot to buffer
-        buffer = BytesIO()
-        plot.save(
-            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-        )
-        buffer.seek(0)
-
-        return buffer, signal, sequence, plot
+        return html, signal, sequence
 
     async def display_single_read(self, read_id):
         """Display squiggle plot for a single read (async)"""
@@ -914,22 +912,16 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            buffer, signal, sequence, plot = await asyncio.to_thread(
+            html, signal, sequence = await asyncio.to_thread(
                 self._generate_plot_blocking, read_id
             )
 
-            # Store plot for export
-            self.current_plot = plot
+            # Store HTML for export
+            self.current_plot_html = html
             self.export_action.setEnabled(True)
 
             # Display on main thread
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self.plot_label.setPixmap(
-                pixmap.scaled(
-                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-            )
+            self.plot_view.setHtml(html)
 
             status_msg = f"Displaying read: {read_id} ({len(signal)} samples)"
             if sequence:
@@ -942,7 +934,7 @@ class SquiggleViewer(QMainWindow):
             )
 
     def _generate_multi_read_plot_blocking(self, read_ids):
-        """Blocking function to generate multi-read plot"""
+        """Blocking function to generate multi-read bokeh plot HTML"""
         reads_data = []
 
         # Collect signal data for all reads
@@ -957,21 +949,14 @@ class SquiggleViewer(QMainWindow):
         if not reads_data:
             raise ValueError("No matching reads found in POD5 file")
 
-        # Generate multi-read plot
-        plot = SquigglePlotter.plot_multiple_reads(
+        # Generate bokeh multi-read plot HTML
+        html = BokehSquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
         )
 
-        # Save plot to buffer
-        buffer = BytesIO()
-        plot.save(
-            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-        )
-        buffer.seek(0)
-
-        return buffer, reads_data, plot
+        return html, reads_data
 
     async def display_multiple_reads(self, read_ids):
         """Display multiple reads in overlay or stacked mode (async)"""
@@ -979,22 +964,16 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            buffer, reads_data, plot = await asyncio.to_thread(
+            html, reads_data = await asyncio.to_thread(
                 self._generate_multi_read_plot_blocking, read_ids
             )
 
-            # Store plot for export
-            self.current_plot = plot
+            # Store HTML for export
+            self.current_plot_html = html
             self.export_action.setEnabled(True)
 
             # Display on main thread
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self.plot_label.setPixmap(
-                pixmap.scaled(
-                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-            )
+            self.plot_view.setHtml(html)
 
             mode_name = "overlaid" if self.plot_mode == PlotMode.OVERLAY else "stacked"
             self.statusBar().showMessage(
@@ -1007,7 +986,7 @@ class SquiggleViewer(QMainWindow):
             )
 
     def _generate_eventalign_plot_blocking(self, read_ids):
-        """Blocking function to generate event-aligned plot"""
+        """Blocking function to generate event-aligned bokeh plot HTML"""
         from .alignment import extract_alignment_from_bam
 
         reads_data = []
@@ -1037,22 +1016,15 @@ class SquiggleViewer(QMainWindow):
         if not reads_data:
             raise ValueError("No matching reads found in POD5 file")
 
-        # Generate event-aligned plot
-        plot = SquigglePlotter.plot_multiple_reads(
+        # Generate bokeh event-aligned plot HTML
+        html = BokehSquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
             aligned_reads=aligned_reads,
         )
 
-        # Save plot to buffer
-        buffer = BytesIO()
-        plot.save(
-            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-        )
-        buffer.seek(0)
-
-        return buffer, reads_data, aligned_reads, plot
+        return html, reads_data, aligned_reads
 
     async def display_eventaligned_reads(self, read_ids):
         """Display multiple reads in event-aligned mode (async)"""
@@ -1062,22 +1034,16 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            buffer, reads_data, aligned_reads, plot = await asyncio.to_thread(
+            html, reads_data, aligned_reads = await asyncio.to_thread(
                 self._generate_eventalign_plot_blocking, read_ids
             )
 
-            # Store plot for export
-            self.current_plot = plot
+            # Store HTML for export
+            self.current_plot_html = html
             self.export_action.setEnabled(True)
 
             # Display on main thread
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self.plot_label.setPixmap(
-                pixmap.scaled(
-                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-            )
+            self.plot_view.setHtml(html)
 
             # Build status message
             total_bases = sum(len(ar.bases) for ar in aligned_reads)
@@ -1091,8 +1057,8 @@ class SquiggleViewer(QMainWindow):
             )
 
     def export_plot(self):
-        """Export the current plot to a file"""
-        if self.current_plot is None:
+        """Export the current plot to an HTML file"""
+        if self.current_plot_html is None:
             QMessageBox.warning(
                 self,
                 "No Plot",
@@ -1105,7 +1071,7 @@ class SquiggleViewer(QMainWindow):
             self,
             "Export Plot",
             "",
-            "PNG Image (*.png);;PDF Document (*.pdf);;SVG Vector (*.svg);;All Files (*)",
+            "HTML File (*.html);;All Files (*)",
         )
 
         if not file_path:
@@ -1115,32 +1081,18 @@ class SquiggleViewer(QMainWindow):
             # Determine format from extension or filter
             file_path = Path(file_path)
             if not file_path.suffix:
-                # Add extension based on filter
-                if "PNG" in selected_filter:
-                    file_path = file_path.with_suffix(".png")
-                elif "PDF" in selected_filter:
-                    file_path = file_path.with_suffix(".pdf")
-                elif "SVG" in selected_filter:
-                    file_path = file_path.with_suffix(".svg")
-                else:
-                    file_path = file_path.with_suffix(".png")  # Default to PNG
+                file_path = file_path.with_suffix(".html")
 
-            format_str = file_path.suffix[1:]  # Remove leading dot
-
-            # Save plot
-            self.current_plot.save(
-                str(file_path),
-                format=format_str,
-                dpi=300,  # High DPI for export
-                width=12,
-                height=8,
-            )
+            # Save HTML
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(self.current_plot_html)
 
             self.statusBar().showMessage(f"Plot exported to {file_path.name}")
             QMessageBox.information(
                 self,
                 "Export Successful",
-                f"Plot successfully exported to:\n{file_path}",
+                f"Interactive plot successfully exported to:\n{file_path}\n\n"
+                f"Open the file in a web browser to view the interactive plot.",
             )
 
         except Exception as e:

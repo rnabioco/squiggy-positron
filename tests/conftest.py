@@ -15,14 +15,14 @@ def test_data_dir():
 def sample_pod5_file(test_data_dir):
     """Return the path to a sample POD5 file.
 
-    Prefers sample.pod5, but will use any available POD5 file in tests/data/
+    Uses mod_reads.pod5 as the standard test data file.
     """
-    # First try sample.pod5 (may be a symlink)
-    pod5_path = test_data_dir / "sample.pod5"
+    # Use mod_reads.pod5 as the standard test file
+    pod5_path = test_data_dir / "mod_reads.pod5"
     if pod5_path.exists():
         return pod5_path
 
-    # Otherwise, find any POD5 file
+    # Fallback: find any POD5 file
     pod5_files = list(test_data_dir.glob("*.pod5"))
     if pod5_files:
         return pod5_files[0]
@@ -33,13 +33,16 @@ def sample_pod5_file(test_data_dir):
 
 @pytest.fixture
 def sample_bam_file(test_data_dir):
-    """Return the path to a sample BAM file."""
-    # Look for simplex BAM file
-    bam_path = test_data_dir / "simplex_reads_mapped.bam"
+    """Return the path to a sample BAM file.
+
+    Uses mod_mappings.bam as the standard test data file.
+    """
+    # Use mod_mappings.bam as the standard test file
+    bam_path = test_data_dir / "mod_mappings.bam"
     if bam_path.exists():
         return bam_path
 
-    # Otherwise, find any BAM file
+    # Fallback: find any BAM file
     bam_files = list(test_data_dir.glob("*.bam"))
     if bam_files:
         return bam_files[0]

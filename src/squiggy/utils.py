@@ -124,7 +124,7 @@ def get_sample_data_path():
     """Get the path to the bundled sample data file
 
     Returns:
-        Path: Path to sample.pod5 file
+        Path: Path to mod_reads.pod5 file
 
     Raises:
         FileNotFoundError: If sample data cannot be found
@@ -135,13 +135,13 @@ def get_sample_data_path():
             import importlib.resources as resources
 
             files = resources.files("squiggy")
-            sample_path = files / "data" / "sample.pod5"
+            sample_path = files / "data" / "mod_reads.pod5"
             if hasattr(sample_path, "as_posix"):
                 return Path(sample_path)
             # For traversable objects, we need to extract to temp
             temp_dir = Path(tempfile.gettempdir()) / "squiggy_data"
             temp_dir.mkdir(exist_ok=True)
-            temp_file = temp_dir / "sample.pod5"
+            temp_file = temp_dir / "mod_reads.pod5"
             if not temp_file.exists():
                 with resources.as_file(sample_path) as f:
                     shutil.copy(f, temp_file)
@@ -150,12 +150,12 @@ def get_sample_data_path():
             # Fallback for older Python
             import pkg_resources
 
-            sample_path = pkg_resources.resource_filename("squiggy", "data/sample.pod5")
+            sample_path = pkg_resources.resource_filename("squiggy", "data/mod_reads.pod5")
             return Path(sample_path)
     except Exception as e:
         # Fallback: look in installed package directory
         package_dir = Path(__file__).parent
-        sample_path = package_dir / "data" / "sample.pod5"
+        sample_path = package_dir / "data" / "mod_reads.pod5"
         if sample_path.exists():
             return sample_path
         raise FileNotFoundError(f"Sample data not found. Error: {e}") from None
