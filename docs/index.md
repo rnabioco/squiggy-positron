@@ -7,7 +7,15 @@ Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing 
 - 📂 Load and browse POD5 files containing Oxford Nanopore sequencing data
 - 🔍 Search and filter reads by ID
 - 📊 Generate high-quality squiggle plots showing raw signal data
+- 🎨 **Multiple visualization modes:**
+  - **Single read** - Traditional one-at-a-time view
+  - **Overlay** - Compare multiple reads on same axes
+  - **Stacked** - Squigualiser-style vertically offset reads
+  - **Event-aligned** - Base annotations with fixed-width bases
+- 📐 **Signal normalization** - Z-score, Median, MAD for cross-read comparison
 - 🧬 Optional base annotations from BAM files with color-coded bases
+- 💾 **Export plots** to PNG, PDF, or SVG (publication quality)
+- 🎯 Multi-read selection (Ctrl+Click, Shift+Click)
 - 💻 Cross-platform support (Windows, macOS, Linux)
 - 🚀 Standalone executable - no Python installation required
 
@@ -24,8 +32,10 @@ Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing 
 Squiggy is built with:
 
 - **PySide6** (Qt for Python) - Cross-platform desktop UI framework
+- **qasync** - Asynchronous programming support for non-blocking UI
 - **pod5** - Library for reading Oxford Nanopore POD5 files
 - **plotnine** - ggplot2-style plotting for generating squiggle plots
+- **pysam** (optional) - BAM file parsing for base annotations
 - **PyInstaller** - Packages the app into standalone executables
 
 ## Source Code
