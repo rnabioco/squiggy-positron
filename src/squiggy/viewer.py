@@ -135,37 +135,7 @@ class SquiggleViewer(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        # File selection section
-        file_layout = QHBoxLayout()
-        self.file_label = QLabel("No file selected")
-        self.file_button = QPushButton("Open POD5 File")
-        self.file_button.clicked.connect(self.open_pod5_file)
-        file_layout.addWidget(QLabel("POD5 File:"))
-        file_layout.addWidget(self.file_label, 1)
-        file_layout.addWidget(self.file_button)
-        main_layout.addLayout(file_layout)
-
-        # BAM file selection section (optional)
-        bam_layout = QHBoxLayout()
-        self.bam_label = QLabel("No BAM file (optional)")
-        self.bam_button = QPushButton("Open BAM File")
-        self.bam_button.clicked.connect(self.open_bam_file)
-        bam_layout.addWidget(QLabel("BAM File:"))
-        bam_layout.addWidget(self.bam_label, 1)
-        bam_layout.addWidget(self.bam_button)
-        main_layout.addLayout(bam_layout)
-
-        # POD5 file information collapsible panel
-        self.file_info_box = CollapsibleBox("POD5 File Information")
-        self.create_file_info_content()
-        main_layout.addWidget(self.file_info_box)
-
-        # Plot options collapsible panel
-        self.plot_options_box = CollapsibleBox("Plot Options")
-        self.create_plot_options_content()
-        main_layout.addWidget(self.plot_options_box)
-
-        # Search section
+        # Search section at the top
         search_layout = QHBoxLayout()
 
         # Search mode selector
@@ -208,29 +178,70 @@ class SquiggleViewer(QMainWindow):
 
         main_layout.addLayout(search_layout)
 
-        # Create splitter for read list and plot area
-        splitter = QSplitter(Qt.Horizontal)
+        # Create main horizontal splitter for left panel, center plot, and right sidebar
+        main_splitter = QSplitter(Qt.Horizontal)
 
-        # Read list widget with multi-selection enabled
-        self.read_list = QListWidget()
-        self.read_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self.read_list.itemSelectionChanged.connect(self.on_read_selection_changed)
-        splitter.addWidget(self.read_list)
+        # Left panel: File browser and plot options
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Plot display area
+        # File selection section
+        file_layout = QHBoxLayout()
+        self.file_label = QLabel("No file selected")
+        self.file_button = QPushButton("Open POD5 File")
+        self.file_button.clicked.connect(self.open_pod5_file)
+        file_layout.addWidget(QLabel("POD5 File:"))
+        file_layout.addWidget(self.file_label, 1)
+        file_layout.addWidget(self.file_button)
+        left_layout.addLayout(file_layout)
+
+        # BAM file selection section (optional)
+        bam_layout = QHBoxLayout()
+        self.bam_label = QLabel("No BAM file (optional)")
+        self.bam_button = QPushButton("Open BAM File")
+        self.bam_button.clicked.connect(self.open_bam_file)
+        bam_layout.addWidget(QLabel("BAM File:"))
+        bam_layout.addWidget(self.bam_label, 1)
+        bam_layout.addWidget(self.bam_button)
+        left_layout.addLayout(bam_layout)
+
+        # POD5 file information collapsible panel
+        self.file_info_box = CollapsibleBox("POD5 File Information")
+        self.create_file_info_content()
+        left_layout.addWidget(self.file_info_box)
+
+        # Plot options collapsible panel
+        self.plot_options_box = CollapsibleBox("Plot Options")
+        self.create_plot_options_content()
+        left_layout.addWidget(self.plot_options_box)
+
+        # Add stretch to push everything to the top
+        left_layout.addStretch(1)
+
+        main_splitter.addWidget(left_panel)
+
+        # Plot display area (center)
         self.plot_label = QLabel("Select a POD5 file and read to display squiggle plot")
         self.plot_label.setAlignment(Qt.AlignCenter)
         self.plot_label.setStyleSheet(
             "border: 1px solid #ccc; background-color: #f9f9f9;"
         )
         self.plot_label.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
-        splitter.addWidget(self.plot_label)
+        main_splitter.addWidget(self.plot_label)
 
-        # Set splitter proportions
-        splitter.setStretchFactor(0, SPLITTER_RATIO[0])
-        splitter.setStretchFactor(1, SPLITTER_RATIO[1])
+        # Right sidebar: Read list
+        self.read_list = QListWidget()
+        self.read_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.read_list.itemSelectionChanged.connect(self.on_read_selection_changed)
+        main_splitter.addWidget(self.read_list)
 
-        main_layout.addWidget(splitter, 1)
+        # Set splitter proportions: left panel (1), center plot (3), right sidebar (1)
+        main_splitter.setStretchFactor(0, 1)
+        main_splitter.setStretchFactor(1, 3)
+        main_splitter.setStretchFactor(2, 1)
+
+        main_layout.addWidget(main_splitter, 1)
 
         # Status bar
         self.statusBar().showMessage("Ready")
