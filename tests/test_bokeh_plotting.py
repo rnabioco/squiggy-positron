@@ -8,7 +8,7 @@ class TestBokehHTMLOutput:
     """Tests for Bokeh HTML output generation."""
 
     def test_plot_single_read_returns_html(self, sample_pod5_file):
-        """Test that plot_single_read returns an HTML string."""
+        """Test that plot_single_read returns an HTML string and figure."""
         import pod5
 
         from squiggy.plotter_bokeh import BokehSquigglePlotter
@@ -16,7 +16,7 @@ class TestBokehHTMLOutput:
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            html = BokehSquigglePlotter.plot_single_read(
+            html, figure = BokehSquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -25,6 +25,8 @@ class TestBokehHTMLOutput:
             # Verify HTML string is returned
             assert isinstance(html, str)
             assert len(html) > 0
+            # Verify figure object is returned
+            assert figure is not None
 
     def test_html_contains_bokeh_elements(self, sample_pod5_file):
         """Test that generated HTML contains Bokeh JavaScript and structure."""
@@ -35,7 +37,7 @@ class TestBokehHTMLOutput:
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            html = BokehSquigglePlotter.plot_single_read(
+            html, _figure = BokehSquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -63,7 +65,7 @@ class TestSingleReadPlotting:
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            html = BokehSquigglePlotter.plot_single_read(
+            html, _figure = BokehSquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -91,7 +93,7 @@ class TestSingleReadPlotting:
             sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, read_id)
 
             if sequence is not None:
-                html = BokehSquigglePlotter.plot_single_read(
+                html, _figure = BokehSquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -122,7 +124,7 @@ class TestSingleReadPlotting:
             sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, read_id)
 
             if sequence is not None:
-                html = BokehSquigglePlotter.plot_single_read(
+                html, _figure = BokehSquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -153,7 +155,7 @@ class TestSingleReadPlotting:
 
             if sequence is not None:
                 # Plot with labels enabled
-                html_with_labels = BokehSquigglePlotter.plot_single_read(
+                html_with_labels, _figure = BokehSquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -163,7 +165,7 @@ class TestSingleReadPlotting:
                 )
 
                 # Plot with labels disabled
-                html_no_labels = BokehSquigglePlotter.plot_single_read(
+                html_no_labels, _figure = BokehSquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -263,7 +265,7 @@ class TestMultipleReadModes:
                 (str(r.read_id), r.signal, r.run_info.sample_rate) for r in reads
             ]
 
-            html = BokehSquigglePlotter.plot_multiple_reads(
+            html, _figure = BokehSquigglePlotter.plot_multiple_reads(
                 reads_data,
                 mode=PlotMode.OVERLAY,
                 normalization=NormalizationMethod.ZNORM,
@@ -288,7 +290,7 @@ class TestMultipleReadModes:
                 (str(r.read_id), r.signal, r.run_info.sample_rate) for r in reads
             ]
 
-            html = BokehSquigglePlotter.plot_multiple_reads(
+            html, _figure = BokehSquigglePlotter.plot_multiple_reads(
                 reads_data,
                 mode=PlotMode.STACKED,
                 normalization=NormalizationMethod.MAD,
@@ -322,7 +324,7 @@ class TestMultipleReadModes:
                     aligned_reads.append(aligned_read)
 
             if len(reads_data) > 0:
-                html = BokehSquigglePlotter.plot_multiple_reads(
+                html, _figure = BokehSquigglePlotter.plot_multiple_reads(
                     reads_data,
                     mode=PlotMode.EVENTALIGN,
                     normalization=NormalizationMethod.MEDIAN,
@@ -360,7 +362,7 @@ class TestDownsampling:
             read = next(reader.reads())
 
             # Plot with downsampling
-            html = BokehSquigglePlotter.plot_single_read(
+            html, _figure = BokehSquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -508,7 +510,7 @@ class TestDwellTimeVisualization:
 
             if sequence is not None:
                 # Plot with dwell time enabled
-                html = BokehSquigglePlotter.plot_single_read(
+                html, _figure = BokehSquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,

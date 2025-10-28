@@ -490,7 +490,7 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
-    ) -> str:
+    ) -> Tuple[str, figure]:
         """
         Plot a single nanopore read with optional base annotations
 
@@ -506,7 +506,7 @@ class BokehSquigglePlotter:
             show_labels: Show base labels on plot
 
         Returns:
-            HTML string containing the bokeh plot
+            Tuple[str, figure]: (HTML string, Bokeh figure object)
         """
 
         # Normalize and downsample signal
@@ -567,7 +567,7 @@ class BokehSquigglePlotter:
         # The toggle controls are embedded in the figure via JS callbacks
         # Generate HTML
         html = file_html(p, CDN, title=f"Squiggy: {read_id}")
-        return html
+        return html, p
 
     @staticmethod
     def _add_base_annotations_single_read(
@@ -671,7 +671,7 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
-    ) -> str:
+    ) -> Tuple[str, figure]:
         """
         Plot multiple reads in overlay or stacked mode
 
@@ -684,7 +684,7 @@ class BokehSquigglePlotter:
             show_dwell_time: Color bases by dwell time instead of base type
 
         Returns:
-            HTML string containing the bokeh plot
+            Tuple[str, figure]: (HTML string, Bokeh figure object)
         """
         if mode == PlotMode.OVERLAY:
             return BokehSquigglePlotter._plot_overlay(
@@ -711,7 +711,7 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
-    ) -> str:
+    ) -> Tuple[str, figure]:
         """Plot multiple reads overlaid on same axes"""
         # Create figure
         title = BokehSquigglePlotter._format_plot_title("Overlay", reads_data)
@@ -764,14 +764,14 @@ class BokehSquigglePlotter:
         # Generate HTML
         html_title = BokehSquigglePlotter._format_html_title("Overlay", reads_data)
         html = file_html(p, CDN, title=html_title)
-        return html
+        return html, p
 
     @staticmethod
     def _plot_stacked(
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
-    ) -> str:
+    ) -> Tuple[str, figure]:
         """Plot multiple reads stacked vertically with offset"""
         # Create figure
         title = BokehSquigglePlotter._format_plot_title("Stacked", reads_data)
@@ -832,7 +832,7 @@ class BokehSquigglePlotter:
         # Generate HTML
         html_title = BokehSquigglePlotter._format_html_title("Stacked", reads_data)
         html = file_html(p, CDN, title=html_title)
-        return html
+        return html, p
 
     @staticmethod
     def _plot_eventalign(
@@ -842,7 +842,7 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
-    ) -> str:
+    ) -> Tuple[str, figure]:
         """Plot event-aligned reads with base annotations"""
         if not aligned_reads:
             raise ValueError("Event-aligned mode requires aligned_reads data")
@@ -891,7 +891,7 @@ class BokehSquigglePlotter:
             "Event-Aligned", reads_data
         )
         html = file_html(p, CDN, title=html_title)
-        return html
+        return html, p
 
     @staticmethod
     def _add_base_annotations_eventalign(

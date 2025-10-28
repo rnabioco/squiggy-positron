@@ -2,6 +2,7 @@
     "recommendations": [
         "astral-sh.ty",
         "redhat.vscode-yaml",
-        "charliermarsh.ruff"
+        "charliermarsh.ruff",
+        "tombi-toml.tombi"
     ]
 }
