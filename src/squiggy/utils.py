@@ -11,6 +11,10 @@ from pathlib import Path
 import numpy as np
 import pod5
 import pysam
+from rich.console import Console
+
+# Create Rich console for styled output
+console = Console()
 
 
 @contextmanager
@@ -510,7 +514,9 @@ def get_basecall_data(bam_file, read_id):
         bam.close()
 
     except Exception as e:
-        print(f"Error reading BAM file for {read_id}: {e}")
+        console.print(
+            f"[yellow]Warning:[/yellow] Error reading BAM file for {read_id}: {e}"
+        )
 
     return None, None
 

@@ -27,6 +27,7 @@ dependencies = [
   "pysam>=0.20.0",
   "qasync>=0.24.0",
   "qt-material>=2.14",
+  "rich>=13.0.0",
 ]
 
 [project.urls]
