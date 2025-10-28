@@ -90,41 +90,83 @@ Stage all modified files with git:
 git add src/squiggy/__init__.py pyproject.toml NEWS.md
 ```
 
-## Step 7: Show Summary and Next Steps
+## Step 7: Show Summary
 
 Display a summary showing:
 - Old version → New version
-- Files updated
-- Changes staged
-- Suggested commit message:
-  ```
-  Release v[VERSION]
+- Files updated:
+  - `src/squiggy/__init__.py`
+  - `pyproject.toml`
+  - `NEWS.md`
+- Changes staged with git
 
-  [Brief summary of key changes]
-  ```
-- Next steps:
-  ```bash
-  # Review the changes:
-  git diff --cached
+Show the staged diff:
+```bash
+git diff --cached
+```
 
-  # Commit the release:
-  git commit -m "Release v[VERSION]"
+## Step 8: Prompt to Create Commit and Tag
 
-  # Create a git tag:
-  git tag v[VERSION]
+Use the AskUserQuestion tool to ask the user:
 
-  # Push to remote:
-  git push origin main --tags
-  ```
+**Question:** "Do you want to create the release commit and tag now?"
+
+**Options:**
+- **Yes** - Create commit and tag (recommended)
+  - Description: "Commit the changes and create a git tag v[VERSION]"
+- **No** - Stage only (manual commit later)
+  - Description: "Leave changes staged for manual review and commit"
+
+### If user selects "Yes":
+
+1. Create the commit:
+   ```bash
+   git commit -m "Release v[VERSION]
+
+   [Brief 1-2 sentence summary of key changes from changelog]"
+   ```
+
+2. Create the git tag:
+   ```bash
+   git tag -a v[VERSION] -m "Release v[VERSION]"
+   ```
+
+3. Show success message with next steps:
+   ```
+   ✅ Release v[VERSION] committed and tagged!
+
+   Next steps:
+   # Push to remote:
+   git push origin main --tags
+   ```
+
+### If user selects "No":
+
+Show manual next steps:
+```bash
+# Review the changes:
+git diff --cached
+
+# When ready, commit the release:
+git commit -m "Release v[VERSION]"
+
+# Create a git tag:
+git tag -a v[VERSION] -m "Release v[VERSION]"
+
+# Push to remote:
+git push origin main --tags
+```
 
 ## Important Notes
 
-- Do NOT create the git commit or tag automatically - only stage the changes
-- Do NOT push to remote - leave that to the user
+- Always show the staged diff before prompting to commit
+- Only create commit and tag if the user explicitly chooses "Yes" in the prompt
+- Do NOT push to remote - always leave that to the user
 - Be concise in the changelog - focus on user-facing changes
 - Skip internal/testing changes in the changelog unless they're significant
 - Preserve existing NEWS.md content below the new release section
 - Use consistent formatting that matches existing NEWS.md style (if it has content)
+- Use annotated tags (`git tag -a`) not lightweight tags
 
 ## Error Handling
 
