@@ -197,7 +197,7 @@ def extract_pod5_subset(input_path, output_path, selected_reads):
                 read_id = str(read.read_id)
 
                 if read_id in selected_reads:
-                    writer.add_read(read)
+                    writer.add_read(read.to_read())
                     reads_written += 1
 
                 # Progress indicator

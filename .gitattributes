@@ -4,5 +4,9 @@
 # POD5 test data files
 tests/data/*.pod5 filter=lfs diff=lfs merge=lfs -text
 
+# BAM alignment files and indices
+tests/data/*.bam filter=lfs diff=lfs merge=lfs -text
+tests/data/*.bam.bai filter=lfs diff=lfs merge=lfs -text
+
 # Optional: Track other large binary files if needed
 *.fast5 filter=lfs diff=lfs merge=lfs -text
