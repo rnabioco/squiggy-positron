@@ -354,14 +354,32 @@ class TestPathUtilities:
 
     def test_get_sample_data_path_error_message(self):
         """Test that get_sample_data_path has helpful error when not found."""
+        import sys
+
         from squiggy.utils import get_sample_data_path
 
         # Mock the file search to fail
         with patch("pathlib.Path.exists", return_value=False):
-            # Mock importlib.resources.files to fail
-            with patch("importlib.resources.files", side_effect=Exception("Not found")):
-                with pytest.raises(FileNotFoundError, match="Sample data not found"):
-                    get_sample_data_path()
+            # Mock the appropriate module based on Python version
+            if sys.version_info >= (3, 9):
+                # Mock importlib.resources.files for Python 3.9+
+                with patch(
+                    "importlib.resources.files", side_effect=Exception("Not found")
+                ):
+                    with pytest.raises(
+                        FileNotFoundError, match="Sample data not found"
+                    ):
+                        get_sample_data_path()
+            else:
+                # Mock pkg_resources.resource_filename for Python 3.8
+                with patch(
+                    "pkg_resources.resource_filename",
+                    side_effect=Exception("Not found"),
+                ):
+                    with pytest.raises(
+                        FileNotFoundError, match="Sample data not found"
+                    ):
+                        get_sample_data_path()
 
 
 class TestGetBasecallDataIntegration:
