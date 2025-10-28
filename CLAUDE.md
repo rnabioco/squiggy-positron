@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**IMPORTANT**: Before working on UI code, read `.claude/ui-suggestions.md` for critical Qt/PySide6 patterns and best practices, especially regarding QCheckBox signal handling.
+
 ## Project Overview
 
 Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing data ("squiggle plots") from POD5 files. It's built as a standalone application that can be distributed as native executables for Windows, macOS, and Linux.

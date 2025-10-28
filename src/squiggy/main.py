@@ -8,6 +8,7 @@ from pathlib import Path
 import qasync
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
+from qt_material import apply_stylesheet
 
 from .constants import APP_DESCRIPTION, APP_NAME, APP_VERSION, PlotMode
 from .utils import get_icon_path, validate_bam_reads_in_pod5
@@ -152,6 +153,10 @@ Version: {APP_VERSION}
     icon_path = get_icon_path()
     if icon_path:
         app.setWindowIcon(QIcon(str(icon_path)))
+
+    # Apply qt-material dark theme by default with compact density
+    extra = {'density_scale': '-2'}  # Maximum compactness
+    apply_stylesheet(app, theme="dark_amber.xml", extra=extra)
 
     # Create main viewer window
     viewer = SquiggleViewer()
