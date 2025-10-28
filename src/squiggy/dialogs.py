@@ -278,7 +278,9 @@ class ExportDialog(QDialog):
         view_group = QGroupBox("Export Range")
         view_layout = QVBoxLayout()
 
-        self.export_current_view = QCheckBox("Export current zoom level (visible range only)")
+        self.export_current_view = QCheckBox(
+            "Export current zoom level (visible range only)"
+        )
         self.export_current_view.setChecked(False)
         self.export_current_view.setToolTip(
             "When checked, exports only the currently visible range.\n"
@@ -290,9 +292,7 @@ class ExportDialog(QDialog):
         layout.addWidget(view_group)
 
         # Buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)

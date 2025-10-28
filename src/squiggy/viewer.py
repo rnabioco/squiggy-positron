@@ -1765,14 +1765,16 @@ class SquiggleViewer(QMainWindow):
         # Process events to wait for JavaScript execution
         # This is a simple approach - for production might need QEventLoop
         from PySide6.QtWidgets import QApplication
+
         QApplication.processEvents()
 
         if result[0]:
             try:
                 import json
+
                 ranges = json.loads(result[0])
-                x_range = (ranges['x_start'], ranges['x_end'])
-                y_range = (ranges['y_start'], ranges['y_end'])
+                x_range = (ranges["x_start"], ranges["x_end"])
+                y_range = (ranges["y_start"], ranges["y_end"])
                 return x_range, y_range
             except Exception:
                 pass
@@ -1827,7 +1829,7 @@ class SquiggleViewer(QMainWindow):
             if x_range is not None:
                 original_x_range = (
                     self.current_plot_figure.x_range.start,
-                    self.current_plot_figure.x_range.end
+                    self.current_plot_figure.x_range.end,
                 )
                 self.current_plot_figure.x_range.start = x_range[0]
                 self.current_plot_figure.x_range.end = x_range[1]
@@ -1835,7 +1837,7 @@ class SquiggleViewer(QMainWindow):
             if y_range is not None:
                 original_y_range = (
                     self.current_plot_figure.y_range.start,
-                    self.current_plot_figure.y_range.end
+                    self.current_plot_figure.y_range.end,
                 )
                 self.current_plot_figure.y_range.start = y_range[0]
                 self.current_plot_figure.y_range.end = y_range[1]
@@ -1898,7 +1900,7 @@ class SquiggleViewer(QMainWindow):
             if x_range is not None:
                 original_x_range = (
                     self.current_plot_figure.x_range.start,
-                    self.current_plot_figure.x_range.end
+                    self.current_plot_figure.x_range.end,
                 )
                 self.current_plot_figure.x_range.start = x_range[0]
                 self.current_plot_figure.x_range.end = x_range[1]
@@ -1906,7 +1908,7 @@ class SquiggleViewer(QMainWindow):
             if y_range is not None:
                 original_y_range = (
                     self.current_plot_figure.y_range.start,
-                    self.current_plot_figure.y_range.end
+                    self.current_plot_figure.y_range.end,
                 )
                 self.current_plot_figure.y_range.start = y_range[0]
                 self.current_plot_figure.y_range.end = y_range[1]
