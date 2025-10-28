@@ -26,6 +26,7 @@ dependencies = [
   "pod5>=0.3.0",
   "pysam>=0.20.0",
   "qasync>=0.24.0",
+  "qt-material>=2.14",
 ]
 
 [project.urls]

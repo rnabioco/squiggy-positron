@@ -19,9 +19,13 @@ from bokeh.transform import transform
 from .constants import (
     BASE_ANNOTATION_ALPHA,
     BASE_COLORS,
+    BASE_COLORS_DARK,
+    DARK_THEME,
+    LIGHT_THEME,
     SIGNAL_LINE_COLOR,
     NormalizationMethod,
     PlotMode,
+    Theme,
 )
 
 
@@ -60,8 +64,24 @@ class BokehSquigglePlotter:
             return signal
 
     @staticmethod
-    def _create_figure(title: str, x_label: str, y_label: str):
+    def _get_base_colors(theme: Theme = Theme.LIGHT) -> dict:
+        """Get base colors appropriate for the current theme"""
+        return BASE_COLORS_DARK if theme == Theme.DARK else BASE_COLORS
+
+    @staticmethod
+    def _get_signal_line_color(theme: Theme = Theme.LIGHT) -> str:
+        """Get signal line color appropriate for the current theme"""
+        theme_colors = DARK_THEME if theme == Theme.DARK else LIGHT_THEME
+        return theme_colors["signal_line"]
+
+    @staticmethod
+    def _create_figure(
+        title: str, x_label: str, y_label: str, theme: Theme = Theme.LIGHT
+    ):
         """Create a standard Bokeh figure with common settings"""
+        # Get theme colors
+        theme_colors = DARK_THEME if theme == Theme.DARK else LIGHT_THEME
+
         p = figure(
             title=title,
             x_axis_label=x_label,
@@ -70,15 +90,34 @@ class BokehSquigglePlotter:
             active_drag="xbox_zoom",
             active_scroll="wheel_zoom",
             sizing_mode="stretch_both",
+            background_fill_color=theme_colors["plot_bg"],
+            border_fill_color=theme_colors["plot_border"],
         )
+
+        # Apply theme to title
+        p.title.text_color = theme_colors["title_text"]
+
+        # Apply theme to axes
+        p.xaxis.axis_label_text_color = theme_colors["axis_text"]
+        p.xaxis.major_label_text_color = theme_colors["axis_text"]
+        p.xaxis.axis_line_color = theme_colors["axis_line"]
+        p.xaxis.major_tick_line_color = theme_colors["axis_line"]
+        p.xaxis.minor_tick_line_color = theme_colors["axis_line"]
+
+        p.yaxis.axis_label_text_color = theme_colors["axis_text"]
+        p.yaxis.major_label_text_color = theme_colors["axis_text"]
+        p.yaxis.axis_line_color = theme_colors["axis_line"]
+        p.yaxis.major_tick_line_color = theme_colors["axis_line"]
+        p.yaxis.minor_tick_line_color = theme_colors["axis_line"]
+
+        # Apply theme to grid
+        p.xgrid.grid_line_color = None  # Keep vertical grid lines off
+        p.ygrid.grid_line_color = theme_colors["grid_line"]
 
         # Add x-only wheel zoom
         wheel_zoom = WheelZoomTool(dimensions="width")
         p.add_tools(wheel_zoom)
         p.toolbar.active_scroll = wheel_zoom
-
-        # Remove vertical grid lines (minor ticks)
-        p.xgrid.grid_line_color = None
 
         return p
 
@@ -112,6 +151,7 @@ class BokehSquigglePlotter:
         signal_max: float,
         sample_rate: int,
         show_dwell_time: bool,
+        base_colors: dict,
     ):
         """
         Calculate base regions for time-based plots (single read mode).
@@ -130,7 +170,7 @@ class BokehSquigglePlotter:
                     break
 
                 base = sequence[seq_pos]
-                if base not in BASE_COLORS:
+                if base not in base_colors:
                     continue
 
                 sig_idx = seq_to_sig_map[seq_pos]
@@ -181,7 +221,7 @@ class BokehSquigglePlotter:
                     break
 
                 base = sequence[seq_pos]
-                if base not in BASE_COLORS:
+                if base not in base_colors:
                     continue
 
                 sig_idx = seq_to_sig_map[seq_pos]
@@ -225,6 +265,7 @@ class BokehSquigglePlotter:
         sample_rate: int,
         signal_length: int,
         show_dwell_time: bool,
+        base_colors: dict,
     ):
         """
         Calculate base regions for position-based plots (event-aligned mode).
@@ -242,7 +283,7 @@ class BokehSquigglePlotter:
 
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
-                if base not in BASE_COLORS:
+                if base not in base_colors:
                     continue
 
                 # Calculate dwell time from signal indices
@@ -271,7 +312,7 @@ class BokehSquigglePlotter:
             # Use base position for x-coordinates (evenly spaced)
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
-                if base not in BASE_COLORS:
+                if base not in base_colors:
                     continue
 
                 base_regions[base].append(
@@ -324,7 +365,7 @@ class BokehSquigglePlotter:
         return color_mapper
 
     @staticmethod
-    def _add_base_type_patches(p, base_regions: dict):
+    def _add_base_type_patches(p, base_regions: dict, base_colors: dict):
         """Add background patches grouped by base type"""
         for base in ["A", "C", "G", "T"]:
             if base_regions[base]:
@@ -343,13 +384,15 @@ class BokehSquigglePlotter:
                     top="top",
                     bottom="bottom",
                     source=patch_source,
-                    color=BASE_COLORS[base],
+                    color=base_colors[base],
                     alpha=BASE_ANNOTATION_ALPHA,
                     legend_label=f"Base {base}",
                 )
 
     @staticmethod
-    def _add_base_labels_time_mode(p, base_labels_data, show_dwell_time: bool):
+    def _add_base_labels_time_mode(
+        p, base_labels_data, show_dwell_time: bool, base_colors: dict
+    ):
         """Add base labels for time-based plots"""
         base_sources = []
 
@@ -385,6 +428,7 @@ class BokehSquigglePlotter:
         base_annotations: List,
         signal_max: float,
         show_dwell_time: bool,
+        base_colors: dict,
         sample_rate: int = None,
         signal_length: int = None,
     ):
@@ -392,6 +436,7 @@ class BokehSquigglePlotter:
 
         Args:
             show_dwell_time: If True, position labels using cumulative time
+            base_colors: Dict of base colors
             sample_rate: Required if show_dwell_time=True
             signal_length: Required if show_dwell_time=True
         """
@@ -402,7 +447,7 @@ class BokehSquigglePlotter:
             cumulative_time = 0.0
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
-                if base in BASE_COLORS:
+                if base in base_colors:
                     # Calculate dwell time
                     if i + 1 < len(base_annotations):
                         dwell_samples = (
@@ -419,7 +464,7 @@ class BokehSquigglePlotter:
                             "x": cumulative_time + (dwell_time / 2),
                             "y": signal_max,
                             "text": base,
-                            "color": BASE_COLORS[base],
+                            "color": base_colors[base],
                         }
                     )
                     cumulative_time += dwell_time
@@ -427,13 +472,13 @@ class BokehSquigglePlotter:
             # Use base position for label positioning (current behavior)
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
-                if base in BASE_COLORS:
+                if base in base_colors:
                     label_data.append(
                         {
                             "x": i,
                             "y": signal_max,
                             "text": base,
-                            "color": BASE_COLORS[base],
+                            "color": base_colors[base],
                         }
                     )
 
@@ -461,10 +506,19 @@ class BokehSquigglePlotter:
             p.add_layout(labels)
 
     @staticmethod
-    def _add_simple_labels(p, base_sources: List[Tuple[str, ColumnDataSource]]):
+    def _add_simple_labels(
+        p,
+        base_sources: List[Tuple[str, ColumnDataSource]],
+        base_colors: dict,
+        theme: Theme = Theme.LIGHT,
+    ):
         """Add base labels without toggle controls (always visible)"""
         if not base_sources:
             return
+
+        # Get theme-appropriate text color for "all" labels
+        theme_colors = DARK_THEME if theme == Theme.DARK else LIGHT_THEME
+        default_text_color = theme_colors["axis_text"]
 
         for base, source in base_sources:
             labels = LabelSet(
@@ -473,7 +527,7 @@ class BokehSquigglePlotter:
                 text="text",
                 source=source,
                 text_font_size="10pt",
-                text_color=BASE_COLORS[base] if base != "all" else "black",
+                text_color=base_colors[base] if base != "all" else default_text_color,
                 text_alpha=0.8,
                 name=f"labels_{base}",
             )
@@ -490,6 +544,7 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
+        theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """
         Plot a single nanopore read with optional base annotations
@@ -504,6 +559,7 @@ class BokehSquigglePlotter:
             downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
             show_dwell_time: Color bases by dwell time instead of base type
             show_labels: Show base labels on plot
+            theme: Color theme (LIGHT or DARK)
 
         Returns:
             Tuple[str, figure]: (HTML string, Bokeh figure object)
@@ -522,6 +578,7 @@ class BokehSquigglePlotter:
             title=f"Read: {read_id}",
             x_label="Time (ms)",
             y_label=f"Signal ({normalization.value})",
+            theme=theme,
         )
 
         # Add base annotations if available (returns color_mapper)
@@ -534,10 +591,11 @@ class BokehSquigglePlotter:
             sample_rate,
             show_dwell_time,
             show_labels,
+            theme,
         )
 
         # Add signal line
-        line_renderer = BokehSquigglePlotter._add_signal_line(p, time_ms, signal)
+        line_renderer = BokehSquigglePlotter._add_signal_line(p, time_ms, signal, theme)
 
         # Add hover tool
         hover = HoverTool(
@@ -579,6 +637,7 @@ class BokehSquigglePlotter:
         sample_rate: int,
         show_dwell_time: bool,
         show_labels: bool,
+        theme: Theme = Theme.LIGHT,
     ):
         """Add base annotations for single read plots
 
@@ -588,6 +647,7 @@ class BokehSquigglePlotter:
         if not sequence or seq_to_sig_map is None or len(seq_to_sig_map) == 0:
             return None, None
 
+        base_colors = BokehSquigglePlotter._get_base_colors(theme)
         signal_min = np.min(signal)
         signal_max = np.max(signal)
         color_mapper = None
@@ -604,6 +664,7 @@ class BokehSquigglePlotter:
                     signal_max,
                     sample_rate,
                     show_dwell_time,
+                    base_colors,
                 )
             )
             color_mapper = BokehSquigglePlotter._add_dwell_time_patches(
@@ -613,9 +674,11 @@ class BokehSquigglePlotter:
             # Add labels if requested (always visible, no toggle)
             if show_labels:
                 base_sources = BokehSquigglePlotter._add_base_labels_time_mode(
-                    p, all_labels_data, show_dwell_time
+                    p, all_labels_data, show_dwell_time, base_colors
                 )
-                BokehSquigglePlotter._add_simple_labels(p, base_sources)
+                BokehSquigglePlotter._add_simple_labels(
+                    p, base_sources, base_colors, theme
+                )
         else:
             # Calculate and add base type patches
             base_regions, base_labels_data = (
@@ -628,16 +691,19 @@ class BokehSquigglePlotter:
                     signal_max,
                     sample_rate,
                     show_dwell_time,
+                    base_colors,
                 )
             )
-            BokehSquigglePlotter._add_base_type_patches(p, base_regions)
+            BokehSquigglePlotter._add_base_type_patches(p, base_regions, base_colors)
 
             # Add labels if requested (always visible, no toggle)
             if show_labels:
                 base_sources = BokehSquigglePlotter._add_base_labels_time_mode(
-                    p, base_labels_data, show_dwell_time
+                    p, base_labels_data, show_dwell_time, base_colors
                 )
-                BokehSquigglePlotter._add_simple_labels(p, base_sources)
+                BokehSquigglePlotter._add_simple_labels(
+                    p, base_sources, base_colors, theme
+                )
 
             p.legend.click_policy = "hide"
             p.legend.location = "top_right"
@@ -645,18 +711,21 @@ class BokehSquigglePlotter:
         return color_mapper, None
 
     @staticmethod
-    def _add_signal_line(p, time_ms: np.ndarray, signal: np.ndarray):
+    def _add_signal_line(
+        p, time_ms: np.ndarray, signal: np.ndarray, theme: Theme = Theme.LIGHT
+    ):
         """Add signal line to plot"""
         signal_source = ColumnDataSource(
             data={"time": time_ms, "signal": signal, "sample": np.arange(len(signal))}
         )
 
+        signal_color = BokehSquigglePlotter._get_signal_line_color(theme)
         line_renderer = p.line(
             "time",
             "signal",
             source=signal_source,
             line_width=1,
-            color=SIGNAL_LINE_COLOR,
+            color=signal_color,
             alpha=0.8,
         )
 
@@ -671,6 +740,7 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
+        theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """
         Plot multiple reads in overlay or stacked mode
@@ -682,17 +752,18 @@ class BokehSquigglePlotter:
             aligned_reads: Optional list of aligned read objects for EVENTALIGN mode
             downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
             show_dwell_time: Color bases by dwell time instead of base type
+            theme: Color theme (LIGHT or DARK)
 
         Returns:
             Tuple[str, figure]: (HTML string, Bokeh figure object)
         """
         if mode == PlotMode.OVERLAY:
             return BokehSquigglePlotter._plot_overlay(
-                reads_data, normalization, downsample
+                reads_data, normalization, downsample, theme
             )
         elif mode == PlotMode.STACKED:
             return BokehSquigglePlotter._plot_stacked(
-                reads_data, normalization, downsample
+                reads_data, normalization, downsample, theme
             )
         elif mode == PlotMode.EVENTALIGN:
             return BokehSquigglePlotter._plot_eventalign(
@@ -702,6 +773,7 @@ class BokehSquigglePlotter:
                 downsample,
                 show_dwell_time,
                 show_labels,
+                theme,
             )
         else:
             raise ValueError(f"Unsupported plot mode: {mode}")
@@ -711,6 +783,7 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
+        theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot multiple reads overlaid on same axes"""
         # Create figure
@@ -719,6 +792,7 @@ class BokehSquigglePlotter:
             title=title,
             x_label="Sample",
             y_label=f"Signal ({normalization.value})",
+            theme=theme,
         )
 
         line_renderers = []
@@ -771,6 +845,7 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
+        theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot multiple reads stacked vertically with offset"""
         # Create figure
@@ -779,6 +854,7 @@ class BokehSquigglePlotter:
             title=title,
             x_label="Sample",
             y_label=f"Signal ({normalization.value}) + offset",
+            theme=theme,
         )
 
         # First pass: normalize all signals and determine offset
@@ -842,6 +918,7 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
+        theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot event-aligned reads with base annotations"""
         if not aligned_reads:
@@ -854,16 +931,29 @@ class BokehSquigglePlotter:
             title=title,
             x_label=x_label,
             y_label=f"Signal ({normalization.value})",
+            theme=theme,
         )
 
         # Add base annotations
         BokehSquigglePlotter._add_base_annotations_eventalign(
-            p, reads_data, normalization, aligned_reads, show_dwell_time, show_labels
+            p,
+            reads_data,
+            normalization,
+            aligned_reads,
+            show_dwell_time,
+            show_labels,
+            theme,
         )
 
         # Plot signal lines
         line_renderers = BokehSquigglePlotter._plot_eventalign_signals(
-            p, reads_data, normalization, aligned_reads, show_dwell_time, downsample
+            p,
+            reads_data,
+            normalization,
+            aligned_reads,
+            show_dwell_time,
+            downsample,
+            theme,
         )
 
         # Add hover tool with conditional tooltip
@@ -901,11 +991,13 @@ class BokehSquigglePlotter:
         aligned_reads: List,
         show_dwell_time: bool,
         show_labels: bool,
+        theme: Theme = Theme.LIGHT,
     ):
         """Add base annotations for event-aligned plots"""
         if not reads_data or not aligned_reads:
             return None
 
+        base_colors = BokehSquigglePlotter._get_base_colors(theme)
         first_aligned = aligned_reads[0]
         base_annotations = first_aligned.bases
 
@@ -931,8 +1023,9 @@ class BokehSquigglePlotter:
             sample_rate,
             signal_length,
             show_dwell_time,
+            base_colors,
         )
-        BokehSquigglePlotter._add_base_type_patches(p, base_regions)
+        BokehSquigglePlotter._add_base_type_patches(p, base_regions, base_colors)
 
         # Add labels if requested
         if show_labels:
@@ -941,6 +1034,7 @@ class BokehSquigglePlotter:
                 base_annotations,
                 signal_max,
                 show_dwell_time,
+                base_colors,
                 sample_rate,
                 signal_length,
             )
@@ -955,12 +1049,14 @@ class BokehSquigglePlotter:
         aligned_reads: List,
         show_dwell_time: bool = False,
         downsample: int = 1,
+        theme: Theme = Theme.LIGHT,
     ):
         """Plot signal lines for event-aligned reads
 
         Args:
             show_dwell_time: If True, use cumulative time for x-axis instead of base position
             downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
+            theme: Color theme (LIGHT or DARK)
         """
         line_renderers = []
 
@@ -1046,9 +1142,13 @@ class BokehSquigglePlotter:
                 }
             )
 
-            color = BokehSquigglePlotter.MULTI_READ_COLORS[
-                idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)
-            ]
+            # Use theme-aware signal color for first read, then use multi-read colors
+            if idx == 0:
+                color = BokehSquigglePlotter._get_signal_line_color(theme)
+            else:
+                color = BokehSquigglePlotter.MULTI_READ_COLORS[
+                    idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)
+                ]
             line = p.line(
                 "x",
                 "y",

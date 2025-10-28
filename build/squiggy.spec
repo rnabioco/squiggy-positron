@@ -41,6 +41,7 @@ a = Analysis(
         'selenium',
         'PIL',
         'pillow',
+        'qt_material',
     ],
     hookspath=[],
     hooksconfig={},

@@ -399,6 +399,8 @@ class TestDwellTimeVisualization:
                 signal_max = np.max(signal)
 
                 # Call internal method
+                from squiggy.constants import BASE_COLORS
+
                 result = BokehSquigglePlotter._calculate_base_regions_time_mode(
                     sequence,
                     seq_to_sig_map,
@@ -408,6 +410,7 @@ class TestDwellTimeVisualization:
                     signal_max,
                     sample_rate,
                     show_dwell_time=True,
+                    base_colors=BASE_COLORS,
                 )
 
                 # Should return (regions, dwell_times, labels_data)
@@ -453,6 +456,8 @@ class TestDwellTimeVisualization:
                                 signal_length = len(signal)
 
                                 # Test internal method
+                                from squiggy.constants import BASE_COLORS
+
                                 signal_min = float(np.min(signal))
                                 signal_max = float(np.max(signal))
 
@@ -463,6 +468,7 @@ class TestDwellTimeVisualization:
                                     sample_rate,
                                     signal_length,
                                     show_dwell_time=True,
+                                    base_colors=BASE_COLORS,
                                 )
 
                                 # Should return (base_regions,)

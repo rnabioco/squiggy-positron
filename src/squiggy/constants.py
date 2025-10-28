@@ -84,3 +84,63 @@ MULTI_READ_COLORS = [
     "#56B4E9",  # Light blue
     "#D55E00",  # Red-orange
 ]
+
+
+# Theme modes
+class Theme(Enum):
+    """Application theme modes"""
+
+    LIGHT = "light"  # Light mode (default)
+    DARK = "dark"  # Dark mode
+
+
+# Theme color palettes
+LIGHT_THEME = {
+    # Qt application colors
+    "window_bg": "#ffffff",
+    "window_text": "#000000",
+    "base_bg": "#ffffff",
+    "base_text": "#000000",
+    "button_bg": "#f0f0f0",
+    "button_text": "#000000",
+    "highlight_bg": "#308cc6",
+    "highlight_text": "#ffffff",
+    # Bokeh plot colors
+    "plot_bg": "#ffffff",
+    "plot_border": "#ffffff",
+    "grid_line": "#e6e6e6",
+    "axis_line": "#000000",
+    "axis_text": "#000000",
+    "title_text": "#000000",
+    "signal_line": "#000000",
+}
+
+DARK_THEME = {
+    # Qt application colors
+    "window_bg": "#2b2b2b",
+    "window_text": "#ffffff",
+    "base_bg": "#1e1e1e",
+    "base_text": "#ffffff",
+    "button_bg": "#3c3c3c",
+    "button_text": "#ffffff",
+    "highlight_bg": "#0d5d9f",
+    "highlight_text": "#ffffff",
+    # Bokeh plot colors
+    "plot_bg": "#2b2b2b",
+    "plot_border": "#1e1e1e",
+    "grid_line": "#3c3c3c",
+    "axis_line": "#cccccc",
+    "axis_text": "#cccccc",
+    "title_text": "#ffffff",
+    "signal_line": "#e0e0e0",  # Bright light gray for good visibility
+}
+
+# Base colors for dark mode (adjusted for better visibility)
+BASE_COLORS_DARK = {
+    "A": "#00d9a3",  # Brighter green (purine)
+    "C": "#fff34d",  # Brighter yellow (pyrimidine)
+    "G": "#4da6ff",  # Brighter blue (purine)
+    "T": "#ff8c42",  # Brighter orange (pyrimidine)
+    "U": "#ff8c42",  # Same as T
+    "N": "#999999",  # Lighter gray (unknown)
+}
