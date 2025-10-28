@@ -150,7 +150,9 @@ def get_sample_data_path():
             # Fallback for older Python
             import pkg_resources
 
-            sample_path = pkg_resources.resource_filename("squiggy", "data/mod_reads.pod5")
+            sample_path = pkg_resources.resource_filename(
+                "squiggy", "data/mod_reads.pod5"
+            )
             return Path(sample_path)
     except Exception as e:
         # Fallback: look in installed package directory

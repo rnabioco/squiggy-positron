@@ -40,7 +40,7 @@ Squiggy is built with:
 
 ## Source Code
 
-The source code is available on [GitHub](https://github.com/rnabioco/squiggler).
+The source code is available on [GitHub](https://github.com/rnabioco/squiggy).
 
 ## License
 

@@ -113,7 +113,9 @@ class SquiggleViewer(QMainWindow):
         self.alignment_info = {}  # Maps read_id -> alignment metadata
         self.current_read_item = None
         self.show_bases = True  # Default to showing base annotations
-        self.plot_mode = PlotMode.EVENTALIGN  # Default to event-aligned mode (primary mode)
+        self.plot_mode = (
+            PlotMode.EVENTALIGN
+        )  # Default to event-aligned mode (primary mode)
         self.normalization_method = NormalizationMethod.MEDIAN
         self.downsample_factor = 25  # Default downsampling for performance
         self.show_dwell_time = False  # Show dwell time coloring
@@ -305,7 +307,9 @@ class SquiggleViewer(QMainWindow):
 
         # File size
         label_filesize = QLabel("File size:")
-        label_filesize.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        label_filesize.setStyleSheet(
+            "font-size: 9pt; font-weight: bold; margin-top: 5px;"
+        )
         content_layout.addWidget(label_filesize)
         self.info_filesize_label = QLabel("—")
         self.info_filesize_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
@@ -314,7 +318,9 @@ class SquiggleViewer(QMainWindow):
 
         # Number of reads
         label_num_reads = QLabel("Number of reads:")
-        label_num_reads.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        label_num_reads.setStyleSheet(
+            "font-size: 9pt; font-weight: bold; margin-top: 5px;"
+        )
         content_layout.addWidget(label_num_reads)
         self.info_num_reads_label = QLabel("—")
         self.info_num_reads_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
@@ -323,7 +329,9 @@ class SquiggleViewer(QMainWindow):
 
         # Sample rate
         label_sample_rate = QLabel("Sample rate:")
-        label_sample_rate.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        label_sample_rate.setStyleSheet(
+            "font-size: 9pt; font-weight: bold; margin-top: 5px;"
+        )
         content_layout.addWidget(label_sample_rate)
         self.info_sample_rate_label = QLabel("—")
         self.info_sample_rate_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
@@ -332,10 +340,14 @@ class SquiggleViewer(QMainWindow):
 
         # Total samples
         label_total_samples = QLabel("Total samples:")
-        label_total_samples.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        label_total_samples.setStyleSheet(
+            "font-size: 9pt; font-weight: bold; margin-top: 5px;"
+        )
         content_layout.addWidget(label_total_samples)
         self.info_total_samples_label = QLabel("—")
-        self.info_total_samples_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
+        self.info_total_samples_label.setStyleSheet(
+            "font-size: 9pt; padding-left: 10px;"
+        )
         self.info_total_samples_label.setWordWrap(True)
         content_layout.addWidget(self.info_total_samples_label)
 
@@ -362,7 +374,9 @@ class SquiggleViewer(QMainWindow):
         self.mode_eventalign.toggled.connect(
             lambda checked: self.set_plot_mode(PlotMode.EVENTALIGN) if checked else None
         )
-        self.mode_eventalign.setChecked(True)  # Checked by default (visual indication of primary mode)
+        self.mode_eventalign.setChecked(
+            True
+        )  # Checked by default (visual indication of primary mode)
         self.mode_eventalign.setEnabled(False)  # Disabled until BAM file loaded
         self.mode_button_group.addButton(self.mode_eventalign)
         content_layout.addWidget(self.mode_eventalign)
@@ -460,7 +474,9 @@ class SquiggleViewer(QMainWindow):
             "25 = show every 25th point (default)\n"
             "100 = show every 100th point (fastest)"
         )
-        self.downsample_slider.valueChanged.connect(self.set_downsample_factor_from_slider)
+        self.downsample_slider.valueChanged.connect(
+            self.set_downsample_factor_from_slider
+        )
         downsample_layout.addWidget(self.downsample_slider)
 
         # SpinBox for direct value entry
@@ -469,15 +485,15 @@ class SquiggleViewer(QMainWindow):
         self.downsample_spinbox.setMaximum(100)
         self.downsample_spinbox.setValue(25)
         self.downsample_spinbox.setToolTip("Enter downsample factor (1-100)")
-        self.downsample_spinbox.valueChanged.connect(self.set_downsample_factor_from_spinbox)
+        self.downsample_spinbox.valueChanged.connect(
+            self.set_downsample_factor_from_spinbox
+        )
         downsample_layout.addWidget(self.downsample_spinbox)
 
         content_layout.addLayout(downsample_layout)
 
         # Info label
-        info_label = QLabel(
-            "💡 Downsampling reduces rendering time for large signals"
-        )
+        info_label = QLabel("💡 Downsampling reduces rendering time for large signals")
         info_label.setStyleSheet("color: #666; font-size: 9pt;")
         info_label.setWordWrap(True)
         content_layout.addWidget(info_label)
@@ -493,7 +509,9 @@ class SquiggleViewer(QMainWindow):
             "Bases with longer dwell times take more horizontal space\n"
             "(requires event-aligned mode with BAM file)"
         )
-        self.dwell_time_checkbox.setEnabled(False)  # Enabled when in EVENTALIGN mode with BAM
+        self.dwell_time_checkbox.setEnabled(
+            False
+        )  # Enabled when in EVENTALIGN mode with BAM
         self.dwell_time_checkbox.stateChanged.connect(self.toggle_dwell_time)
         content_layout.addWidget(self.dwell_time_checkbox)
 
@@ -561,10 +579,11 @@ class SquiggleViewer(QMainWindow):
         """Callback when ranges are extracted from JavaScript"""
         if result:
             import json
+
             try:
                 ranges = json.loads(result)
-                self.saved_x_range = (ranges['x_start'], ranges['x_end'])
-                self.saved_y_range = (ranges['y_start'], ranges['y_end'])
+                self.saved_x_range = (ranges["x_start"], ranges["x_end"])
+                self.saved_y_range = (ranges["y_start"], ranges["y_end"])
             except (json.JSONDecodeError, KeyError, TypeError):
                 # If parsing fails, just use None (will reset zoom)
                 self.saved_x_range = None
@@ -674,7 +693,7 @@ class SquiggleViewer(QMainWindow):
 
         # Enable dwell time checkbox only in EVENTALIGN mode with BAM file
         # Only update checkbox if it exists (may not exist during initialization)
-        if hasattr(self, 'dwell_time_checkbox'):
+        if hasattr(self, "dwell_time_checkbox"):
             if mode == PlotMode.EVENTALIGN and self.bam_file:
                 self.dwell_time_checkbox.setEnabled(True)
             else:
@@ -684,7 +703,7 @@ class SquiggleViewer(QMainWindow):
                     self.dwell_time_checkbox.setChecked(False)
 
         # Refresh plot if reads are selected
-        if hasattr(self, 'read_list') and self.read_list.selectedItems():
+        if hasattr(self, "read_list") and self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
@@ -695,7 +714,7 @@ class SquiggleViewer(QMainWindow):
         """Set the normalization method and refresh display"""
         self.normalization_method = self.norm_combo.itemData(index)
         # Refresh plot if reads are selected
-        if hasattr(self, 'read_list') and self.read_list.selectedItems():
+        if hasattr(self, "read_list") and self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
@@ -989,7 +1008,7 @@ class SquiggleViewer(QMainWindow):
     async def toggle_base_annotations(self, state):
         """Toggle display of base annotations (async)"""
         # Use integer comparison since Qt.CheckState enum comparison may not work
-        self.show_bases = (state == 2)  # Qt.CheckState.Checked = 2
+        self.show_bases = state == 2  # Qt.CheckState.Checked = 2
         # Refresh current plot if one is displayed
         if self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
@@ -1293,10 +1312,7 @@ class SquiggleViewer(QMainWindow):
             # Search for sequence in background thread
             include_revcomp = self.revcomp_checkbox.isChecked()
             matches = await asyncio.to_thread(
-                self._search_sequence_in_reference,
-                read_id,
-                query_seq,
-                include_revcomp
+                self._search_sequence_in_reference, read_id, query_seq, include_revcomp
             )
 
             # Display results
@@ -1365,14 +1381,16 @@ class SquiggleViewer(QMainWindow):
             base_start = pos
             base_end = pos + len(query_seq)
 
-            matches.append({
-                "strand": "Forward",
-                "ref_start": ref_pos,
-                "ref_end": ref_end,
-                "base_start": base_start,
-                "base_end": base_end,
-                "sequence": query_seq,
-            })
+            matches.append(
+                {
+                    "strand": "Forward",
+                    "ref_start": ref_pos,
+                    "ref_end": ref_end,
+                    "base_start": base_start,
+                    "base_end": base_end,
+                    "sequence": query_seq,
+                }
+            )
 
             start_pos = pos + 1
 
@@ -1391,14 +1409,16 @@ class SquiggleViewer(QMainWindow):
                     base_start = pos
                     base_end = pos + len(revcomp_seq)
 
-                    matches.append({
-                        "strand": "Reverse",
-                        "ref_start": ref_pos,
-                        "ref_end": ref_end,
-                        "base_start": base_start,
-                        "base_end": base_end,
-                        "sequence": revcomp_seq,
-                    })
+                    matches.append(
+                        {
+                            "strand": "Reverse",
+                            "ref_start": ref_pos,
+                            "ref_end": ref_end,
+                            "base_start": base_start,
+                            "base_end": base_end,
+                            "sequence": revcomp_seq,
+                        }
+                    )
 
                     start_pos = pos + 1
 

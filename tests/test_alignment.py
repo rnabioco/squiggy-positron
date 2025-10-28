@@ -197,7 +197,9 @@ class TestBaseAnnotation:
                         assert isinstance(base_annotation.signal_start, int)
                         assert isinstance(base_annotation.signal_end, int)
                         assert base_annotation.signal_start >= 0
-                        assert base_annotation.signal_end >= base_annotation.signal_start
+                        assert (
+                            base_annotation.signal_end >= base_annotation.signal_start
+                        )
                         return
 
         pytest.skip("No aligned reads found")
@@ -266,8 +268,12 @@ class TestBaseAnnotation:
                         assert hasattr(base_annotation, "quality")
                         # Quality may be None or an integer
                         if base_annotation.quality is not None:
-                            assert isinstance(base_annotation.quality, (int, np.integer))
-                            assert 0 <= base_annotation.quality <= 93  # Phred quality range
+                            assert isinstance(
+                                base_annotation.quality, (int, np.integer)
+                            )
+                            assert (
+                                0 <= base_annotation.quality <= 93
+                            )  # Phred quality range
                         return
 
         pytest.skip("No aligned reads with quality scores found")
@@ -428,8 +434,12 @@ class TestStrideHandling:
 
                                     # Dwell times should be realistic (typically 1-20 ms per base)
                                     # Not microseconds (which would indicate stride not used)
-                                    assert dwell_time_ms >= 0.5, f"Dwell time too short: {dwell_time_ms} ms"
-                                    assert dwell_time_ms <= 100, f"Dwell time too long: {dwell_time_ms} ms"
+                                    assert dwell_time_ms >= 0.5, (
+                                        f"Dwell time too short: {dwell_time_ms} ms"
+                                    )
+                                    assert dwell_time_ms <= 100, (
+                                        f"Dwell time too long: {dwell_time_ms} ms"
+                                    )
 
                                     # Most bases should be in 1-10 ms range
                                     if dwell_time_ms < 0.5:
@@ -557,9 +567,7 @@ class TestEdgeCases:
         from squiggy.alignment import BaseAnnotation
 
         # Test BaseAnnotation creation
-        annotation = BaseAnnotation(
-            base="A", position=0, signal_start=0, signal_end=10
-        )
+        annotation = BaseAnnotation(base="A", position=0, signal_start=0, signal_end=10)
 
         assert annotation.base == "A"
         assert annotation.position == 0
