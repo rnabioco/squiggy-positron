@@ -83,8 +83,9 @@ tests/data/
 - mad_normalize(): Median absolute deviation (robust to outliers)
 
 **src/squiggy/dialogs.py** - Custom dialog windows:
-- About dialog with version and license information
+- AboutDialog: version and license information
 - ReferenceBrowserDialog: browsable table of reference sequences from BAM files
+- ExportDialog: format selection (HTML/PNG/SVG), dimension controls with aspect ratio lock, zoom-level export option
 - CollapsibleBox widget: reusable UI component for expandable sections
 
 **src/squiggy/utils.py** - Utility functions:
@@ -133,6 +134,24 @@ tests/data/
 4. Bokeh renders bases as colored rectangles over signal trace
 5. Interactive toggle button allows showing/hiding base letters
 6. Base colors use Okabe-Ito palette for colorblind accessibility
+
+**Plot Export:**
+1. User selects "Export Plot" from File menu (Ctrl/Cmd+E)
+2. `ExportDialog` displays with format options (HTML/PNG/SVG), dimension controls, and zoom-level checkbox
+3. If "Export current zoom level" is checked:
+   - JavaScript bridge (`_get_current_view_ranges()`) executes JS in QWebEngineView
+   - Extracts current x_range and y_range from Bokeh plot's interactive state
+   - Returns tuples: `((x_start, x_end), (y_start, y_end))`
+4. Export methods (`_export_html()`, `_export_png()`, `_export_svg()`) called based on format
+5. For PNG/SVG exports:
+   - Store original figure dimensions, sizing_mode, and ranges
+   - Temporarily set `sizing_mode = None` to enable explicit dimensions
+   - Apply custom width/height and optional zoom ranges to figure
+   - Call Bokeh's `export_png()` or `export_svgs()` (requires selenium + geckodriver)
+   - Restore original figure state in finally block
+6. For HTML exports:
+   - Write stored `current_plot_html` directly to file (no modification needed)
+7. Success message displayed with export details
 
 ## Development Commands
 
@@ -303,6 +322,10 @@ git push origin v0.1.0
 
 ### PyInstaller Considerations
 - All non-standard-library imports must be listed in `build/squiggy.spec` `hiddenimports` if PyInstaller fails to detect them
+- **Export dependencies** bundled in spec file:
+  - `selenium`, `PIL`, `pillow` added to `hiddenimports`
+  - `geckodriver` binary bundled via `binaries` list (detected with `shutil.which()`)
+  - Enables PNG/SVG export in standalone builds without user setup
 - Resource files are in two locations:
   - Icons: `build/` directory (squiggy.png, squiggy.ico, squiggy.icns)
   - Sample data: `tests/data/` directory (*.pod5 files and README.md)
@@ -521,10 +544,16 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 - **Hidden imports**: Some imports aren't auto-detected - add to `hiddenimports` in spec file
   - Bokeh may require: `bokeh.models`, `bokeh.palettes`, `bokeh.transform`
   - QWebEngine requires: `PySide6.QtWebEngineCore`, `PySide6.QtWebEngineWidgets`
+  - Export features require: `selenium`, `PIL`, `pillow`
+- **Binary dependencies**:
+  - Geckodriver must be installed on build machine (`brew install geckodriver`)
+  - Spec file auto-detects geckodriver location with `shutil.which()`
+  - If geckodriver not found, build prints warning and PNG/SVG export won't work in standalone build
 - **Data files**: Must explicitly list in `datas` parameter
 - **Platform differences**: Test builds on target platform (macOS != Linux != Windows)
 - **Permissions**: macOS requires code signing for distribution outside App Store
 - **Size**: Bundled Qt + QWebEngine adds ~150MB to executable size due to Chromium
+  - Geckodriver adds ~6MB per platform
 - **WebEngine resources**: QWebEngine requires additional resources - ensure Qt plugins are bundled correctly
 
 ## Coding Style and Conventions

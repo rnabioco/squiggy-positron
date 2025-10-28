@@ -50,6 +50,27 @@ For development with editable installation:
 pip install -e ".[dev]"
 ```
 
+### Optional: Export Dependencies
+
+**For standalone builds** (downloaded from releases):
+- PNG and SVG export work out of the box - no additional setup required!
+
+**For source installations** (installed via pip/uv):
+- HTML export works immediately
+- PNG and SVG export require additional dependencies:
+
+```bash
+# Install export dependencies
+pip install -e ".[export]"
+
+# Or with uv
+uv pip install -e ".[export]"
+```
+
+This installs `selenium` and `pillow`, which enable Bokeh's image export functionality. Firefox (or another browser) must be available on your system, which selenium will use for headless rendering.
+
+**Note:** Most users don't need these dependencies unless they specifically want to export PNG or SVG images from source installations. Standalone builds include everything needed for all export formats.
+
 ## Building from Source
 
 To build standalone executables yourself:

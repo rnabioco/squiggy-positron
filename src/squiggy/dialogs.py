@@ -3,11 +3,17 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -48,205 +54,133 @@ class AboutDialog(QDialog):
 
         # Application name (if logo was shown)
         if logo_path:
-            name_label = QLabel(f"<h1>{APP_NAME}</h1>")
+            name_label = QLabel(f"<h2>{APP_NAME}</h2>")
             name_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(name_label)
 
-        # Version info
-        version_label = QLabel(f"<p>Version {APP_VERSION}</p>")
+        # Version
+        version_label = QLabel(f"Version {APP_VERSION}")
         version_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(version_label)
 
         # Description
-        desc_label = QLabel(
-            f"<p>{APP_DESCRIPTION}</p>"
-            "<p>A desktop application for visualizing<br>"
-            "Oxford Nanopore sequencing data.</p>"
-        )
+        desc_label = QLabel(APP_DESCRIPTION)
         desc_label.setAlignment(Qt.AlignCenter)
         desc_label.setWordWrap(True)
         layout.addWidget(desc_label)
 
-        # Features list
-        features_label = QLabel(
-            '<p style="margin-top: 20px;">'
-            "<b>Features:</b><br>"
-            "• POD5 file visualization<br>"
-            "• Optional BAM base annotations<br>"
-            "• Interactive squiggle plots<br>"
-            "• Color-coded base visualization<br>"
-            "</p>"
-        )
-        features_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(features_label)
-
-        # Technology info
-        tech_label = QLabel(
-            '<p style="margin-top: 10px; font-size: 10px; color: #666;">'
-            "Built with PySide6, plotnine, and pod5"
-            "</p>"
-        )
-        tech_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(tech_label)
-
-        # Add spacer
-        layout.addStretch()
+        # License and credits
+        credits_text = """
+        <p><b>License:</b> MIT</p>
+        <p><b>Author:</b> Jay Hesselberth</p>
+        <p><b>GitHub:</b> <a href="https://github.com/rnabioco/squiggy">
+        github.com/rnabioco/squiggy</a></p>
+        """
+        credits_label = QLabel(credits_text)
+        credits_label.setAlignment(Qt.AlignCenter)
+        credits_label.setWordWrap(True)
+        credits_label.setOpenExternalLinks(True)
+        layout.addWidget(credits_label)
 
         # Close button
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.accept)
-        close_button.setDefault(True)
         layout.addWidget(close_button)
 
 
 class ReferenceBrowserDialog(QDialog):
-    """Dialog for browsing available reference sequences in BAM file"""
+    """Dialog for browsing reference sequences in BAM file"""
 
     def __init__(self, references, parent=None):
         """Initialize reference browser dialog
 
         Args:
-            references: List of reference info dicts from get_bam_references()
+            references: List of dict with keys: name, length, read_count
             parent: Parent widget
         """
         super().__init__(parent)
-        self.references = references
-        self.selected_reference = None
-
-        self.setWindowTitle("BAM Reference Sequences")
+        self.setWindowTitle("Browse Reference Sequences")
         self.setModal(True)
-        self.setMinimumSize(700, 500)
+        self.resize(600, 400)
+
+        self.selected_reference = None
 
         layout = QVBoxLayout(self)
 
         # Info label
         info_label = QLabel(
-            f"<b>Available references in BAM file</b><br>"
-            f"Found {len(references)} reference sequences. "
-            "Click a row to select, then click 'Use Selected' to search."
+            "Double-click a reference sequence to select it for region search:"
         )
-        info_label.setWordWrap(True)
         layout.addWidget(info_label)
-
-        # Search filter
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Filter:"))
-        self.filter_input = QLineEdit()
-        self.filter_input.setPlaceholderText("Type to filter references...")
-        self.filter_input.textChanged.connect(self.filter_table)
-        filter_layout.addWidget(self.filter_input)
-        layout.addLayout(filter_layout)
 
         # Create table
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Reference", "Length (bp)", "Reads"])
+        self.table.setHorizontalHeaderLabels(["Reference", "Length", "Reads"])
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSortingEnabled(True)
         self.table.itemDoubleClicked.connect(self.on_double_click)
 
         # Populate table
-        self.populate_table(references)
-
-        # Adjust column widths
-        self.table.resizeColumnsToContents()
-        self.table.setColumnWidth(0, 300)  # Reference name column
-
-        layout.addWidget(self.table)
-
-        # Summary label
-        self.summary_label = QLabel()
-        self.update_summary()
-        layout.addWidget(self.summary_label)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        self.use_button = QPushButton("Use Selected")
-        self.use_button.clicked.connect(self.on_use_selected)
-        self.use_button.setEnabled(False)
-        button_layout.addWidget(self.use_button)
-
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(self.reject)
-        button_layout.addWidget(close_button)
-
-        layout.addLayout(button_layout)
-
-        # Connect selection change
-        self.table.itemSelectionChanged.connect(self.on_selection_changed)
-
-    def populate_table(self, references):
-        """Populate table with reference data"""
-        self.table.setSortingEnabled(False)
         self.table.setRowCount(len(references))
-
         for row, ref in enumerate(references):
             # Reference name
             name_item = QTableWidgetItem(ref["name"])
             self.table.setItem(row, 0, name_item)
 
             # Length
-            if ref["length"]:
-                length_str = f"{ref['length']:,}"
-            else:
-                length_str = "—"
-            length_item = QTableWidgetItem(length_str)
+            length_item = QTableWidgetItem(f"{ref['length']:,}")
             length_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.table.setItem(row, 1, length_item)
 
             # Read count
-            if ref["read_count"] is not None:
-                count_str = f"{ref['read_count']:,}"
-            else:
-                count_str = "—"
-            count_item = QTableWidgetItem(count_str)
+            count_item = QTableWidgetItem(f"{ref['read_count']:,}")
             count_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.table.setItem(row, 2, count_item)
 
-        self.table.setSortingEnabled(True)
-        # Sort by read count descending (most reads first)
-        self.table.sortItems(2, Qt.DescendingOrder)
+        # Resize columns to contents
+        self.table.resizeColumnsToContents()
 
-    def filter_table(self):
+        layout.addWidget(self.table)
+
+        # Search box
+        search_layout = QHBoxLayout()
+        search_label = QLabel("Filter:")
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Type to filter references...")
+        self.search_box.textChanged.connect(self.filter_table)
+        search_layout.addWidget(search_label)
+        search_layout.addWidget(self.search_box)
+        layout.addLayout(search_layout)
+
+        # Buttons
+        button_box = QHBoxLayout()
+
+        select_button = QPushButton("Select")
+        select_button.clicked.connect(self.on_select)
+        button_box.addWidget(select_button)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        button_box.addWidget(cancel_button)
+
+        layout.addLayout(button_box)
+
+    def filter_table(self, text):
         """Filter table rows based on search text"""
-        filter_text = self.filter_input.text().lower()
-
         for row in range(self.table.rowCount()):
             name_item = self.table.item(row, 0)
             if name_item:
-                # Show row if filter text is in reference name
-                should_show = filter_text in name_item.text().lower()
+                # Show row if search text is in reference name (case insensitive)
+                should_show = text.lower() in name_item.text().lower()
                 self.table.setRowHidden(row, not should_show)
 
-        self.update_summary()
-
-    def update_summary(self):
-        """Update summary label with visible/total counts"""
-        visible_count = sum(
-            1 for row in range(self.table.rowCount()) if not self.table.isRowHidden(row)
-        )
-        total_count = self.table.rowCount()
-
-        if visible_count == total_count:
-            self.summary_label.setText(f"Showing {total_count} references")
-        else:
-            self.summary_label.setText(
-                f"Showing {visible_count} of {total_count} references"
-            )
-
-    def on_selection_changed(self):
-        """Handle selection change"""
-        selected_items = self.table.selectedItems()
-        self.use_button.setEnabled(len(selected_items) > 0)
-
-    def on_use_selected(self):
-        """Handle 'Use Selected' button click"""
-        selected_rows = self.table.selectionModel().selectedRows()
+    def on_select(self):
+        """Handle select button click"""
+        selected_rows = self.table.selectedItems()
         if selected_rows:
+            # Get the reference name from the first column of selected row
             row = selected_rows[0].row()
             name_item = self.table.item(row, 0)
             if name_item:
@@ -260,3 +194,157 @@ class ReferenceBrowserDialog(QDialog):
         if name_item:
             self.selected_reference = name_item.text()
             self.accept()
+
+
+class ExportDialog(QDialog):
+    """Dialog for exporting plots with format and dimension options"""
+
+    def __init__(self, parent=None):
+        """Initialize export dialog
+
+        Args:
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Export Plot")
+        self.setModal(True)
+        self.resize(400, 300)
+
+        layout = QVBoxLayout(self)
+
+        # Format selection group
+        format_group = QGroupBox("Export Format")
+        format_layout = QVBoxLayout()
+
+        self.format_combo = QComboBox()
+        self.format_combo.addItem("HTML (Interactive)", "html")
+        self.format_combo.addItem("PNG (Raster Image)", "png")
+        self.format_combo.addItem("SVG (Vector Graphics)", "svg")
+        self.format_combo.currentIndexChanged.connect(self.on_format_changed)
+
+        format_layout.addWidget(self.format_combo)
+
+        # Warning label for PNG/SVG
+        self.warning_label = QLabel()
+        self.warning_label.setWordWrap(True)
+        self.warning_label.setStyleSheet("color: #ff6600; font-style: italic;")
+        self.warning_label.setVisible(False)
+        format_layout.addWidget(self.warning_label)
+
+        format_group.setLayout(format_layout)
+        layout.addWidget(format_group)
+
+        # Dimensions group
+        dimensions_group = QGroupBox("Dimensions (for PNG/SVG)")
+        dimensions_layout = QFormLayout()
+
+        # Add info label about dimensions
+        info_label = QLabel(
+            "Note: Dimensions include plot area + margins.\n"
+            "Recommended: width ≥ 1200px, height ≥ 800px"
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #666666; font-size: 10px; font-style: italic;")
+        dimensions_layout.addRow(info_label)
+
+        # Width
+        self.width_spinbox = QSpinBox()
+        self.width_spinbox.setRange(100, 10000)
+        self.width_spinbox.setValue(1400)
+        self.width_spinbox.setSuffix(" px")
+        self.width_spinbox.valueChanged.connect(self.on_width_changed)
+        dimensions_layout.addRow("Width:", self.width_spinbox)
+
+        # Height
+        self.height_spinbox = QSpinBox()
+        self.height_spinbox.setRange(100, 10000)
+        self.height_spinbox.setValue(900)
+        self.height_spinbox.setSuffix(" px")
+        self.height_spinbox.valueChanged.connect(self.on_height_changed)
+        dimensions_layout.addRow("Height:", self.height_spinbox)
+
+        # Aspect ratio lock
+        self.aspect_lock = QCheckBox("Lock Aspect Ratio")
+        self.aspect_lock.setChecked(True)
+        dimensions_layout.addRow("", self.aspect_lock)
+
+        dimensions_group.setLayout(dimensions_layout)
+        layout.addWidget(dimensions_group)
+
+        self.dimensions_group = dimensions_group
+        self.dimensions_group.setEnabled(False)  # Initially disabled for HTML
+
+        # View options group
+        view_group = QGroupBox("Export Range")
+        view_layout = QVBoxLayout()
+
+        self.export_current_view = QCheckBox(
+            "Export current zoom level (visible range only)"
+        )
+        self.export_current_view.setChecked(False)
+        self.export_current_view.setToolTip(
+            "When checked, exports only the currently visible range.\n"
+            "When unchecked, exports the full plot range."
+        )
+        view_layout.addWidget(self.export_current_view)
+
+        view_group.setLayout(view_layout)
+        layout.addWidget(view_group)
+
+        # Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        self.aspect_ratio = 1400 / 900  # Default aspect ratio
+
+    def on_format_changed(self):
+        """Handle format selection change"""
+        format_type = self.format_combo.currentData()
+        is_image = format_type in ("png", "svg")
+
+        # Enable/disable dimensions controls
+        self.dimensions_group.setEnabled(is_image)
+
+        # Check if export dependencies are available for PNG/SVG
+        if is_image:
+            try:
+                import selenium  # noqa: F401
+
+                self.warning_label.setVisible(False)
+            except ImportError:
+                self.warning_label.setText(
+                    "Note: PNG/SVG export requires additional dependencies. "
+                    "Install with: uv pip install selenium pillow"
+                )
+                self.warning_label.setVisible(True)
+        else:
+            self.warning_label.setVisible(False)
+
+    def on_width_changed(self, value):
+        """Handle width change with aspect ratio lock"""
+        if self.aspect_lock.isChecked():
+            self.height_spinbox.blockSignals(True)
+            self.height_spinbox.setValue(int(value / self.aspect_ratio))
+            self.height_spinbox.blockSignals(False)
+
+    def on_height_changed(self, value):
+        """Handle height change with aspect ratio lock"""
+        if self.aspect_lock.isChecked():
+            self.width_spinbox.blockSignals(True)
+            self.width_spinbox.setValue(int(value * self.aspect_ratio))
+            self.width_spinbox.blockSignals(False)
+
+    def get_export_settings(self):
+        """Get export settings from dialog
+
+        Returns:
+            dict with keys: format, width, height, use_current_view
+        """
+        return {
+            "format": self.format_combo.currentData(),
+            "width": self.width_spinbox.value(),
+            "height": self.height_spinbox.value(),
+            "use_current_view": self.export_current_view.isChecked(),
+        }
