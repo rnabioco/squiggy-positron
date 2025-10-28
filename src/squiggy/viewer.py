@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
@@ -594,26 +595,40 @@ class SquiggleViewer(QMainWindow):
         """Set the downsampling factor from slider and update spinbox"""
         self.downsample_factor = value
         # Update spinbox to match (this won't trigger valueChanged if value is same)
+        self.downsample_spinbox.blockSignals(True)
         self.downsample_spinbox.setValue(value)
+        self.downsample_spinbox.blockSignals(False)
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
-            # Save current zoom/pan state before regenerating
-            self.save_plot_ranges()
-            # Small delay to allow JavaScript to execute
-            await self.update_plot_with_delay()
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
 
     @qasync.asyncSlot()
     async def set_downsample_factor_from_spinbox(self, value):
         """Set the downsampling factor from spinbox and update slider"""
         self.downsample_factor = value
         # Update slider to match (this won't trigger valueChanged if value is same)
+        self.downsample_slider.blockSignals(True)
         self.downsample_slider.setValue(value)
+        self.downsample_slider.blockSignals(False)
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
-            # Save current zoom/pan state before regenerating
-            self.save_plot_ranges()
-            # Small delay to allow JavaScript to execute
-            await self.update_plot_with_delay()
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
 
     async def update_plot_with_delay(self):
         """Update plot after a short delay to allow JavaScript extraction"""
@@ -682,10 +697,15 @@ class SquiggleViewer(QMainWindow):
         self.show_dwell_time = bool(state)  # state is 0 (unchecked) or 2 (checked)
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
-            # Save current zoom/pan state before regenerating
-            self.save_plot_ranges()
-            # Small delay to allow JavaScript to execute
-            await self.update_plot_with_delay()
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
 
     def set_plot_mode(self, mode):
         """Set the plot mode and refresh display"""
@@ -715,10 +735,15 @@ class SquiggleViewer(QMainWindow):
         self.normalization_method = self.norm_combo.itemData(index)
         # Refresh plot if reads are selected
         if hasattr(self, "read_list") and self.read_list.selectedItems():
-            # Save current zoom/pan state before regenerating
-            self.save_plot_ranges()
-            # Small delay to allow JavaScript to execute
-            await self.update_plot_with_delay()
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
 
     def create_menu_bar(self):
         """Create the application menu bar"""
@@ -1011,10 +1036,15 @@ class SquiggleViewer(QMainWindow):
         self.show_bases = state == 2  # Qt.CheckState.Checked = 2
         # Refresh current plot if one is displayed
         if self.read_list.selectedItems():
-            # Save current zoom/pan state before regenerating
-            self.save_plot_ranges()
-            # Small delay to allow JavaScript to execute
-            await self.update_plot_with_delay()
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
 
     @qasync.asyncSlot()
     async def on_read_selection_changed(self):
