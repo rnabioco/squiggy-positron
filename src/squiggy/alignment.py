@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pysam
@@ -26,7 +26,7 @@ class AlignedRead:
 
     read_id: str
     sequence: str
-    bases: list[BaseAnnotation]
+    bases: List[BaseAnnotation]
     chromosome: Optional[str] = None
     genomic_start: Optional[int] = None
     genomic_end: Optional[int] = None
