@@ -1,20 +1,20 @@
 """Main application window for Squiggy"""
 
 import asyncio
-from io import BytesIO
+import time
 from pathlib import Path
 
 import pod5
 import qasync
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QAction
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QScrollArea,
     QSizePolicy,
+    QSlider,
+    QSpinBox,
     QSplitter,
     QToolButton,
     QVBoxLayout,
@@ -37,17 +39,13 @@ from .constants import (
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
     MAX_OVERLAY_READS,
-    PLOT_DPI,
-    PLOT_HEIGHT,
     PLOT_MIN_HEIGHT,
     PLOT_MIN_WIDTH,
-    PLOT_WIDTH,
-    SPLITTER_RATIO,
     NormalizationMethod,
     PlotMode,
 )
 from .dialogs import AboutDialog, ReferenceBrowserDialog
-from .plotter import SquigglePlotter
+from .plotter_bokeh import BokehSquigglePlotter
 from .utils import (
     get_bam_references,
     get_basecall_data,
@@ -93,7 +91,7 @@ class CollapsibleBox(QWidget):
         checked = self.toggle_button.isChecked()
         self.toggle_button.setArrowType(Qt.DownArrow if checked else Qt.RightArrow)
         if checked:
-            self.content_area.setMaximumHeight(200)
+            self.content_area.setMaximumHeight(350)
         else:
             self.content_area.setMaximumHeight(0)
 
@@ -114,11 +112,15 @@ class SquiggleViewer(QMainWindow):
         self.read_dict = {}
         self.alignment_info = {}  # Maps read_id -> alignment metadata
         self.current_read_item = None
-        self.show_bases = False
-        self.plot_mode = PlotMode.SINGLE
-        self.normalization_method = NormalizationMethod.NONE
-        self.current_plot = None  # Store current plot object for export
+        self.show_bases = True  # Default to showing base annotations
+        self.plot_mode = PlotMode.EVENTALIGN  # Default to event-aligned mode (primary mode)
+        self.normalization_method = NormalizationMethod.MEDIAN
+        self.downsample_factor = 25  # Default downsampling for performance
+        self.show_dwell_time = False  # Show dwell time coloring
+        self.current_plot_html = None  # Store current plot HTML for export
         self.search_mode = "read_id"  # "read_id" or "region"
+        self.saved_x_range = None  # Store current x-axis range for zoom preservation
+        self.saved_y_range = None  # Store current y-axis range for zoom preservation
 
         self.init_ui()
 
@@ -135,56 +137,13 @@ class SquiggleViewer(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        # Search section at the top
-        search_layout = QHBoxLayout()
+        # Create splitter for left panel, plot area, and read list
+        splitter = QSplitter(Qt.Horizontal)
 
-        # Search mode selector
-        self.search_mode_combo = QComboBox()
-        self.search_mode_combo.addItem("Read ID", "read_id")
-        self.search_mode_combo.addItem("Reference Region", "region")
-        self.search_mode_combo.currentIndexChanged.connect(self.on_search_mode_changed)
-        self.search_mode_combo.setToolTip(
-            "Switch between searching by read ID or by genomic region"
-        )
-        search_layout.addWidget(QLabel("Search by:"))
-        search_layout.addWidget(self.search_mode_combo)
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search read ID...")
-        self.search_input.textChanged.connect(self.on_search_text_changed)
-        self.search_input.returnPressed.connect(self.execute_search)
-
-        self.search_button = QPushButton("Search")
-        self.search_button.clicked.connect(self.execute_search)
-
-        # Browse references button (for region search mode)
-        self.browse_refs_button = QPushButton("Browse References...")
-        self.browse_refs_button.clicked.connect(self.browse_references)
-        self.browse_refs_button.setEnabled(False)
-        self.browse_refs_button.setVisible(False)  # Hidden by default
-        self.browse_refs_button.setToolTip(
-            "View available reference sequences in BAM file"
-        )
-
-        search_layout.addWidget(self.search_input, 1)
-        search_layout.addWidget(self.search_button)
-        search_layout.addWidget(self.browse_refs_button)
-
-        # Add base annotation toggle
-        self.base_checkbox = QCheckBox("Show base annotations")
-        self.base_checkbox.setEnabled(False)
-        self.base_checkbox.stateChanged.connect(self.toggle_base_annotations)
-        search_layout.addWidget(self.base_checkbox)
-
-        main_layout.addLayout(search_layout)
-
-        # Create main horizontal splitter for left panel, center plot, and right sidebar
-        main_splitter = QSplitter(Qt.Horizontal)
-
-        # Left panel: File browser and plot options
+        # Left panel - file browser and plot options
         left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_panel_layout = QVBoxLayout(left_panel)
+        left_panel_layout.setContentsMargins(0, 0, 0, 0)
 
         # File selection section
         file_layout = QHBoxLayout()
@@ -194,7 +153,7 @@ class SquiggleViewer(QMainWindow):
         file_layout.addWidget(QLabel("POD5 File:"))
         file_layout.addWidget(self.file_label, 1)
         file_layout.addWidget(self.file_button)
-        left_layout.addLayout(file_layout)
+        left_panel_layout.addLayout(file_layout)
 
         # BAM file selection section (optional)
         bam_layout = QHBoxLayout()
@@ -204,80 +163,181 @@ class SquiggleViewer(QMainWindow):
         bam_layout.addWidget(QLabel("BAM File:"))
         bam_layout.addWidget(self.bam_label, 1)
         bam_layout.addWidget(self.bam_button)
-        left_layout.addLayout(bam_layout)
+        left_panel_layout.addLayout(bam_layout)
+
+        # Plot options collapsible panel (open by default)
+        self.plot_options_box = CollapsibleBox("Plot Options")
+        self.create_plot_options_content()
+        left_panel_layout.addWidget(self.plot_options_box)
+        # Set plot options to be expanded by default
+        self.plot_options_box.toggle_button.setChecked(True)
+        self.plot_options_box.on_toggle()
+
+        # Advanced options collapsible panel (collapsed by default)
+        self.advanced_options_box = CollapsibleBox("Advanced")
+        self.create_advanced_options_content()
+        left_panel_layout.addWidget(self.advanced_options_box)
 
         # POD5 file information collapsible panel
         self.file_info_box = CollapsibleBox("POD5 File Information")
         self.create_file_info_content()
-        left_layout.addWidget(self.file_info_box)
-
-        # Plot options collapsible panel
-        self.plot_options_box = CollapsibleBox("Plot Options")
-        self.create_plot_options_content()
-        left_layout.addWidget(self.plot_options_box)
+        left_panel_layout.addWidget(self.file_info_box)
 
         # Add stretch to push everything to the top
-        left_layout.addStretch(1)
+        left_panel_layout.addStretch()
 
-        main_splitter.addWidget(left_panel)
+        splitter.addWidget(left_panel)
 
-        # Plot display area (center)
-        self.plot_label = QLabel("Select a POD5 file and read to display squiggle plot")
-        self.plot_label.setAlignment(Qt.AlignCenter)
-        self.plot_label.setStyleSheet(
-            "border: 1px solid #ccc; background-color: #f9f9f9;"
+        # Plot display area (using QWebEngineView for interactive bokeh plots)
+        self.plot_view = QWebEngineView()
+        self.plot_view.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
+        self.plot_view.setHtml(
+            "<html><body style='display:flex;align-items:center;justify-content:center;"
+            "height:100vh;margin:0;font-family:sans-serif;color:#666;'>"
+            "<div style='text-align:center;'>"
+            "<h2>Squiggy</h2>"
+            "<p>Select a POD5 file and read to display squiggle plot</p>"
+            "</div></body></html>"
         )
-        self.plot_label.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
-        main_splitter.addWidget(self.plot_label)
+        splitter.addWidget(self.plot_view)
 
-        # Right sidebar: Read list
+        # Right panel - Read list widget with multi-selection enabled
         self.read_list = QListWidget()
         self.read_list.setSelectionMode(QListWidget.ExtendedSelection)
         self.read_list.itemSelectionChanged.connect(self.on_read_selection_changed)
-        main_splitter.addWidget(self.read_list)
+        splitter.addWidget(self.read_list)
 
-        # Set splitter proportions: left panel (1), center plot (3), right sidebar (1)
-        main_splitter.setStretchFactor(0, 1)
-        main_splitter.setStretchFactor(1, 3)
-        main_splitter.setStretchFactor(2, 1)
+        # Set splitter proportions (left panel, plot, right panel)
+        splitter.setStretchFactor(0, 1)  # Left panel - narrower
+        splitter.setStretchFactor(1, 3)  # Plot area - widest
+        splitter.setStretchFactor(2, 1)  # Right panel (read list) - narrower
 
-        main_layout.addWidget(main_splitter, 1)
+        main_layout.addWidget(splitter, 1)
+
+        # Bottom search panel
+        self.create_search_panel()
+        main_layout.addWidget(self.search_panel)
 
         # Status bar
         self.statusBar().showMessage("Ready")
 
+    def create_search_panel(self):
+        """Create the bottom search panel with all search modes"""
+        self.search_panel = QWidget()
+        search_panel_layout = QVBoxLayout(self.search_panel)
+        search_panel_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Main search controls row
+        search_layout = QHBoxLayout()
+
+        # Search mode selector
+        self.search_mode_combo = QComboBox()
+        self.search_mode_combo.addItem("Read ID", "read_id")
+        self.search_mode_combo.addItem("Reference Region", "region")
+        self.search_mode_combo.addItem("Sequence", "sequence")
+        self.search_mode_combo.currentIndexChanged.connect(self.on_search_mode_changed)
+        self.search_mode_combo.setToolTip(
+            "Switch between searching by read ID, genomic region, or sequence"
+        )
+        search_layout.addWidget(QLabel("Search by:"))
+        search_layout.addWidget(self.search_mode_combo)
+
+        # Search input
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search read ID...")
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        self.search_input.returnPressed.connect(self.execute_search)
+        search_layout.addWidget(self.search_input, 1)
+
+        # Search button
+        self.search_button = QPushButton("Search")
+        self.search_button.clicked.connect(self.execute_search)
+        search_layout.addWidget(self.search_button)
+
+        # Browse references button (for region search mode)
+        self.browse_refs_button = QPushButton("Browse References...")
+        self.browse_refs_button.clicked.connect(self.browse_references)
+        self.browse_refs_button.setEnabled(False)
+        self.browse_refs_button.setVisible(False)  # Hidden by default
+        self.browse_refs_button.setToolTip(
+            "View available reference sequences in BAM file"
+        )
+        search_layout.addWidget(self.browse_refs_button)
+
+        # Reverse complement checkbox (for sequence search mode)
+        self.revcomp_checkbox = QCheckBox("Include reverse complement")
+        self.revcomp_checkbox.setChecked(True)
+        self.revcomp_checkbox.setVisible(False)  # Hidden by default
+        self.revcomp_checkbox.setToolTip(
+            "Also search for the reverse complement of the query sequence"
+        )
+        search_layout.addWidget(self.revcomp_checkbox)
+
+        search_panel_layout.addLayout(search_layout)
+
+        # Sequence search results area (collapsible, hidden by default)
+        self.sequence_results_box = CollapsibleBox("Search Results")
+        self.sequence_results_list = QListWidget()
+        self.sequence_results_list.itemClicked.connect(self.zoom_to_sequence_match)
+        results_layout = QVBoxLayout()
+        results_layout.addWidget(self.sequence_results_list)
+        self.sequence_results_box.set_content_layout(results_layout)
+        self.sequence_results_box.setVisible(False)  # Hidden by default
+        search_panel_layout.addWidget(self.sequence_results_box)
+
     def create_file_info_content(self):
         """Create the content layout for the file information panel"""
-        content_layout = QGridLayout()
+        content_layout = QVBoxLayout()
         content_layout.setContentsMargins(10, 5, 10, 5)
-        content_layout.setSpacing(5)
+        content_layout.setSpacing(3)
 
-        # Create labels for file information
+        # Create labels for file information with alternating title/value layout
+        # Title labels are bold, value labels are regular
+
+        # File name
+        label_filename = QLabel("File name:")
+        label_filename.setStyleSheet("font-size: 9pt; font-weight: bold;")
+        content_layout.addWidget(label_filename)
         self.info_filename_label = QLabel("—")
+        self.info_filename_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
+        self.info_filename_label.setWordWrap(True)
+        content_layout.addWidget(self.info_filename_label)
+
+        # File size
+        label_filesize = QLabel("File size:")
+        label_filesize.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        content_layout.addWidget(label_filesize)
         self.info_filesize_label = QLabel("—")
+        self.info_filesize_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
+        self.info_filesize_label.setWordWrap(True)
+        content_layout.addWidget(self.info_filesize_label)
+
+        # Number of reads
+        label_num_reads = QLabel("Number of reads:")
+        label_num_reads.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        content_layout.addWidget(label_num_reads)
         self.info_num_reads_label = QLabel("—")
+        self.info_num_reads_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
+        self.info_num_reads_label.setWordWrap(True)
+        content_layout.addWidget(self.info_num_reads_label)
+
+        # Sample rate
+        label_sample_rate = QLabel("Sample rate:")
+        label_sample_rate.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        content_layout.addWidget(label_sample_rate)
         self.info_sample_rate_label = QLabel("—")
+        self.info_sample_rate_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
+        self.info_sample_rate_label.setWordWrap(True)
+        content_layout.addWidget(self.info_sample_rate_label)
+
+        # Total samples
+        label_total_samples = QLabel("Total samples:")
+        label_total_samples.setStyleSheet("font-size: 9pt; font-weight: bold; margin-top: 5px;")
+        content_layout.addWidget(label_total_samples)
         self.info_total_samples_label = QLabel("—")
-
-        # Add labels to grid layout
-        row = 0
-        content_layout.addWidget(QLabel("File name:"), row, 0)
-        content_layout.addWidget(self.info_filename_label, row, 1)
-        row += 1
-        content_layout.addWidget(QLabel("File size:"), row, 0)
-        content_layout.addWidget(self.info_filesize_label, row, 1)
-        row += 1
-        content_layout.addWidget(QLabel("Number of reads:"), row, 0)
-        content_layout.addWidget(self.info_num_reads_label, row, 1)
-        row += 1
-        content_layout.addWidget(QLabel("Sample rate:"), row, 0)
-        content_layout.addWidget(self.info_sample_rate_label, row, 1)
-        row += 1
-        content_layout.addWidget(QLabel("Total samples:"), row, 0)
-        content_layout.addWidget(self.info_total_samples_label, row, 1)
-
-        # Set column stretch to make labels expand
-        content_layout.setColumnStretch(1, 1)
+        self.info_total_samples_label.setStyleSheet("font-size: 9pt; padding-left: 10px;")
+        self.info_total_samples_label.setWordWrap(True)
+        content_layout.addWidget(self.info_total_samples_label)
 
         self.file_info_box.set_content_layout(content_layout)
 
@@ -294,14 +354,18 @@ class SquiggleViewer(QMainWindow):
 
         self.mode_button_group = QButtonGroup()
 
-        self.mode_single = QRadioButton("Single Read")
-        self.mode_single.setChecked(True)
-        self.mode_single.setToolTip("Display one read at a time")
-        self.mode_single.toggled.connect(
-            lambda checked: self.set_plot_mode(PlotMode.SINGLE) if checked else None
+        # Event-aligned mode (top - default when BAM is loaded)
+        self.mode_eventalign = QRadioButton("Event-aligned (base annotations)")
+        self.mode_eventalign.setToolTip(
+            "Show event-aligned reads with base annotations (requires BAM file)"
         )
-        self.mode_button_group.addButton(self.mode_single)
-        content_layout.addWidget(self.mode_single)
+        self.mode_eventalign.toggled.connect(
+            lambda checked: self.set_plot_mode(PlotMode.EVENTALIGN) if checked else None
+        )
+        self.mode_eventalign.setChecked(True)  # Checked by default (visual indication of primary mode)
+        self.mode_eventalign.setEnabled(False)  # Disabled until BAM file loaded
+        self.mode_button_group.addButton(self.mode_eventalign)
+        content_layout.addWidget(self.mode_eventalign)
 
         self.mode_overlay = QRadioButton("Overlay (multiple reads)")
         self.mode_overlay.setToolTip(
@@ -321,16 +385,14 @@ class SquiggleViewer(QMainWindow):
         self.mode_button_group.addButton(self.mode_stacked)
         content_layout.addWidget(self.mode_stacked)
 
-        self.mode_eventalign = QRadioButton("Event-aligned (base annotations)")
-        self.mode_eventalign.setToolTip(
-            "Show event-aligned reads with base annotations (requires BAM file)"
+        # Single read mode (bottom - fallback when no BAM)
+        self.mode_single = QRadioButton("Single Read")
+        self.mode_single.setToolTip("Display one read at a time")
+        self.mode_single.toggled.connect(
+            lambda checked: self.set_plot_mode(PlotMode.SINGLE) if checked else None
         )
-        self.mode_eventalign.toggled.connect(
-            lambda checked: self.set_plot_mode(PlotMode.EVENTALIGN) if checked else None
-        )
-        self.mode_eventalign.setEnabled(False)  # Disabled until BAM file loaded
-        self.mode_button_group.addButton(self.mode_eventalign)
-        content_layout.addWidget(self.mode_eventalign)
+        self.mode_button_group.addButton(self.mode_single)
+        content_layout.addWidget(self.mode_single)
 
         # Normalization method selection
         norm_label = QLabel("Signal Normalization:")
@@ -342,8 +404,23 @@ class SquiggleViewer(QMainWindow):
         self.norm_combo.addItem("Z-score", NormalizationMethod.ZNORM)
         self.norm_combo.addItem("Median", NormalizationMethod.MEDIAN)
         self.norm_combo.addItem("MAD (robust)", NormalizationMethod.MAD)
+        self.norm_combo.setCurrentIndex(2)  # Default to Median
         self.norm_combo.currentIndexChanged.connect(self.set_normalization_method)
         content_layout.addWidget(self.norm_combo)
+
+        # Base annotations toggle
+        base_label = QLabel("Base Annotations:")
+        base_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        content_layout.addWidget(base_label)
+
+        self.base_checkbox = QCheckBox("Show base annotations")
+        self.base_checkbox.setChecked(True)  # Checked by default
+        self.base_checkbox.setEnabled(False)  # Disabled until BAM file loaded
+        self.base_checkbox.setToolTip(
+            "Show base letters on event-aligned plots (requires BAM file)"
+        )
+        self.base_checkbox.stateChanged.connect(self.toggle_base_annotations)
+        content_layout.addWidget(self.base_checkbox)
 
         # Info label
         info_label = QLabel(
@@ -357,19 +434,272 @@ class SquiggleViewer(QMainWindow):
 
         self.plot_options_box.set_content_layout(content_layout)
 
+    def create_advanced_options_content(self):
+        """Create the content layout for the advanced options panel"""
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(10, 5, 10, 5)
+        content_layout.setSpacing(10)
+
+        # Downsampling control
+        downsample_label = QLabel("Signal Downsampling:")
+        downsample_label.setStyleSheet("font-weight: bold;")
+        content_layout.addWidget(downsample_label)
+
+        downsample_layout = QHBoxLayout()
+        downsample_layout.addWidget(QLabel("Show every"))
+
+        self.downsample_slider = QSlider(Qt.Horizontal)
+        self.downsample_slider.setMinimum(1)
+        self.downsample_slider.setMaximum(100)
+        self.downsample_slider.setValue(25)
+        self.downsample_slider.setTickPosition(QSlider.TicksBelow)
+        self.downsample_slider.setTickInterval(10)
+        self.downsample_slider.setToolTip(
+            "Downsample signal for faster rendering\n"
+            "1 = show all points (no downsampling)\n"
+            "25 = show every 25th point (default)\n"
+            "100 = show every 100th point (fastest)"
+        )
+        self.downsample_slider.valueChanged.connect(self.set_downsample_factor_from_slider)
+        downsample_layout.addWidget(self.downsample_slider)
+
+        # SpinBox for direct value entry
+        self.downsample_spinbox = QSpinBox()
+        self.downsample_spinbox.setMinimum(1)
+        self.downsample_spinbox.setMaximum(100)
+        self.downsample_spinbox.setValue(25)
+        self.downsample_spinbox.setToolTip("Enter downsample factor (1-100)")
+        self.downsample_spinbox.valueChanged.connect(self.set_downsample_factor_from_spinbox)
+        downsample_layout.addWidget(self.downsample_spinbox)
+
+        content_layout.addLayout(downsample_layout)
+
+        # Info label
+        info_label = QLabel(
+            "💡 Downsampling reduces rendering time for large signals"
+        )
+        info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        info_label.setWordWrap(True)
+        content_layout.addWidget(info_label)
+
+        # Dwell time visualization
+        dwell_label = QLabel("Dwell Time Visualization:")
+        dwell_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        content_layout.addWidget(dwell_label)
+
+        self.dwell_time_checkbox = QCheckBox("Scale x-axis by dwell time")
+        self.dwell_time_checkbox.setToolTip(
+            "Scale x-axis by actual sequencing time instead of base position\n"
+            "Bases with longer dwell times take more horizontal space\n"
+            "(requires event-aligned mode with BAM file)"
+        )
+        self.dwell_time_checkbox.setEnabled(False)  # Enabled when in EVENTALIGN mode with BAM
+        self.dwell_time_checkbox.stateChanged.connect(self.toggle_dwell_time)
+        content_layout.addWidget(self.dwell_time_checkbox)
+
+        # Dwell time info label
+        dwell_info_label = QLabel(
+            "💡 Time-scaled x-axis: bases with longer dwell times take more horizontal space"
+        )
+        dwell_info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        dwell_info_label.setWordWrap(True)
+        content_layout.addWidget(dwell_info_label)
+
+        content_layout.addStretch()
+
+        self.advanced_options_box.set_content_layout(content_layout)
+
+    def save_plot_ranges(self):
+        """Extract and save current plot ranges via JavaScript"""
+        js_code = """
+        (function() {
+            try {
+                // Find the Bokeh plot object
+                const plots = Bokeh.documents[0].roots();
+                if (plots.length > 0) {
+                    // Get the first plot (main figure)
+                    let plot = plots[0];
+
+                    // If it's a layout, find the actual plot figure
+                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {
+                        for (let child of plot.children) {
+                            if (child.constructor.name === 'Figure') {
+                                plot = child;
+                                break;
+                            }
+                            // Check nested layouts
+                            if (child.children) {
+                                for (let nested of child.children) {
+                                    if (nested.constructor.name === 'Figure') {
+                                        plot = nested;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Return the ranges
+                    return JSON.stringify({
+                        x_start: plot.x_range.start,
+                        x_end: plot.x_range.end,
+                        y_start: plot.y_range.start,
+                        y_end: plot.y_range.end
+                    });
+                }
+            } catch (e) {
+                return null;
+            }
+            return null;
+        })();
+        """
+
+        # Execute JavaScript and get the result
+        self.plot_view.page().runJavaScript(js_code, self.on_ranges_extracted)
+
+    def on_ranges_extracted(self, result):
+        """Callback when ranges are extracted from JavaScript"""
+        if result:
+            import json
+            try:
+                ranges = json.loads(result)
+                self.saved_x_range = (ranges['x_start'], ranges['x_end'])
+                self.saved_y_range = (ranges['y_start'], ranges['y_end'])
+            except (json.JSONDecodeError, KeyError, TypeError):
+                # If parsing fails, just use None (will reset zoom)
+                self.saved_x_range = None
+                self.saved_y_range = None
+
+    @qasync.asyncSlot()
+    async def set_downsample_factor_from_slider(self, value):
+        """Set the downsampling factor from slider and update spinbox"""
+        self.downsample_factor = value
+        # Update spinbox to match (this won't trigger valueChanged if value is same)
+        self.downsample_spinbox.setValue(value)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
+
+    @qasync.asyncSlot()
+    async def set_downsample_factor_from_spinbox(self, value):
+        """Set the downsampling factor from spinbox and update slider"""
+        self.downsample_factor = value
+        # Update slider to match (this won't trigger valueChanged if value is same)
+        self.downsample_slider.setValue(value)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
+
+    async def update_plot_with_delay(self):
+        """Update plot after a short delay to allow JavaScript extraction"""
+        await asyncio.sleep(0.1)  # 100ms delay
+        await self.update_plot_from_selection()
+
+    def restore_plot_ranges(self):
+        """Restore saved plot ranges via JavaScript after plot is loaded"""
+        if self.saved_x_range is None or self.saved_y_range is None:
+            return
+
+        x_start, x_end = self.saved_x_range
+        y_start, y_end = self.saved_y_range
+
+        js_code = f"""
+        (function() {{
+            try {{
+                // Wait for Bokeh to be ready
+                if (typeof Bokeh === 'undefined') {{
+                    return;
+                }}
+
+                // Find the Bokeh plot object
+                const plots = Bokeh.documents[0].roots();
+                if (plots.length > 0) {{
+                    // Get the first plot (main figure)
+                    let plot = plots[0];
+
+                    // If it's a layout, find the actual plot figure
+                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
+                        for (let child of plot.children) {{
+                            if (child.constructor.name === 'Figure') {{
+                                plot = child;
+                                break;
+                            }}
+                            // Check nested layouts
+                            if (child.children) {{
+                                for (let nested of child.children) {{
+                                    if (nested.constructor.name === 'Figure') {{
+                                        plot = nested;
+                                        break;
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+
+                    // Restore the ranges
+                    plot.x_range.start = {x_start};
+                    plot.x_range.end = {x_end};
+                    plot.y_range.start = {y_start};
+                    plot.y_range.end = {y_end};
+                }}
+            }} catch (e) {{
+                console.error('Error restoring plot ranges:', e);
+            }}
+        }})();
+        """
+
+        # Execute JavaScript with a delay to ensure plot is loaded
+        QTimer.singleShot(200, lambda: self.plot_view.page().runJavaScript(js_code))
+
+    @qasync.asyncSlot()
+    async def toggle_dwell_time(self, state):
+        """Toggle dwell time visualization"""
+        self.show_dwell_time = bool(state)  # state is 0 (unchecked) or 2 (checked)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
+
     def set_plot_mode(self, mode):
         """Set the plot mode and refresh display"""
         self.plot_mode = mode
-        # Refresh plot if reads are selected
-        if self.read_list.selectedItems():
-            self.update_plot_from_selection()
 
-    def set_normalization_method(self, index):
+        # Enable dwell time checkbox only in EVENTALIGN mode with BAM file
+        # Only update checkbox if it exists (may not exist during initialization)
+        if hasattr(self, 'dwell_time_checkbox'):
+            if mode == PlotMode.EVENTALIGN and self.bam_file:
+                self.dwell_time_checkbox.setEnabled(True)
+            else:
+                self.dwell_time_checkbox.setEnabled(False)
+                # Uncheck if disabled to avoid confusion
+                if self.dwell_time_checkbox.isChecked():
+                    self.dwell_time_checkbox.setChecked(False)
+
+        # Refresh plot if reads are selected
+        if hasattr(self, 'read_list') and self.read_list.selectedItems():
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            asyncio.ensure_future(self.update_plot_with_delay())
+
+    @qasync.asyncSlot()
+    async def set_normalization_method(self, index):
         """Set the normalization method and refresh display"""
         self.normalization_method = self.norm_combo.itemData(index)
         # Refresh plot if reads are selected
-        if self.read_list.selectedItems():
-            self.update_plot_from_selection()
+        if hasattr(self, 'read_list') and self.read_list.selectedItems():
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
 
     def create_menu_bar(self):
         """Create the application menu bar"""
@@ -635,7 +965,11 @@ class SquiggleViewer(QMainWindow):
                 self.bam_file = bam_path
                 self.bam_label.setText(bam_path.name)
                 self.base_checkbox.setEnabled(True)
+                self.base_checkbox.setChecked(True)  # Check by default
                 self.mode_eventalign.setEnabled(True)
+                self.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
+                self.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
+                self.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
 
                 # Enable browse references button if in region search mode
                 if self.search_mode == "region":
@@ -654,10 +988,14 @@ class SquiggleViewer(QMainWindow):
     @qasync.asyncSlot()
     async def toggle_base_annotations(self, state):
         """Toggle display of base annotations (async)"""
-        self.show_bases = state == Qt.Checked
+        # Use integer comparison since Qt.CheckState enum comparison may not work
+        self.show_bases = (state == 2)  # Qt.CheckState.Checked = 2
         # Refresh current plot if one is displayed
         if self.read_list.selectedItems():
-            await self.update_plot_from_selection()
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
 
     @qasync.asyncSlot()
     async def on_read_selection_changed(self):
@@ -671,6 +1009,12 @@ class SquiggleViewer(QMainWindow):
 
         if not selected_items:
             return
+
+        # Automatic fallback: if event-aligned mode is selected but no BAM is loaded,
+        # switch to single read mode for a smoother user experience
+        if self.plot_mode == PlotMode.EVENTALIGN and not self.bam_file:
+            self.plot_mode = PlotMode.SINGLE
+            self.mode_single.setChecked(True)
 
         # Get selected read IDs
         read_ids = [item.text() for item in selected_items]
@@ -703,21 +1047,32 @@ class SquiggleViewer(QMainWindow):
         """Handle search mode change"""
         self.search_mode = self.search_mode_combo.itemData(index)
 
-        # Update placeholder text
+        # Update placeholder text and visibility based on mode
         if self.search_mode == "read_id":
             self.search_input.setPlaceholderText("Search read ID...")
             self.search_input.setToolTip("Filter reads by read ID (case-insensitive)")
-            # Hide browse button for read ID mode
             self.browse_refs_button.setVisible(False)
-        else:  # region
+            self.revcomp_checkbox.setVisible(False)
+            self.sequence_results_box.setVisible(False)
+        elif self.search_mode == "region":
             self.search_input.setPlaceholderText("e.g., chr1:1000-2000 or chr1")
             self.search_input.setToolTip(
                 "Search reads by genomic region (requires BAM file)\n"
                 "Format: chr1, chr1:1000, or chr1:1000-2000"
             )
-            # Show browse button for region mode (enabled only if BAM loaded)
             self.browse_refs_button.setVisible(True)
             self.browse_refs_button.setEnabled(self.bam_file is not None)
+            self.revcomp_checkbox.setVisible(False)
+            self.sequence_results_box.setVisible(False)
+        else:  # sequence
+            self.search_input.setPlaceholderText("e.g., ATCGATCG")
+            self.search_input.setToolTip(
+                "Search for a DNA sequence in the reference (requires BAM file)\n"
+                "Enter sequence in 5' to 3' direction"
+            )
+            self.browse_refs_button.setVisible(False)
+            self.revcomp_checkbox.setVisible(True)
+            # Results box will be shown when search is performed
 
         # Clear search
         self.search_input.clear()
@@ -733,8 +1088,10 @@ class SquiggleViewer(QMainWindow):
         """Execute search based on current mode"""
         if self.search_mode == "read_id":
             self.filter_reads_by_id()
-        else:  # region mode
+        elif self.search_mode == "region":
             await self.filter_reads_by_region()
+        else:  # sequence mode
+            await self.search_sequence()
 
     def filter_reads_by_id(self):
         """Filter the read list based on read ID search input"""
@@ -878,8 +1235,237 @@ class SquiggleViewer(QMainWindow):
             )
             self.statusBar().showMessage("Error")
 
+    @qasync.asyncSlot()
+    async def search_sequence(self):
+        """Search for a DNA sequence in the reference"""
+        query_seq = self.search_input.text().strip().upper()
+
+        if not query_seq:
+            self.sequence_results_box.setVisible(False)
+            self.statusBar().showMessage("Ready")
+            return
+
+        # Check if BAM file is loaded
+        if not self.bam_file:
+            QMessageBox.warning(
+                self,
+                "BAM File Required",
+                "Sequence search requires a BAM file with reference alignment.\n\n"
+                "Please load a BAM file first.",
+            )
+            return
+
+        # Validate sequence (should be DNA: A, C, G, T, N)
+        valid_bases = set("ACGTN")
+        if not all(base in valid_bases for base in query_seq):
+            QMessageBox.warning(
+                self,
+                "Invalid Sequence",
+                f"Invalid DNA sequence: {query_seq}\n\n"
+                "Only A, C, G, T, N characters are allowed.",
+            )
+            return
+
+        # Check if reads are selected and in event-aligned mode
+        if not self.read_list.selectedItems():
+            QMessageBox.warning(
+                self,
+                "No Read Selected",
+                "Please select a read first to search its reference sequence.",
+            )
+            return
+
+        if self.plot_mode != PlotMode.EVENTALIGN:
+            QMessageBox.warning(
+                self,
+                "Event-Aligned Mode Required",
+                "Sequence search requires event-aligned mode.\n\n"
+                "Please switch to event-aligned mode first.",
+            )
+            return
+
+        # Get first selected read
+        read_id = self.read_list.selectedItems()[0].text().split("[")[0].strip()
+
+        self.statusBar().showMessage(f"Searching for sequence: {query_seq}...")
+
+        try:
+            # Search for sequence in background thread
+            include_revcomp = self.revcomp_checkbox.isChecked()
+            matches = await asyncio.to_thread(
+                self._search_sequence_in_reference,
+                read_id,
+                query_seq,
+                include_revcomp
+            )
+
+            # Display results
+            self.sequence_results_list.clear()
+
+            if not matches:
+                self.sequence_results_list.addItem(
+                    f"No matches found for '{query_seq}'"
+                    + (" (or reverse complement)" if include_revcomp else "")
+                )
+                self.sequence_results_box.setVisible(True)
+                self.sequence_results_box.toggle_button.setChecked(True)
+                self.sequence_results_box.on_toggle()
+                self.statusBar().showMessage("No matches found")
+            else:
+                for match in matches:
+                    item_text = (
+                        f"{match['strand']} strand: position {match['ref_start']}-{match['ref_end']} "
+                        f"(base {match['base_start']}-{match['base_end']})"
+                    )
+                    self.sequence_results_list.addItem(item_text)
+                    # Store match data for zoom functionality
+                    self.sequence_results_list.item(
+                        self.sequence_results_list.count() - 1
+                    ).setData(Qt.UserRole, match)
+
+                self.sequence_results_box.setVisible(True)
+                self.sequence_results_box.toggle_button.setChecked(True)
+                self.sequence_results_box.on_toggle()
+                self.statusBar().showMessage(
+                    f"Found {len(matches)} match(es) for '{query_seq}'"
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Search Failed", f"Failed to search sequence:\n{str(e)}"
+            )
+            self.statusBar().showMessage("Search failed")
+
+    def _search_sequence_in_reference(self, read_id, query_seq, include_revcomp=True):
+        """Search for sequence in the reference (blocking function)"""
+        from .utils import get_reference_sequence_for_read, reverse_complement
+
+        # Get reference sequence for this read
+        ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+            self.bam_file, read_id
+        )
+
+        if not ref_seq:
+            raise ValueError(f"Could not extract reference sequence for read {read_id}")
+
+        matches = []
+
+        # Search forward strand
+        start_pos = 0
+        while True:
+            pos = ref_seq.find(query_seq, start_pos)
+            if pos == -1:
+                break
+
+            # Convert reference position to base position in alignment
+            ref_pos = ref_start + pos
+            ref_end = ref_pos + len(query_seq)
+
+            # Map to base position (0-indexed in the aligned read)
+            base_start = pos
+            base_end = pos + len(query_seq)
+
+            matches.append({
+                "strand": "Forward",
+                "ref_start": ref_pos,
+                "ref_end": ref_end,
+                "base_start": base_start,
+                "base_end": base_end,
+                "sequence": query_seq,
+            })
+
+            start_pos = pos + 1
+
+        # Search reverse complement if requested
+        if include_revcomp:
+            revcomp_seq = reverse_complement(query_seq)
+            if revcomp_seq != query_seq:  # Only search if different
+                start_pos = 0
+                while True:
+                    pos = ref_seq.find(revcomp_seq, start_pos)
+                    if pos == -1:
+                        break
+
+                    ref_pos = ref_start + pos
+                    ref_end = ref_pos + len(revcomp_seq)
+                    base_start = pos
+                    base_end = pos + len(revcomp_seq)
+
+                    matches.append({
+                        "strand": "Reverse",
+                        "ref_start": ref_pos,
+                        "ref_end": ref_end,
+                        "base_start": base_start,
+                        "base_end": base_end,
+                        "sequence": revcomp_seq,
+                    })
+
+                    start_pos = pos + 1
+
+        return matches
+
+    def zoom_to_sequence_match(self, item):
+        """Zoom plot to show a sequence match"""
+        match = item.data(Qt.UserRole)
+        if not match:
+            return
+
+        # Extract base position range
+        base_start = match["base_start"]
+        base_end = match["base_end"]
+
+        # Add some padding (show 20 bases before and after)
+        padding = 20
+        zoom_start = max(0, base_start - padding)
+        zoom_end = base_end + padding
+
+        # JavaScript to zoom the plot
+        js_code = f"""
+        (function() {{
+            try {{
+                if (typeof Bokeh === 'undefined') {{
+                    return;
+                }}
+
+                const plots = Bokeh.documents[0].roots();
+                if (plots.length > 0) {{
+                    let plot = plots[0];
+
+                    // If it's a layout, find the actual plot figure
+                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
+                        for (let child of plot.children) {{
+                            if (child.constructor.name === 'Figure') {{
+                                plot = child;
+                                break;
+                            }}
+                            if (child.children) {{
+                                for (let nested of child.children) {{
+                                    if (nested.constructor.name === 'Figure') {{
+                                        plot = nested;
+                                        break;
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+
+                    // Zoom to the region
+                    plot.x_range.start = {zoom_start};
+                    plot.x_range.end = {zoom_end};
+                }}
+            }} catch (e) {{
+                console.error('Error zooming to sequence:', e);
+            }}
+        }})();
+        """
+
+        self.plot_view.page().runJavaScript(js_code)
+        self.statusBar().showMessage(
+            f"Zoomed to {match['strand']} match at position {match['base_start']}-{match['base_end']}"
+        )
+
     def _generate_plot_blocking(self, read_id):
-        """Blocking function to generate plot"""
+        """Blocking function to generate bokeh plot HTML"""
         # Get signal data
         with pod5.Reader(self.pod5_file) as reader:
             # Find the specific read by iterating through all reads
@@ -901,23 +1487,20 @@ class SquiggleViewer(QMainWindow):
         if self.show_bases and self.bam_file:
             sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
 
-        # Generate plot
-        plot = SquigglePlotter.plot_squiggle(
+        # Generate bokeh plot HTML
+        html = BokehSquigglePlotter.plot_single_read(
             signal,
             read_id,
             sample_rate,
             sequence=sequence,
             seq_to_sig_map=seq_to_sig_map,
+            normalization=self.normalization_method,
+            downsample=self.downsample_factor,
+            show_dwell_time=self.show_dwell_time,
+            show_labels=self.show_bases,
         )
 
-        # Save plot to buffer
-        buffer = BytesIO()
-        plot.save(
-            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-        )
-        buffer.seek(0)
-
-        return buffer, signal, sequence, plot
+        return html, signal, sequence
 
     async def display_single_read(self, read_id):
         """Display squiggle plot for a single read (async)"""
@@ -925,22 +1508,20 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            buffer, signal, sequence, plot = await asyncio.to_thread(
+            html, signal, sequence = await asyncio.to_thread(
                 self._generate_plot_blocking, read_id
             )
 
-            # Store plot for export
-            self.current_plot = plot
+            # Store HTML for export
+            self.current_plot_html = html
             self.export_action.setEnabled(True)
 
-            # Display on main thread
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self.plot_label.setPixmap(
-                pixmap.scaled(
-                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-            )
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
+
+            # Restore zoom/pan state if available
+            self.restore_plot_ranges()
 
             status_msg = f"Displaying read: {read_id} ({len(signal)} samples)"
             if sequence:
@@ -953,7 +1534,7 @@ class SquiggleViewer(QMainWindow):
             )
 
     def _generate_multi_read_plot_blocking(self, read_ids):
-        """Blocking function to generate multi-read plot"""
+        """Blocking function to generate multi-read bokeh plot HTML"""
         reads_data = []
 
         # Collect signal data for all reads
@@ -968,21 +1549,17 @@ class SquiggleViewer(QMainWindow):
         if not reads_data:
             raise ValueError("No matching reads found in POD5 file")
 
-        # Generate multi-read plot
-        plot = SquigglePlotter.plot_multiple_reads(
+        # Generate bokeh multi-read plot HTML
+        html = BokehSquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
+            downsample=self.downsample_factor,
+            show_dwell_time=self.show_dwell_time,
+            show_labels=self.show_bases,
         )
 
-        # Save plot to buffer
-        buffer = BytesIO()
-        plot.save(
-            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-        )
-        buffer.seek(0)
-
-        return buffer, reads_data, plot
+        return html, reads_data
 
     async def display_multiple_reads(self, read_ids):
         """Display multiple reads in overlay or stacked mode (async)"""
@@ -990,22 +1567,20 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            buffer, reads_data, plot = await asyncio.to_thread(
+            html, reads_data = await asyncio.to_thread(
                 self._generate_multi_read_plot_blocking, read_ids
             )
 
-            # Store plot for export
-            self.current_plot = plot
+            # Store HTML for export
+            self.current_plot_html = html
             self.export_action.setEnabled(True)
 
-            # Display on main thread
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self.plot_label.setPixmap(
-                pixmap.scaled(
-                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-            )
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
+
+            # Restore zoom/pan state if available
+            self.restore_plot_ranges()
 
             mode_name = "overlaid" if self.plot_mode == PlotMode.OVERLAY else "stacked"
             self.statusBar().showMessage(
@@ -1018,7 +1593,7 @@ class SquiggleViewer(QMainWindow):
             )
 
     def _generate_eventalign_plot_blocking(self, read_ids):
-        """Blocking function to generate event-aligned plot"""
+        """Blocking function to generate event-aligned bokeh plot HTML"""
         from .alignment import extract_alignment_from_bam
 
         reads_data = []
@@ -1048,22 +1623,18 @@ class SquiggleViewer(QMainWindow):
         if not reads_data:
             raise ValueError("No matching reads found in POD5 file")
 
-        # Generate event-aligned plot
-        plot = SquigglePlotter.plot_multiple_reads(
+        # Generate bokeh event-aligned plot HTML
+        html = BokehSquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
             aligned_reads=aligned_reads,
+            downsample=self.downsample_factor,
+            show_dwell_time=self.show_dwell_time,
+            show_labels=self.show_bases,
         )
 
-        # Save plot to buffer
-        buffer = BytesIO()
-        plot.save(
-            buffer, format="png", dpi=PLOT_DPI, width=PLOT_WIDTH, height=PLOT_HEIGHT
-        )
-        buffer.seek(0)
-
-        return buffer, reads_data, aligned_reads, plot
+        return html, reads_data, aligned_reads
 
     async def display_eventaligned_reads(self, read_ids):
         """Display multiple reads in event-aligned mode (async)"""
@@ -1073,22 +1644,20 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            buffer, reads_data, aligned_reads, plot = await asyncio.to_thread(
+            html, reads_data, aligned_reads = await asyncio.to_thread(
                 self._generate_eventalign_plot_blocking, read_ids
             )
 
-            # Store plot for export
-            self.current_plot = plot
+            # Store HTML for export
+            self.current_plot_html = html
             self.export_action.setEnabled(True)
 
-            # Display on main thread
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self.plot_label.setPixmap(
-                pixmap.scaled(
-                    self.plot_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-            )
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
+
+            # Restore zoom/pan state if available
+            self.restore_plot_ranges()
 
             # Build status message
             total_bases = sum(len(ar.bases) for ar in aligned_reads)
@@ -1102,8 +1671,8 @@ class SquiggleViewer(QMainWindow):
             )
 
     def export_plot(self):
-        """Export the current plot to a file"""
-        if self.current_plot is None:
+        """Export the current plot to an HTML file"""
+        if self.current_plot_html is None:
             QMessageBox.warning(
                 self,
                 "No Plot",
@@ -1116,7 +1685,7 @@ class SquiggleViewer(QMainWindow):
             self,
             "Export Plot",
             "",
-            "PNG Image (*.png);;PDF Document (*.pdf);;SVG Vector (*.svg);;All Files (*)",
+            "HTML File (*.html);;All Files (*)",
         )
 
         if not file_path:
@@ -1126,32 +1695,18 @@ class SquiggleViewer(QMainWindow):
             # Determine format from extension or filter
             file_path = Path(file_path)
             if not file_path.suffix:
-                # Add extension based on filter
-                if "PNG" in selected_filter:
-                    file_path = file_path.with_suffix(".png")
-                elif "PDF" in selected_filter:
-                    file_path = file_path.with_suffix(".pdf")
-                elif "SVG" in selected_filter:
-                    file_path = file_path.with_suffix(".svg")
-                else:
-                    file_path = file_path.with_suffix(".png")  # Default to PNG
+                file_path = file_path.with_suffix(".html")
 
-            format_str = file_path.suffix[1:]  # Remove leading dot
-
-            # Save plot
-            self.current_plot.save(
-                str(file_path),
-                format=format_str,
-                dpi=300,  # High DPI for export
-                width=12,
-                height=8,
-            )
+            # Save HTML
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(self.current_plot_html)
 
             self.statusBar().showMessage(f"Plot exported to {file_path.name}")
             QMessageBox.information(
                 self,
                 "Export Successful",
-                f"Plot successfully exported to:\n{file_path}",
+                f"Interactive plot successfully exported to:\n{file_path}\n\n"
+                f"Open the file in a web browser to view the interactive plot.",
             )
 
         except Exception as e:
