@@ -1001,7 +1001,9 @@ class SquigglePlotter:
 
         for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
             # Process signal (normalize and downsample)
-            signal, _ = SquigglePlotter._process_signal(signal, normalization, downsample)
+            signal, _ = SquigglePlotter._process_signal(
+                signal, normalization, downsample
+            )
 
             # Create data source
             x = np.arange(len(signal))
@@ -1053,7 +1055,9 @@ class SquigglePlotter:
         offset_step = 0
         processed_signals = []
         for read_id, signal, sample_rate in reads_data:
-            signal, _ = SquigglePlotter._process_signal(signal, normalization, downsample)
+            signal, _ = SquigglePlotter._process_signal(
+                signal, normalization, downsample
+            )
             processed_signals.append((read_id, signal, sample_rate))
             signal_range = np.ptp(signal)
             offset_step = max(offset_step, signal_range * 1.2)
