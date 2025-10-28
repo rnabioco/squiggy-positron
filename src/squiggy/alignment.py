@@ -75,27 +75,32 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
 
     move_table = np.array(alignment.get_tag("mv"), dtype=np.uint8)
 
+    # Extract stride (first element) and moves (remaining elements)
+    # Stride represents the neural network downsampling factor
+    # Typical values: 5 for DNA models, 10-12 for RNA models
+    stride = int(move_table[0])
+    moves = move_table[1:]
+
     # Convert move table to base annotations
     bases = []
     signal_pos = 0
     base_idx = 0
 
-    for move in move_table:
+    for move_idx, move in enumerate(moves):
         if move == 1:  # New base starts here
             if base_idx < len(sequence):
                 # Find end of this base's signal (next base or end of signal)
-                signal_end = signal_pos + 1
-
                 # Look ahead to find where next base starts
-                for j in range(
-                    len(move_table) - (signal_pos - len(bases) + base_idx + 1)
-                ):
-                    future_idx = signal_pos - len(bases) + base_idx + 1 + j
-                    if future_idx < len(move_table) and move_table[future_idx] == 1:
-                        signal_end = signal_pos + j + 1
+                signal_end = signal_pos + stride  # Default to next position
+
+                for j in range(move_idx + 1, len(moves)):
+                    if moves[j] == 1:
+                        # Next base found at position j
+                        signal_end = signal_pos + ((j - move_idx) * stride)
                         break
                 else:
-                    signal_end = len(move_table)
+                    # No next base found, extend to end of signal
+                    signal_end = signal_pos + ((len(moves) - move_idx) * stride)
 
                 # Get genomic position if aligned
                 genomic_pos = None
@@ -118,7 +123,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
                 bases.append(base)
                 base_idx += 1
 
-        signal_pos += 1
+        signal_pos += stride
 
     # Extract alignment info
     chromosome = alignment.reference_name if not alignment.is_unmapped else None

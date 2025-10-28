@@ -8,10 +8,18 @@ This directory contains test data files for the Squiggy test suite.
 
 POD5 test files are tracked with Git LFS to avoid repository bloat.
 
-- **sample.pod5** - Small POD5 file with 5-10 reads for basic functionality testing
-  - Used by: `test_main.py`, `test_plotting.py`
-  - Size: Should be <1MB
-  - Contents: Representative nanopore signal data with typical read lengths
+- **mod_reads.pod5** - POD5 file containing nanopore reads with base modifications
+  - Used by: All tests requiring POD5 data
+  - Size: ~1.2MB
+  - Contents: Nanopore signal data from reads containing modified bases (5mC, 6mA, etc.)
+
+### BAM Files
+
+- **mod_mappings.bam** - BAM file with alignments and base modification tags
+  - Used by: All tests requiring BAM/alignment data
+  - Size: ~164KB
+  - Contents: Alignments with move tables and modification information
+  - Note: Corresponds to reads in `mod_reads.pod5`
 
 ## Adding Test Data
 
@@ -24,15 +32,15 @@ POD5 test files are tracked with Git LFS to avoid repository bloat.
 
 2. Add your POD5 file to this directory:
    ```bash
-   cp /path/to/your/sample.pod5 tests/data/
+   cp /path/to/your/reads.pod5 tests/data/
    ```
 
 3. Git LFS will automatically track it (configured in `.gitattributes`)
 
 4. Commit and push:
    ```bash
-   git add tests/data/sample.pod5
-   git commit -m "Add sample POD5 test data"
+   git add tests/data/reads.pod5
+   git commit -m "Add POD5 test data"
    git push
    ```
 
@@ -66,3 +74,4 @@ Test files should be:
 - Test files are stored with Git LFS (configured in `.gitattributes`)
 - When cloning the repo, Git LFS will automatically download these files
 - If tests skip due to missing data, ensure Git LFS is installed: `git lfs pull`
+- The test data includes base modification information useful for testing modification visualization features

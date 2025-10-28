@@ -124,7 +124,7 @@ def get_sample_data_path():
     """Get the path to the bundled sample data file
 
     Returns:
-        Path: Path to sample.pod5 file
+        Path: Path to mod_reads.pod5 file
 
     Raises:
         FileNotFoundError: If sample data cannot be found
@@ -135,13 +135,13 @@ def get_sample_data_path():
             import importlib.resources as resources
 
             files = resources.files("squiggy")
-            sample_path = files / "data" / "sample.pod5"
+            sample_path = files / "data" / "mod_reads.pod5"
             if hasattr(sample_path, "as_posix"):
                 return Path(sample_path)
             # For traversable objects, we need to extract to temp
             temp_dir = Path(tempfile.gettempdir()) / "squiggy_data"
             temp_dir.mkdir(exist_ok=True)
-            temp_file = temp_dir / "sample.pod5"
+            temp_file = temp_dir / "mod_reads.pod5"
             if not temp_file.exists():
                 with resources.as_file(sample_path) as f:
                     shutil.copy(f, temp_file)
@@ -150,12 +150,12 @@ def get_sample_data_path():
             # Fallback for older Python
             import pkg_resources
 
-            sample_path = pkg_resources.resource_filename("squiggy", "data/sample.pod5")
+            sample_path = pkg_resources.resource_filename("squiggy", "data/mod_reads.pod5")
             return Path(sample_path)
     except Exception as e:
         # Fallback: look in installed package directory
         package_dir = Path(__file__).parent
-        sample_path = package_dir / "data" / "sample.pod5"
+        sample_path = package_dir / "data" / "mod_reads.pod5"
         if sample_path.exists():
             return sample_path
         raise FileNotFoundError(f"Sample data not found. Error: {e}") from None
@@ -252,13 +252,19 @@ def get_basecall_data(bam_file, read_id):
                 if read.has_tag("mv"):
                     move_table = np.array(read.get_tag("mv"), dtype=np.uint8)
 
+                    # Extract stride (first element) and moves (remaining elements)
+                    # Stride represents the neural network downsampling factor
+                    # Typical values: 5 for DNA models, 10-12 for RNA models
+                    stride = int(move_table[0])
+                    moves = move_table[1:]
+
                     # Convert move table to signal-to-sequence mapping
                     seq_to_sig_map = []
                     sig_pos = 0
-                    for move in move_table:
+                    for move in moves:
                         if move == 1:
                             seq_to_sig_map.append(sig_pos)
-                        sig_pos += 1
+                        sig_pos += stride
 
                     bam.close()
                     return sequence, np.array(seq_to_sig_map)
@@ -473,3 +479,79 @@ def get_reads_in_region(bam_file, chromosome, start=None, end=None):
         raise ValueError(f"Error querying BAM file: {str(e)}") from e
 
     return reads_dict
+
+
+def reverse_complement(seq):
+    """
+    Return the reverse complement of a DNA sequence.
+
+    Args:
+        seq: DNA sequence string (A, C, G, T, N)
+
+    Returns:
+        Reverse complement sequence
+    """
+    complement = {"A": "T", "T": "A", "C": "G", "G": "C", "N": "N"}
+    return "".join(complement.get(base, base) for base in reversed(seq))
+
+
+def get_reference_sequence_for_read(bam_file, read_id):
+    """
+    Extract the reference sequence for a given aligned read.
+
+    Args:
+        bam_file: Path to BAM file
+        read_id: Read identifier
+
+    Returns:
+        Tuple of (reference_sequence, reference_start, aligned_read)
+        Returns (None, None, None) if read not found or not aligned
+    """
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            # Find the alignment for this read
+            aligned_read = None
+            for aln in bam.fetch(until_eof=True):
+                if aln.query_name == read_id:
+                    aligned_read = aln
+                    break
+
+            if not aligned_read or aligned_read.is_unmapped:
+                return None, None, None
+
+            # Get reference sequence from the alignment
+            ref_name = aligned_read.reference_name
+            ref_start = aligned_read.reference_start
+
+            # Check if reference sequence is available in BAM header
+            if bam.header.get("SQ"):
+                # Try to get reference sequence from header (if embedded)
+                for sq in bam.header["SQ"]:
+                    if sq["SN"] == ref_name:
+                        # Some BAMs have embedded reference sequences
+                        if "M5" in sq or "UR" in sq:
+                            # Reference not embedded, need to reconstruct from alignment
+                            break
+
+            # Reconstruct reference sequence from aligned read
+            # Use the aligned pairs to build the reference sequence
+            ref_seq_list = []
+            ref_positions = []
+
+            for query_pos, ref_pos in aligned_read.get_aligned_pairs():
+                if ref_pos is not None:  # Skip insertions in read
+                    ref_positions.append(ref_pos)
+                    if query_pos is not None:
+                        # Match or mismatch
+                        base = aligned_read.query_sequence[query_pos]
+                        ref_seq_list.append(base)
+                    else:
+                        # Deletion in read (gap in query)
+                        ref_seq_list.append("N")  # Use N for deletions
+
+            ref_seq = "".join(ref_seq_list)
+
+            return ref_seq, ref_start, aligned_read
+
+    except Exception as e:
+        raise ValueError(f"Error extracting reference sequence: {str(e)}") from e
