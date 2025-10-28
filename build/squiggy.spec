@@ -7,41 +7,47 @@ import shutil
 from pathlib import Path
 
 # Find geckodriver for bundling (enables PNG/SVG export in standalone builds)
-geckodriver_path = shutil.which('geckodriver')
+geckodriver_path = shutil.which("geckodriver")
 binaries_list = []
 
 if geckodriver_path:
     print(f"Found geckodriver at: {geckodriver_path}")
     # Bundle geckodriver into the application
     # It will be placed in _internal/ directory
-    binaries_list.append((geckodriver_path, '.'))
+    binaries_list.append((geckodriver_path, "."))
 else:
-    print("WARNING: geckodriver not found. PNG/SVG export will not work in standalone build.")
-    print("Install with: brew install geckodriver (macOS) or apt install firefox-geckodriver (Linux)")
+    print(
+        "WARNING: geckodriver not found. PNG/SVG export will not work in standalone build."
+    )
+    print(
+        "Install with: brew install geckodriver (macOS) or apt install firefox-geckodriver (Linux)"
+    )
 
 a = Analysis(
-    ['../src/squiggy/main.py'],
-    pathex=['../src'],
+    ["../src/squiggy/main.py"],
+    pathex=["../src"],
     binaries=binaries_list,
     datas=[
-        ('../tests/data/*.pod5', 'squiggy/data'),
-        ('../tests/data/README.md', 'squiggy/data'),
-        ('squiggy.png', 'squiggy/data'),
-        ('squiggy.ico', 'squiggy/data'),
-        ('squiggy.icns', 'squiggy/data'),
+        ("../tests/data/*.pod5", "squiggy/data"),
+        ("../tests/data/*.bam", "squiggy/data"),
+        ("../tests/data/*.bam.bai", "squiggy/data"),
+        ("../tests/data/README.md", "squiggy/data"),
+        ("squiggy.png", "squiggy/data"),
+        ("squiggy.ico", "squiggy/data"),
+        ("squiggy.icns", "squiggy/data"),
     ],
     hiddenimports=[
-        'pod5',
-        'numpy',
-        'PySide6.QtCore',
-        'PySide6.QtGui',
-        'PySide6.QtWidgets',
-        'bokeh',
-        'importlib.resources',
-        'selenium',
-        'PIL',
-        'pillow',
-        'qt_material',
+        "pod5",
+        "numpy",
+        "PySide6.QtCore",
+        "PySide6.QtGui",
+        "PySide6.QtWidgets",
+        "bokeh",
+        "importlib.resources",
+        "selenium",
+        "PIL",
+        "pillow",
+        "qt_material",
     ],
     hookspath=[],
     hooksconfig={},
@@ -62,7 +68,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Squiggy',
+    name="Squiggy",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -75,21 +81,21 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='squiggy.ico' if sys.platform == 'win32' else 'squiggy.icns',
+    icon="squiggy.ico" if sys.platform == "win32" else "squiggy.icns",
 )
 
 # For macOS, create an app bundle
-if sys.platform == 'darwin':
+if sys.platform == "darwin":
     app = BUNDLE(
-    exe,
-    name='Squiggy.app',
-    icon='squiggy.icns',
-    bundle_identifier='com.rnabioco.squiggy',
-    info_plist={
-        'NSPrincipalClass': 'NSApplication',
-        'NSHighResolutionCapable': 'True',
-        'CFBundleDisplayName': 'Squiggy',
-        'CFBundleName': 'Squiggy',
-        'CFBundleShortVersionString': '0.1.0',
-    },
-)
+        exe,
+        name="Squiggy.app",
+        icon="squiggy.icns",
+        bundle_identifier="com.rnabioco.squiggy",
+        info_plist={
+            "NSPrincipalClass": "NSApplication",
+            "NSHighResolutionCapable": "True",
+            "CFBundleDisplayName": "Squiggy",
+            "CFBundleName": "Squiggy",
+            "CFBundleShortVersionString": "0.1.0",
+        },
+    )
