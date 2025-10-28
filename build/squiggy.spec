@@ -17,12 +17,11 @@ a = Analysis(
     ],
     hiddenimports=[
         'pod5',
-        'plotnine',
-        'pandas',
         'numpy',
         'PySide6.QtCore',
         'PySide6.QtGui',
         'PySide6.QtWidgets',
+        'bokeh',
         'importlib.resources',
     ],
     hookspath=[],

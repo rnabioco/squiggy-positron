@@ -3,50 +3,6 @@
 import pod5
 
 
-class TestSquigglePlotter:
-    """Tests for the SquigglePlotter class."""
-
-    def test_plot_creation_with_sample_data(self, sample_pod5_file):
-        """Test that we can create a plot from sample POD5 data."""
-        from squiggy.plotter import SquigglePlotter
-
-        # Read the first read from the sample file
-        with pod5.Reader(sample_pod5_file) as reader:
-            read = next(reader.reads())
-
-            # Create a plot
-            plot = SquigglePlotter.create_plot(
-                signal=read.signal,
-                sample_rate=read.run_info.sample_rate,
-                read_id=str(read.read_id),
-            )
-
-            # Verify plot was created
-            assert plot is not None
-            assert hasattr(plot, "save")
-
-    def test_signal_to_dataframe(self, sample_pod5_file):
-        """Test conversion of signal data to time-series DataFrame."""
-        import numpy as np
-
-        from squiggy.plotter import SquigglePlotter
-
-        with pod5.Reader(sample_pod5_file) as reader:
-            read = next(reader.reads())
-
-            df = SquigglePlotter.signal_to_dataframe(
-                read.signal, read.run_info.sample_rate
-            )
-
-            # Verify DataFrame structure
-            assert "time" in df.columns
-            assert "signal" in df.columns
-            # Note: length may differ due to auto-downsampling for large signals
-            assert len(df) <= len(read.signal)
-            assert len(df) > 0
-            assert df["signal"].dtype == np.float64
-
-
 class TestPOD5Reading:
     """Tests for POD5 file reading functionality."""
 
