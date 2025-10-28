@@ -41,6 +41,6 @@ Add any other context, screenshots, or examples about the feature request here.
 
 If you're using Claude Code to implement this feature, consider:
 - Reading `CLAUDE.md` for project architecture
-- Checking `CONTRIBUTING.md` for development workflow
+- Checking the [Development Guide](https://rnabioco.github.io/squiggy/development/) for workflow
 - Running `python scripts/check_dev_env.py` to validate setup
 - Following the async/Qt patterns documented in the codebase

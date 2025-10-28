@@ -101,10 +101,9 @@ python squiggy/squiggy/main.py --file data.pod5
 
 ## Contributing
 
-Contributions are welcome! For development setup, workflow, and guidelines, please see:
+Contributions are welcome! For development setup, workflow, and contribution guidelines, please see:
 
-- [Development Documentation](https://rnabioco.github.io/squiggy/development/) - Quick start guide and development patterns
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Detailed contribution guidelines
+- [Development & Contributing Guide](https://rnabioco.github.io/squiggy/development/) - Complete guide for contributors
 
 ## License
 

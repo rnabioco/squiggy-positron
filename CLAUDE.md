@@ -29,7 +29,6 @@ src/squiggy/
 ├── __init__.py         # Package initialization with version info
 ├── main.py            # Entry point and CLI argument parsing
 ├── viewer.py          # SquiggleViewer - Main QMainWindow GUI
-├── plotter.py         # SquigglePlotter - Legacy plotnine plotting (deprecated)
 ├── plotter_bokeh.py   # BokehSquigglePlotter - Interactive bokeh plotting
 ├── alignment.py       # Base annotation data structures (BaseAnnotation, AlignedRead)
 ├── normalization.py   # Signal normalization functions (z-norm, median, MAD)
@@ -525,7 +524,7 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 - **Data files**: Must explicitly list in `datas` parameter
 - **Platform differences**: Test builds on target platform (macOS != Linux != Windows)
 - **Permissions**: macOS requires code signing for distribution outside App Store
-- **Size**: Bundled Qt + QWebEngine adds ~150MB to executable size (increased from plotnine due to Chromium)
+- **Size**: Bundled Qt + QWebEngine adds ~150MB to executable size due to Chromium
 - **WebEngine resources**: QWebEngine requires additional resources - ensure Qt plugins are bundled correctly
 
 ## Coding Style and Conventions

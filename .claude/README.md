@@ -16,11 +16,12 @@ Quick reference guide with:
 
 ### For All Contributors
 
-- **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Comprehensive contributor guide
+- **[Development Guide](../docs/development.md)** - Comprehensive contributor guide
   - Setup instructions
   - Development workflow
   - Testing guidelines
   - PR checklist
+  - Common tasks and troubleshooting
 
 - **[README.md](../README.md)** - Project overview and installation
   - Features and usage
@@ -82,7 +83,7 @@ squiggy -p tests/data/simplex_reads.pod5 -b tests/data/simplex_reads_mapped.bam
 3. **Start developing:**
    - Claude will automatically use `CLAUDE.md` for project context
    - Reference `quick-reference.md` for common patterns
-   - Follow guidelines in `CONTRIBUTING.md`
+   - Follow guidelines in the [Development Guide](../docs/development.md)
 
 4. **Test your changes:**
    ```bash
@@ -163,7 +164,7 @@ Squiggy is designed to be:
 - **Questions**: Open a GitHub Discussion
 - **Bugs**: Use the bug report template
 - **Features**: Use the feature request template
-- **Development**: Check `CLAUDE.md` and `CONTRIBUTING.md`
+- **Development**: Check `CLAUDE.md` and the [Development Guide](../docs/development.md)
 
 ## License
 

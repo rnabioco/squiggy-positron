@@ -10,3 +10,5 @@ squiggy -p tests/data/mod_reads.pod5 -b tests/data/mod_mappings.bam &
 ```
 
 The application will open in a new window while you retain control of the terminal.
+
+IMPORTANT: After running this command, STOP immediately. Do not monitor output, wait for completion, or continue thinking. The `&` returns control instantly.

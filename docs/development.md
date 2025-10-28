@@ -1,10 +1,10 @@
-# Development with Claude Code
+# Contributing to Squiggy
 
-Squiggy is optimized for development with [Claude Code](https://claude.ai/code). The repository includes comprehensive documentation to help AI-assisted development be more effective.
+Thank you for your interest in contributing to Squiggy! This guide covers everything you need to know about developing and contributing to the project.
 
-## Project Documentation
+## Using Claude Code
 
-The repository includes **CLAUDE.md** - a comprehensive project guide that provides:
+Squiggy is optimized for development with [Claude Code](https://claude.ai/code). The repository includes **CLAUDE.md** - a comprehensive project guide that provides:
 
 - Detailed architecture documentation and coding conventions
 - Project structure and component descriptions
@@ -66,7 +66,36 @@ Once your environment is set up, you can start developing. If using Claude Code,
 8. Push to the branch (`git push origin feature/amazing-feature`)
 9. Open a Pull Request
 
-See [CONTRIBUTING.md](https://github.com/rnabioco/squiggy/blob/main/CONTRIBUTING.md) for more details on code style, testing, and PR guidelines.
+
+## Pull Request Guidelines
+
+### Before Submitting
+
+- [ ] Code is formatted with `ruff format`
+- [ ] Linting passes: `ruff check src/ tests/`
+- [ ] All tests pass: `pytest tests/`
+- [ ] Manual testing completed with sample data
+- [ ] New features have tests
+- [ ] Documentation updated if needed
+
+### PR Description Template
+
+```markdown
+## Description
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+Describe how you tested these changes
+
+## Screenshots (if UI changes)
+Add screenshots demonstrating the changes
+```
 
 ## Requirements
 
@@ -75,12 +104,11 @@ See [CONTRIBUTING.md](https://github.com/rnabioco/squiggy/blob/main/CONTRIBUTING
 - For POD5 files with VBZ compression: `vbz_h5py_plugin` (automatically installed)
 
 ### Dependencies
-- `numpy>=1.20.0` - Array operations
-- `pandas>=1.3.0` - Data manipulation
+- `numpy>=1.20.0` - Array operations and signal processing
 - `pod5>=0.3.0` - POD5 file reading
-- `PySide6>=6.5.0` - GUI framework
-- `plotnine>=0.12.0` - Plot generation (deprecated, migrating to Bokeh)
-- `bokeh>=3.0.0` - Interactive visualization
+- `PySide6>=6.5.0` - GUI framework (Qt for Python)
+- `bokeh>=3.1.1` - Interactive visualization
+- `pysam>=0.20.0` - BAM file reading
 - `qasync>=0.24.0` - Async/await support for Qt
 
 ## Development Resources
@@ -88,7 +116,6 @@ See [CONTRIBUTING.md](https://github.com/rnabioco/squiggy/blob/main/CONTRIBUTING
 For detailed development information, see:
 
 - [CLAUDE.md](https://github.com/rnabioco/squiggy/blob/main/CLAUDE.md) - Comprehensive development guide
-- [CONTRIBUTING.md](https://github.com/rnabioco/squiggy/blob/main/CONTRIBUTING.md) - Contribution guidelines
 - [GitHub Issues](https://github.com/rnabioco/squiggy/issues) - Bug reports and feature requests
 - [GitHub Discussions](https://github.com/rnabioco/squiggy/discussions) - Community discussions
 
@@ -198,3 +225,58 @@ Releases are automated via GitHub Actions (`.github/workflows/build.yml`):
 ### Development Builds
 
 Development builds are automatically created on every push to `main` and available under the ["latest" release tag](https://github.com/rnabioco/squiggy/releases/tag/latest). These builds include only macOS .dmg files for faster CI builds.
+
+## Common Development Tasks
+
+### Adding a New Dialog
+
+1. Create dialog class in `dialogs.py` inheriting from `QDialog`
+2. Add dialog instantiation in `viewer.py`
+3. Connect to menu action or button
+4. Test with sample data
+
+### Adding a New Plot Mode
+
+1. Add enum value to `PlotMode` in `constants.py`
+2. Implement plotting method in `plotter_bokeh.py`
+3. Add radio button in `viewer.py` plot options panel
+4. Connect to `set_plot_mode()` handler
+5. Test with multiple reads
+
+### Modifying File Parsing
+
+1. Update parsing logic in `utils.py`
+2. Ensure functions are blocking (not async) - called via `asyncio.to_thread()`
+3. Add error handling and validation
+4. Write tests in `tests/`
+
+## Troubleshooting
+
+### macOS: App shows "Python" in menu bar
+- Install PyObjC: `pip install -e ".[macos]"`
+- The app sets the correct name via `set_macos_app_name()` in `main.py`
+
+### Tests fail with "Sample data not found"
+- Ensure you're in the project root when running tests
+- Check that `tests/data/*.pod5` files exist
+- Tests skip (not fail) if sample data is missing
+
+### Qt Async Issues
+- Ensure `@qasync.asyncSlot()` is used for async Qt slots
+- Blocking operations must be wrapped in `asyncio.to_thread()`
+- Don't call Qt methods from background threads
+
+### PyInstaller Build Issues
+- Update `build/squiggy.spec` `hiddenimports` for missing modules
+- Ensure data files are listed in `datas` parameter
+- Test builds on each platform (macOS, Windows, Linux)
+
+## Questions?
+
+- **Bugs**: Open an issue on [GitHub](https://github.com/rnabioco/squiggy/issues)
+- **Feature requests**: Open a discussion or issue
+- **Development questions**: Use Claude Code with the CLAUDE.md context
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
