@@ -46,6 +46,13 @@ BASE_LABEL_SIZE = 8
 SIGNAL_PERCENTILE_LOW = 2.5
 SIGNAL_PERCENTILE_HIGH = 97.5
 
+# Signal point visualization
+SIGNAL_POINT_SIZE = 4  # Point size in pixels
+SIGNAL_POINT_ALPHA = 0.6  # Point transparency
+
+# Position label settings
+DEFAULT_POSITION_LABEL_INTERVAL = 10  # Show position label every N bases
+
 
 # Plot modes
 class PlotMode(Enum):

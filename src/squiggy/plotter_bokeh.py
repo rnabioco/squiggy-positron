@@ -23,6 +23,8 @@ from .constants import (
     DARK_THEME,
     LIGHT_THEME,
     SIGNAL_LINE_COLOR,
+    SIGNAL_POINT_ALPHA,
+    SIGNAL_POINT_SIZE,
     NormalizationMethod,
     PlotMode,
     Theme,
@@ -431,6 +433,8 @@ class BokehSquigglePlotter:
         base_colors: dict,
         sample_rate: int = None,
         signal_length: int = None,
+        position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
+        use_reference_positions: bool = False,
     ):
         """Add base labels for position-based plots (event-aligned mode)
 
@@ -439,8 +443,11 @@ class BokehSquigglePlotter:
             base_colors: Dict of base colors
             sample_rate: Required if show_dwell_time=True
             signal_length: Required if show_dwell_time=True
+            position_label_interval: Show position number every N bases
+            use_reference_positions: Use reference positions (currently not implemented)
         """
         label_data = []
+        position_number_data = []
 
         if show_dwell_time and sample_rate is not None and signal_length is not None:
             # Use cumulative time for label positioning
@@ -459,14 +466,26 @@ class BokehSquigglePlotter:
                     dwell_time = (dwell_samples / sample_rate) * 1000
 
                     # Position label at center of dwell time range
+                    label_x = cumulative_time + (dwell_time / 2)
                     label_data.append(
                         {
-                            "x": cumulative_time + (dwell_time / 2),
+                            "x": label_x,
                             "y": signal_max,
                             "text": base,
                             "color": base_colors[base],
                         }
                     )
+
+                    # Add position number at intervals
+                    if i % position_label_interval == 0:
+                        position_number_data.append(
+                            {
+                                "x": label_x,
+                                "y": signal_max,
+                                "text": str(i),
+                            }
+                        )
+
                     cumulative_time += dwell_time
         else:
             # Use base position for label positioning (current behavior)
@@ -482,6 +501,17 @@ class BokehSquigglePlotter:
                         }
                     )
 
+                    # Add position number at intervals
+                    if i % position_label_interval == 0:
+                        position_number_data.append(
+                            {
+                                "x": i,
+                                "y": signal_max,
+                                "text": str(i),
+                            }
+                        )
+
+        # Add base letters
         if label_data:
             label_source = ColumnDataSource(
                 data={
@@ -504,6 +534,29 @@ class BokehSquigglePlotter:
                 y_offset=5,
             )
             p.add_layout(labels)
+
+        # Add position numbers
+        if position_number_data:
+            position_source = ColumnDataSource(
+                data={
+                    "x": [d["x"] for d in position_number_data],
+                    "y": [d["y"] for d in position_number_data],
+                    "text": [d["text"] for d in position_number_data],
+                }
+            )
+            position_labels = LabelSet(
+                x="x",
+                y="y",
+                text="text",
+                source=position_source,
+                text_font_size="8pt",
+                text_color="black",
+                text_alpha=0.6,
+                text_align="center",
+                text_baseline="bottom",
+                y_offset=20,  # Position above base letters
+            )
+            p.add_layout(position_labels)
 
     @staticmethod
     def _add_simple_labels(
@@ -544,6 +597,9 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
+        show_signal_points: bool = False,
+        position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
+        use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """
@@ -559,6 +615,9 @@ class BokehSquigglePlotter:
             downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
             show_dwell_time: Color bases by dwell time instead of base type
             show_labels: Show base labels on plot
+            show_signal_points: Show individual signal points as circles
+            position_label_interval: Show position number every N bases
+            use_reference_positions: Use reference genome positions (requires alignment data)
             theme: Color theme (LIGHT or DARK)
 
         Returns:
@@ -594,12 +653,27 @@ class BokehSquigglePlotter:
             theme,
         )
 
-        # Add signal line
-        line_renderer = BokehSquigglePlotter._add_signal_line(p, time_ms, signal, theme)
+        # Add signal line and points
+        line_renderer, signal_source = BokehSquigglePlotter._add_signal_line(
+            p, time_ms, signal, theme, return_source=True
+        )
+
+        # Add signal points if requested
+        renderers_for_hover = [line_renderer]
+        if show_signal_points:
+            circle_renderer = p.circle(
+                "time",
+                "signal",
+                source=signal_source,
+                size=SIGNAL_POINT_SIZE,
+                color=SIGNAL_LINE_COLOR,
+                alpha=SIGNAL_POINT_ALPHA,
+            )
+            renderers_for_hover.append(circle_renderer)
 
         # Add hover tool
         hover = HoverTool(
-            renderers=[line_renderer],
+            renderers=renderers_for_hover,
             tooltips=[
                 ("Time", "@time{0.2f} ms"),
                 ("Signal", "@signal{0.2f}"),
@@ -712,9 +786,21 @@ class BokehSquigglePlotter:
 
     @staticmethod
     def _add_signal_line(
-        p, time_ms: np.ndarray, signal: np.ndarray, theme: Theme = Theme.LIGHT
+
+        p, time_ms: np.ndarray, signal: np.ndarray, return_source: bool = False
+    , theme: Theme = Theme.LIGHT
     ):
-        """Add signal line to plot"""
+        """Add signal line to plot
+
+        Args:
+            p: Bokeh figure
+            time_ms: Time array in milliseconds
+            signal: Signal array
+            return_source: If True, return (line_renderer, signal_source) tuple
+
+        Returns:
+            line_renderer if return_source=False, else (line_renderer, signal_source)
+        """
         signal_source = ColumnDataSource(
             data={"time": time_ms, "signal": signal, "sample": np.arange(len(signal))}
         )
@@ -729,6 +815,8 @@ class BokehSquigglePlotter:
             alpha=0.8,
         )
 
+        if return_source:
+            return line_renderer, signal_source
         return line_renderer
 
     @staticmethod
@@ -740,6 +828,9 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
+        show_signal_points: bool = False,
+        position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
+        use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """
@@ -752,6 +843,10 @@ class BokehSquigglePlotter:
             aligned_reads: Optional list of aligned read objects for EVENTALIGN mode
             downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
             show_dwell_time: Color bases by dwell time instead of base type
+            show_labels: Show base labels on plot
+            show_signal_points: Show individual signal points as circles
+            position_label_interval: Show position number every N bases
+            use_reference_positions: Use reference genome positions (requires alignment data)
             theme: Color theme (LIGHT or DARK)
 
         Returns:
@@ -759,11 +854,11 @@ class BokehSquigglePlotter:
         """
         if mode == PlotMode.OVERLAY:
             return BokehSquigglePlotter._plot_overlay(
-                reads_data, normalization, downsample, theme
+                reads_data, normalization, downsample, show_signal_points, theme
             )
         elif mode == PlotMode.STACKED:
             return BokehSquigglePlotter._plot_stacked(
-                reads_data, normalization, downsample, theme
+                reads_data, normalization, downsample, show_signal_points, theme
             )
         elif mode == PlotMode.EVENTALIGN:
             return BokehSquigglePlotter._plot_eventalign(
@@ -773,6 +868,9 @@ class BokehSquigglePlotter:
                 downsample,
                 show_dwell_time,
                 show_labels,
+                show_signal_points,
+                position_label_interval,
+                use_reference_positions,
                 theme,
             )
         else:
@@ -783,6 +881,7 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
+        show_signal_points: bool = False,
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot multiple reads overlaid on same axes"""
@@ -823,6 +922,19 @@ class BokehSquigglePlotter:
             )
             line_renderers.append(line)
 
+            # Add signal points if requested
+            if show_signal_points:
+                circle = p.circle(
+                    "x",
+                    "y",
+                    source=source,
+                    size=SIGNAL_POINT_SIZE,
+                    color=color,
+                    alpha=SIGNAL_POINT_ALPHA,
+                    legend_label=read_id[:12],
+                )
+                line_renderers.append(circle)
+
         # Add hover tool
         hover = HoverTool(
             renderers=line_renderers,
@@ -845,6 +957,7 @@ class BokehSquigglePlotter:
         reads_data: List[Tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
+        show_signal_points: bool = False,
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot multiple reads stacked vertically with offset"""
@@ -893,6 +1006,19 @@ class BokehSquigglePlotter:
             )
             line_renderers.append(line)
 
+            # Add signal points if requested
+            if show_signal_points:
+                circle = p.circle(
+                    "x",
+                    "y",
+                    source=source,
+                    size=SIGNAL_POINT_SIZE,
+                    color=color,
+                    alpha=SIGNAL_POINT_ALPHA,
+                    legend_label=read_id[:12],
+                )
+                line_renderers.append(circle)
+
         # Add hover tool
         hover = HoverTool(
             renderers=line_renderers,
@@ -918,6 +1044,9 @@ class BokehSquigglePlotter:
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
+        show_signal_points: bool = False,
+        position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
+        use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot event-aligned reads with base annotations"""
@@ -937,22 +1066,35 @@ class BokehSquigglePlotter:
         # Add base annotations
         BokehSquigglePlotter._add_base_annotations_eventalign(
             p,
+
             reads_data,
+
             normalization,
+
             aligned_reads,
+
             show_dwell_time,
+
             show_labels,
+            position_label_interval,
+            use_reference_positions,,
             theme,
         )
 
         # Plot signal lines
         line_renderers = BokehSquigglePlotter._plot_eventalign_signals(
             p,
+
             reads_data,
+
             normalization,
+
             aligned_reads,
+
             show_dwell_time,
+
             downsample,
+            show_signal_points,,
             theme,
         )
 
@@ -991,6 +1133,8 @@ class BokehSquigglePlotter:
         aligned_reads: List,
         show_dwell_time: bool,
         show_labels: bool,
+        position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
+        use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
     ):
         """Add base annotations for event-aligned plots"""
@@ -1037,6 +1181,8 @@ class BokehSquigglePlotter:
                 base_colors,
                 sample_rate,
                 signal_length,
+                position_label_interval,
+                use_reference_positions,
             )
 
         return None
@@ -1049,6 +1195,7 @@ class BokehSquigglePlotter:
         aligned_reads: List,
         show_dwell_time: bool = False,
         downsample: int = 1,
+        show_signal_points: bool = False,
         theme: Theme = Theme.LIGHT,
     ):
         """Plot signal lines for event-aligned reads
@@ -1159,5 +1306,18 @@ class BokehSquigglePlotter:
                 legend_label=read_id[:12],
             )
             line_renderers.append(line)
+
+            # Add signal points if requested
+            if show_signal_points:
+                circle = p.circle(
+                    "x",
+                    "y",
+                    source=source,
+                    size=SIGNAL_POINT_SIZE,
+                    color=color,
+                    alpha=SIGNAL_POINT_ALPHA,
+                    legend_label=read_id[:12],
+                )
+                line_renderers.append(circle)
 
         return line_renderers
