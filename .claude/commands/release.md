@@ -131,13 +131,25 @@ Use the AskUserQuestion tool to ask the user:
    git tag -a v[VERSION] -m "Release v[VERSION]"
    ```
 
-3. Show success message with next steps:
+3. Create GitHub release using `gh`:
+   - Extract the new release section from `NEWS.md` (from the top through the new version section)
+   - Use `gh release create` to create the release:
+   ```bash
+   gh release create v[VERSION] --title "Squiggy v[VERSION]" --notes "[RELEASE_NOTES_FROM_NEWS_MD]"
    ```
-   ✅ Release v[VERSION] committed and tagged!
+   - The release notes should include everything from the new section in NEWS.md (the summary and all Features/Fixes/Improvements sections)
+   - Format the notes properly for GitHub (markdown format)
+
+4. Show success message with next steps:
+   ```
+   ✅ Release v[VERSION] committed, tagged, and published to GitHub!
 
    Next steps:
    # Push to remote:
    git push origin main --tags
+
+   # View the release on GitHub:
+   gh release view v[VERSION] --web
    ```
 
 ### If user selects "No":
@@ -152,6 +164,9 @@ git commit -m "Release v[VERSION]"
 
 # Create a git tag:
 git tag -a v[VERSION] -m "Release v[VERSION]"
+
+# Create GitHub release (extract release notes from NEWS.md):
+gh release create v[VERSION] --title "Squiggy v[VERSION]" --notes-file <(sed -n '/^# Squiggy [VERSION]/,/^# Squiggy/p' NEWS.md | head -n -1)
 
 # Push to remote:
 git push origin main --tags
