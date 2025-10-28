@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pysam
@@ -143,7 +143,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
     )
 
 
-def get_base_to_signal_mapping(aligned_read: AlignedRead) -> tuple[str, np.ndarray]:
+def get_base_to_signal_mapping(aligned_read: AlignedRead) -> Tuple[str, np.ndarray]:
     """Extract sequence and signal mapping from AlignedRead
 
     Args:
