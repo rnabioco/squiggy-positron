@@ -55,10 +55,12 @@ from .utils import (
     get_bam_references,
     get_basecall_data,
     get_reads_in_region,
+    get_sample_bam_path,
     get_sample_data_path,
     index_bam_file,
     parse_region,
     validate_bam_reads_in_pod5,
+    writable_working_directory,
 )
 
 
@@ -1051,7 +1053,7 @@ class SquiggleViewer(QMainWindow):
 
     @qasync.asyncSlot()
     async def open_sample_data(self):
-        """Open the bundled sample POD5 file (async)"""
+        """Open the bundled sample POD5 file and BAM file (async)"""
         try:
             sample_path = get_sample_data_path()
             if not sample_path.exists():
@@ -1066,9 +1068,19 @@ class SquiggleViewer(QMainWindow):
             self.pod5_file = sample_path
             self.file_label.setText(f"{sample_path.name} (sample)")
             await self.load_read_ids()
-            self.statusBar().showMessage(
-                f"Loaded {len(self.read_dict)} reads from sample data"
-            )
+
+            # Also load the sample BAM file if available
+            sample_bam = get_sample_bam_path()
+            if sample_bam and sample_bam.exists():
+                self.bam_file = sample_bam
+                self.bam_label.setText(f"{sample_bam.name} (sample)")
+                self.statusBar().showMessage(
+                    f"Loaded {len(self.read_dict)} reads from sample data with BAM file"
+                )
+            else:
+                self.statusBar().showMessage(
+                    f"Loaded {len(self.read_dict)} reads from sample data"
+                )
         except Exception as e:
             QMessageBox.critical(
                 self, "Error", f"Failed to load sample data:\n{str(e)}"
@@ -1083,7 +1095,8 @@ class SquiggleViewer(QMainWindow):
 
         if file_path:
             try:
-                self.pod5_file = Path(file_path)
+                # Convert to absolute path to avoid issues with CWD changes
+                self.pod5_file = Path(file_path).resolve()
                 self.file_label.setText(self.pod5_file.name)
                 await self.load_read_ids()
                 self.statusBar().showMessage(f"Loaded {len(self.read_dict)} reads")
@@ -1095,11 +1108,12 @@ class SquiggleViewer(QMainWindow):
     def _load_read_ids_blocking(self):
         """Blocking function to load read IDs from POD5 file"""
         read_dict = {}
-        with pod5.Reader(self.pod5_file) as reader:
-            for read in reader.reads():
-                read_id = str(read.read_id)
-                # Store just the read_id, not the read object (which becomes invalid)
-                read_dict[read_id] = read_id
+        with writable_working_directory():
+            with pod5.Reader(self.pod5_file) as reader:
+                for read in reader.reads():
+                    read_id = str(read.read_id)
+                    # Store just the read_id, not the read object (which becomes invalid)
+                    read_dict[read_id] = read_id
         return read_dict
 
     async def load_read_ids(self):
@@ -1126,10 +1140,11 @@ class SquiggleViewer(QMainWindow):
         """Blocking function to get file statistics"""
         sample_rates = set()
         total_samples = 0
-        with pod5.Reader(self.pod5_file) as reader:
-            for read in reader.reads():
-                sample_rates.add(read.run_info.sample_rate)
-                total_samples += len(read.signal)
+        with writable_working_directory():
+            with pod5.Reader(self.pod5_file) as reader:
+                for read in reader.reads():
+                    sample_rates.add(read.run_info.sample_rate)
+                    total_samples += len(read.signal)
         return sample_rates, total_samples
 
     async def update_file_info(self):
@@ -1202,7 +1217,8 @@ class SquiggleViewer(QMainWindow):
 
         if file_path:
             try:
-                bam_path = Path(file_path)
+                # Convert to absolute path to avoid issues with CWD changes
+                bam_path = Path(file_path).resolve()
 
                 # Check for BAM index, create if missing
                 bai_path = Path(str(bam_path) + ".bai")
@@ -1775,19 +1791,20 @@ class SquiggleViewer(QMainWindow):
     def _generate_plot_blocking(self, read_id):
         """Blocking function to generate bokeh plot HTML"""
         # Get signal data
-        with pod5.Reader(self.pod5_file) as reader:
-            # Find the specific read by iterating through all reads
-            read = None
-            for r in reader.reads():
-                if str(r.read_id) == read_id:
-                    read = r
-                    break
+        with writable_working_directory():
+            with pod5.Reader(self.pod5_file) as reader:
+                # Find the specific read by iterating through all reads
+                read = None
+                for r in reader.reads():
+                    if str(r.read_id) == read_id:
+                        read = r
+                        break
 
-            if read is None:
-                raise ValueError(f"Read {read_id} not found in POD5 file")
+                if read is None:
+                    raise ValueError(f"Read {read_id} not found in POD5 file")
 
-            signal = read.signal
-            sample_rate = read.run_info.sample_rate
+                signal = read.signal
+                sample_rate = read.run_info.sample_rate
 
         # Get basecall data if available and requested
         sequence = None
@@ -1851,13 +1868,16 @@ class SquiggleViewer(QMainWindow):
         reads_data = []
 
         # Collect signal data for all reads
-        with pod5.Reader(self.pod5_file) as reader:
-            for r in reader.reads():
-                read_id_str = str(r.read_id)
-                if read_id_str in read_ids:
-                    reads_data.append((read_id_str, r.signal, r.run_info.sample_rate))
-                    if len(reads_data) == len(read_ids):
-                        break
+        with writable_working_directory():
+            with pod5.Reader(self.pod5_file) as reader:
+                for r in reader.reads():
+                    read_id_str = str(r.read_id)
+                    if read_id_str in read_ids:
+                        reads_data.append(
+                            (read_id_str, r.signal, r.run_info.sample_rate)
+                        )
+                        if len(reads_data) == len(read_ids):
+                            break
 
         if not reads_data:
             raise ValueError("No matching reads found in POD5 file")
@@ -1918,22 +1938,25 @@ class SquiggleViewer(QMainWindow):
         aligned_reads = []
 
         # Collect signal data and alignment info for all reads
-        with pod5.Reader(self.pod5_file) as reader:
-            for r in reader.reads():
-                read_id_str = str(r.read_id)
-                if read_id_str in read_ids:
-                    # Get signal data
-                    reads_data.append((read_id_str, r.signal, r.run_info.sample_rate))
-
-                    # Get alignment info from BAM
-                    aligned_read = extract_alignment_from_bam(
-                        self.bam_file, read_id_str
-                    )
-                    if aligned_read is None:
-                        raise ValueError(
-                            f"No alignment found for read {read_id_str} in BAM file"
+        with writable_working_directory():
+            with pod5.Reader(self.pod5_file) as reader:
+                for r in reader.reads():
+                    read_id_str = str(r.read_id)
+                    if read_id_str in read_ids:
+                        # Get signal data
+                        reads_data.append(
+                            (read_id_str, r.signal, r.run_info.sample_rate)
                         )
-                    aligned_reads.append(aligned_read)
+
+                        # Get alignment info from BAM
+                        aligned_read = extract_alignment_from_bam(
+                            self.bam_file, read_id_str
+                        )
+                        if aligned_read is None:
+                            raise ValueError(
+                                f"No alignment found for read {read_id_str} in BAM file"
+                            )
+                        aligned_reads.append(aligned_read)
 
                     if len(reads_data) == len(read_ids):
                         break
