@@ -19,10 +19,6 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - platform: Windows
-                      os: windows-latest
-                      artifact_name: squiggy-windows
-                      artifact_path: Squiggy-*.zip
                     - platform: macOS
                       os: macos-latest
                       artifact_name: squiggy-macos
@@ -50,10 +46,6 @@ jobs:
 
             - name: Build with PyInstaller
               run: pyinstaller build/squiggy.spec
-
-            - name: Package (Windows)
-              if: runner.os == 'Windows'
-              run: Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-${{ env.VERSION }}-windows-x64.zip
 
             - name: Package (macOS)
               if: runner.os == 'macOS'
@@ -90,7 +82,6 @@ jobs:
               uses: softprops/action-gh-release@v1
               with:
                   files: |
-                      squiggy-windows/Squiggy-*-windows-x64.zip
                       squiggy-macos/Squiggy-*-macos.dmg
                       squiggy-linux/Squiggy-*-linux-x64.tar.gz
               env:
