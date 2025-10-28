@@ -4,10 +4,14 @@ from pathlib import Path
 
 import pod5
 from bokeh.io import export_png, export_svgs
+from rich.console import Console
 
 from .constants import NormalizationMethod, PlotMode, Theme
 from .plotter import SquigglePlotter
 from .utils import get_basecall_data
+
+# Create Rich console for styled output
+console = Console()
 
 
 def export_plot(args) -> int:
@@ -23,7 +27,7 @@ def export_plot(args) -> int:
         # Validate and load POD5 file
         pod5_path = Path(args.pod5).resolve()
         if not pod5_path.exists():
-            print(f"Error: POD5 file does not exist: {pod5_path}")
+            console.print(f"[red]Error:[/red] POD5 file does not exist: {pod5_path}")
             return 1
 
         # Determine export format
@@ -49,7 +53,7 @@ def export_plot(args) -> int:
         theme = Theme.DARK if args.theme == "dark" else Theme.LIGHT
 
         # Load POD5 file and extract read(s)
-        print(f"Loading POD5 file: {pod5_path}")
+        console.print(f"[cyan]Loading POD5 file:[/cyan] {pod5_path}")
         with pod5.Reader(pod5_path) as reader:
             # Get all read IDs
             all_read_ids = {str(read.read_id): read for read in reader.reads()}
@@ -60,13 +64,17 @@ def export_plot(args) -> int:
             elif args.reads:
                 read_ids = args.reads
             else:
-                print("Error: --read-id or --reads required for export")
+                console.print(
+                    "[red]Error:[/red] --read-id or --reads required for export"
+                )
                 return 1
 
             # Validate read IDs exist
             missing_reads = [rid for rid in read_ids if rid not in all_read_ids]
             if missing_reads:
-                print(f"Error: Read ID(s) not found in POD5 file: {missing_reads}")
+                console.print(
+                    f"[red]Error:[/red] Read ID(s) not found in POD5 file: {missing_reads}"
+                )
                 return 1
 
             # Load BAM data if provided
@@ -74,16 +82,20 @@ def export_plot(args) -> int:
             if args.bam:
                 bam_path = Path(args.bam).resolve()
                 if not bam_path.exists():
-                    print(f"Error: BAM file does not exist: {bam_path}")
+                    console.print(
+                        f"[red]Error:[/red] BAM file does not exist: {bam_path}"
+                    )
                     return 1
-                print(f"Loading BAM file: {bam_path}")
+                console.print(f"[cyan]Loading BAM file:[/cyan] {bam_path}")
                 for read_id in read_ids:
                     sequence, seq_to_sig_map = get_basecall_data(bam_path, read_id)
                     if sequence is not None:
                         bam_data[read_id] = (sequence, seq_to_sig_map)
 
             # Generate plot
-            print(f"Generating plot for {len(read_ids)} read(s)...")
+            console.print(
+                f"[cyan]Generating plot for[/cyan] {len(read_ids)} [cyan]read(s)...[/cyan]"
+            )
 
             if len(read_ids) == 1:
                 # Single read plot
@@ -152,7 +164,7 @@ def export_plot(args) -> int:
                 )
 
             # Export to file
-            print(f"Exporting plot to: {export_path}")
+            console.print(f"[cyan]Exporting plot to:[/cyan] {export_path}")
             if export_format == "html":
                 with open(export_path, "w") as f:
                     f.write(html)
@@ -170,13 +182,13 @@ def export_plot(args) -> int:
                 with open(export_path, "w") as f:
                     f.write(svgs[0])
 
-            print(
-                f"Successfully exported {export_format.upper()} plot to: {export_path}"
+            console.print(
+                f"[green]✓[/green] Successfully exported {export_format.upper()} plot to: {export_path}"
             )
             return 0
 
     except Exception as e:
-        print(f"Error during export: {e}")
+        console.print(f"[red]Error during export:[/red] {e}")
         import traceback
 
         traceback.print_exc()

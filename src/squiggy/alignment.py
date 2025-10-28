@@ -6,6 +6,10 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pysam
+from rich.console import Console
+
+# Create Rich console for styled output
+console = Console()
 
 
 @dataclass
@@ -50,7 +54,9 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[Aligned
                 if alignment.query_name == read_id:
                     return _parse_alignment(alignment)
     except Exception as e:
-        print(f"Error reading BAM file for {read_id}: {e}")
+        console.print(
+            f"[yellow]Warning:[/yellow] Error reading BAM file for {read_id}: {e}"
+        )
 
     return None
 
