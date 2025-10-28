@@ -50,7 +50,7 @@ from .constants import (
     Theme,
 )
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
-from .plotter_bokeh import BokehSquigglePlotter
+from .plotter import SquigglePlotter
 from .utils import (
     get_bam_references,
     get_basecall_data,
@@ -129,6 +129,11 @@ class SquiggleViewer(QMainWindow):
         self.search_mode = "read_id"  # "read_id" or "region"
         self.saved_x_range = None  # Store current x-axis range for zoom preservation
         self.saved_y_range = None  # Store current y-axis range for zoom preservation
+        self.show_signal_points = False  # Show individual signal points on plot
+        self.position_label_interval = 10  # Show position labels every N bases
+        self.use_reference_positions = (
+            False  # Use reference positions vs sequence positions
+        )
         self.current_theme = Theme.DARK  # Default to dark theme
 
         self.init_ui()
@@ -440,6 +445,15 @@ class SquiggleViewer(QMainWindow):
         self.base_checkbox.stateChanged.connect(self.toggle_base_annotations)
         content_layout.addWidget(self.base_checkbox)
 
+        # Signal points toggle
+        self.points_checkbox = QCheckBox("Show signal points")
+        self.points_checkbox.setChecked(False)  # Unchecked by default
+        self.points_checkbox.setToolTip(
+            "Display individual signal data points as circles on the squiggle line"
+        )
+        self.points_checkbox.stateChanged.connect(self.toggle_signal_points)
+        content_layout.addWidget(self.points_checkbox)
+
         # Info label
         info_label = QLabel(
             "💡 Tip: Use Ctrl/Cmd+Click or Shift+Click to select multiple reads"
@@ -526,6 +540,50 @@ class SquiggleViewer(QMainWindow):
         dwell_info_label.setStyleSheet("color: #666; font-size: 9pt;")
         dwell_info_label.setWordWrap(True)
         content_layout.addWidget(dwell_info_label)
+
+        # Position label settings
+        position_label = QLabel("Position Labels:")
+        position_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        content_layout.addWidget(position_label)
+
+        # Position label interval
+        interval_layout = QHBoxLayout()
+        interval_layout.addWidget(QLabel("Show every"))
+
+        self.position_interval_spinbox = QSpinBox()
+        self.position_interval_spinbox.setMinimum(1)
+        self.position_interval_spinbox.setMaximum(100)
+        self.position_interval_spinbox.setValue(10)
+        self.position_interval_spinbox.setSuffix(" bases")
+        self.position_interval_spinbox.setToolTip("Show position number every N bases")
+        self.position_interval_spinbox.valueChanged.connect(
+            self.on_position_interval_changed
+        )
+        interval_layout.addWidget(self.position_interval_spinbox)
+        interval_layout.addStretch()
+
+        content_layout.addLayout(interval_layout)
+
+        # Position type toggle (sequence vs reference)
+        self.position_type_checkbox = QCheckBox(
+            "Use reference positions (when available)"
+        )
+        self.position_type_checkbox.setChecked(False)  # Default to sequence positions
+        self.position_type_checkbox.setEnabled(False)  # Enabled when BAM file loaded
+        self.position_type_checkbox.setToolTip(
+            "Show genomic coordinates instead of sequence positions\n"
+            "(requires BAM file with alignment)"
+        )
+        self.position_type_checkbox.stateChanged.connect(self.toggle_position_type)
+        content_layout.addWidget(self.position_type_checkbox)
+
+        # Position label info
+        position_info_label = QLabel(
+            "💡 Position labels show numbers on base annotations"
+        )
+        position_info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        position_info_label.setWordWrap(True)
+        content_layout.addWidget(position_info_label)
 
         content_layout.addStretch()
 
@@ -698,6 +756,54 @@ class SquiggleViewer(QMainWindow):
     async def toggle_dwell_time(self, state):
         """Toggle dwell time visualization"""
         self.show_dwell_time = bool(state)  # state is 0 (unchecked) or 2 (checked)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(int)
+    async def toggle_signal_points(self, state):
+        """Toggle display of individual signal points"""
+        self.show_signal_points = bool(state)  # state is 0 (unchecked) or 2 (checked)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(int)
+    async def toggle_position_type(self, state):
+        """Toggle between sequence and reference positions"""
+        self.use_reference_positions = bool(state)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(int)
+    async def on_position_interval_changed(self, value):
+        """Handle position label interval change"""
+        self.position_label_interval = value
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
             QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -1163,6 +1269,9 @@ class SquiggleViewer(QMainWindow):
                 self.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
                 self.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
                 self.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
+                self.position_type_checkbox.setEnabled(
+                    True
+                )  # Enable reference positions
 
                 # Enable browse references button if in region search mode
                 if self.search_mode == "region":
@@ -1687,7 +1796,7 @@ class SquiggleViewer(QMainWindow):
             sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
 
         # Generate bokeh plot HTML
-        html, figure = BokehSquigglePlotter.plot_single_read(
+        html, figure = SquigglePlotter.plot_single_read(
             signal,
             read_id,
             sample_rate,
@@ -1697,6 +1806,9 @@ class SquiggleViewer(QMainWindow):
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
+            show_signal_points=self.show_signal_points,
+            position_label_interval=self.position_label_interval,
+            use_reference_positions=self.use_reference_positions,
             theme=self.current_theme,
         )
 
@@ -1751,13 +1863,16 @@ class SquiggleViewer(QMainWindow):
             raise ValueError("No matching reads found in POD5 file")
 
         # Generate bokeh multi-read plot HTML
-        html, figure = BokehSquigglePlotter.plot_multiple_reads(
+        html, figure = SquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
+            show_signal_points=self.show_signal_points,
+            position_label_interval=self.position_label_interval,
+            use_reference_positions=self.use_reference_positions,
             theme=self.current_theme,
         )
 
@@ -1827,7 +1942,7 @@ class SquiggleViewer(QMainWindow):
             raise ValueError("No matching reads found in POD5 file")
 
         # Generate bokeh event-aligned plot HTML
-        html, figure = BokehSquigglePlotter.plot_multiple_reads(
+        html, figure = SquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
@@ -1835,6 +1950,9 @@ class SquiggleViewer(QMainWindow):
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
+            show_signal_points=self.show_signal_points,
+            position_label_interval=self.position_label_interval,
+            use_reference_positions=self.use_reference_positions,
             theme=self.current_theme,
         )
 
