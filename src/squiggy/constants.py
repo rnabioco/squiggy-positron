@@ -47,8 +47,9 @@ SIGNAL_PERCENTILE_LOW = 2.5
 SIGNAL_PERCENTILE_HIGH = 97.5
 
 # Signal point visualization
-SIGNAL_POINT_SIZE = 4  # Point size in pixels
+SIGNAL_POINT_SIZE = 6  # Point size in pixels
 SIGNAL_POINT_ALPHA = 0.6  # Point transparency
+SIGNAL_POINT_COLOR = "#E74C3C"  # Light red for contrast with signal line
 
 # Position label settings
 DEFAULT_POSITION_LABEL_INTERVAL = 10  # Show position label every N bases

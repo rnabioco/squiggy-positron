@@ -21,9 +21,11 @@ from .constants import (
     BASE_COLORS,
     BASE_COLORS_DARK,
     DARK_THEME,
+    DEFAULT_POSITION_LABEL_INTERVAL,
     LIGHT_THEME,
     SIGNAL_LINE_COLOR,
     SIGNAL_POINT_ALPHA,
+    SIGNAL_POINT_COLOR,
     SIGNAL_POINT_SIZE,
     NormalizationMethod,
     PlotMode,
@@ -125,11 +127,18 @@ class BokehSquigglePlotter:
 
     @staticmethod
     def _format_plot_title(
-        mode_name: str, reads_data: List[Tuple[str, np.ndarray, int]]
+        mode_name: str,
+        reads_data: List[Tuple[str, np.ndarray, int]],
+        normalization: NormalizationMethod = None,
+        downsample: int = 1,
     ) -> str:
-        """Generate a consistent plot title"""
+        """Generate a consistent plot title with status information"""
         if len(reads_data) == 1:
-            return f"{mode_name}: 1 read ({reads_data[0][0]})"
+            read_id, signal, sample_rate = reads_data[0]
+            signal_range = f"[{int(np.min(signal))}-{int(np.max(signal))}]"
+            norm_str = f" | norm: {normalization.value}" if normalization else ""
+            ds_str = f" | downsample: 1/{downsample}" if downsample > 1 else ""
+            return f"{read_id} | {mode_name} | signal: {signal_range}{norm_str}{ds_str}"
         else:
             return f"{mode_name}: {len(reads_data)} reads"
 
@@ -631,10 +640,14 @@ class BokehSquigglePlotter:
             if seq_to_sig_map is not None:
                 seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
 
-        # Create time axis and figure
+        # Create time axis and figure with status information
         time_ms = np.arange(len(signal)) * 1000 / sample_rate
+        reads_data = [(read_id, signal, sample_rate)]
+        title = BokehSquigglePlotter._format_plot_title(
+            "Single", reads_data, normalization, downsample
+        )
         p = BokehSquigglePlotter._create_figure(
-            title=f"Read: {read_id}",
+            title=title,
             x_label="Time (ms)",
             y_label=f"Signal ({normalization.value})",
             theme=theme,
@@ -655,18 +668,18 @@ class BokehSquigglePlotter:
 
         # Add signal line and points
         line_renderer, signal_source = BokehSquigglePlotter._add_signal_line(
-            p, time_ms, signal, theme, return_source=True
+            p, time_ms, signal, return_source=True, theme=theme
         )
 
         # Add signal points if requested
         renderers_for_hover = [line_renderer]
         if show_signal_points:
-            circle_renderer = p.circle(
+            circle_renderer = p.scatter(
                 "time",
                 "signal",
                 source=signal_source,
                 size=SIGNAL_POINT_SIZE,
-                color=SIGNAL_LINE_COLOR,
+                color=SIGNAL_POINT_COLOR,
                 alpha=SIGNAL_POINT_ALPHA,
             )
             renderers_for_hover.append(circle_renderer)
@@ -786,9 +799,11 @@ class BokehSquigglePlotter:
 
     @staticmethod
     def _add_signal_line(
-
-        p, time_ms: np.ndarray, signal: np.ndarray, return_source: bool = False
-    , theme: Theme = Theme.LIGHT
+        p,
+        time_ms: np.ndarray,
+        signal: np.ndarray,
+        return_source: bool = False,
+        theme: Theme = Theme.LIGHT,
     ):
         """Add signal line to plot
 
@@ -885,8 +900,10 @@ class BokehSquigglePlotter:
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot multiple reads overlaid on same axes"""
-        # Create figure
-        title = BokehSquigglePlotter._format_plot_title("Overlay", reads_data)
+        # Create figure with status information
+        title = BokehSquigglePlotter._format_plot_title(
+            "Overlay", reads_data, normalization, downsample
+        )
         p = BokehSquigglePlotter._create_figure(
             title=title,
             x_label="Sample",
@@ -924,12 +941,12 @@ class BokehSquigglePlotter:
 
             # Add signal points if requested
             if show_signal_points:
-                circle = p.circle(
+                circle = p.scatter(
                     "x",
                     "y",
                     source=source,
                     size=SIGNAL_POINT_SIZE,
-                    color=color,
+                    color=SIGNAL_POINT_COLOR,
                     alpha=SIGNAL_POINT_ALPHA,
                     legend_label=read_id[:12],
                 )
@@ -961,8 +978,10 @@ class BokehSquigglePlotter:
         theme: Theme = Theme.LIGHT,
     ) -> Tuple[str, figure]:
         """Plot multiple reads stacked vertically with offset"""
-        # Create figure
-        title = BokehSquigglePlotter._format_plot_title("Stacked", reads_data)
+        # Create figure with status information
+        title = BokehSquigglePlotter._format_plot_title(
+            "Stacked", reads_data, normalization, downsample
+        )
         p = BokehSquigglePlotter._create_figure(
             title=title,
             x_label="Sample",
@@ -1008,12 +1027,12 @@ class BokehSquigglePlotter:
 
             # Add signal points if requested
             if show_signal_points:
-                circle = p.circle(
+                circle = p.scatter(
                     "x",
                     "y",
                     source=source,
                     size=SIGNAL_POINT_SIZE,
-                    color=color,
+                    color=SIGNAL_POINT_COLOR,
                     alpha=SIGNAL_POINT_ALPHA,
                     legend_label=read_id[:12],
                 )
@@ -1053,8 +1072,10 @@ class BokehSquigglePlotter:
         if not aligned_reads:
             raise ValueError("Event-aligned mode requires aligned_reads data")
 
-        # Create figure with conditional x-axis label
-        title = BokehSquigglePlotter._format_plot_title("Event-Aligned", reads_data)
+        # Create figure with conditional x-axis label and status information
+        title = BokehSquigglePlotter._format_plot_title(
+            "Event-Aligned", reads_data, normalization, downsample
+        )
         x_label = "Time (ms)" if show_dwell_time else "Base Position"
         p = BokehSquigglePlotter._create_figure(
             title=title,
@@ -1066,35 +1087,25 @@ class BokehSquigglePlotter:
         # Add base annotations
         BokehSquigglePlotter._add_base_annotations_eventalign(
             p,
-
             reads_data,
-
             normalization,
-
             aligned_reads,
-
             show_dwell_time,
-
             show_labels,
             position_label_interval,
-            use_reference_positions,,
+            use_reference_positions,
             theme,
         )
 
         # Plot signal lines
         line_renderers = BokehSquigglePlotter._plot_eventalign_signals(
             p,
-
             reads_data,
-
             normalization,
-
             aligned_reads,
-
             show_dwell_time,
-
             downsample,
-            show_signal_points,,
+            show_signal_points,
             theme,
         )
 
@@ -1309,12 +1320,12 @@ class BokehSquigglePlotter:
 
             # Add signal points if requested
             if show_signal_points:
-                circle = p.circle(
+                circle = p.scatter(
                     "x",
                     "y",
                     source=source,
                     size=SIGNAL_POINT_SIZE,
-                    color=color,
+                    color=SIGNAL_POINT_COLOR,
                     alpha=SIGNAL_POINT_ALPHA,
                     legend_label=read_id[:12],
                 )
