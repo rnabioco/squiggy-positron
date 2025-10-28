@@ -77,6 +77,9 @@ class BokehSquigglePlotter:
         p.add_tools(wheel_zoom)
         p.toolbar.active_scroll = wheel_zoom
 
+        # Remove vertical grid lines (minor ticks)
+        p.xgrid.grid_line_color = None
+
         return p
 
     @staticmethod
