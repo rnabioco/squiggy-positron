@@ -155,7 +155,7 @@ Version: {APP_VERSION}
         app.setWindowIcon(QIcon(str(icon_path)))
 
     # Apply qt-material dark theme by default with compact density
-    extra = {'density_scale': '-2'}  # Maximum compactness
+    extra = {"density_scale": "-2"}  # Maximum compactness
     apply_stylesheet(app, theme="dark_amber.xml", extra=extra)
 
     # Create main viewer window

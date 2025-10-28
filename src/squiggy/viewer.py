@@ -860,13 +860,17 @@ class SquiggleViewer(QMainWindow):
         # Use qt-material themes with compact density
         # density_scale: -2 (more compact) to 2 (more spacious)
         extra = {
-            'density_scale': '-2',  # Maximum compactness
+            "density_scale": "-2",  # Maximum compactness
         }
 
         if self.current_theme == Theme.DARK:
-            apply_stylesheet(QApplication.instance(), theme="dark_amber.xml", extra=extra)
+            apply_stylesheet(
+                QApplication.instance(), theme="dark_amber.xml", extra=extra
+            )
         else:
-            apply_stylesheet(QApplication.instance(), theme="light_blue.xml", extra=extra)
+            apply_stylesheet(
+                QApplication.instance(), theme="light_blue.xml", extra=extra
+            )
 
         # Update welcome message in plot view if no plot is currently displayed
         if self.current_plot_html is None:
