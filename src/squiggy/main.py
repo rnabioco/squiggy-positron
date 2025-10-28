@@ -10,9 +10,9 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 from qt_material import apply_stylesheet
 
-from .constants import APP_DESCRIPTION, APP_NAME, APP_VERSION, PlotMode
-from .utils import get_icon_path, validate_bam_reads_in_pod5
-from .viewer import SquiggleViewer
+from squiggy.constants import APP_DESCRIPTION, APP_NAME, APP_VERSION, PlotMode
+from squiggy.utils import get_icon_path, validate_bam_reads_in_pod5
+from squiggy.viewer import SquiggleViewer
 
 
 def set_macos_app_name():
