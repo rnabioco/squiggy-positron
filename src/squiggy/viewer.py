@@ -50,7 +50,7 @@ from .constants import (
     Theme,
 )
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
-from .plotter_bokeh import BokehSquigglePlotter
+from .plotter import SquigglePlotter
 from .utils import (
     get_bam_references,
     get_basecall_data,
@@ -1796,7 +1796,7 @@ class SquiggleViewer(QMainWindow):
             sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
 
         # Generate bokeh plot HTML
-        html, figure = BokehSquigglePlotter.plot_single_read(
+        html, figure = SquigglePlotter.plot_single_read(
             signal,
             read_id,
             sample_rate,
@@ -1863,7 +1863,7 @@ class SquiggleViewer(QMainWindow):
             raise ValueError("No matching reads found in POD5 file")
 
         # Generate bokeh multi-read plot HTML
-        html, figure = BokehSquigglePlotter.plot_multiple_reads(
+        html, figure = SquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
@@ -1942,7 +1942,7 @@ class SquiggleViewer(QMainWindow):
             raise ValueError("No matching reads found in POD5 file")
 
         # Generate bokeh event-aligned plot HTML
-        html, figure = BokehSquigglePlotter.plot_multiple_reads(
+        html, figure = SquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
