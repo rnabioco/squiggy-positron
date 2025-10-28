@@ -601,3 +601,4 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
   - `feat(viewer): add export plot functionality`
   - `fix(plotter): correct signal normalization`
   - `docs: update installation instructions`
+- You should work hard to understand the coding patterns, ensuring maintainability and readability, and reducing the need for future refactoring

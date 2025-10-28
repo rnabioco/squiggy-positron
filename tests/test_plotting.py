@@ -11,12 +11,12 @@ class TestBokehHTMLOutput:
         """Test that plot_single_read returns an HTML string and figure."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            html, figure = BokehSquigglePlotter.plot_single_read(
+            html, figure = SquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -32,12 +32,12 @@ class TestBokehHTMLOutput:
         """Test that generated HTML contains Bokeh JavaScript and structure."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            html, _figure = BokehSquigglePlotter.plot_single_read(
+            html, _figure = SquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -60,12 +60,12 @@ class TestSingleReadPlotting:
         """Test basic single read plot without annotations."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
-            html, _figure = BokehSquigglePlotter.plot_single_read(
+            html, _figure = SquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -82,7 +82,7 @@ class TestSingleReadPlotting:
         """Test single read plot with base annotations from BAM."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -93,7 +93,7 @@ class TestSingleReadPlotting:
             sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, read_id)
 
             if sequence is not None:
-                html, _figure = BokehSquigglePlotter.plot_single_read(
+                html, _figure = SquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -113,7 +113,7 @@ class TestSingleReadPlotting:
         """Test single read plot with dwell time coloring enabled."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -124,7 +124,7 @@ class TestSingleReadPlotting:
             sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, read_id)
 
             if sequence is not None:
-                html, _figure = BokehSquigglePlotter.plot_single_read(
+                html, _figure = SquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -144,7 +144,7 @@ class TestSingleReadPlotting:
         """Test single read plot with base labels shown."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -155,7 +155,7 @@ class TestSingleReadPlotting:
 
             if sequence is not None:
                 # Plot with labels enabled
-                html_with_labels, _figure = BokehSquigglePlotter.plot_single_read(
+                html_with_labels, _figure = SquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -165,7 +165,7 @@ class TestSingleReadPlotting:
                 )
 
                 # Plot with labels disabled
-                html_no_labels, _figure = BokehSquigglePlotter.plot_single_read(
+                html_no_labels, _figure = SquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -189,14 +189,12 @@ class TestSignalNormalization:
     def test_normalize_signal_znorm(self):
         """Test Z-score normalization (mean=0, std=1)."""
         from squiggy.constants import NormalizationMethod
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         # Create synthetic signal
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
-        normalized = BokehSquigglePlotter.normalize_signal(
-            signal, NormalizationMethod.ZNORM
-        )
+        normalized = SquigglePlotter.normalize_signal(signal, NormalizationMethod.ZNORM)
 
         # Verify mean is close to 0
         assert np.isclose(np.mean(normalized), 0.0, atol=1e-10)
@@ -206,11 +204,11 @@ class TestSignalNormalization:
     def test_normalize_signal_median(self):
         """Test median normalization."""
         from squiggy.constants import NormalizationMethod
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
-        normalized = BokehSquigglePlotter.normalize_signal(
+        normalized = SquigglePlotter.normalize_signal(
             signal, NormalizationMethod.MEDIAN
         )
 
@@ -220,13 +218,11 @@ class TestSignalNormalization:
     def test_normalize_signal_mad(self):
         """Test MAD (Median Absolute Deviation) normalization."""
         from squiggy.constants import NormalizationMethod
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
-        normalized = BokehSquigglePlotter.normalize_signal(
-            signal, NormalizationMethod.MAD
-        )
+        normalized = SquigglePlotter.normalize_signal(signal, NormalizationMethod.MAD)
 
         # Verify normalization was applied
         assert not np.array_equal(normalized, signal)
@@ -236,13 +232,11 @@ class TestSignalNormalization:
     def test_normalize_signal_none(self):
         """Test no normalization (returns original signal)."""
         from squiggy.constants import NormalizationMethod
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
-        normalized = BokehSquigglePlotter.normalize_signal(
-            signal, NormalizationMethod.NONE
-        )
+        normalized = SquigglePlotter.normalize_signal(signal, NormalizationMethod.NONE)
 
         # Verify signal is unchanged
         np.testing.assert_array_equal(normalized, signal)
@@ -256,7 +250,7 @@ class TestMultipleReadModes:
         import pod5
 
         from squiggy.constants import NormalizationMethod, PlotMode
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]  # Get first 3 reads
@@ -265,7 +259,7 @@ class TestMultipleReadModes:
                 (str(r.read_id), r.signal, r.run_info.sample_rate) for r in reads
             ]
 
-            html, _figure = BokehSquigglePlotter.plot_multiple_reads(
+            html, _figure = SquigglePlotter.plot_multiple_reads(
                 reads_data,
                 mode=PlotMode.OVERLAY,
                 normalization=NormalizationMethod.ZNORM,
@@ -281,7 +275,7 @@ class TestMultipleReadModes:
         import pod5
 
         from squiggy.constants import NormalizationMethod, PlotMode
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]  # Get first 3 reads
@@ -290,7 +284,7 @@ class TestMultipleReadModes:
                 (str(r.read_id), r.signal, r.run_info.sample_rate) for r in reads
             ]
 
-            html, _figure = BokehSquigglePlotter.plot_multiple_reads(
+            html, _figure = SquigglePlotter.plot_multiple_reads(
                 reads_data,
                 mode=PlotMode.STACKED,
                 normalization=NormalizationMethod.MAD,
@@ -307,7 +301,7 @@ class TestMultipleReadModes:
 
         from squiggy.alignment import extract_alignment_from_bam
         from squiggy.constants import NormalizationMethod, PlotMode
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]
@@ -324,7 +318,7 @@ class TestMultipleReadModes:
                     aligned_reads.append(aligned_read)
 
             if len(reads_data) > 0:
-                html, _figure = BokehSquigglePlotter.plot_multiple_reads(
+                html, _figure = SquigglePlotter.plot_multiple_reads(
                     reads_data,
                     mode=PlotMode.EVENTALIGN,
                     normalization=NormalizationMethod.MEDIAN,
@@ -356,13 +350,13 @@ class TestDownsampling:
         """Test plot generation with downsampled signal."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
 
             # Plot with downsampling
-            html, _figure = BokehSquigglePlotter.plot_single_read(
+            html, _figure = SquigglePlotter.plot_single_read(
                 signal=read.signal,
                 read_id=str(read.read_id),
                 sample_rate=read.run_info.sample_rate,
@@ -380,7 +374,7 @@ class TestDwellTimeVisualization:
         """Test dwell time calculation in time-based plots."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -401,7 +395,7 @@ class TestDwellTimeVisualization:
                 # Call internal method
                 from squiggy.constants import BASE_COLORS
 
-                result = BokehSquigglePlotter._calculate_base_regions_time_mode(
+                result = SquigglePlotter._calculate_base_regions_time_mode(
                     sequence,
                     seq_to_sig_map,
                     time_ms,
@@ -438,7 +432,7 @@ class TestDwellTimeVisualization:
         import pysam
 
         from squiggy.alignment import extract_alignment_from_bam
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         # Get first aligned read from BAM
         with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
@@ -461,7 +455,7 @@ class TestDwellTimeVisualization:
                                 signal_min = float(np.min(signal))
                                 signal_max = float(np.max(signal))
 
-                                result = BokehSquigglePlotter._calculate_base_regions_position_mode(
+                                result = SquigglePlotter._calculate_base_regions_position_mode(
                                     aligned_read.bases,
                                     signal_min,
                                     signal_max,
@@ -505,7 +499,7 @@ class TestDwellTimeVisualization:
         """Test that dwell time color patches are created."""
         import pod5
 
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -516,7 +510,7 @@ class TestDwellTimeVisualization:
 
             if sequence is not None:
                 # Plot with dwell time enabled
-                html, _figure = BokehSquigglePlotter.plot_single_read(
+                html, _figure = SquigglePlotter.plot_single_read(
                     signal=read.signal,
                     read_id=read_id,
                     sample_rate=read.run_info.sample_rate,
@@ -538,11 +532,11 @@ class TestPlotFormatting:
 
     def test_format_plot_title_single_read(self):
         """Test plot title formatting for single read."""
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         reads_data = [("read_001", np.random.randn(1000), 4000)]
 
-        title = BokehSquigglePlotter._format_plot_title("Test Mode", reads_data)
+        title = SquigglePlotter._format_plot_title("Test Mode", reads_data)
 
         assert isinstance(title, str)
         assert "Test Mode" in title
@@ -550,7 +544,7 @@ class TestPlotFormatting:
 
     def test_format_plot_title_multiple_reads(self):
         """Test plot title formatting for multiple reads."""
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
         reads_data = [
             ("read_001", np.random.randn(1000), 4000),
@@ -558,7 +552,7 @@ class TestPlotFormatting:
             ("read_003", np.random.randn(1000), 4000),
         ]
 
-        title = BokehSquigglePlotter._format_plot_title("Overlay", reads_data)
+        title = SquigglePlotter._format_plot_title("Overlay", reads_data)
 
         assert isinstance(title, str)
         assert "Overlay" in title
@@ -566,9 +560,9 @@ class TestPlotFormatting:
 
     def test_create_figure(self):
         """Test figure creation with proper labels."""
-        from squiggy.plotter_bokeh import BokehSquigglePlotter
+        from squiggy.plotter import SquigglePlotter
 
-        fig = BokehSquigglePlotter._create_figure(
+        fig = SquigglePlotter._create_figure(
             title="Test Plot", x_label="Time (ms)", y_label="Signal (pA)"
         )
 
