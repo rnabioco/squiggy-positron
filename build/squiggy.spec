@@ -21,7 +21,7 @@ else:
 
 a = Analysis(
     ['../src/squiggy/main.py'],
-    pathex=[],
+    pathex=['../src'],
     binaries=binaries_list,
     datas=[
         ('../tests/data/*.pod5', 'squiggy/data'),
