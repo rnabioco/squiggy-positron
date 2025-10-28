@@ -20,11 +20,16 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+              with:
+                  lfs: true
 
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v5
 
             - name: Install system dependencies (Linux)
               if: runner.os == 'Linux'
@@ -39,17 +44,7 @@ jobs:
 
             - name: Install Python dependencies
               run: |
-                  python -m pip install --upgrade pip
-                  pip install -e ".[dev]"
-
-            - name: Create symlink for sample data
-              shell: bash
-              run: |
-                  # Create symlink so tests can find sample.pod5
-                  cd tests/data
-                  if [ ! -f sample.pod5 ]; then
-                    ln -s can_reads.pod5 sample.pod5
-                  fi
+                  uv pip install --system -e ".[dev]"
 
             - name: Run tests with pytest
               env:

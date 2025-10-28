@@ -8,79 +8,55 @@ on:
             - main
     workflow_dispatch:
 
+env:
+    VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+
 jobs:
-    build-windows:
-        runs-on: windows-latest
+    build:
+        name: Build ${{ matrix.platform }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - platform: Windows
+                      os: windows-latest
+                      artifact_name: squiggy-windows
+                      artifact_path: Squiggy-*.zip
+                    - platform: macOS
+                      os: macos-latest
+                      artifact_name: squiggy-macos
+                      artifact_path: Squiggy-*.dmg
+                    - platform: Linux
+                      os: ubuntu-latest
+                      artifact_name: squiggy-linux
+                      artifact_path: Squiggy-*.tar.gz
+
         steps:
             - uses: actions/checkout@v4
-
-            - name: Set version
-              id: version
-              shell: bash
-              run: |
-                  if [[ $GITHUB_REF == refs/tags/* ]]; then
-                    VERSION=${GITHUB_REF#refs/tags/}
-                  else
-                    VERSION="latest"
-                  fi
-                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+              with:
+                  lfs: true
 
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
                   python-version: "3.11"
 
-            - name: Install dependencies
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install -r requirements.txt
-                  pip install pyinstaller
-
-            - name: Build with PyInstaller
-              run: |
-                  pyinstaller build/squiggy.spec
-
-            - name: Create archive
-              run: |
-                  Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-${{ steps.version.outputs.VERSION }}-windows-x64.zip
-
-            - name: Upload artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: squiggy-windows
-                  path: Squiggy-${{ steps.version.outputs.VERSION }}-windows-x64.zip
-
-    build-macos:
-        runs-on: macos-latest
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Set version
-              id: version
-              run: |
-                  if [[ $GITHUB_REF == refs/tags/* ]]; then
-                    VERSION=${GITHUB_REF#refs/tags/}
-                  else
-                    VERSION="latest"
-                  fi
-                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.11"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v5
 
             - name: Install dependencies
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install -r requirements.txt
-                  pip install pyinstaller
+              run: uv pip install --system -e ".[dev]"
 
             - name: Build with PyInstaller
-              run: |
-                  pyinstaller build/squiggy.spec
+              run: pyinstaller build/squiggy.spec
 
-            - name: Create DMG
+            - name: Package (Windows)
+              if: runner.os == 'Windows'
+              run: Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-${{ env.VERSION }}-windows-x64.zip
+
+            - name: Package (macOS)
+              if: runner.os == 'macOS'
               run: |
                   brew install create-dmg
                   create-dmg \
@@ -89,57 +65,21 @@ jobs:
                     --window-size 800 400 \
                     --icon-size 100 \
                     --app-drop-link 600 185 \
-                    "Squiggy-${{ steps.version.outputs.VERSION }}-macos.dmg" \
+                    "Squiggy-${{ env.VERSION }}-macos.dmg" \
                     "dist/Squiggy.app"
 
-            - name: Upload artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: squiggy-macos
-                  path: Squiggy-${{ steps.version.outputs.VERSION }}-macos.dmg
-
-    build-linux:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Set version
-              id: version
-              run: |
-                  if [[ $GITHUB_REF == refs/tags/* ]]; then
-                    VERSION=${GITHUB_REF#refs/tags/}
-                  else
-                    VERSION="latest"
-                  fi
-                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.11"
-
-            - name: Install dependencies
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install -r requirements.txt
-                  pip install pyinstaller
-
-            - name: Build with PyInstaller
-              run: |
-                  pyinstaller build/squiggy.spec
-
-            - name: Create archive
-              run: |
-                  tar -czf Squiggy-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz -C dist Squiggy
+            - name: Package (Linux)
+              if: runner.os == 'Linux'
+              run: tar -czf Squiggy-${{ env.VERSION }}-linux-x64.tar.gz -C dist Squiggy
 
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: squiggy-linux
-                  path: Squiggy-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
+                  name: ${{ matrix.artifact_name }}
+                  path: ${{ matrix.artifact_path }}
 
     release:
-        needs: [build-windows, build-macos, build-linux]
+        needs: [build]
         runs-on: ubuntu-latest
         if: startsWith(github.ref, 'refs/tags/')
         steps:
@@ -157,7 +97,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     release-latest:
-        needs: [build-macos]
+        needs: [build]
         runs-on: ubuntu-latest
         if: github.ref == 'refs/heads/main'
         permissions:
