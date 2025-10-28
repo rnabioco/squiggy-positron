@@ -30,10 +30,12 @@ from PySide6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
+    QToolBar,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
+from qt_material import apply_stylesheet
 
 from .constants import (
     APP_DESCRIPTION,
@@ -45,6 +47,7 @@ from .constants import (
     PLOT_MIN_WIDTH,
     NormalizationMethod,
     PlotMode,
+    Theme,
 )
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
 from .plotter_bokeh import BokehSquigglePlotter
@@ -126,8 +129,10 @@ class SquiggleViewer(QMainWindow):
         self.search_mode = "read_id"  # "read_id" or "region"
         self.saved_x_range = None  # Store current x-axis range for zoom preservation
         self.saved_y_range = None  # Store current y-axis range for zoom preservation
+        self.current_theme = Theme.DARK  # Default to dark theme
 
         self.init_ui()
+        self.apply_theme()  # Apply initial theme
 
     def init_ui(self):
         """Initialize the user interface"""
@@ -136,6 +141,9 @@ class SquiggleViewer(QMainWindow):
 
         # Create menu bar
         self.create_menu_bar()
+
+        # Create toolbar with dark mode toggle
+        self.create_toolbar()
 
         # Create central widget and main layout
         central_widget = QWidget()
@@ -196,14 +204,7 @@ class SquiggleViewer(QMainWindow):
         # Plot display area (using QWebEngineView for interactive bokeh plots)
         self.plot_view = QWebEngineView()
         self.plot_view.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
-        self.plot_view.setHtml(
-            "<html><body style='display:flex;align-items:center;justify-content:center;"
-            "height:100vh;margin:0;font-family:sans-serif;color:#666;'>"
-            "<div style='text-align:center;'>"
-            "<h2>Squiggy</h2>"
-            "<p>Select a POD5 file and read to display squiggle plot</p>"
-            "</div></body></html>"
-        )
+        # Will be set by apply_theme() which is called after init_ui()
         splitter.addWidget(self.plot_view)
 
         # Right panel - Read list widget with multi-selection enabled
@@ -783,6 +784,17 @@ class SquiggleViewer(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
+        # View menu
+        view_menu = menubar.addMenu("View")
+
+        # Dark mode toggle action
+        self.dark_mode_action = QAction("Dark Mode", self)
+        self.dark_mode_action.setCheckable(True)
+        self.dark_mode_action.setChecked(True)  # Default to dark mode
+        self.dark_mode_action.setShortcut("Ctrl+D")
+        self.dark_mode_action.triggered.connect(self.toggle_theme)
+        view_menu.addAction(self.dark_mode_action)
+
         # Help menu
         help_menu = menubar.addMenu("Help")
 
@@ -795,6 +807,141 @@ class SquiggleViewer(QMainWindow):
         """Show the About dialog"""
         dialog = AboutDialog(self)
         dialog.exec()
+
+    def create_toolbar(self):
+        """Create toolbar with dark mode toggle in top right"""
+        self.toolbar = QToolBar("Main Toolbar")
+        self.toolbar.setMovable(False)  # Keep toolbar fixed
+        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
+
+        # Add spacer to push dark mode toggle to the right
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.toolbar.addWidget(spacer)
+
+        # Add dark mode checkbox
+        self.dark_mode_checkbox = QCheckBox("🌙 Dark Mode")
+        self.dark_mode_checkbox.setChecked(True)  # Default to dark mode
+        self.dark_mode_checkbox.setToolTip(
+            "Toggle between dark and light themes (Ctrl/Cmd+D)"
+        )
+        self.dark_mode_checkbox.toggled.connect(
+            lambda checked: asyncio.ensure_future(
+                self.on_dark_mode_checkbox_toggled(checked)
+            )
+        )
+        self.toolbar.addWidget(self.dark_mode_checkbox)
+
+    @qasync.asyncSlot()
+    async def on_dark_mode_checkbox_toggled(self, checked):
+        """Handle dark mode checkbox toggle"""
+        # 'checked' is a simple bool - True=dark mode, False=light mode
+        new_theme = Theme.DARK if checked else Theme.LIGHT
+
+        # Only apply if theme actually changed
+        if self.current_theme != new_theme:
+            # Update menu action to match checkbox
+            self.dark_mode_action.setChecked(checked)
+
+            # Switch theme directly
+            self.current_theme = new_theme
+            self.apply_theme()
+
+            # Regenerate plot if one is displayed
+            if self.read_list.selectedItems():
+                await self._regenerate_plot_async()
+            else:
+                self.statusBar().showMessage(
+                    f"Theme changed to {self.current_theme.value} mode"
+                )
+
+    def apply_theme(self):
+        """Apply the current theme using qt-material"""
+        # Use qt-material themes with compact density
+        # density_scale: -2 (more compact) to 2 (more spacious)
+        extra = {
+            "density_scale": "-2",  # Maximum compactness
+        }
+
+        if self.current_theme == Theme.DARK:
+            apply_stylesheet(
+                QApplication.instance(), theme="dark_amber.xml", extra=extra
+            )
+        else:
+            apply_stylesheet(
+                QApplication.instance(), theme="light_blue.xml", extra=extra
+            )
+
+        # Update welcome message in plot view if no plot is currently displayed
+        if self.current_plot_html is None:
+            self._show_welcome_message()
+
+    def _show_welcome_message(self):
+        """Display themed welcome message in plot view"""
+        # Use simple dark/light colors for welcome message
+        if self.current_theme == Theme.DARK:
+            bg_color = "#2b2b2b"
+            text_color = "#ffffff"
+        else:
+            bg_color = "#ffffff"
+            text_color = "#000000"
+
+        welcome_html = f"""
+        <html>
+        <body style='display:flex;align-items:center;justify-content:center;
+                     height:100vh;margin:0;font-family:sans-serif;
+                     background-color:{bg_color};color:{text_color};'>
+            <div style='text-align:center;'>
+                <h2>Squiggy</h2>
+                <p>Select a POD5 file and read to display squiggle plot</p>
+            </div>
+        </body>
+        </html>
+        """
+        self.plot_view.setHtml(welcome_html)
+
+    async def _regenerate_plot_async(self):
+        """Helper method to regenerate plot asynchronously"""
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.statusBar().showMessage("Applying theme to plot...")
+        try:
+            # Save current zoom/pan state before regenerating
+            self.save_plot_ranges()
+            # Small delay to allow JavaScript to execute
+            await self.update_plot_with_delay()
+            self.statusBar().showMessage(
+                f"Theme changed to {self.current_theme.value} mode"
+            )
+        finally:
+            QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot()
+    async def toggle_theme(self):
+        """Toggle between light and dark themes"""
+        # Switch theme
+        if self.current_theme == Theme.LIGHT:
+            self.current_theme = Theme.DARK
+            is_dark = True
+        else:
+            self.current_theme = Theme.LIGHT
+            is_dark = False
+
+        # Update UI controls without triggering signals
+        self.dark_mode_action.setChecked(is_dark)
+        self.dark_mode_checkbox.blockSignals(True)
+        self.dark_mode_checkbox.setChecked(is_dark)
+        self.dark_mode_checkbox.blockSignals(False)
+
+        # Apply theme to Qt application
+        self.apply_theme()
+
+        # Regenerate plot if one is displayed
+        if self.read_list.selectedItems():
+            await self._regenerate_plot_async()
+        else:
+            self.statusBar().showMessage(
+                f"Theme changed to {self.current_theme.value} mode"
+            )
 
     @qasync.asyncSlot()
     async def open_sample_data(self):
@@ -1550,6 +1697,7 @@ class SquiggleViewer(QMainWindow):
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
+            theme=self.current_theme,
         )
 
         return html, figure, signal, sequence
@@ -1610,6 +1758,7 @@ class SquiggleViewer(QMainWindow):
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
+            theme=self.current_theme,
         )
 
         return html, figure, reads_data
@@ -1686,6 +1835,7 @@ class SquiggleViewer(QMainWindow):
             downsample=self.downsample_factor,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
+            theme=self.current_theme,
         )
 
         return html, figure, reads_data, aligned_reads
