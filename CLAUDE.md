@@ -322,10 +322,11 @@ git push origin v0.1.0
 
 ### PyInstaller Considerations
 - All non-standard-library imports must be listed in `build/squiggy.spec` `hiddenimports` if PyInstaller fails to detect them
-- **Export dependencies** bundled in spec file:
+- **Export dependencies** for PNG/SVG:
   - `selenium`, `PIL`, `pillow` added to `hiddenimports`
-  - `geckodriver` binary bundled via `binaries` list (detected with `shutil.which()`)
-  - Enables PNG/SVG export in standalone builds without user setup
+  - Selenium 4.6+ includes Selenium Manager which auto-downloads geckodriver when first needed
+  - No manual geckodriver installation or bundling required
+  - Driver is cached in user's home directory (`~/.cache/selenium/`) for reuse
 - Resource files are in two locations:
   - Icons: `build/` directory (squiggy.png, squiggy.ico, squiggy.icns)
   - Sample data: `tests/data/` directory (*.pod5 files and README.md)
@@ -545,10 +546,11 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
   - Bokeh may require: `bokeh.models`, `bokeh.palettes`, `bokeh.transform`
   - QWebEngine requires: `PySide6.QtWebEngineCore`, `PySide6.QtWebEngineWidgets`
   - Export features require: `selenium`, `PIL`, `pillow`
-- **Binary dependencies**:
-  - Geckodriver must be installed on build machine (`brew install geckodriver`)
-  - Spec file auto-detects geckodriver location with `shutil.which()`
-  - If geckodriver not found, build prints warning and PNG/SVG export won't work in standalone build
+- **Selenium Manager**: Selenium 4.6+ automatically downloads geckodriver when needed
+  - No manual geckodriver installation required on build machine
+  - No geckodriver bundling in PyInstaller spec required
+  - Driver cached in user's `~/.cache/selenium/` directory on first use
+  - Requires internet connection on first PNG/SVG export to download driver
 - **Data files**: Must explicitly list in `datas` parameter
 - **Platform differences**: Test builds on target platform (macOS != Linux != Windows)
 - **Permissions**: macOS requires code signing for distribution outside App Store
