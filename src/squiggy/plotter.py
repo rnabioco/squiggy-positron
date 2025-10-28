@@ -68,6 +68,141 @@ class SquigglePlotter:
             return signal
 
     @staticmethod
+    def _process_signal(
+        signal: np.ndarray,
+        normalization: NormalizationMethod,
+        downsample: int = 1,
+        seq_to_sig_map: Optional[List[int]] = None,
+    ) -> Tuple[np.ndarray, Optional[List[int]]]:
+        """Process signal: normalize and optionally downsample
+
+        Args:
+            signal: Raw signal array
+            normalization: Normalization method to apply
+            downsample: Downsampling factor (1 = no downsampling)
+            seq_to_sig_map: Optional sequence-to-signal mapping to downsample
+
+        Returns:
+            Tuple of (processed_signal, downsampled_seq_to_sig_map)
+        """
+        signal = SquigglePlotter.normalize_signal(signal, normalization)
+        if downsample > 1:
+            signal = signal[::downsample]
+            if seq_to_sig_map is not None:
+                seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
+        return signal, seq_to_sig_map
+
+    @staticmethod
+    def _create_signal_data_source(
+        x: np.ndarray,
+        signal: np.ndarray,
+        read_id: Optional[str] = None,
+        base_labels: Optional[List[str]] = None,
+    ) -> ColumnDataSource:
+        """Create a standard signal data source with common fields
+
+        Args:
+            x: X-axis values (time, sample, or position)
+            signal: Y-axis signal values
+            read_id: Optional read identifier (repeated for all samples)
+            base_labels: Optional base labels for each sample
+
+        Returns:
+            ColumnDataSource with standardized fields
+        """
+        data = {"x": x, "y": signal, "sample": np.arange(len(signal))}
+        if read_id:
+            data["read_id"] = [read_id] * len(signal)
+        if base_labels:
+            data["base"] = base_labels
+        return ColumnDataSource(data=data)
+
+    @staticmethod
+    def _add_hover_tool(p, renderers: List, tooltip_fields: List[Tuple[str, str]]):
+        """Add a hover tool with specified tooltips
+
+        Args:
+            p: Bokeh figure
+            renderers: List of renderers to attach hover to
+            tooltip_fields: List of (label, field) tuples for tooltips
+                           e.g., [("Time", "@time{0.2f} ms"), ("Signal", "@signal{0.2f}")]
+        """
+        hover = HoverTool(
+            renderers=renderers,
+            tooltips=tooltip_fields,
+            mode="mouse",
+            point_policy="snap_to_data",
+        )
+        p.add_tools(hover)
+
+    @staticmethod
+    def _configure_legend(p):
+        """Configure standard legend appearance and behavior"""
+        p.legend.click_policy = "hide"
+        p.legend.location = "top_right"
+
+    @staticmethod
+    def _add_signal_renderers(
+        p,
+        source: ColumnDataSource,
+        color: str,
+        show_signal_points: bool = False,
+        legend_label: Optional[str] = None,
+        x_field: str = "x",
+        y_field: str = "y",
+        line_width: int = 1,
+        alpha: float = 0.8,
+    ) -> List:
+        """Add signal line and optional scatter points
+
+        Args:
+            p: Bokeh figure
+            source: Data source
+            color: Line color
+            show_signal_points: Whether to add scatter points
+            legend_label: Optional legend label
+            x_field: Name of x data field in source
+            y_field: Name of y data field in source
+            line_width: Width of the line
+            alpha: Transparency of the line
+
+        Returns:
+            List of renderers [line_renderer] or [line_renderer, scatter_renderer]
+        """
+        renderers = []
+
+        # Add line
+        line_kwargs = {
+            "x": x_field,
+            "y": y_field,
+            "source": source,
+            "line_width": line_width,
+            "color": color,
+            "alpha": alpha,
+        }
+        if legend_label:
+            line_kwargs["legend_label"] = legend_label
+        line = p.line(**line_kwargs)
+        renderers.append(line)
+
+        # Add scatter points if requested
+        if show_signal_points:
+            scatter_kwargs = {
+                "x": x_field,
+                "y": y_field,
+                "source": source,
+                "size": SIGNAL_POINT_SIZE,
+                "color": SIGNAL_POINT_COLOR,
+                "alpha": SIGNAL_POINT_ALPHA,
+            }
+            if legend_label:
+                scatter_kwargs["legend_label"] = legend_label
+            circle = p.scatter(**scatter_kwargs)
+            renderers.append(circle)
+
+        return renderers
+
+    @staticmethod
     def _get_base_colors(theme: Theme = Theme.LIGHT) -> dict:
         """Get base colors appropriate for the current theme"""
         return BASE_COLORS_DARK if theme == Theme.DARK else BASE_COLORS
@@ -633,12 +768,10 @@ class SquigglePlotter:
             Tuple[str, figure]: (HTML string, Bokeh figure object)
         """
 
-        # Normalize and downsample signal
-        signal = SquigglePlotter.normalize_signal(signal, normalization)
-        if downsample > 1:
-            signal = signal[::downsample]
-            if seq_to_sig_map is not None:
-                seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
+        # Process signal (normalize and downsample)
+        signal, seq_to_sig_map = SquigglePlotter._process_signal(
+            signal, normalization, downsample, seq_to_sig_map
+        )
 
         # Create time axis and figure with status information
         time_ms = np.arange(len(signal)) * 1000 / sample_rate
@@ -666,36 +799,30 @@ class SquigglePlotter:
             theme,
         )
 
-        # Add signal line and points
-        line_renderer, signal_source = SquigglePlotter._add_signal_line(
-            p, time_ms, signal, return_source=True, theme=theme
+        # Create data source and add signal renderers
+        signal_source = ColumnDataSource(
+            data={"time": time_ms, "signal": signal, "sample": np.arange(len(signal))}
+        )
+        signal_color = SquigglePlotter._get_signal_line_color(theme)
+        renderers = SquigglePlotter._add_signal_renderers(
+            p,
+            signal_source,
+            signal_color,
+            show_signal_points,
+            x_field="time",
+            y_field="signal",
         )
 
-        # Add signal points if requested
-        renderers_for_hover = [line_renderer]
-        if show_signal_points:
-            circle_renderer = p.scatter(
-                "time",
-                "signal",
-                source=signal_source,
-                size=SIGNAL_POINT_SIZE,
-                color=SIGNAL_POINT_COLOR,
-                alpha=SIGNAL_POINT_ALPHA,
-            )
-            renderers_for_hover.append(circle_renderer)
-
         # Add hover tool
-        hover = HoverTool(
-            renderers=renderers_for_hover,
-            tooltips=[
+        SquigglePlotter._add_hover_tool(
+            p,
+            renderers,
+            [
                 ("Time", "@time{0.2f} ms"),
                 ("Signal", "@signal{0.2f}"),
                 ("Sample", "@sample"),
             ],
-            mode="mouse",
-            point_policy="snap_to_data",
         )
-        p.add_tools(hover)
 
         # Add color bar if showing dwell time
         if color_mapper is not None:
@@ -794,43 +921,6 @@ class SquigglePlotter:
         return color_mapper, None
 
     @staticmethod
-    def _add_signal_line(
-        p,
-        time_ms: np.ndarray,
-        signal: np.ndarray,
-        return_source: bool = False,
-        theme: Theme = Theme.LIGHT,
-    ):
-        """Add signal line to plot
-
-        Args:
-            p: Bokeh figure
-            time_ms: Time array in milliseconds
-            signal: Signal array
-            return_source: If True, return (line_renderer, signal_source) tuple
-
-        Returns:
-            line_renderer if return_source=False, else (line_renderer, signal_source)
-        """
-        signal_source = ColumnDataSource(
-            data={"time": time_ms, "signal": signal, "sample": np.arange(len(signal))}
-        )
-
-        signal_color = SquigglePlotter._get_signal_line_color(theme)
-        line_renderer = p.line(
-            "time",
-            "signal",
-            source=signal_source,
-            line_width=1,
-            color=signal_color,
-            alpha=0.8,
-        )
-
-        if return_source:
-            return line_renderer, signal_source
-        return line_renderer
-
-    @staticmethod
     def plot_multiple_reads(
         reads_data: List[Tuple[str, np.ndarray, int]],
         mode: PlotMode,
@@ -907,58 +997,32 @@ class SquigglePlotter:
             theme=theme,
         )
 
-        line_renderers = []
+        all_renderers = []
 
         for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
-            # Normalize and downsample signal
-            signal = SquigglePlotter.normalize_signal(signal, normalization)
-            if downsample > 1:
-                signal = signal[::downsample]
+            # Process signal (normalize and downsample)
+            signal, _ = SquigglePlotter._process_signal(signal, normalization, downsample)
 
-            # Create data source and plot
+            # Create data source
             x = np.arange(len(signal))
-            source = ColumnDataSource(
-                data={"x": x, "y": signal, "read_id": [read_id] * len(signal)}
-            )
+            source = SquigglePlotter._create_signal_data_source(x, signal, read_id)
 
+            # Add signal renderers with color cycling
             color = SquigglePlotter.MULTI_READ_COLORS[
                 idx % len(SquigglePlotter.MULTI_READ_COLORS)
             ]
-            line = p.line(
-                "x",
-                "y",
-                source=source,
-                line_width=1,
-                color=color,
-                alpha=0.7,
-                legend_label=read_id[:12],
+            renderers = SquigglePlotter._add_signal_renderers(
+                p, source, color, show_signal_points, read_id[:12], alpha=0.7
             )
-            line_renderers.append(line)
+            all_renderers.extend(renderers)
 
-            # Add signal points if requested
-            if show_signal_points:
-                circle = p.scatter(
-                    "x",
-                    "y",
-                    source=source,
-                    size=SIGNAL_POINT_SIZE,
-                    color=SIGNAL_POINT_COLOR,
-                    alpha=SIGNAL_POINT_ALPHA,
-                    legend_label=read_id[:12],
-                )
-                line_renderers.append(circle)
-
-        # Add hover tool
-        hover = HoverTool(
-            renderers=line_renderers,
-            tooltips=[("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")],
-            mode="mouse",
-            point_policy="snap_to_data",
+        # Add hover tool and configure legend
+        SquigglePlotter._add_hover_tool(
+            p,
+            all_renderers,
+            [("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")],
         )
-        p.add_tools(hover)
-
-        p.legend.click_policy = "hide"
-        p.legend.location = "top_right"
+        SquigglePlotter._configure_legend(p)
 
         # Generate HTML
         html_title = SquigglePlotter._format_html_title("Overlay", reads_data)
@@ -985,66 +1049,39 @@ class SquigglePlotter:
             theme=theme,
         )
 
-        # First pass: normalize all signals and determine offset
+        # First pass: process all signals and determine offset
         offset_step = 0
-        normalized_signals = []
+        processed_signals = []
         for read_id, signal, sample_rate in reads_data:
-            norm_signal = SquigglePlotter.normalize_signal(signal, normalization)
-            if downsample > 1:
-                norm_signal = norm_signal[::downsample]
-
-            normalized_signals.append((read_id, norm_signal, sample_rate))
-            signal_range = np.ptp(norm_signal)
+            signal, _ = SquigglePlotter._process_signal(signal, normalization, downsample)
+            processed_signals.append((read_id, signal, sample_rate))
+            signal_range = np.ptp(signal)
             offset_step = max(offset_step, signal_range * 1.2)
 
         # Second pass: plot with offsets
-        line_renderers = []
-        for idx, (read_id, signal, _sample_rate) in enumerate(normalized_signals):
+        all_renderers = []
+        for idx, (read_id, signal, _sample_rate) in enumerate(processed_signals):
             offset = idx * offset_step
             x = np.arange(len(signal))
             y_offset = signal + offset
-            source = ColumnDataSource(
-                data={"x": x, "y": y_offset, "read_id": [read_id] * len(signal)}
-            )
+            source = SquigglePlotter._create_signal_data_source(x, y_offset, read_id)
 
+            # Add signal renderers with color cycling
             color = SquigglePlotter.MULTI_READ_COLORS[
                 idx % len(SquigglePlotter.MULTI_READ_COLORS)
             ]
-            line = p.line(
-                "x",
-                "y",
-                source=source,
-                line_width=1,
-                color=color,
-                alpha=0.8,
-                legend_label=read_id[:12],
+            renderers = SquigglePlotter._add_signal_renderers(
+                p, source, color, show_signal_points, read_id[:12]
             )
-            line_renderers.append(line)
+            all_renderers.extend(renderers)
 
-            # Add signal points if requested
-            if show_signal_points:
-                circle = p.scatter(
-                    "x",
-                    "y",
-                    source=source,
-                    size=SIGNAL_POINT_SIZE,
-                    color=SIGNAL_POINT_COLOR,
-                    alpha=SIGNAL_POINT_ALPHA,
-                    legend_label=read_id[:12],
-                )
-                line_renderers.append(circle)
-
-        # Add hover tool
-        hover = HoverTool(
-            renderers=line_renderers,
-            tooltips=[("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")],
-            mode="mouse",
-            point_policy="snap_to_data",
+        # Add hover tool and configure legend
+        SquigglePlotter._add_hover_tool(
+            p,
+            all_renderers,
+            [("Read", "@read_id"), ("Sample", "@x"), ("Signal", "@y{0.2f}")],
         )
-        p.add_tools(hover)
-
-        p.legend.click_policy = "hide"
-        p.legend.location = "top_right"
+        SquigglePlotter._configure_legend(p)
 
         # Generate HTML
         html_title = SquigglePlotter._format_html_title("Stacked", reads_data)
@@ -1105,25 +1142,21 @@ class SquigglePlotter:
             theme,
         )
 
-        # Add hover tool with conditional tooltip
+        # Add hover tool with conditional tooltip and configure legend
         x_tooltip = (
             ("Time (ms)", "@x{0.2f}") if show_dwell_time else ("Base Position", "@x")
         )
-        hover = HoverTool(
-            renderers=line_renderers,
-            tooltips=[
+        SquigglePlotter._add_hover_tool(
+            p,
+            line_renderers,
+            [
                 ("Read", "@read_id"),
                 x_tooltip,
                 ("Base", "@base"),
                 ("Signal", "@y{0.2f}"),
             ],
-            mode="mouse",
-            point_policy="snap_to_data",
         )
-        p.add_tools(hover)
-
-        p.legend.click_policy = "hide"
-        p.legend.location = "top_right"
+        SquigglePlotter._configure_legend(p)
 
         # Generate HTML
         html_title = SquigglePlotter._format_html_title("Event-Aligned", reads_data)
@@ -1214,7 +1247,7 @@ class SquigglePlotter:
 
         for idx, (read_id, signal, sample_rate) in enumerate(reads_data):
             aligned_read = aligned_reads[idx]
-            signal = SquigglePlotter.normalize_signal(signal, normalization)
+            signal, _ = SquigglePlotter._process_signal(signal, normalization)
             base_annotations = aligned_read.bases
 
             # Create signal coordinates - plot ALL signal samples
@@ -1284,14 +1317,12 @@ class SquigglePlotter:
                             signal_y.append(signal[sample_idx])
                             signal_base_labels.append(base)
 
-            # Create data source and plot
-            source = ColumnDataSource(
-                data={
-                    "x": signal_x,
-                    "y": signal_y,
-                    "base": signal_base_labels,
-                    "read_id": [read_id] * len(signal_x),
-                }
+            # Create data source
+            source = SquigglePlotter._create_signal_data_source(
+                np.array(signal_x),
+                np.array(signal_y),
+                read_id,
+                signal_base_labels,
             )
 
             # Use theme-aware signal color for first read, then use multi-read colors
@@ -1301,28 +1332,16 @@ class SquigglePlotter:
                 color = SquigglePlotter.MULTI_READ_COLORS[
                     idx % len(SquigglePlotter.MULTI_READ_COLORS)
                 ]
-            line = p.line(
-                "x",
-                "y",
-                source=source,
-                line_width=2,
-                color=color,
-                alpha=0.8,
-                legend_label=read_id[:12],
-            )
-            line_renderers.append(line)
 
-            # Add signal points if requested
-            if show_signal_points:
-                circle = p.scatter(
-                    "x",
-                    "y",
-                    source=source,
-                    size=SIGNAL_POINT_SIZE,
-                    color=SIGNAL_POINT_COLOR,
-                    alpha=SIGNAL_POINT_ALPHA,
-                    legend_label=read_id[:12],
-                )
-                line_renderers.append(circle)
+            # Add signal renderers
+            renderers = SquigglePlotter._add_signal_renderers(
+                p,
+                source,
+                color,
+                show_signal_points,
+                read_id[:12],
+                line_width=2,
+            )
+            line_renderers.extend(renderers)
 
         return line_renderers
