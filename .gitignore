@@ -33,3 +33,6 @@ build/*.spec.log
 htmlcov/
 coverage.xml
 tests/data/sample.pod5
+tests/data/*.arrow
+tests/*.arrow
+*.arrow
