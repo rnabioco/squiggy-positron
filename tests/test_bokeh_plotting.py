@@ -1,6 +1,5 @@
 """Tests for Bokeh-based plotting functionality."""
 
-
 import numpy as np
 import pytest
 
@@ -471,7 +470,10 @@ class TestDwellTimeVisualization:
                                 assert isinstance(base_regions, dict)
 
                                 # Should have base type keys
-                                assert all(base in ["A", "C", "G", "T", "U"] for base in base_regions.keys())
+                                assert all(
+                                    base in ["A", "C", "G", "T", "U"]
+                                    for base in base_regions.keys()
+                                )
 
                                 # Each region should have time-based coordinates (left != right)
                                 total_regions = 0
@@ -479,7 +481,9 @@ class TestDwellTimeVisualization:
                                     for region in regions:
                                         assert "left" in region
                                         assert "right" in region
-                                        assert region["right"] > region["left"]  # Time-scaled width
+                                        assert (
+                                            region["right"] > region["left"]
+                                        )  # Time-scaled width
                                         total_regions += 1
 
                                 # Should have some regions
@@ -585,10 +589,14 @@ class TestStrideAwareDwellTime:
 
             if sequence is not None and len(sequence) > 1:
                 # Check stride from BAM
-                with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+                with pysam.AlignmentFile(
+                    str(sample_bam_file), "rb", check_sq=False
+                ) as bam:
                     for alignment in bam.fetch(until_eof=True):
                         if alignment.query_name == read_id and alignment.has_tag("mv"):
-                            move_table = np.array(alignment.get_tag("mv"), dtype=np.uint8)
+                            move_table = np.array(
+                                alignment.get_tag("mv"), dtype=np.uint8
+                            )
                             stride = int(move_table[0])
 
                             # Calculate dwell time manually for first base
@@ -647,7 +655,9 @@ class TestStrideAwareDwellTime:
                     f"Mean dwell time {mean_dwell:.2f} ms is too short. "
                     "This suggests stride is not being applied correctly."
                 )
-                assert mean_dwell <= 30, f"Mean dwell time {mean_dwell:.2f} ms is unusually high"
+                assert mean_dwell <= 30, (
+                    f"Mean dwell time {mean_dwell:.2f} ms is unusually high"
+                )
 
                 # All dwell times should be positive
                 assert all(d > 0 for d in dwell_times)

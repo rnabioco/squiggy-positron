@@ -2,7 +2,7 @@
 
 ## Standalone Executables (Recommended)
 
-Download the pre-built executable for your platform from the [releases page](https://github.com/rnabioco/squiggler/releases):
+Download the pre-built executable for your platform from the [releases page](https://github.com/rnabioco/squiggy/releases):
 
 ### Windows
 1. Download `Squiggy-windows-x64.zip`
@@ -32,14 +32,14 @@ If you want to run or develop Squiggy from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/rnabioco/squiggler.git
-cd squiggler
+git clone https://github.com/rnabioco/squiggy.git
+cd squiggy
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # Run the application
-python squiggy/squiggy/main.py
+squiggy
 ```
 
 ### Development Installation

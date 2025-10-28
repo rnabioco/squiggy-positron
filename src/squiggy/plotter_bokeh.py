@@ -29,7 +29,16 @@ class BokehSquigglePlotter:
     """Bokeh-based plotter for nanopore squiggle visualization"""
 
     # Color palette for multi-read plots
-    MULTI_READ_COLORS = [SIGNAL_LINE_COLOR, "red", "green", "orange", "purple", "brown", "pink", "gray"]
+    MULTI_READ_COLORS = [
+        SIGNAL_LINE_COLOR,
+        "red",
+        "green",
+        "orange",
+        "purple",
+        "brown",
+        "pink",
+        "gray",
+    ]
 
     @staticmethod
     def normalize_signal(signal: np.ndarray, method: NormalizationMethod) -> np.ndarray:
@@ -71,7 +80,9 @@ class BokehSquigglePlotter:
         return p
 
     @staticmethod
-    def _format_plot_title(mode_name: str, reads_data: List[Tuple[str, np.ndarray, int]]) -> str:
+    def _format_plot_title(
+        mode_name: str, reads_data: List[Tuple[str, np.ndarray, int]]
+    ) -> str:
         """Generate a consistent plot title"""
         if len(reads_data) == 1:
             return f"{mode_name}: 1 read ({reads_data[0][0]})"
@@ -79,7 +90,9 @@ class BokehSquigglePlotter:
             return f"{mode_name}: {len(reads_data)} reads"
 
     @staticmethod
-    def _format_html_title(mode_name: str, reads_data: List[Tuple[str, np.ndarray, int]]) -> str:
+    def _format_html_title(
+        mode_name: str, reads_data: List[Tuple[str, np.ndarray, int]]
+    ) -> str:
         """Generate a consistent HTML title"""
         if len(reads_data) == 1:
             return f"Squiggy: {mode_name} (1 read - {reads_data[0][0]})"
@@ -126,28 +139,32 @@ class BokehSquigglePlotter:
                 # Calculate end time and dwell time
                 if seq_pos + 1 < len(seq_to_sig_map):
                     next_sig_idx = seq_to_sig_map[seq_pos + 1]
-                    end_time = time_ms[next_sig_idx] if next_sig_idx < len(time_ms) else time_ms[-1]
+                    end_time = (
+                        time_ms[next_sig_idx]
+                        if next_sig_idx < len(time_ms)
+                        else time_ms[-1]
+                    )
                 else:
                     end_time = time_ms[-1]
 
                 dwell_time = end_time - start_time
 
-                all_regions.append({
-                    "left": start_time,
-                    "right": end_time,
-                    "top": signal_max,
-                    "bottom": signal_min,
-                    "dwell": dwell_time,
-                })
+                all_regions.append(
+                    {
+                        "left": start_time,
+                        "right": end_time,
+                        "top": signal_max,
+                        "bottom": signal_min,
+                        "dwell": dwell_time,
+                    }
+                )
                 all_dwell_times.append(dwell_time)
 
                 # Store label data
                 mid_time = (start_time + end_time) / 2
-                all_labels_data.append({
-                    "time": mid_time,
-                    "y": signal[sig_idx],
-                    "text": f"{base}{seq_pos}"
-                })
+                all_labels_data.append(
+                    {"time": mid_time, "y": signal[sig_idx], "text": f"{base}{seq_pos}"}
+                )
 
             return all_regions, all_dwell_times, all_labels_data
 
@@ -173,23 +190,27 @@ class BokehSquigglePlotter:
                 # Calculate end time
                 if seq_pos + 1 < len(seq_to_sig_map):
                     next_sig_idx = seq_to_sig_map[seq_pos + 1]
-                    end_time = time_ms[next_sig_idx] if next_sig_idx < len(time_ms) else time_ms[-1]
+                    end_time = (
+                        time_ms[next_sig_idx]
+                        if next_sig_idx < len(time_ms)
+                        else time_ms[-1]
+                    )
                 else:
                     end_time = time_ms[-1]
 
-                base_regions[base].append({
-                    "left": start_time,
-                    "right": end_time,
-                    "top": signal_max,
-                    "bottom": signal_min,
-                })
+                base_regions[base].append(
+                    {
+                        "left": start_time,
+                        "right": end_time,
+                        "top": signal_max,
+                        "bottom": signal_min,
+                    }
+                )
 
                 mid_time = (start_time + end_time) / 2
-                base_labels_data[base].append({
-                    "time": mid_time,
-                    "y": signal[sig_idx],
-                    "text": f"{base}{seq_pos}"
-                })
+                base_labels_data[base].append(
+                    {"time": mid_time, "y": signal[sig_idx], "text": f"{base}{seq_pos}"}
+                )
 
             return base_regions, base_labels_data
 
@@ -224,19 +245,23 @@ class BokehSquigglePlotter:
                 # Calculate dwell time from signal indices
                 if i + 1 < len(base_annotations):
                     next_annotation = base_annotations[i + 1]
-                    dwell_samples = next_annotation.signal_start - base_annotation.signal_start
+                    dwell_samples = (
+                        next_annotation.signal_start - base_annotation.signal_start
+                    )
                 else:
                     dwell_samples = signal_length - base_annotation.signal_start
 
                 dwell_time = (dwell_samples / sample_rate) * 1000
 
                 # Add region with time-based coordinates
-                base_regions[base].append({
-                    "left": cumulative_time,
-                    "right": cumulative_time + dwell_time,
-                    "top": signal_max,
-                    "bottom": signal_min,
-                })
+                base_regions[base].append(
+                    {
+                        "left": cumulative_time,
+                        "right": cumulative_time + dwell_time,
+                        "top": signal_max,
+                        "bottom": signal_min,
+                    }
+                )
                 cumulative_time += dwell_time  # Advance by dwell time
 
         else:
@@ -246,17 +271,21 @@ class BokehSquigglePlotter:
                 if base not in BASE_COLORS:
                     continue
 
-                base_regions[base].append({
-                    "left": i - 0.5,
-                    "right": i + 0.5,
-                    "top": signal_max,
-                    "bottom": signal_min,
-                })
+                base_regions[base].append(
+                    {
+                        "left": i - 0.5,
+                        "right": i + 0.5,
+                        "top": signal_max,
+                        "bottom": signal_min,
+                    }
+                )
 
         return (base_regions,)
 
     @staticmethod
-    def _add_dwell_time_patches(p, all_regions: List[dict], all_dwell_times: List[float]):
+    def _add_dwell_time_patches(
+        p, all_regions: List[dict], all_dwell_times: List[float]
+    ):
         """Add background patches colored by dwell time"""
         if not all_regions:
             return None
@@ -373,30 +402,37 @@ class BokehSquigglePlotter:
                 if base in BASE_COLORS:
                     # Calculate dwell time
                     if i + 1 < len(base_annotations):
-                        dwell_samples = base_annotations[i + 1].signal_start - base_annotation.signal_start
+                        dwell_samples = (
+                            base_annotations[i + 1].signal_start
+                            - base_annotation.signal_start
+                        )
                     else:
                         dwell_samples = signal_length - base_annotation.signal_start
                     dwell_time = (dwell_samples / sample_rate) * 1000
 
                     # Position label at center of dwell time range
-                    label_data.append({
-                        "x": cumulative_time + (dwell_time / 2),
-                        "y": signal_max,
-                        "text": base,
-                        "color": BASE_COLORS[base]
-                    })
+                    label_data.append(
+                        {
+                            "x": cumulative_time + (dwell_time / 2),
+                            "y": signal_max,
+                            "text": base,
+                            "color": BASE_COLORS[base],
+                        }
+                    )
                     cumulative_time += dwell_time
         else:
             # Use base position for label positioning (current behavior)
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
                 if base in BASE_COLORS:
-                    label_data.append({
-                        "x": i,
-                        "y": signal_max,
-                        "text": base,
-                        "color": BASE_COLORS[base]
-                    })
+                    label_data.append(
+                        {
+                            "x": i,
+                            "y": signal_max,
+                            "text": base,
+                            "color": BASE_COLORS[base],
+                        }
+                    )
 
         if label_data:
             label_source = ColumnDataSource(
@@ -487,7 +523,14 @@ class BokehSquigglePlotter:
 
         # Add base annotations if available (returns color_mapper)
         color_mapper, _ = BokehSquigglePlotter._add_base_annotations_single_read(
-            p, signal, time_ms, sequence, seq_to_sig_map, sample_rate, show_dwell_time, show_labels
+            p,
+            signal,
+            time_ms,
+            sequence,
+            seq_to_sig_map,
+            sample_rate,
+            show_dwell_time,
+            show_labels,
         )
 
         # Add signal line
@@ -548,25 +591,49 @@ class BokehSquigglePlotter:
 
         if show_dwell_time:
             # Calculate and add dwell time patches
-            all_regions, all_dwell_times, all_labels_data = BokehSquigglePlotter._calculate_base_regions_time_mode(
-                sequence, seq_to_sig_map, time_ms, signal, signal_min, signal_max, sample_rate, show_dwell_time
+            all_regions, all_dwell_times, all_labels_data = (
+                BokehSquigglePlotter._calculate_base_regions_time_mode(
+                    sequence,
+                    seq_to_sig_map,
+                    time_ms,
+                    signal,
+                    signal_min,
+                    signal_max,
+                    sample_rate,
+                    show_dwell_time,
+                )
             )
-            color_mapper = BokehSquigglePlotter._add_dwell_time_patches(p, all_regions, all_dwell_times)
+            color_mapper = BokehSquigglePlotter._add_dwell_time_patches(
+                p, all_regions, all_dwell_times
+            )
 
             # Add labels if requested (always visible, no toggle)
             if show_labels:
-                base_sources = BokehSquigglePlotter._add_base_labels_time_mode(p, all_labels_data, show_dwell_time)
+                base_sources = BokehSquigglePlotter._add_base_labels_time_mode(
+                    p, all_labels_data, show_dwell_time
+                )
                 BokehSquigglePlotter._add_simple_labels(p, base_sources)
         else:
             # Calculate and add base type patches
-            base_regions, base_labels_data = BokehSquigglePlotter._calculate_base_regions_time_mode(
-                sequence, seq_to_sig_map, time_ms, signal, signal_min, signal_max, sample_rate, show_dwell_time
+            base_regions, base_labels_data = (
+                BokehSquigglePlotter._calculate_base_regions_time_mode(
+                    sequence,
+                    seq_to_sig_map,
+                    time_ms,
+                    signal,
+                    signal_min,
+                    signal_max,
+                    sample_rate,
+                    show_dwell_time,
+                )
             )
             BokehSquigglePlotter._add_base_type_patches(p, base_regions)
 
             # Add labels if requested (always visible, no toggle)
             if show_labels:
-                base_sources = BokehSquigglePlotter._add_base_labels_time_mode(p, base_labels_data, show_dwell_time)
+                base_sources = BokehSquigglePlotter._add_base_labels_time_mode(
+                    p, base_labels_data, show_dwell_time
+                )
                 BokehSquigglePlotter._add_simple_labels(p, base_sources)
 
             p.legend.click_policy = "hide"
@@ -617,12 +684,21 @@ class BokehSquigglePlotter:
             HTML string containing the bokeh plot
         """
         if mode == PlotMode.OVERLAY:
-            return BokehSquigglePlotter._plot_overlay(reads_data, normalization, downsample)
+            return BokehSquigglePlotter._plot_overlay(
+                reads_data, normalization, downsample
+            )
         elif mode == PlotMode.STACKED:
-            return BokehSquigglePlotter._plot_stacked(reads_data, normalization, downsample)
+            return BokehSquigglePlotter._plot_stacked(
+                reads_data, normalization, downsample
+            )
         elif mode == PlotMode.EVENTALIGN:
             return BokehSquigglePlotter._plot_eventalign(
-                reads_data, normalization, aligned_reads, downsample, show_dwell_time, show_labels
+                reads_data,
+                normalization,
+                aligned_reads,
+                downsample,
+                show_dwell_time,
+                show_labels,
             )
         else:
             raise ValueError(f"Unsupported plot mode: {mode}")
@@ -656,7 +732,9 @@ class BokehSquigglePlotter:
                 data={"x": x, "y": signal, "read_id": [read_id] * len(signal)}
             )
 
-            color = BokehSquigglePlotter.MULTI_READ_COLORS[idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)]
+            color = BokehSquigglePlotter.MULTI_READ_COLORS[
+                idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)
+            ]
             line = p.line(
                 "x",
                 "y",
@@ -722,7 +800,9 @@ class BokehSquigglePlotter:
                 data={"x": x, "y": y_offset, "read_id": [read_id] * len(signal)}
             )
 
-            color = BokehSquigglePlotter.MULTI_READ_COLORS[idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)]
+            color = BokehSquigglePlotter.MULTI_READ_COLORS[
+                idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)
+            ]
             line = p.line(
                 "x",
                 "y",
@@ -784,7 +864,9 @@ class BokehSquigglePlotter:
         )
 
         # Add hover tool with conditional tooltip
-        x_tooltip = ("Time (ms)", "@x{0.2f}") if show_dwell_time else ("Base Position", "@x")
+        x_tooltip = (
+            ("Time (ms)", "@x{0.2f}") if show_dwell_time else ("Base Position", "@x")
+        )
         hover = HoverTool(
             renderers=line_renderers,
             tooltips=[
@@ -802,7 +884,9 @@ class BokehSquigglePlotter:
         p.legend.location = "top_right"
 
         # Generate HTML
-        html_title = BokehSquigglePlotter._format_html_title("Event-Aligned", reads_data)
+        html_title = BokehSquigglePlotter._format_html_title(
+            "Event-Aligned", reads_data
+        )
         html = file_html(p, CDN, title=html_title)
         return html
 
@@ -838,14 +922,24 @@ class BokehSquigglePlotter:
 
         # Calculate and add base patches (time-scaled or position-based)
         (base_regions,) = BokehSquigglePlotter._calculate_base_regions_position_mode(
-            base_annotations, signal_min, signal_max, sample_rate, signal_length, show_dwell_time
+            base_annotations,
+            signal_min,
+            signal_max,
+            sample_rate,
+            signal_length,
+            show_dwell_time,
         )
         BokehSquigglePlotter._add_base_type_patches(p, base_regions)
 
         # Add labels if requested
         if show_labels:
             BokehSquigglePlotter._add_base_labels_position_mode(
-                p, base_annotations, signal_max, show_dwell_time, sample_rate, signal_length
+                p,
+                base_annotations,
+                signal_max,
+                show_dwell_time,
+                sample_rate,
+                signal_length,
             )
 
         return None
@@ -899,7 +993,11 @@ class BokehSquigglePlotter:
                         sample_idx = start_idx + sample_offset
                         if sample_idx < len(signal):
                             # Map sample to time: evenly distribute across base's time duration
-                            time_offset = (sample_offset / dwell_samples) * dwell_time if dwell_samples > 0 else 0
+                            time_offset = (
+                                (sample_offset / dwell_samples) * dwell_time
+                                if dwell_samples > 0
+                                else 0
+                            )
                             signal_x.append(cumulative_time + time_offset)
                             signal_y.append(signal[sample_idx])
                             signal_base_labels.append(base)
@@ -926,7 +1024,9 @@ class BokehSquigglePlotter:
                             # Map sample to position: evenly distribute from i-0.5 to i+0.5
                             if num_samples > 1:
                                 # Linear interpolation from -0.5 to +0.5
-                                position_offset = -0.5 + (sample_offset / (num_samples - 1))
+                                position_offset = -0.5 + (
+                                    sample_offset / (num_samples - 1)
+                                )
                             else:
                                 position_offset = 0.0
                             signal_x.append(i + position_offset)
@@ -943,7 +1043,9 @@ class BokehSquigglePlotter:
                 }
             )
 
-            color = BokehSquigglePlotter.MULTI_READ_COLORS[idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)]
+            color = BokehSquigglePlotter.MULTI_READ_COLORS[
+                idx % len(BokehSquigglePlotter.MULTI_READ_COLORS)
+            ]
             line = p.line(
                 "x",
                 "y",
