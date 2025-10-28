@@ -35,21 +35,33 @@ For the latest development build (macOS only), download from the ["latest" relea
 ### Option 2: Install from Source
 
 ```bash
+# Install Git LFS (if not already installed)
+# macOS
+brew install git-lfs
+
+# Ubuntu/Debian
+sudo apt-get install git-lfs
+
+# Windows (using chocolatey)
+choco install git-lfs
+
+# Initialize Git LFS
+git lfs install
+
 # Clone the repository
 git clone https://github.com/rnabioco/squiggy.git
 cd squiggy
 
-# Install dependencies
-pip install -r requirements.txt
+# Pull LFS files (test data)
+git lfs pull
+
+# Install dependencies (using uv - recommended)
+uv pip install -e .
+
+# Or using pip
+pip install -e .
 
 # Run the application
-python squiggy/squiggy/main.py
-```
-
-Or install as a package:
-
-```bash
-pip install -e .
 squiggy
 ```
 
@@ -87,143 +99,12 @@ python squiggy/squiggy/main.py
 python squiggy/squiggy/main.py --file data.pod5
 ```
 
-## Development
-
-### Setup Development Environment
-
-```bash
-# Install with development dependencies
-pip install -e ".[dev]"
-
-# Format code
-black squiggy/
-
-# Run tests
-pytest tests/
-```
-
-### Building Executables
-
-Build standalone executables for distribution:
-
-```bash
-# Install PyInstaller
-pip install pyinstaller
-
-# Build for your current platform
-pyinstaller squiggy.spec
-
-# Output will be in dist/ directory
-```
-
-Platform-specific packaging:
-
-```bash
-# macOS: Create DMG
-brew install create-dmg
-pyinstaller squiggy.spec
-create-dmg --volname "Squiggy Installer" --app-drop-link 600 185 Squiggy-macos.dmg dist/Squiggy.app
-
-# Windows: Create ZIP
-pyinstaller squiggy.spec
-Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-windows-x64.zip
-
-# Linux: Create tarball
-pyinstaller squiggy.spec
-tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
-```
-
-## Requirements
-
-### Runtime Requirements
-- Python 3.8 or higher (for source installation)
-- For POD5 files with VBZ compression: `vbz_h5py_plugin` (automatically installed)
-
-### Dependencies
-- `numpy>=1.20.0` - Array operations
-- `pandas>=1.3.0` - Data manipulation
-- `pod5>=0.3.0` - POD5 file reading
-- `PySide6>=6.5.0` - GUI framework
-- `plotnine>=0.12.0` - Plot generation
-
-## Architecture
-
-Squiggy is built with:
-- **GUI**: PySide6 (Qt for Python) for cross-platform desktop interface
-- **Data Processing**: POD5 library for reading Oxford Nanopore files
-- **Visualization**: plotnine (ggplot2-style) for creating squiggle plots
-- **Distribution**: PyInstaller for packaging as standalone executables
-
-## AI-Assisted Development
-
-Squiggy is optimized for development with [Claude Code](https://claude.ai/code). The repository includes:
-
-- **CLAUDE.md** - Comprehensive project guide for AI-assisted development
-- Detailed architecture documentation and coding conventions
-- Common development tasks and debugging tips
-- Context about async/Qt patterns and data flow
-
-Contributors using Claude Code will benefit from rich context about the codebase structure, testing strategies, and implementation patterns.
-
-### Quick Start with Claude Code
-
-```bash
-# Clone and setup
-git clone https://github.com/rnabioco/squiggy.git
-cd squiggy
-pip install -e ".[dev]"
-
-# Validate environment
-python scripts/check_dev_env.py
-
-# Start Claude Code session
-# Claude will automatically use CLAUDE.md for context
-```
-
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+Contributions are welcome! For development setup, workflow, and guidelines, please see:
 
-### Quick Contributor Setup
-
-```bash
-# Setup environment
-pip install -e ".[dev]"
-
-# macOS users also install
-pip install -e ".[macos]"
-
-# Validate setup
-python scripts/check_dev_env.py
-
-# Run with sample data
-squiggy -p tests/data/mod_reads.pod5 -b tests/data/mod_mappings.bam
-```
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes in `src/squiggy/`
-4. Format code: `ruff format src/ tests/`
-5. Check linting: `ruff check --fix src/ tests/`
-6. Run tests: `pytest tests/`
-7. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-8. Push to the branch (`git push origin feature/amazing-feature`)
-9. Open a Pull Request
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for more details on code style, testing, and PR guidelines.
-
-## Release Process
-
-Releases are automated via GitHub Actions:
-
-1. Tag a version: `git tag v0.1.0`
-2. Push the tag: `git push origin v0.1.0`
-3. GitHub Actions will automatically build executables for all platforms
-4. A new release will be created with all platform binaries attached
-
-Development builds (macOS only) are automatically created on every push to `main` and available under the ["latest" release tag](https://github.com/rnabioco/squiggy/releases/tag/latest).
+- [Development Documentation](https://rnabioco.github.io/squiggy/development/) - Quick start guide and development patterns
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Detailed contribution guidelines
 
 ## License
 
