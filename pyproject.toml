@@ -47,6 +47,10 @@ dev = [
 macos = [
     "pyobjc-framework-Cocoa>=9.0",
 ]
+export = [
+    "selenium>=4.0",
+    "pillow>=9.0",
+]
 
 [project.scripts]
 squiggy = "squiggy.main:main"

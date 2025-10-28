@@ -3,11 +3,26 @@
 block_cipher = None
 
 import sys
+import shutil
+from pathlib import Path
+
+# Find geckodriver for bundling (enables PNG/SVG export in standalone builds)
+geckodriver_path = shutil.which('geckodriver')
+binaries_list = []
+
+if geckodriver_path:
+    print(f"Found geckodriver at: {geckodriver_path}")
+    # Bundle geckodriver into the application
+    # It will be placed in _internal/ directory
+    binaries_list.append((geckodriver_path, '.'))
+else:
+    print("WARNING: geckodriver not found. PNG/SVG export will not work in standalone build.")
+    print("Install with: brew install geckodriver (macOS) or apt install firefox-geckodriver (Linux)")
 
 a = Analysis(
     ['../src/squiggy/main.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries_list,
     datas=[
         ('../tests/data/*.pod5', 'squiggy/data'),
         ('../tests/data/README.md', 'squiggy/data'),
@@ -23,6 +38,9 @@ a = Analysis(
         'PySide6.QtWidgets',
         'bokeh',
         'importlib.resources',
+        'selenium',
+        'PIL',
+        'pillow',
     ],
     hookspath=[],
     hooksconfig={},

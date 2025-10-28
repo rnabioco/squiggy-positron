@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QComboBox,
+    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -45,7 +46,7 @@ from .constants import (
     NormalizationMethod,
     PlotMode,
 )
-from .dialogs import AboutDialog, ReferenceBrowserDialog
+from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
 from .plotter_bokeh import BokehSquigglePlotter
 from .utils import (
     get_bam_references,
@@ -121,6 +122,7 @@ class SquiggleViewer(QMainWindow):
         self.downsample_factor = 25  # Default downsampling for performance
         self.show_dwell_time = False  # Show dwell time coloring
         self.current_plot_html = None  # Store current plot HTML for export
+        self.current_plot_figure = None  # Store current plot figure for export
         self.search_mode = "read_id"  # "read_id" or "region"
         self.saved_x_range = None  # Store current x-axis range for zoom preservation
         self.saved_y_range = None  # Store current y-axis range for zoom preservation
@@ -1538,7 +1540,7 @@ class SquiggleViewer(QMainWindow):
             sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
 
         # Generate bokeh plot HTML
-        html = BokehSquigglePlotter.plot_single_read(
+        html, figure = BokehSquigglePlotter.plot_single_read(
             signal,
             read_id,
             sample_rate,
@@ -1550,7 +1552,7 @@ class SquiggleViewer(QMainWindow):
             show_labels=self.show_bases,
         )
 
-        return html, signal, sequence
+        return html, figure, signal, sequence
 
     async def display_single_read(self, read_id):
         """Display squiggle plot for a single read (async)"""
@@ -1558,12 +1560,13 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            html, signal, sequence = await asyncio.to_thread(
+            html, figure, signal, sequence = await asyncio.to_thread(
                 self._generate_plot_blocking, read_id
             )
 
-            # Store HTML for export
+            # Store HTML and figure for export
             self.current_plot_html = html
+            self.current_plot_figure = figure
             self.export_action.setEnabled(True)
 
             # Display on main thread - use unique URL to force complete reload
@@ -1600,7 +1603,7 @@ class SquiggleViewer(QMainWindow):
             raise ValueError("No matching reads found in POD5 file")
 
         # Generate bokeh multi-read plot HTML
-        html = BokehSquigglePlotter.plot_multiple_reads(
+        html, figure = BokehSquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
@@ -1609,7 +1612,7 @@ class SquiggleViewer(QMainWindow):
             show_labels=self.show_bases,
         )
 
-        return html, reads_data
+        return html, figure, reads_data
 
     async def display_multiple_reads(self, read_ids):
         """Display multiple reads in overlay or stacked mode (async)"""
@@ -1617,12 +1620,13 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            html, reads_data = await asyncio.to_thread(
+            html, figure, reads_data = await asyncio.to_thread(
                 self._generate_multi_read_plot_blocking, read_ids
             )
 
-            # Store HTML for export
+            # Store HTML and figure for export
             self.current_plot_html = html
+            self.current_plot_figure = figure
             self.export_action.setEnabled(True)
 
             # Display on main thread - use unique URL to force complete reload
@@ -1674,7 +1678,7 @@ class SquiggleViewer(QMainWindow):
             raise ValueError("No matching reads found in POD5 file")
 
         # Generate bokeh event-aligned plot HTML
-        html = BokehSquigglePlotter.plot_multiple_reads(
+        html, figure = BokehSquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
@@ -1684,7 +1688,7 @@ class SquiggleViewer(QMainWindow):
             show_labels=self.show_bases,
         )
 
-        return html, reads_data, aligned_reads
+        return html, figure, reads_data, aligned_reads
 
     async def display_eventaligned_reads(self, read_ids):
         """Display multiple reads in event-aligned mode (async)"""
@@ -1694,12 +1698,13 @@ class SquiggleViewer(QMainWindow):
 
         try:
             # Generate plot in thread pool
-            html, reads_data, aligned_reads = await asyncio.to_thread(
+            html, figure, reads_data, aligned_reads = await asyncio.to_thread(
                 self._generate_eventalign_plot_blocking, read_ids
             )
 
-            # Store HTML for export
+            # Store HTML and figure for export
             self.current_plot_html = html
+            self.current_plot_figure = figure
             self.export_action.setEnabled(True)
 
             # Display on main thread - use unique URL to force complete reload
@@ -1720,9 +1725,213 @@ class SquiggleViewer(QMainWindow):
                 self, "Error", f"Failed to display event-aligned plot:\n{str(e)}"
             )
 
+    def _get_current_view_ranges(self):
+        """Get current x and y ranges from the displayed Bokeh plot
+
+        Returns:
+            tuple: ((x_start, x_end), (y_start, y_end)) or (None, None) if unavailable
+        """
+        # JavaScript to extract current range values from Bokeh plot
+        js_code = """
+        (function() {
+            try {
+                // Get the Bokeh document root
+                var root = Bokeh.documents[0].roots()[0];
+
+                // Get x and y ranges
+                var x_range = root.x_range;
+                var y_range = root.y_range;
+
+                return JSON.stringify({
+                    x_start: x_range.start,
+                    x_end: x_range.end,
+                    y_start: y_range.start,
+                    y_end: y_range.end
+                });
+            } catch(e) {
+                return null;
+            }
+        })();
+        """
+
+        # Execute JavaScript and get result synchronously
+        result = [None]  # Use list to store result in callback
+
+        def callback(js_result):
+            result[0] = js_result
+
+        self.plot_view.page().runJavaScript(js_code, callback)
+
+        # Process events to wait for JavaScript execution
+        # This is a simple approach - for production might need QEventLoop
+        from PySide6.QtWidgets import QApplication
+        QApplication.processEvents()
+
+        if result[0]:
+            try:
+                import json
+                ranges = json.loads(result[0])
+                x_range = (ranges['x_start'], ranges['x_end'])
+                y_range = (ranges['y_start'], ranges['y_end'])
+                return x_range, y_range
+            except Exception:
+                pass
+
+        return None, None
+
+    def _export_html(self, file_path):
+        """Export plot as HTML file
+
+        Args:
+            file_path: Path to save HTML file
+        """
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(self.current_plot_html)
+
+    def _export_png(self, file_path, width, height, x_range=None, y_range=None):
+        """Export plot as PNG image
+
+        Args:
+            file_path: Path to save PNG file
+            width: Image width in pixels
+            height: Image height in pixels
+            x_range: Optional tuple (x_start, x_end) to set x-axis range
+            y_range: Optional tuple (y_start, y_end) to set y-axis range
+
+        Raises:
+            ImportError: If selenium or pillow not installed
+        """
+        try:
+            from bokeh.io import export_png
+        except ImportError as e:
+            raise ImportError(
+                "PNG export requires additional dependencies. "
+                "Install with: uv pip install -e '.[export]'"
+            ) from e
+
+        # Store original dimensions, sizing mode, and ranges
+        original_width = self.current_plot_figure.width
+        original_height = self.current_plot_figure.height
+        original_sizing_mode = self.current_plot_figure.sizing_mode
+        original_x_range = None
+        original_y_range = None
+
+        try:
+            # Temporarily modify figure dimensions and sizing mode
+            # Setting sizing_mode to None allows explicit width/height to work properly
+            self.current_plot_figure.sizing_mode = None
+            self.current_plot_figure.width = width
+            self.current_plot_figure.height = height
+
+            # Apply custom ranges if provided
+            if x_range is not None:
+                original_x_range = (
+                    self.current_plot_figure.x_range.start,
+                    self.current_plot_figure.x_range.end
+                )
+                self.current_plot_figure.x_range.start = x_range[0]
+                self.current_plot_figure.x_range.end = x_range[1]
+
+            if y_range is not None:
+                original_y_range = (
+                    self.current_plot_figure.y_range.start,
+                    self.current_plot_figure.y_range.end
+                )
+                self.current_plot_figure.y_range.start = y_range[0]
+                self.current_plot_figure.y_range.end = y_range[1]
+
+            # Export to PNG
+            export_png(self.current_plot_figure, filename=str(file_path))
+        finally:
+            # Restore original dimensions and sizing mode
+            self.current_plot_figure.sizing_mode = original_sizing_mode
+            self.current_plot_figure.width = original_width
+            self.current_plot_figure.height = original_height
+
+            # Restore original ranges
+            if original_x_range is not None:
+                self.current_plot_figure.x_range.start = original_x_range[0]
+                self.current_plot_figure.x_range.end = original_x_range[1]
+
+            if original_y_range is not None:
+                self.current_plot_figure.y_range.start = original_y_range[0]
+                self.current_plot_figure.y_range.end = original_y_range[1]
+
+    def _export_svg(self, file_path, width, height, x_range=None, y_range=None):
+        """Export plot as SVG image
+
+        Args:
+            file_path: Path to save SVG file
+            width: Image width in pixels
+            height: Image height in pixels
+            x_range: Optional tuple (x_start, x_end) to set x-axis range
+            y_range: Optional tuple (y_start, y_end) to set y-axis range
+
+        Raises:
+            ImportError: If selenium not installed
+        """
+        try:
+            from bokeh.io import export_svgs
+        except ImportError as e:
+            raise ImportError(
+                "SVG export requires additional dependencies. "
+                "Install with: uv pip install -e '.[export]'"
+            ) from e
+
+        # Store original dimensions, backend, sizing mode, and ranges
+        original_width = self.current_plot_figure.width
+        original_height = self.current_plot_figure.height
+        original_backend = self.current_plot_figure.output_backend
+        original_sizing_mode = self.current_plot_figure.sizing_mode
+        original_x_range = None
+        original_y_range = None
+
+        try:
+            # Temporarily modify figure dimensions, backend, and sizing mode
+            # Setting sizing_mode to None allows explicit width/height to work properly
+            self.current_plot_figure.sizing_mode = None
+            self.current_plot_figure.width = width
+            self.current_plot_figure.height = height
+            self.current_plot_figure.output_backend = "svg"
+
+            # Apply custom ranges if provided
+            if x_range is not None:
+                original_x_range = (
+                    self.current_plot_figure.x_range.start,
+                    self.current_plot_figure.x_range.end
+                )
+                self.current_plot_figure.x_range.start = x_range[0]
+                self.current_plot_figure.x_range.end = x_range[1]
+
+            if y_range is not None:
+                original_y_range = (
+                    self.current_plot_figure.y_range.start,
+                    self.current_plot_figure.y_range.end
+                )
+                self.current_plot_figure.y_range.start = y_range[0]
+                self.current_plot_figure.y_range.end = y_range[1]
+
+            # Export to SVG
+            export_svgs(self.current_plot_figure, filename=str(file_path))
+        finally:
+            # Restore original dimensions, backend, and sizing mode
+            self.current_plot_figure.sizing_mode = original_sizing_mode
+            self.current_plot_figure.width = original_width
+            self.current_plot_figure.height = original_height
+            self.current_plot_figure.output_backend = original_backend
+
+            # Restore original ranges
+            if original_x_range is not None:
+                self.current_plot_figure.x_range.start = original_x_range[0]
+                self.current_plot_figure.x_range.end = original_x_range[1]
+
+            if original_y_range is not None:
+                self.current_plot_figure.y_range.start = original_y_range[0]
+                self.current_plot_figure.y_range.end = original_y_range[1]
+
     def export_plot(self):
-        """Export the current plot to an HTML file"""
-        if self.current_plot_html is None:
+        """Export the current plot with format and dimension options"""
+        if self.current_plot_html is None or self.current_plot_figure is None:
             QMessageBox.warning(
                 self,
                 "No Plot",
@@ -1730,36 +1939,111 @@ class SquiggleViewer(QMainWindow):
             )
             return
 
+        # Show export dialog
+        dialog = ExportDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return  # User cancelled
+
+        # Get export settings
+        settings = dialog.get_export_settings()
+        export_format = settings["format"]
+        width = settings["width"]
+        height = settings["height"]
+        use_current_view = settings["use_current_view"]
+
+        # Get current view ranges if needed
+        x_range, y_range = None, None
+        if use_current_view:
+            x_range, y_range = self._get_current_view_ranges()
+            if x_range is None or y_range is None:
+                QMessageBox.warning(
+                    self,
+                    "Cannot Get View Range",
+                    "Unable to extract current zoom level. Exporting full plot instead.",
+                )
+                use_current_view = False
+
+        # Determine file extension and filter based on format
+        if export_format == "html":
+            filter_str = "HTML File (*.html);;All Files (*)"
+            default_ext = ".html"
+        elif export_format == "png":
+            filter_str = "PNG Image (*.png);;All Files (*)"
+            default_ext = ".png"
+        else:  # svg
+            filter_str = "SVG Image (*.svg);;All Files (*)"
+            default_ext = ".svg"
+
         # Get file path from user
-        file_path, selected_filter = QFileDialog.getSaveFileName(
+        file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Plot",
             "",
-            "HTML File (*.html);;All Files (*)",
+            filter_str,
         )
 
         if not file_path:
             return  # User cancelled
 
         try:
-            # Determine format from extension or filter
+            # Ensure correct extension
             file_path = Path(file_path)
             if not file_path.suffix:
-                file_path = file_path.with_suffix(".html")
+                file_path = file_path.with_suffix(default_ext)
 
-            # Save HTML
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(self.current_plot_html)
-
-            self.statusBar().showMessage(f"Plot exported to {file_path.name}")
-            QMessageBox.information(
-                self,
-                "Export Successful",
-                f"Interactive plot successfully exported to:\n{file_path}\n\n"
-                f"Open the file in a web browser to view the interactive plot.",
+            # Show progress
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage(
+                f"Exporting plot as {export_format.upper()}..."
             )
 
+            try:
+                # Export based on format
+                if export_format == "html":
+                    self._export_html(file_path)
+                    view_info = " (current view)" if use_current_view else ""
+                    message = (
+                        f"Interactive plot successfully exported to:\n{file_path}\n\n"
+                        f"Open the file in a web browser to view the interactive plot."
+                    )
+                elif export_format == "png":
+                    self._export_png(file_path, width, height, x_range, y_range)
+                    view_info = " (current view)" if use_current_view else ""
+                    message = (
+                        f"PNG image successfully exported to:\n{file_path}\n\n"
+                        f"Dimensions: {width} × {height} pixels{view_info}"
+                    )
+                else:  # svg
+                    self._export_svg(file_path, width, height, x_range, y_range)
+                    view_info = " (current view)" if use_current_view else ""
+                    message = (
+                        f"SVG image successfully exported to:\n{file_path}\n\n"
+                        f"Dimensions: {width} × {height} pixels{view_info}\n"
+                        f"Edit in vector graphics software like Inkscape or Adobe Illustrator."
+                    )
+
+                self.statusBar().showMessage(f"Plot exported to {file_path.name}")
+                QMessageBox.information(self, "Export Successful", message)
+
+            finally:
+                QApplication.restoreOverrideCursor()
+
+        except ImportError as e:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(
+                self,
+                "Missing Dependencies",
+                f"{str(e)}\n\n"
+                f"PNG and SVG export require additional dependencies:\n"
+                f"• selenium (for headless browser rendering)\n"
+                f"• pillow (for image handling)\n\n"
+                f"Install with:\n"
+                f"  uv pip install -e '.[export]'\n\n"
+                f"or:\n"
+                f"  pip install selenium pillow",
+            )
         except Exception as e:
+            QApplication.restoreOverrideCursor()
             QMessageBox.critical(
                 self, "Export Failed", f"Failed to export plot:\n{str(e)}"
             )

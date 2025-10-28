@@ -82,20 +82,46 @@ Each peak and valley represents ionic current changes as DNA/RNA molecules pass 
 
 ## Exporting Plots
 
-You can export the currently displayed plot to a high-quality image file:
+You can export the currently displayed plot in multiple formats:
 
 1. Display the plot you want to export
 2. Go to **File → Export Plot** (Ctrl/Cmd+E)
-3. Choose a file format:
-   - **PNG**: Raster image, good for presentations and documents
-   - **PDF**: Vector format, scalable without quality loss
-   - **SVG**: Vector format, editable in graphics software
-4. Choose location and filename
+3. In the export dialog, choose your options:
+   - **Format**: HTML (Interactive), PNG (Raster Image), or SVG (Vector Graphics)
+   - **Dimensions** (for PNG/SVG): Set width and height in pixels (default: 1400 × 900)
+   - **Lock Aspect Ratio**: Keep proportions when resizing
+   - **Export current zoom level**: Export only the visible zoomed region (unchecked = export full plot)
+4. Click **OK**, then choose save location and filename
 5. Click **Save**
 
-Export settings:
-- Plots are exported at 300 DPI (high quality)
-- Default size: 12" × 8" (suitable for publications)
+### Export Formats
+
+- **HTML (Interactive)**
+  - Preserves all interactivity (zoom, pan, hover tooltips)
+  - Best for sharing interactive visualizations
+  - No extra dependencies required
+  - Open in any web browser
+
+- **PNG (Raster Image)**
+  - Fixed-resolution bitmap image
+  - Good for presentations, documents, and publications
+  - Set custom dimensions (recommended: ≥1200px width for clarity)
+  - **Standalone builds**: Works out of the box
+  - **Source installations**: Requires export dependencies (see Installation docs)
+
+- **SVG (Vector Graphics)**
+  - Scalable without quality loss
+  - Editable in graphics software (Inkscape, Adobe Illustrator)
+  - Best for publications and high-quality figures
+  - **Standalone builds**: Works out of the box
+  - **Source installations**: Requires export dependencies (see Installation docs)
+
+### Export Tips
+
+- **Zoom before export**: Check the "Export current zoom level" option to capture only your zoomed region of interest
+- **Larger dimensions**: For high-quality prints, use 1600×1000 or larger for PNG/SVG
+- **Keep aspect ratio locked**: Prevents distortion when resizing
+- **Interactive HTML**: Use HTML format when you want readers to be able to zoom and explore the data themselves
 
 ## Tips
 
