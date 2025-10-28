@@ -668,8 +668,7 @@ class SquiggleViewer(QMainWindow):
             # Small delay to allow JavaScript to execute
             await self.update_plot_with_delay()
 
-    @qasync.asyncSlot()
-    async def set_plot_mode(self, mode):
+    def set_plot_mode(self, mode):
         """Set the plot mode and refresh display"""
         self.plot_mode = mode
 
@@ -689,7 +688,7 @@ class SquiggleViewer(QMainWindow):
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
             # Small delay to allow JavaScript to execute
-            await self.update_plot_with_delay()
+            asyncio.ensure_future(self.update_plot_with_delay())
 
     @qasync.asyncSlot()
     async def set_normalization_method(self, index):

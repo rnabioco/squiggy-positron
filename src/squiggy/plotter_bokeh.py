@@ -57,8 +57,8 @@ class BokehSquigglePlotter:
             title=title,
             x_axis_label=x_label,
             y_axis_label=y_label,
-            tools="pan,xpan,xbox_zoom,box_zoom,wheel_zoom,reset,save",
-            active_drag="pan",
+            tools="xpan,xbox_zoom,box_zoom,wheel_zoom,reset,save",
+            active_drag="xbox_zoom",
             active_scroll="wheel_zoom",
             sizing_mode="stretch_both",
         )
