@@ -26,18 +26,18 @@ Squiggy is a cross-platform GUI application that allows you to visualize raw nan
 
 Download the latest release for your platform:
 
-- **macOS**: [Squiggy-macos.dmg](https://github.com/rnabioco/squiggler/releases/latest)
-- **Windows**: [Squiggy-windows-x64.zip](https://github.com/rnabioco/squiggler/releases/latest)
-- **Linux**: [Squiggy-linux-x64.tar.gz](https://github.com/rnabioco/squiggler/releases/latest)
+- **macOS**: [Squiggy-macos.dmg](https://github.com/rnabioco/squiggy/releases/latest)
+- **Windows**: [Squiggy-windows-x64.zip](https://github.com/rnabioco/squiggy/releases/latest)
+- **Linux**: [Squiggy-linux-x64.tar.gz](https://github.com/rnabioco/squiggy/releases/latest)
 
-For the latest development build (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggler/releases/tag/latest).
+For the latest development build (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggy/releases/tag/latest).
 
 ### Option 2: Install from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/rnabioco/squiggler.git
-cd squiggler
+git clone https://github.com/rnabioco/squiggy.git
+cd squiggy
 
 # Install dependencies
 pip install -r requirements.txt
@@ -223,7 +223,7 @@ Releases are automated via GitHub Actions:
 3. GitHub Actions will automatically build executables for all platforms
 4. A new release will be created with all platform binaries attached
 
-Development builds (macOS only) are automatically created on every push to `main` and available under the ["latest" release tag](https://github.com/rnabioco/squiggler/releases/tag/latest).
+Development builds (macOS only) are automatically created on every push to `main` and available under the ["latest" release tag](https://github.com/rnabioco/squiggy/releases/tag/latest).
 
 ## License
 
@@ -233,6 +233,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Oxford Nanopore Technologies for the POD5 file format and libraries
 - The Python scientific computing community (NumPy, Pandas, Matplotlib ecosystems)
+- **[Remora](https://github.com/nanoporetech/remora)** - Oxford Nanopore's modified base calling and visualization toolkit
+- **[Squigualiser](https://github.com/hiruna72/squigualiser)** - Efficient nanopore signal visualization tool by Hiruna Samarakoon
 
 ### Note on Implementation
 
@@ -251,5 +253,5 @@ If you use Squiggy in your research, please cite:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/rnabioco/squiggler/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/rnabioco/squiggler/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rnabioco/squiggy/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rnabioco/squiggy/discussions)
