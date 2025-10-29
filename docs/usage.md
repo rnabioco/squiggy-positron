@@ -66,7 +66,9 @@ Squiggy offers multiple visualization modes (expand **Plot Options** panel to ac
 ### Event-Aligned Mode
 - Displays reads with base annotations (requires BAM file)
 - Shows bases with fixed width (one unit per base)
-- Colored bands indicate bases (A=orange, C=yellow, G=blue, T=orange)
+- Colored bands indicate bases using Okabe-Ito colorblind-friendly palette:
+  - Purines (A, G): Green/Blue tones
+  - Pyrimidines (C, T): Yellow/Orange tones
 - Signal is averaged per base for cleaner visualization
 - Best for examining base-level signal characteristics
 

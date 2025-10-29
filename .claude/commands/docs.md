@@ -1,6 +1,6 @@
-# Review and Update MkDocs Documentation
+# Review and Update Documentation
 
-Your task is to review and update the Squiggy MkDocs documentation to ensure it accurately reflects the current codebase.
+Your task is to review and update the Squiggy documentation to ensure it accurately reflects the current codebase.
 
 ## Steps to Complete:
 
@@ -11,6 +11,7 @@ Read the following documentation files and compare against the current codebase:
 - `docs/installation.md` - Installation instructions
 - `docs/usage.md` - Usage guide with plot modes, features, and examples
 - `docs/development.md` - Development and contributing guide
+- `README.md` - Main repository README with overview, installation, and quick start
 
 For each file, check:
 - Are all features mentioned still current?
@@ -32,15 +33,32 @@ If you find any discrepancies:
 - Remove or update information about deprecated/changed features
 - Ensure code examples and CLI usage examples are correct
 
-### 3. Regenerate Screenshots
+**Special attention for README.md:**
+- Ensure CLI flags and arguments match current implementation
+- Verify installation instructions use uv (not pip)
+- Update quick start examples to reflect current usage patterns
+- Ensure feature list matches what's actually implemented
+- Check that example commands use correct syntax
 
-Run the screenshot generation script to ensure all screenshots are current:
+### 3. Ask About Regenerating Screenshots
+
+**IMPORTANT**: Before proceeding with screenshot regeneration, use the AskUserQuestion tool to ask the user:
+
+- Question: "Do you want to regenerate documentation screenshots?"
+- Header: "Screenshots"
+- Options:
+  1. "Yes" - "Regenerate all screenshots using the latest code (requires the app to be functional)"
+  2. "No" - "Skip screenshot regeneration and proceed with documentation review only"
+
+If the user selects "Yes", run the screenshot generation script:
 
 ```bash
 ./scripts/generate_docs_screenshots.sh
 ```
 
 This will regenerate all screenshots in `docs/images/` using the latest code and sample data.
+
+If the user selects "No", skip the screenshot generation step and proceed to testing the documentation build.
 
 ### 4. Test Documentation
 
@@ -70,6 +88,7 @@ Provide a summary of:
 
 - [ ] All documentation files reviewed against current codebase
 - [ ] Any discrepancies found and fixed
-- [ ] Screenshots regenerated successfully
+- [ ] User prompted about screenshot regeneration
+- [ ] Screenshots regenerated successfully (if user chose "Yes")
 - [ ] Documentation builds and serves without errors
 - [ ] Summary report provided to user

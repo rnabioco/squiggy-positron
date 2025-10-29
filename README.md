@@ -18,7 +18,7 @@ Squiggy is a cross-platform GUI application that allows you to visualize raw nan
 - **Bundled Sample Data**: Get started immediately with included example POD5 files
 - **Interactive Read Browser**: Browse and search through all reads in a POD5 file
 - **High-Quality Plots**: Generate publication-ready squiggle plots with customizable styling
-- **Cross-Platform**: Available as standalone executables for Windows, macOS, and Linux
+- **macOS Native**: Available as a standalone macOS application
 - **Fast Performance**: Efficient handling of large POD5 files with thousands of reads
 
 ## Installation
@@ -60,26 +60,42 @@ Squiggy comes with bundled sample data (yeast [aa-tRNA-seq](https://pubmed.ncbi.
 
 ### Working with Your Own Data
 
-1. **Launch Squiggy**: Open the application
-2. **Open POD5 File**: Click "Open POD5 File" or go to **File → Open POD5 File...** (`Ctrl+O` / `Cmd+O`)
-3. **Browse Reads**: All read IDs will be displayed in the left panel
-4. **Search**: Use the search box to filter reads by ID
-5. **View Squiggle**: Click any read to display its squiggle plot
+**For the best experience, load both POD5 and BAM files together** to enable base annotations, genomic region filtering, and sequence search:
+
+1. **Launch Squiggy with both files** (recommended):
+   ```bash
+   squiggy --pod5 data.pod5 --bam alignments.bam
+   # Or use short form
+   squiggy -p data.pod5 -b alignments.bam
+   ```
+
+2. **Alternatively, load files via GUI**:
+   - Open the application
+   - Go to **File → Open POD5 File...** (`Ctrl+O` / `Cmd+O`)
+   - Go to **File → Open BAM File...** to add alignments
+   - Browse reads and click any read to view its squiggle plot with base annotations
+
+**Why load both files?** Loading only the POD5 file shows raw signal without sequence context. Adding the BAM file enables:
+- Event-aligned visualization with base annotations overlaid on signal
+- Genomic region-based read filtering (e.g., chr1:1000-2000)
+- DNA sequence motif search within reads
 
 ### Command Line Options
 
 ```bash
-# Launch GUI
+# Launch with both POD5 and BAM files (recommended)
+squiggy --pod5 data.pod5 --bam alignments.bam
+squiggy -p data.pod5 -b alignments.bam
+
+# Launch with just POD5 file (limited functionality)
+squiggy --pod5 data.pod5
+squiggy -p data.pod5
+
+# Launch GUI without pre-loading files
 squiggy
 
-# Launch with a specific file pre-loaded
-squiggy --file data.pod5
-
-# Run from source
-python squiggy/squiggy/main.py
-
-# Run from source with file
-python squiggy/squiggy/main.py --file data.pod5
+# Run from source with both files
+python -m squiggy.main --pod5 data.pod5 --bam alignments.bam
 ```
 
 ## Contributing
