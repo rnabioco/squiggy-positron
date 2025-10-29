@@ -6,6 +6,7 @@ A desktop application for visualizing Oxford Nanopore sequencing data from POD5 
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+[![codecov](https://codecov.io/gh/rnabioco/squiggy/branch/main/graph/badge.svg)](https://codecov.io/gh/rnabioco/squiggy)
 
 ## Overview
 
