@@ -63,6 +63,7 @@ class PlotMode(Enum):
     OVERLAY = "overlay"  # Multiple reads overlaid on same axes
     STACKED = "stacked"  # Multiple reads stacked vertically (squigualiser-style)
     EVENTALIGN = "eventalign"  # Event-aligned with base annotations
+    AGGREGATE = "aggregate"  # Multi-read aggregate with pileup statistics
 
 
 # Normalization methods
@@ -78,6 +79,12 @@ class NormalizationMethod(Enum):
 # Multi-read plotting settings
 MAX_OVERLAY_READS = 10  # Maximum reads to overlay
 STACKED_VERTICAL_SPACING = 20  # Vertical spacing between stacked reads (in pA)
+
+# Aggregate mode settings
+DEFAULT_AGGREGATE_SAMPLE_SIZE = 100  # Default number of reads to sample for aggregate
+MIN_AGGREGATE_SAMPLE_SIZE = 10  # Minimum reads for aggregate mode
+MAX_AGGREGATE_SAMPLE_SIZE = 10000  # Maximum reads for aggregate mode
+AGGREGATE_CONFIDENCE_LEVEL = 1  # Standard deviations for confidence bands (±1 std dev)
 
 # Color palette for multi-read plots (colorblind-friendly)
 MULTI_READ_COLORS = [

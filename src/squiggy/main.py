@@ -104,9 +104,17 @@ async def main_async(app, viewer, args):
                 # Validation passed, load BAM file
                 viewer.bam_file = bam_path
                 viewer.bam_label.setText(bam_path.name)
+
+                # Enable BAM-dependent features
                 viewer.base_checkbox.setEnabled(True)
+                viewer.base_checkbox.setChecked(True)  # Check by default
                 viewer.mode_eventalign.setEnabled(True)
+                viewer.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
+                viewer.mode_aggregate.setEnabled(True)  # Enable aggregate mode
+                viewer.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
                 viewer.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
+                viewer.position_type_checkbox.setEnabled(True)  # Enable reference positions
+
                 viewer.statusBar().showMessage(
                     f"Loaded and validated BAM file: {bam_path.name} "
                     f"({validation_result['bam_read_count']} reads)"

@@ -103,7 +103,9 @@ class ReferenceBrowserDialog(QDialog):
         self.setModal(True)
         self.resize(600, 400)
 
-        self.selected_reference = None
+        self.references = references  # Store full reference data
+        self.selected_reference = None  # Just the name string (for backward compatibility)
+        self.selected_reference_dict = None  # Full reference dict
 
         layout = QVBoxLayout(self)
 
@@ -184,7 +186,13 @@ class ReferenceBrowserDialog(QDialog):
             row = selected_rows[0].row()
             name_item = self.table.item(row, 0)
             if name_item:
-                self.selected_reference = name_item.text()
+                ref_name = name_item.text()
+                self.selected_reference = ref_name
+                # Find and store the full reference dict
+                self.selected_reference_dict = next(
+                    (ref for ref in self.references if ref["name"] == ref_name),
+                    None
+                )
                 self.accept()
 
     def on_double_click(self, item):
@@ -192,8 +200,23 @@ class ReferenceBrowserDialog(QDialog):
         row = item.row()
         name_item = self.table.item(row, 0)
         if name_item:
-            self.selected_reference = name_item.text()
+            ref_name = name_item.text()
+            self.selected_reference = ref_name
+            # Find and store the full reference dict
+            self.selected_reference_dict = next(
+                (ref for ref in self.references if ref["name"] == ref_name),
+                None
+            )
             self.accept()
+
+    def get_selected_reference(self):
+        """Get the selected reference as a dictionary
+
+        Returns:
+            dict: Selected reference with keys: name, length, read_count
+            None: If no reference selected
+        """
+        return self.selected_reference_dict
 
 
 class ExportDialog(QDialog):
