@@ -91,12 +91,27 @@ jobs:
         permissions:
             contents: write
         steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
             - name: Download macOS artifact
               uses: actions/download-artifact@v4
               with:
                   name: squiggy-macos
 
-            - name: Update latest release
+            - name: Delete old latest release and tag
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release delete latest --yes || true
+                  git push origin :refs/tags/latest || true
+
+            - name: Create new latest tag
+              run: |
+                  git tag -f latest
+                  git push -f origin latest
+
+            - name: Create latest release
               uses: softprops/action-gh-release@v1
               with:
                   tag_name: latest
