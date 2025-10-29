@@ -30,11 +30,14 @@ The codebase is organized as a standard Python package in `src/squiggy/`:
 src/squiggy/
 ├── __init__.py         # Package initialization with version info
 ├── main.py            # Entry point and CLI argument parsing
-├── viewer.py          # SquiggleViewer - Main QMainWindow GUI
+├── viewer.py          # SquiggleViewer - Main QMainWindow GUI (~2,200 lines)
+├── ui_components.py   # UI panel components (FileInfo, PlotOptions, Advanced, Search)
+├── widgets.py         # Reusable Qt widgets (CollapsibleBox, ReadTreeWidget)
+├── search.py          # SearchManager - Search operations (ID, region, sequence)
 ├── plotter_bokeh.py   # BokehSquigglePlotter - Interactive bokeh plotting
 ├── alignment.py       # Base annotation data structures (BaseAnnotation, AlignedRead)
 ├── normalization.py   # Signal normalization functions (z-norm, median, MAD)
-├── dialogs.py         # Custom dialog windows (About, Reference Browser, etc.)
+├── dialogs.py         # Custom dialog windows (About, Reference Browser, Export)
 ├── utils.py           # Utility functions (file I/O, data processing)
 └── constants.py       # Application constants and configuration
 
@@ -61,10 +64,34 @@ tests/data/
 **src/squiggy/viewer.py** - Main GUI window (SquiggleViewer):
 - File menu with "Open POD5 File" and "Open Sample Data" options
 - Three-panel layout: read list (left), plot display (center), controls (right)
-- Bottom search panel with three modes: Read ID, Reference Region, Sequence
-- CollapsibleBox widgets for organizing file info and plot settings
+- Coordinates UI panels and manages application state
 - QWebEngineView for displaying interactive Bokeh plots
 - Uses async methods (@qasync.asyncSlot) for non-blocking file I/O and plot generation
+- Refactored to **2,035 lines** (from 2,605) - **570 line reduction (21.9%)**
+- Delegates search operations to SearchManager, UI to component panels
+
+**src/squiggy/ui_components.py** - UI panel components:
+- FileInfoPanel: Displays POD5 file metadata (size, reads, sample rate)
+- PlotOptionsPanel: Plot mode selection, normalization, base annotations
+  - Signals: plot_mode_changed, normalization_changed, base_annotations_toggled
+- AdvancedOptionsPanel: Downsampling, dwell time, position labels
+  - Signals: downsample_changed, dwell_time_toggled, position_interval_changed
+- SearchPanel: Search mode selector and input controls
+  - Signals: search_mode_changed, search_requested, reference_browse_requested
+- All panels are QWidget subclasses that emit signals for viewer coordination
+
+**src/squiggy/widgets.py** - Reusable Qt widgets:
+- CollapsibleBox: Expandable/collapsible section widget with animated transitions
+- ReadTreeWidget: Tree widget for displaying reads grouped by reference
+  - Supports multi-selection, filtering, and region-based display
+  - Methods: populate_with_reads(), filter_by_read_id(), filter_by_region()
+
+**src/squiggy/search.py** - Search operations (SearchManager):
+- filter_by_read_id(): Real-time read ID filtering
+- filter_by_region(): Genomic region queries (requires BAM file)
+- search_sequence(): DNA motif search with reverse complement option
+- browse_references(): Get list of references from BAM file
+- All operations run async and display appropriate error dialogs
 
 **src/squiggy/plotter_bokeh.py** - Bokeh plotting engine (BokehSquigglePlotter):
 - Converts raw signal data into interactive Bokeh figures
@@ -88,7 +115,6 @@ tests/data/
 - AboutDialog: version and license information
 - ReferenceBrowserDialog: browsable table of reference sequences from BAM files
 - ExportDialog: format selection (HTML/PNG/SVG), dimension controls with aspect ratio lock, zoom-level export option
-- CollapsibleBox widget: reusable UI component for expandable sections
 
 **src/squiggy/utils.py** - Utility functions:
 - POD5 file reading and validation
@@ -409,10 +435,11 @@ git push origin v0.1.0
 
 ### Testing with Sample Data
 The repository includes sample data in `tests/data/`:
-- `mod_reads.pod5` - Small POD5 file with reads for quick testing
-- `mod_mappings.bam` - Corresponding BAM file with basecalls and alignments
-- Use these for development: `squiggy -p tests/data/mod_reads.pod5 -b tests/data/mod_mappings.bam`
+- `yeast_trna_reads.pod5` - POD5 file with 180 reads mapping to yeast tRNA genes (primary test data)
+- `yeast_trna_mappings.bam` - Corresponding BAM file with basecalls and alignments
+- Use these for development: `squiggy -p tests/data/yeast_trna_reads.pod5 -b tests/data/yeast_trna_mappings.bam`
 - To test event-aligned mode with base annotations: load files with `-p` and `-b` flags, select read, switch to EVENTALIGN mode
+- Legacy test data (`mod_reads.pod5` and `mod_mappings.bam`) is also available for testing base modification features
 
 ### Debugging Tips
 - **Qt issues**: Check Qt Designer documentation and PySide6 examples

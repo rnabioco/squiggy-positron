@@ -159,7 +159,7 @@ def get_sample_data_path():
     directory to allow the pod5 library to perform format migration if needed.
 
     Returns:
-        Path: Path to mod_reads.pod5 file (may be in temp directory)
+        Path: Path to yeast_trna_reads.pod5 file (may be in temp directory)
 
     Raises:
         FileNotFoundError: If sample data cannot be found
@@ -167,7 +167,7 @@ def get_sample_data_path():
     # Create temp directory for sample data
     temp_dir = Path(tempfile.gettempdir()) / "squiggy_data"
     temp_dir.mkdir(exist_ok=True)
-    temp_file = temp_dir / "mod_reads.pod5"
+    temp_file = temp_dir / "yeast_trna_reads.pod5"
 
     try:
         # Find the bundled sample data
@@ -178,7 +178,7 @@ def get_sample_data_path():
             import importlib.resources as resources
 
             files = resources.files("squiggy")
-            sample_path = files / "data" / "mod_reads.pod5"
+            sample_path = files / "data" / "yeast_trna_reads.pod5"
 
             # If it's a regular file path, use it directly as source
             if hasattr(sample_path, "as_posix"):
@@ -194,7 +194,7 @@ def get_sample_data_path():
             import pkg_resources
 
             sample_path = pkg_resources.resource_filename(
-                "squiggy", "data/mod_reads.pod5"
+                "squiggy", "data/yeast_trna_reads.pod5"
             )
             source_path = Path(sample_path)
 
@@ -223,12 +223,12 @@ def get_sample_data_path():
 
         # Last resort: look in package directory or development location
         package_dir = Path(__file__).parent
-        sample_path = package_dir / "data" / "mod_reads.pod5"
+        sample_path = package_dir / "data" / "yeast_trna_reads.pod5"
 
         # Try development location (tests/data relative to project root)
         if not sample_path.exists():
             project_root = package_dir.parent.parent
-            sample_path = project_root / "tests" / "data" / "mod_reads.pod5"
+            sample_path = project_root / "tests" / "data" / "yeast_trna_reads.pod5"
 
         if sample_path.exists():
             # Always copy when running from PyInstaller bundle
@@ -278,15 +278,15 @@ def get_sample_bam_path():
     writable temporary directory.
 
     Returns:
-        Path: Path to mod_mappings.bam file (may be in temp directory)
+        Path: Path to yeast_trna_mappings.bam file (may be in temp directory)
         Returns None if BAM file not found
 
     """
     # Create temp directory for sample data
     temp_dir = Path(tempfile.gettempdir()) / "squiggy_data"
     temp_dir.mkdir(exist_ok=True)
-    temp_bam = temp_dir / "mod_mappings.bam"
-    temp_bai = temp_dir / "mod_mappings.bam.bai"
+    temp_bam = temp_dir / "yeast_trna_mappings.bam"
+    temp_bai = temp_dir / "yeast_trna_mappings.bam.bai"
 
     try:
         # Find the bundled sample BAM file
@@ -298,8 +298,8 @@ def get_sample_bam_path():
             import importlib.resources as resources
 
             files = resources.files("squiggy")
-            sample_bam_path = files / "data" / "mod_mappings.bam"
-            sample_bai_path = files / "data" / "mod_mappings.bam.bai"
+            sample_bam_path = files / "data" / "yeast_trna_mappings.bam"
+            sample_bai_path = files / "data" / "yeast_trna_mappings.bam.bai"
 
             # If it's a regular file path, use it directly as source
             if hasattr(sample_bam_path, "as_posix"):
@@ -322,10 +322,10 @@ def get_sample_bam_path():
             import pkg_resources
 
             bam_path = pkg_resources.resource_filename(
-                "squiggy", "data/mod_mappings.bam"
+                "squiggy", "data/yeast_trna_mappings.bam"
             )
             bai_path = pkg_resources.resource_filename(
-                "squiggy", "data/mod_mappings.bam.bai"
+                "squiggy", "data/yeast_trna_mappings.bam.bai"
             )
             source_bam = Path(bam_path)
             source_bai = Path(bai_path)
@@ -362,14 +362,14 @@ def get_sample_bam_path():
 
         # Last resort: look in package directory or development location
         package_dir = Path(__file__).parent
-        sample_bam = package_dir / "data" / "mod_mappings.bam"
-        sample_bai = package_dir / "data" / "mod_mappings.bam.bai"
+        sample_bam = package_dir / "data" / "yeast_trna_mappings.bam"
+        sample_bai = package_dir / "data" / "yeast_trna_mappings.bam.bai"
 
         # Try development location (tests/data relative to project root)
         if not sample_bam.exists():
             project_root = package_dir.parent.parent
-            sample_bam = project_root / "tests" / "data" / "mod_mappings.bam"
-            sample_bai = project_root / "tests" / "data" / "mod_mappings.bam.bai"
+            sample_bam = project_root / "tests" / "data" / "yeast_trna_mappings.bam"
+            sample_bai = project_root / "tests" / "data" / "yeast_trna_mappings.bam.bai"
 
         if sample_bam.exists():
             # Always copy when running from PyInstaller bundle
@@ -650,6 +650,51 @@ def get_bam_references(bam_file):
     return references
 
 
+def get_read_to_reference_mapping(bam_file, pod5_read_ids):
+    """Get mapping of read IDs to their reference sequences from BAM file
+
+    Args:
+        bam_file: Path to BAM file
+        pod5_read_ids: Set or list of read IDs from POD5 file (to filter)
+
+    Returns:
+        dict: Mapping of read_id -> reference_name for aligned reads
+              Only includes reads that are in pod5_read_ids
+              Example: {"read1": "chr1", "read2": "chr1", "read3": "chr2"}
+
+    Note:
+        Unmapped reads and reads not in pod5_read_ids are excluded
+    """
+    if not bam_file or not Path(bam_file).exists():
+        return {}
+
+    read_to_ref = {}
+    pod5_read_set = set(pod5_read_ids)
+
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                # Skip unmapped reads
+                if read.is_unmapped:
+                    continue
+
+                read_id = read.query_name
+
+                # Only include reads that are in our POD5 file
+                if read_id not in pod5_read_set:
+                    continue
+
+                # Get reference name
+                ref_name = bam.get_reference_name(read.reference_id)
+                read_to_ref[read_id] = ref_name
+
+    except Exception:
+        # If there's an error reading BAM, return empty mapping
+        return {}
+
+    return read_to_ref
+
+
 def get_reads_in_region(bam_file, chromosome, start=None, end=None):
     """Query BAM file for reads aligning to a specific region
 
@@ -799,3 +844,289 @@ def get_reference_sequence_for_read(bam_file, read_id):
 
     except Exception as e:
         raise ValueError(f"Error extracting reference sequence: {str(e)}") from e
+
+
+def extract_reads_for_reference(
+    pod5_file, bam_file, reference_name, max_reads=100, random_sample=True
+):
+    """Extract signal and alignment data for reads mapping to a reference
+
+    Args:
+        pod5_file: Path to POD5 file
+        bam_file: Path to BAM file with alignments and move tables
+        reference_name: Name of reference sequence to extract reads from
+        max_reads: Maximum number of reads to return (will subsample if more available)
+        random_sample: If True, randomly sample reads; if False, take first N reads
+
+    Returns:
+        List of dicts with keys:
+            - read_id: Read identifier
+            - signal: Raw signal array
+            - sample_rate: Sampling rate
+            - reference_start: Start position on reference
+            - reference_end: End position on reference
+            - sequence: Basecalled sequence
+            - move_table: Move table array
+            - stride: Stride value from move table
+            - quality_scores: Per-base quality scores
+    """
+    import random
+
+    # First, get all reads that map to this reference from BAM
+    reads_info = []
+
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if read.is_unmapped:
+                    continue
+
+                # Check if read maps to the specified reference
+                ref_name = bam.get_reference_name(read.reference_id)
+                if ref_name != reference_name:
+                    continue
+
+                # Extract move table and quality scores
+                if not read.has_tag("mv"):
+                    continue
+
+                move_table = np.array(read.get_tag("mv"), dtype=np.uint8)
+                stride = int(move_table[0])
+                moves = move_table[1:]
+
+                # Get quality scores
+                quality_scores = np.array(read.query_qualities) if read.query_qualities else None
+
+                reads_info.append({
+                    "read_id": read.query_name,
+                    "reference_start": read.reference_start,
+                    "reference_end": read.reference_end,
+                    "sequence": read.query_sequence,
+                    "move_table": moves,
+                    "stride": stride,
+                    "quality_scores": quality_scores,
+                })
+
+        # Subsample if we have too many reads
+        if len(reads_info) > max_reads:
+            if random_sample:
+                reads_info = random.sample(reads_info, max_reads)
+            else:
+                reads_info = reads_info[:max_reads]
+
+        # Now extract signal data from POD5 for these reads
+        read_id_set = {r["read_id"] for r in reads_info}
+        signal_data = {}
+
+        with pod5.Reader(pod5_file) as reader:
+            for pod5_read in reader.reads():
+                read_id_str = str(pod5_read.read_id)
+                if read_id_str in read_id_set:
+                    signal_data[read_id_str] = {
+                        "signal": pod5_read.signal,
+                        "sample_rate": pod5_read.run_info.sample_rate,
+                    }
+                    if len(signal_data) == len(read_id_set):
+                        break
+
+        # Combine BAM and POD5 data
+        result = []
+        for read_info in reads_info:
+            read_id = read_info["read_id"]
+            if read_id in signal_data:
+                result.append({
+                    **read_info,
+                    **signal_data[read_id],
+                })
+
+        return result
+
+    except Exception as e:
+        raise ValueError(f"Error extracting reads for reference {reference_name}: {str(e)}") from e
+
+
+def calculate_aggregate_signal(reads_data, normalization_method):
+    """Calculate aggregate signal statistics aligned to reference positions
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+        normalization_method: Normalization method to apply to signals
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - mean_signal: Mean signal at each position
+            - std_signal: Standard deviation at each position
+            - median_signal: Median signal at each position
+            - coverage: Number of reads covering each position
+    """
+    from .normalization import normalize_signal
+
+    # Build a dict mapping reference positions to signal values
+    position_signals = {}
+
+    for read in reads_data:
+        # Normalize the signal
+        signal = normalize_signal(read["signal"], normalization_method)
+        stride = read["stride"]
+        moves = read["move_table"]
+        ref_start = read["reference_start"]
+
+        # Map signal to reference positions using move table
+        ref_pos = ref_start
+        sig_idx = 0
+
+        for move in moves:
+            if sig_idx < len(signal):
+                # Add signal value at this reference position
+                if ref_pos not in position_signals:
+                    position_signals[ref_pos] = []
+                position_signals[ref_pos].append(signal[sig_idx])
+
+            sig_idx += stride
+            if move == 1:
+                ref_pos += 1
+
+    # Calculate statistics for each position
+    positions = sorted(position_signals.keys())
+    mean_signals = []
+    std_signals = []
+    median_signals = []
+    coverages = []
+
+    for pos in positions:
+        values = np.array(position_signals[pos])
+        mean_signals.append(np.mean(values))
+        std_signals.append(np.std(values))
+        median_signals.append(np.median(values))
+        coverages.append(len(values))
+
+    return {
+        "positions": np.array(positions),
+        "mean_signal": np.array(mean_signals),
+        "std_signal": np.array(std_signals),
+        "median_signal": np.array(median_signals),
+        "coverage": np.array(coverages),
+    }
+
+
+def calculate_base_pileup(reads_data, bam_file=None, reference_name=None):
+    """Calculate IGV-style base pileup at each reference position
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+        bam_file: Optional path to BAM file (for extracting reference sequence)
+        reference_name: Optional reference name (for extracting reference sequence)
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - counts: Dict mapping each position to dict of base counts
+                     e.g., {pos: {'A': 10, 'C': 2, 'G': 5, 'T': 8}}
+            - reference_bases: Dict mapping position to reference base (if BAM provided)
+    """
+    position_bases = {}
+
+    for read in reads_data:
+        sequence = read["sequence"]
+        moves = read["move_table"]
+        ref_start = read["reference_start"]
+
+        # Map bases to reference positions using move table
+        ref_pos = ref_start
+        seq_idx = 0
+
+        for move in moves:
+            if move == 1:
+                if seq_idx < len(sequence):
+                    base = sequence[seq_idx].upper()
+                    if ref_pos not in position_bases:
+                        position_bases[ref_pos] = {}
+                    if base not in position_bases[ref_pos]:
+                        position_bases[ref_pos][base] = 0
+                    position_bases[ref_pos][base] += 1
+                    seq_idx += 1
+                ref_pos += 1
+
+    positions = sorted(position_bases.keys())
+
+    result = {
+        "positions": np.array(positions),
+        "counts": {pos: position_bases[pos] for pos in positions},
+    }
+
+    # Extract reference bases if BAM file is provided
+    if bam_file and reference_name and reads_data:
+        try:
+            # Get reference sequence from any read (they all map to same reference)
+            first_read = reads_data[0]
+            ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(bam_file, first_read["read_id"])
+
+            if ref_seq and ref_start is not None:
+                # Create dict mapping position to reference base
+                reference_bases = {}
+                for pos in positions:
+                    # Calculate index in reference sequence
+                    idx = pos - ref_start
+                    if 0 <= idx < len(ref_seq):
+                        reference_bases[pos] = ref_seq[idx].upper()
+
+                if reference_bases:
+                    result["reference_bases"] = reference_bases
+        except Exception:
+            # If we can't get reference sequence, just skip it
+            pass
+
+    return result
+
+
+def calculate_quality_by_position(reads_data):
+    """Calculate average quality scores at each reference position
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - mean_quality: Mean quality score at each position
+            - std_quality: Standard deviation of quality at each position
+    """
+    position_qualities = {}
+
+    for read in reads_data:
+        if read["quality_scores"] is None:
+            continue
+
+        quality_scores = read["quality_scores"]
+        moves = read["move_table"]
+        ref_start = read["reference_start"]
+
+        # Map quality scores to reference positions using move table
+        ref_pos = ref_start
+        seq_idx = 0
+
+        for move in moves:
+            if move == 1:
+                if seq_idx < len(quality_scores):
+                    qual = quality_scores[seq_idx]
+                    if ref_pos not in position_qualities:
+                        position_qualities[ref_pos] = []
+                    position_qualities[ref_pos].append(qual)
+                    seq_idx += 1
+                ref_pos += 1
+
+    positions = sorted(position_qualities.keys())
+    mean_qualities = []
+    std_qualities = []
+
+    for pos in positions:
+        values = np.array(position_qualities[pos])
+        mean_qualities.append(np.mean(values))
+        std_qualities.append(np.std(values))
+
+    return {
+        "positions": np.array(positions),
+        "mean_quality": np.array(mean_qualities),
+        "std_quality": np.array(std_qualities),
+    }

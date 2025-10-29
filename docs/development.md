@@ -47,7 +47,7 @@ pip install -e ".[macos]"  # macOS only
 python scripts/check_dev_env.py
 
 # Run with sample data
-squiggy -p tests/data/mod_reads.pod5 -b tests/data/mod_mappings.bam
+squiggy -p tests/data/yeast_trna_reads.pod5 -b tests/data/yeast_trna_mappings.bam
 ```
 
 ### Start Developing

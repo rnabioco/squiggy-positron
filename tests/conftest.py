@@ -15,10 +15,10 @@ def test_data_dir():
 def sample_pod5_file(test_data_dir):
     """Return the path to a sample POD5 file.
 
-    Uses mod_reads.pod5 as the standard test data file.
+    Uses yeast_trna_reads.pod5 as the standard test data file.
     """
-    # Use mod_reads.pod5 as the standard test file
-    pod5_path = test_data_dir / "mod_reads.pod5"
+    # Use yeast_trna_reads.pod5 as the standard test file
+    pod5_path = test_data_dir / "yeast_trna_reads.pod5"
     if pod5_path.exists():
         return pod5_path
 
@@ -35,10 +35,10 @@ def sample_pod5_file(test_data_dir):
 def sample_bam_file(test_data_dir):
     """Return the path to a sample BAM file.
 
-    Uses mod_mappings.bam as the standard test data file.
+    Uses yeast_trna_mappings.bam as the standard test data file.
     """
-    # Use mod_mappings.bam as the standard test file
-    bam_path = test_data_dir / "mod_mappings.bam"
+    # Use yeast_trna_mappings.bam as the standard test file
+    bam_path = test_data_dir / "yeast_trna_mappings.bam"
     if bam_path.exists():
         return bam_path
 
