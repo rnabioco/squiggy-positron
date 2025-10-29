@@ -4,7 +4,6 @@ import asyncio
 import time
 from pathlib import Path
 
-import pod5
 import qasync
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QAction
@@ -35,7 +34,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qt_material import apply_stylesheet
 
 from .constants import (
     APP_DESCRIPTION,
@@ -50,18 +48,6 @@ from .constants import (
     Theme,
 )
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
-from .plotter import SquigglePlotter
-from .utils import (
-    get_bam_references,
-    get_basecall_data,
-    get_reads_in_region,
-    get_sample_bam_path,
-    get_sample_data_path,
-    index_bam_file,
-    parse_region,
-    validate_bam_reads_in_pod5,
-    writable_working_directory,
-)
 
 
 class CollapsibleBox(QWidget):
@@ -965,6 +951,9 @@ class SquiggleViewer(QMainWindow):
 
     def apply_theme(self):
         """Apply the current theme using qt-material"""
+        # Lazy import theme application
+        from qt_material import apply_stylesheet
+
         # Use qt-material themes with compact density
         # density_scale: -2 (more compact) to 2 (more spacious)
         extra = {
@@ -1054,6 +1043,9 @@ class SquiggleViewer(QMainWindow):
     @qasync.asyncSlot()
     async def open_sample_data(self):
         """Open the bundled sample POD5 file and BAM file (async)"""
+        # Lazy import sample data utils
+        from .utils import get_sample_bam_path, get_sample_data_path
+
         try:
             sample_path = get_sample_data_path()
             if not sample_path.exists():
@@ -1107,6 +1099,11 @@ class SquiggleViewer(QMainWindow):
 
     def _load_read_ids_blocking(self):
         """Blocking function to load read IDs from POD5 file"""
+        # Lazy import pod5 only when needed (file operations)
+        import pod5
+
+        from .utils import writable_working_directory
+
         read_dict = {}
         with writable_working_directory():
             with pod5.Reader(self.pod5_file) as reader:
@@ -1201,6 +1198,9 @@ class SquiggleViewer(QMainWindow):
     @qasync.asyncSlot()
     async def open_bam_file(self):
         """Open and load a BAM file for base annotations (async with validation)"""
+        # Lazy import BAM utilities
+        from .utils import index_bam_file, validate_bam_reads_in_pod5
+
         # Check if POD5 file is loaded first
         if not self.pod5_file:
             QMessageBox.warning(
@@ -1436,6 +1436,9 @@ class SquiggleViewer(QMainWindow):
     @qasync.asyncSlot()
     async def filter_reads_by_region(self):
         """Filter reads based on genomic region query (requires BAM file)"""
+        # Lazy import region utilities
+        from .utils import get_reads_in_region, parse_region
+
         region_str = self.search_input.text().strip()
 
         if not region_str:
@@ -1525,6 +1528,9 @@ class SquiggleViewer(QMainWindow):
     @qasync.asyncSlot()
     async def browse_references(self):
         """Open dialog to browse available references in BAM file"""
+        # Lazy import BAM reference utilities
+        from .utils import get_bam_references
+
         if not self.bam_file:
             QMessageBox.warning(
                 self,
@@ -1790,6 +1796,12 @@ class SquiggleViewer(QMainWindow):
 
     def _generate_plot_blocking(self, read_id):
         """Blocking function to generate bokeh plot HTML"""
+        # Lazy imports for plotting (pod5, plotter, utils)
+        import pod5
+
+        from .plotter import SquigglePlotter
+        from .utils import get_basecall_data, writable_working_directory
+
         # Get signal data
         with writable_working_directory():
             with pod5.Reader(self.pod5_file) as reader:
@@ -1865,6 +1877,12 @@ class SquiggleViewer(QMainWindow):
 
     def _generate_multi_read_plot_blocking(self, read_ids):
         """Blocking function to generate multi-read bokeh plot HTML"""
+        # Lazy imports for plotting
+        import pod5
+
+        from .plotter import SquigglePlotter
+        from .utils import writable_working_directory
+
         reads_data = []
 
         # Collect signal data for all reads
@@ -1932,7 +1950,12 @@ class SquiggleViewer(QMainWindow):
 
     def _generate_eventalign_plot_blocking(self, read_ids):
         """Blocking function to generate event-aligned bokeh plot HTML"""
+        # Lazy imports for plotting and alignment
+        import pod5
+
         from .alignment import extract_alignment_from_bam
+        from .plotter import SquigglePlotter
+        from .utils import writable_working_directory
 
         reads_data = []
         aligned_reads = []

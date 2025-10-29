@@ -9,9 +9,7 @@ import qasync
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
-from qt_material import apply_stylesheet
 
-from squiggy.cli import export_plot
 from squiggy.constants import (
     APP_DESCRIPTION,
     APP_NAME,
@@ -19,8 +17,7 @@ from squiggy.constants import (
     NormalizationMethod,
     PlotMode,
 )
-from squiggy.utils import get_icon_path, validate_bam_reads_in_pod5
-from squiggy.viewer import SquiggleViewer
+from squiggy.utils import get_icon_path
 
 
 def set_macos_app_name():
@@ -40,6 +37,10 @@ def set_macos_app_name():
 
 async def main_async(app, viewer, args):
     """Async initialization for the application"""
+
+    # Lazy import validate_bam_reads_in_pod5 only when needed
+    from squiggy.utils import validate_bam_reads_in_pod5
+
     # Auto-load POD5 file if specified
     if args.pod5:
         # Convert to absolute path immediately to avoid issues with CWD changes
@@ -390,6 +391,9 @@ Version: {APP_VERSION}
 
     # Handle headless export mode (no GUI)
     if args.export:
+        # Lazy import export_plot only when needed (CLI mode)
+        from squiggy.cli import export_plot
+
         return export_plot(args)
 
     # Set macOS app name (must be done before creating QApplication)
@@ -405,20 +409,26 @@ Version: {APP_VERSION}
     if icon_path:
         app.setWindowIcon(QIcon(str(icon_path)))
 
-    # Apply qt-material theme based on CLI arg
-    extra = {"density_scale": "-2"}  # Maximum compactness
-    theme_name = "dark_amber.xml" if args.theme == "dark" else "light_amber.xml"
-    apply_stylesheet(app, theme=theme_name, extra=extra)
+    # Create main viewer window BEFORE applying theme for faster initial display
+    # Lazy import SquiggleViewer to defer pod5/pysam imports
+    from squiggy.viewer import SquiggleViewer
 
-    # Create main viewer window
     viewer = SquiggleViewer()
 
     # Set window icon (in addition to app icon)
     if icon_path:
         viewer.setWindowIcon(QIcon(str(icon_path)))
 
-    # Show window
+    # Show window BEFORE theme application for perceived faster startup
     viewer.show()
+
+    # Apply qt-material theme after window is shown for better perceived performance
+    # This allows the window to appear faster, then theme applies
+    from qt_material import apply_stylesheet
+
+    extra = {"density_scale": "-2"}  # Maximum compactness
+    theme_name = "dark_amber.xml" if args.theme == "dark" else "light_amber.xml"
+    apply_stylesheet(app, theme=theme_name, extra=extra)
 
     # Setup qasync event loop
     loop = qasync.QEventLoop(app)
