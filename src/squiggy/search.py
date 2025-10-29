@@ -132,9 +132,7 @@ class SearchManager:
             )
             return False, None
 
-    async def search_sequence(
-        self, bam_file, read_id, query_seq, include_revcomp=True
-    ):
+    async def search_sequence(self, bam_file, read_id, query_seq, include_revcomp=True):
         """
         Search for a DNA sequence in the reference
 
@@ -182,9 +180,8 @@ class SearchManager:
             )
 
             if not matches:
-                message = (
-                    f"No matches found for '{query_seq}'"
-                    + (" (or reverse complement)" if include_revcomp else "")
+                message = f"No matches found for '{query_seq}'" + (
+                    " (or reverse complement)" if include_revcomp else ""
                 )
                 return True, [], message
             else:

@@ -99,7 +99,14 @@ class FileInfoPanel(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.collapsible_box)
 
-    def update_info(self, filename="—", filesize="—", num_reads="—", sample_rate="—", total_samples="—"):
+    def update_info(
+        self,
+        filename="—",
+        filesize="—",
+        num_reads="—",
+        sample_rate="—",
+        total_samples="—",
+    ):
         """Update the file information display"""
         self.info_filename_label.setText(filename)
         self.info_filesize_label.setText(filesize)
@@ -141,7 +148,9 @@ class PlotOptionsPanel(QWidget):
             "Show event-aligned reads with base annotations (requires BAM file)"
         )
         self.mode_eventalign.toggled.connect(
-            lambda checked: self.plot_mode_changed.emit(PlotMode.EVENTALIGN) if checked else None
+            lambda checked: self.plot_mode_changed.emit(PlotMode.EVENTALIGN)
+            if checked
+            else None
         )
         self.mode_eventalign.setChecked(
             True
@@ -156,7 +165,9 @@ class PlotOptionsPanel(QWidget):
             "Show aggregate signal with base pileup and quality tracks (requires BAM file)"
         )
         self.mode_aggregate.toggled.connect(
-            lambda checked: self.plot_mode_changed.emit(PlotMode.AGGREGATE) if checked else None
+            lambda checked: self.plot_mode_changed.emit(PlotMode.AGGREGATE)
+            if checked
+            else None
         )
         self.mode_aggregate.setEnabled(False)  # Disabled until BAM file loaded
         self.mode_button_group.addButton(self.mode_aggregate)
@@ -167,7 +178,9 @@ class PlotOptionsPanel(QWidget):
             f"Overlay multiple reads on same axes (max {MAX_OVERLAY_READS})"
         )
         self.mode_overlay.toggled.connect(
-            lambda checked: self.plot_mode_changed.emit(PlotMode.OVERLAY) if checked else None
+            lambda checked: self.plot_mode_changed.emit(PlotMode.OVERLAY)
+            if checked
+            else None
         )
         self.mode_button_group.addButton(self.mode_overlay)
         content_layout.addWidget(self.mode_overlay)
@@ -175,7 +188,9 @@ class PlotOptionsPanel(QWidget):
         self.mode_stacked = QRadioButton("Stacked (squigualiser-style)")
         self.mode_stacked.setToolTip("Stack multiple reads vertically with offset")
         self.mode_stacked.toggled.connect(
-            lambda checked: self.plot_mode_changed.emit(PlotMode.STACKED) if checked else None
+            lambda checked: self.plot_mode_changed.emit(PlotMode.STACKED)
+            if checked
+            else None
         )
         self.mode_button_group.addButton(self.mode_stacked)
         content_layout.addWidget(self.mode_stacked)
@@ -184,7 +199,9 @@ class PlotOptionsPanel(QWidget):
         self.mode_single = QRadioButton("Single Read")
         self.mode_single.setToolTip("Display one read at a time")
         self.mode_single.toggled.connect(
-            lambda checked: self.plot_mode_changed.emit(PlotMode.SINGLE) if checked else None
+            lambda checked: self.plot_mode_changed.emit(PlotMode.SINGLE)
+            if checked
+            else None
         )
         self.mode_button_group.addButton(self.mode_single)
         content_layout.addWidget(self.mode_single)
@@ -488,7 +505,9 @@ class SearchPanel(QWidget):
 
         # Browse references button (for region search mode)
         self.browse_refs_button = QPushButton("Browse References...")
-        self.browse_refs_button.clicked.connect(lambda: self.reference_browse_requested.emit())
+        self.browse_refs_button.clicked.connect(
+            lambda: self.reference_browse_requested.emit()
+        )
         self.browse_refs_button.setEnabled(False)
         self.browse_refs_button.setVisible(False)  # Hidden by default
         self.browse_refs_button.setToolTip(

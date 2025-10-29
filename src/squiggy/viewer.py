@@ -11,28 +11,19 @@ from PySide6.QtGui import QAction
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QApplication,
-    QButtonGroup,
     QCheckBox,
-    QComboBox,
     QDialog,
     QFileDialog,
-    QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QRadioButton,
-    QScrollArea,
     QSizePolicy,
-    QSlider,
-    QSpinBox,
     QSplitter,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -44,9 +35,6 @@ from .constants import (
     DEFAULT_AGGREGATE_SAMPLE_SIZE,
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
-    MAX_AGGREGATE_SAMPLE_SIZE,
-    MAX_OVERLAY_READS,
-    MIN_AGGREGATE_SAMPLE_SIZE,
     PLOT_MIN_HEIGHT,
     PLOT_MIN_WIDTH,
     NormalizationMethod,
@@ -62,7 +50,6 @@ from .ui_components import (
     PlotOptionsPanel,
     SearchPanel,
 )
-from .widgets import CollapsibleBox, ReadTreeWidget
 from .utils import (
     calculate_aggregate_signal,
     calculate_base_pileup,
@@ -71,14 +58,13 @@ from .utils import (
     get_bam_references,
     get_basecall_data,
     get_read_to_reference_mapping,
-    get_reads_in_region,
     get_sample_bam_path,
     get_sample_data_path,
     index_bam_file,
-    parse_region,
     validate_bam_reads_in_pod5,
     writable_working_directory,
 )
+from .widgets import CollapsibleBox, ReadTreeWidget
 
 
 class SquiggleViewer(QMainWindow):
@@ -110,7 +96,9 @@ class SquiggleViewer(QMainWindow):
         )
         self.current_theme = Theme.DARK  # Default to dark theme
         self.selected_reference = None  # Selected reference for aggregate mode
-        self.max_aggregate_reads = DEFAULT_AGGREGATE_SAMPLE_SIZE  # Max reads for aggregate
+        self.max_aggregate_reads = (
+            DEFAULT_AGGREGATE_SAMPLE_SIZE  # Max reads for aggregate
+        )
 
         # Initialize search manager
         self.search_manager = SearchManager(self)
@@ -165,18 +153,26 @@ class SquiggleViewer(QMainWindow):
         # Create UI component panels
         self.plot_options_panel = PlotOptionsPanel()
         self.plot_options_panel.plot_mode_changed.connect(self.set_plot_mode)
-        self.plot_options_panel.normalization_changed.connect(self.set_normalization_method)
-        self.plot_options_panel.base_annotations_toggled.connect(self.toggle_base_annotations)
+        self.plot_options_panel.normalization_changed.connect(
+            self.set_normalization_method
+        )
+        self.plot_options_panel.base_annotations_toggled.connect(
+            self.toggle_base_annotations
+        )
         self.plot_options_panel.signal_points_toggled.connect(self.toggle_signal_points)
         left_panel_layout.addWidget(self.plot_options_panel)
 
         self.advanced_options_panel = AdvancedOptionsPanel()
-        self.advanced_options_panel.downsample_changed.connect(self.set_downsample_factor)
+        self.advanced_options_panel.downsample_changed.connect(
+            self.set_downsample_factor
+        )
         self.advanced_options_panel.dwell_time_toggled.connect(self.toggle_dwell_time)
         self.advanced_options_panel.position_interval_changed.connect(
             self.on_position_interval_changed
         )
-        self.advanced_options_panel.position_type_toggled.connect(self.toggle_position_type)
+        self.advanced_options_panel.position_type_toggled.connect(
+            self.toggle_position_type
+        )
         left_panel_layout.addWidget(self.advanced_options_panel)
 
         self.file_info_panel = FileInfoPanel()
@@ -207,7 +203,9 @@ class SquiggleViewer(QMainWindow):
         # Reference list widget (shown in aggregate mode)
         self.reference_list = QListWidget()
         self.reference_list.setSelectionMode(QListWidget.SingleSelection)
-        self.reference_list.itemSelectionChanged.connect(self.on_reference_selection_changed)
+        self.reference_list.itemSelectionChanged.connect(
+            self.on_reference_selection_changed
+        )
         self.reference_list.setVisible(False)  # Hidden by default
         right_panel_layout.addWidget(self.reference_list)
 
@@ -803,9 +801,7 @@ class SquiggleViewer(QMainWindow):
             if self.bam_file:
                 # Get read-to-reference mapping from BAM
                 read_to_ref = await asyncio.to_thread(
-                    get_read_to_reference_mapping,
-                    self.bam_file,
-                    list(read_dict.keys())
+                    get_read_to_reference_mapping, self.bam_file, list(read_dict.keys())
                 )
 
                 # Group reads by reference
@@ -889,7 +885,9 @@ class SquiggleViewer(QMainWindow):
             total_samples_str = f"{total_samples:,}"
 
             # Update panel
-            self.file_info_panel.update_info(filename, filesize, num_reads, sample_rate, total_samples_str)
+            self.file_info_panel.update_info(
+                filename, filesize, num_reads, sample_rate, total_samples_str
+            )
 
         except Exception:
             # If there's an error, just show error message
@@ -1012,7 +1010,8 @@ class SquiggleViewer(QMainWindow):
 
             # Filter out references with 0 reads
             references_with_reads = [
-                ref for ref in references
+                ref
+                for ref in references
                 if ref.get("read_count") is not None and ref["read_count"] > 0
             ]
 
@@ -1021,7 +1020,7 @@ class SquiggleViewer(QMainWindow):
                 display_text = f"{ref['name']} ({ref['read_count']} reads)"
                 item = QListWidgetItem(display_text)
                 # Store reference name as item data
-                item.setData(Qt.UserRole, ref['name'])
+                item.setData(Qt.UserRole, ref["name"])
                 # Store full reference dict
                 item.setData(Qt.UserRole + 1, ref)
                 self.reference_list.addItem(item)
@@ -1040,7 +1039,6 @@ class SquiggleViewer(QMainWindow):
         # Get the selected reference
         item = selected_items[0]
         ref_name = item.data(Qt.UserRole)
-        ref_dict = item.data(Qt.UserRole + 1)
 
         # Update selected reference
         self.selected_reference = ref_name
@@ -1054,7 +1052,7 @@ class SquiggleViewer(QMainWindow):
             QMessageBox.warning(
                 self,
                 "BAM File Required",
-                "Please load a BAM file before selecting a reference."
+                "Please load a BAM file before selecting a reference.",
             )
             return
 
@@ -1065,13 +1063,14 @@ class SquiggleViewer(QMainWindow):
                 QMessageBox.warning(
                     self,
                     "No References Found",
-                    "No reference sequences found in BAM file."
+                    "No reference sequences found in BAM file.",
                 )
                 return
 
             # Filter out references with 0 reads
             references_with_reads = [
-                ref for ref in references
+                ref
+                for ref in references
                 if ref.get("read_count") is not None and ref["read_count"] > 0
             ]
 
@@ -1079,7 +1078,7 @@ class SquiggleViewer(QMainWindow):
                 QMessageBox.warning(
                     self,
                     "No Reads Found",
-                    "No reference sequences with aligned reads found in BAM file."
+                    "No reference sequences with aligned reads found in BAM file.",
                 )
                 return
 
@@ -1099,9 +1098,7 @@ class SquiggleViewer(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to retrieve references:\n{str(e)}"
+                self, "Error", f"Failed to retrieve references:\n{str(e)}"
             )
 
     @qasync.asyncSlot()
@@ -1111,15 +1108,13 @@ class SquiggleViewer(QMainWindow):
             QMessageBox.warning(
                 self,
                 "No Reference Selected",
-                "Please select a reference sequence first."
+                "Please select a reference sequence first.",
             )
             return
 
         if not self.pod5_file or not self.bam_file:
             QMessageBox.warning(
-                self,
-                "Files Required",
-                "Please load both POD5 and BAM files."
+                self, "Files Required", "Please load both POD5 and BAM files."
             )
             return
 
@@ -1136,14 +1131,14 @@ class SquiggleViewer(QMainWindow):
                 self.bam_file,
                 self.selected_reference,
                 self.max_aggregate_reads,
-                random_sample=True
+                random_sample=True,
             )
 
             if not reads_data:
                 QMessageBox.warning(
                     self,
                     "No Reads Found",
-                    f"No reads found mapping to {self.selected_reference}"
+                    f"No reads found mapping to {self.selected_reference}",
                 )
                 return
 
@@ -1153,21 +1148,18 @@ class SquiggleViewer(QMainWindow):
 
             # Calculate statistics in background thread
             aggregate_stats = await asyncio.to_thread(
-                calculate_aggregate_signal,
-                reads_data,
-                self.normalization_method
+                calculate_aggregate_signal, reads_data, self.normalization_method
             )
 
             pileup_stats = await asyncio.to_thread(
                 calculate_base_pileup,
                 reads_data,
                 self.bam_file,
-                self.selected_reference
+                self.selected_reference,
             )
 
             quality_stats = await asyncio.to_thread(
-                calculate_quality_by_position,
-                reads_data
+                calculate_quality_by_position, reads_data
             )
 
             self.statusBar().showMessage("Generating aggregate plot...")
@@ -1181,7 +1173,7 @@ class SquiggleViewer(QMainWindow):
                 self.selected_reference,
                 len(reads_data),
                 self.normalization_method,
-                self.current_theme
+                self.current_theme,
             )
 
             # Store HTML and figure for export
@@ -1200,9 +1192,7 @@ class SquiggleViewer(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to generate aggregate plot:\n{str(e)}"
+                self, "Error", f"Failed to generate aggregate plot:\n{str(e)}"
             )
         finally:
             QApplication.restoreOverrideCursor()
@@ -1319,10 +1309,17 @@ class SquiggleViewer(QMainWindow):
         region_str = self.search_panel.get_search_text().strip()
 
         # Query BAM file for reads in region
-        self.statusBar().showMessage(f"Querying BAM for region {region_str}..." if region_str else "Ready")
+        self.statusBar().showMessage(
+            f"Querying BAM for region {region_str}..." if region_str else "Ready"
+        )
 
         # Use SearchManager to handle the search
-        success, visible_count, message, reads_in_region = await self.search_manager.filter_by_region(
+        (
+            success,
+            visible_count,
+            message,
+            reads_in_region,
+        ) = await self.search_manager.filter_by_region(
             self.bam_file, self.read_list, region_str
         )
 
