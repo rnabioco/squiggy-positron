@@ -162,42 +162,36 @@ Line length: 88 characters (Black-compatible)
 
 ### Local Development Builds
 
-To build standalone executables for testing:
+To build the macOS application for testing:
 
 ```bash
-# Install PyInstaller (using uv - recommended)
-uv pip install pyinstaller
+# Install development dependencies (includes PyInstaller)
+uv pip install -e ".[dev]"
 
-# Or using pip
-pip install pyinstaller
-
-# Build for your current platform (run from build/ directory)
+# Build for macOS (run from build/ directory)
 cd build
 pyinstaller squiggy.spec
 
-# Output will be in dist/ directory
+# Output will be in dist/Squiggy.app
 ```
 
-### Platform-Specific Packaging
+### Creating a DMG Installer
 
-For creating distributable packages:
+For creating a distributable DMG package:
 
 ```bash
 # macOS: Create DMG
 brew install create-dmg
 cd build
 pyinstaller squiggy.spec
-create-dmg --volname "Squiggy Installer" --app-drop-link 600 185 Squiggy-macos.dmg dist/Squiggy.app
-
-# Windows: Create ZIP
-cd build
-pyinstaller squiggy.spec
-Compress-Archive -Path dist/Squiggy.exe -DestinationPath Squiggy-windows-x64.zip
-
-# Linux: Create tarball
-cd build
-pyinstaller squiggy.spec
-tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
+create-dmg \
+  --volname "Squiggy Installer" \
+  --window-pos 200 120 \
+  --window-size 800 400 \
+  --icon-size 100 \
+  --app-drop-link 600 185 \
+  Squiggy-macos.dmg \
+  dist/Squiggy.app
 ```
 
 **Note:** The build process is automated via GitHub Actions for releases. See below for the release process.
@@ -207,10 +201,10 @@ tar -czf Squiggy-linux-x64.tar.gz -C dist Squiggy
 Releases are automated via GitHub Actions (`.github/workflows/build.yml`):
 
 - **Version Releases**: Triggered on version tags (e.g., `v0.1.0`)
-- **Development Builds**: Triggered on pushes to `main` branch (macOS only)
-- Builds executables for Windows, macOS, and Linux in parallel
-- Creates GitHub release with platform-specific installers attached
-- Release artifacts: `.zip` (Windows), `.dmg` (macOS), `.tar.gz` (Linux)
+- **Development Builds**: Triggered on pushes to `main` branch
+- Builds macOS .dmg installer
+- Creates GitHub release with installer attached
+- Release artifact: `.dmg` (macOS)
 
 ### Creating a Release
 
@@ -219,12 +213,12 @@ Releases are automated via GitHub Actions (`.github/workflows/build.yml`):
 3. Commit: `git commit -m "Bump version to 0.1.0"`
 4. Create tag: `git tag v0.1.0`
 5. Push tag: `git push origin v0.1.0`
-6. GitHub Actions will automatically build executables for all platforms
-7. A new release will be created with all platform binaries attached
+6. GitHub Actions will automatically build the macOS installer
+7. A new release will be created with the .dmg attached
 
 ### Development Builds
 
-Development builds are automatically created on every push to `main` and available under the ["latest" release tag](https://github.com/rnabioco/squiggy/releases/tag/latest). These builds include only macOS .dmg files for faster CI builds.
+Development builds are automatically created on every push to `main` and available under the ["latest" release tag](https://github.com/rnabioco/squiggy/releases/tag/latest).
 
 ## Common Development Tasks
 
@@ -269,7 +263,7 @@ Development builds are automatically created on every push to `main` and availab
 ### PyInstaller Build Issues
 - Update `build/squiggy.spec` `hiddenimports` for missing modules
 - Ensure data files are listed in `datas` parameter
-- Test builds on each platform (macOS, Windows, Linux)
+- Test builds on macOS before releasing
 
 ## Questions?
 
