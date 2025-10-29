@@ -10,8 +10,8 @@ APP_DESCRIPTION = "Nanopore Squiggle Viewer"
 # Window settings
 DEFAULT_WINDOW_WIDTH = 1200
 DEFAULT_WINDOW_HEIGHT = 800
-PLOT_MIN_WIDTH = 800
-PLOT_MIN_HEIGHT = 600
+PLOT_MIN_WIDTH = 200
+PLOT_MIN_HEIGHT = 150
 
 # Splitter proportions (read list : plot area)
 SPLITTER_RATIO = (1, 3)
