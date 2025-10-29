@@ -22,6 +22,7 @@ class BaseAnnotation:
     signal_end: int  # Signal sample end index
     genomic_pos: Optional[int] = None  # Genomic position (if aligned)
     quality: Optional[int] = None  # Base quality score
+    dwell_time_ms: Optional[float] = None  # Dwell time in milliseconds
 
 
 @dataclass
@@ -38,12 +39,15 @@ class AlignedRead:
     is_reverse: bool = False
 
 
-def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[AlignedRead]:
+def extract_alignment_from_bam(
+    bam_path: Path, read_id: str, sample_rate: Optional[int] = None
+) -> Optional[AlignedRead]:
     """Extract alignment information for a read from BAM file
 
     Args:
         bam_path: Path to BAM file
         read_id: Read identifier to search for
+        sample_rate: Sample rate from POD5 file (Hz) for dwell time calculation
 
     Returns:
         AlignedRead object or None if not found
@@ -52,7 +56,7 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[Aligned
         with pysam.AlignmentFile(str(bam_path), "rb", check_sq=False) as bam:
             for alignment in bam.fetch(until_eof=True):
                 if alignment.query_name == read_id:
-                    return _parse_alignment(alignment)
+                    return _parse_alignment(alignment, sample_rate)
     except Exception as e:
         console.print(
             f"[yellow]Warning:[/yellow] Error reading BAM file for {read_id}: {e}"
@@ -61,11 +65,14 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[Aligned
     return None
 
 
-def _parse_alignment(alignment) -> Optional[AlignedRead]:
+def _parse_alignment(
+    alignment, sample_rate: Optional[int] = None
+) -> Optional[AlignedRead]:
     """Parse a pysam AlignmentSegment into AlignedRead
 
     Args:
         alignment: pysam AlignmentSegment object
+        sample_rate: Sample rate from POD5 file (Hz) for dwell time calculation
 
     Returns:
         AlignedRead object or None if move table not available
@@ -118,6 +125,12 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
                 if alignment.query_qualities is not None:
                     quality = alignment.query_qualities[base_idx]
 
+                # Calculate dwell time if sample_rate is available
+                dwell_time_ms = None
+                if sample_rate is not None:
+                    dwell_samples = signal_end - signal_pos
+                    dwell_time_ms = (dwell_samples / sample_rate) * 1000
+
                 base = BaseAnnotation(
                     base=sequence[base_idx],
                     position=base_idx,
@@ -125,6 +138,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
                     signal_end=signal_end,
                     genomic_pos=genomic_pos,
                     quality=quality,
+                    dwell_time_ms=dwell_time_ms,
                 )
                 bases.append(base)
                 base_idx += 1

@@ -100,6 +100,7 @@ class SquigglePlotter:
         signal: np.ndarray,
         read_id: Optional[str] = None,
         base_labels: Optional[List[str]] = None,
+        dwell_times: Optional[List[float]] = None,
     ) -> ColumnDataSource:
         """Create a standard signal data source with common fields
 
@@ -108,6 +109,7 @@ class SquigglePlotter:
             signal: Y-axis signal values
             read_id: Optional read identifier (repeated for all samples)
             base_labels: Optional base labels for each sample
+            dwell_times: Optional dwell times in milliseconds for each sample
 
         Returns:
             ColumnDataSource with standardized fields
@@ -117,6 +119,8 @@ class SquigglePlotter:
             data["read_id"] = [read_id] * len(signal)
         if base_labels:
             data["base"] = base_labels
+        if dwell_times:
+            data["dwell"] = dwell_times
         return ColumnDataSource(data=data)
 
     @staticmethod
@@ -1160,6 +1164,7 @@ class SquigglePlotter:
                 x_tooltip,
                 ("Base", "@base"),
                 ("Signal", "@y{0.2f}"),
+                ("Dwell Time", "@dwell{0.2f} ms"),
             ],
         )
         SquigglePlotter._configure_legend(p)
@@ -1260,6 +1265,7 @@ class SquigglePlotter:
             signal_x = []
             signal_y = []
             signal_base_labels = []
+            signal_dwell_times = []
 
             if show_dwell_time:
                 # Use cumulative time for x-axis - spread samples evenly across each base's time duration
@@ -1278,6 +1284,13 @@ class SquigglePlotter:
                     dwell_samples = end_idx - start_idx
                     dwell_time = (dwell_samples / sample_rate) * 1000  # ms
 
+                    # Get dwell time from annotation if available, otherwise calculate
+                    dwell_time_value = (
+                        base_annotation.dwell_time_ms
+                        if base_annotation.dwell_time_ms is not None
+                        else dwell_time
+                    )
+
                     # Plot signal samples within this base's region (with downsampling)
                     for sample_offset in range(0, dwell_samples, downsample):
                         sample_idx = start_idx + sample_offset
@@ -1291,6 +1304,7 @@ class SquigglePlotter:
                             signal_x.append(cumulative_time + time_offset)
                             signal_y.append(signal[sample_idx])
                             signal_base_labels.append(base)
+                            signal_dwell_times.append(dwell_time_value)
 
                     cumulative_time += dwell_time
             else:
@@ -1307,6 +1321,13 @@ class SquigglePlotter:
 
                     num_samples = end_idx - start_idx
 
+                    # Calculate dwell time for this base (use annotation if available)
+                    if base_annotation.dwell_time_ms is not None:
+                        dwell_time_value = base_annotation.dwell_time_ms
+                    else:
+                        # Fallback: calculate from sample count
+                        dwell_time_value = (num_samples / sample_rate) * 1000
+
                     # Plot signal samples within this base's region (with downsampling)
                     for sample_offset in range(0, num_samples, downsample):
                         sample_idx = start_idx + sample_offset
@@ -1322,6 +1343,7 @@ class SquigglePlotter:
                             signal_x.append(i + position_offset)
                             signal_y.append(signal[sample_idx])
                             signal_base_labels.append(base)
+                            signal_dwell_times.append(dwell_time_value)
 
             # Create data source
             source = SquigglePlotter._create_signal_data_source(
@@ -1329,6 +1351,7 @@ class SquigglePlotter:
                 np.array(signal_y),
                 read_id,
                 signal_base_labels,
+                signal_dwell_times,
             )
 
             # Use theme-aware signal color for first read, then use multi-read colors

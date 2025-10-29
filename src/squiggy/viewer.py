@@ -1634,13 +1634,12 @@ class SquiggleViewer(QMainWindow):
                     read_id_str = str(r.read_id)
                     if read_id_str in read_ids:
                         # Get signal data
-                        reads_data.append(
-                            (read_id_str, r.signal, r.run_info.sample_rate)
-                        )
+                        sample_rate = r.run_info.sample_rate
+                        reads_data.append((read_id_str, r.signal, sample_rate))
 
                         # Get alignment info from BAM
                         aligned_read = extract_alignment_from_bam(
-                            self.bam_file, read_id_str
+                            self.bam_file, read_id_str, sample_rate
                         )
                         if aligned_read is None:
                             raise ValueError(
