@@ -42,6 +42,7 @@ cd squiggy
 git lfs pull
 
 # brew install uv
+# uv venv
 uv pip install -e .
 
 # Run the application
