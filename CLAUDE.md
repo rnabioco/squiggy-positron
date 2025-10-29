@@ -636,11 +636,39 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 - Show user-friendly error messages via Qt dialogs
 - Log errors for debugging (consider adding logging module)
 
+## GitHub Integration
+Working with Issues and PRs
+When discussing or working with GitHub issues and pull requests, always use the gh CLI tool for interaction:
+
+```
+# View PR details
+gh pr view 1234
+
+# View PR with comments
+gh pr view 1234 --comments
+
+# View PR diff
+gh pr diff 1234
+
+# View issue details
+gh issue view 1234
+
+# List current PRs
+gh pr list
+
+# List current issues
+gh issue list
+```
+
+This ensures consistent, scriptable access to GitHub data and integrates well with Claude Code workflows.
+
 ### Git Commit Messages
+
 - Use conventional commits format: `type(scope): description`
 - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Examples:
   - `feat(viewer): add export plot functionality`
   - `fix(plotter): correct signal normalization`
   - `docs: update installation instructions`
-- You should work hard to understand the coding patterns, ensuring maintainability and readability, and reducing the need for future refactoring
+
+
