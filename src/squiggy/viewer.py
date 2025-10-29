@@ -325,11 +325,18 @@ class SquiggleViewer(QMainWindow):
 
     def restore_plot_ranges(self):
         """Restore saved plot ranges via JavaScript after plot is loaded"""
-        if self.saved_x_range is None or self.saved_y_range is None:
+        if self.saved_x_range is None:
             return
 
         x_start, x_end = self.saved_x_range
-        y_start, y_end = self.saved_y_range
+
+        # Build JavaScript code to restore X-range (always) and Y-range (if available)
+        restore_y = ""
+        if self.saved_y_range is not None:
+            y_start, y_end = self.saved_y_range
+            restore_y = f"""
+                    plot.y_range.start = {y_start};
+                    plot.y_range.end = {y_end};"""
 
         js_code = f"""
         (function() {{
@@ -364,11 +371,9 @@ class SquiggleViewer(QMainWindow):
                         }}
                     }}
 
-                    // Restore the ranges
+                    // Restore the X-range (always)
                     plot.x_range.start = {x_start};
-                    plot.x_range.end = {x_end};
-                    plot.y_range.start = {y_start};
-                    plot.y_range.end = {y_end};
+                    plot.x_range.end = {x_end};{restore_y}
                 }}
             }} catch (e) {{
                 console.error('Error restoring plot ranges:', e);
@@ -488,6 +493,8 @@ class SquiggleViewer(QMainWindow):
         elif hasattr(self, "read_list") and self.read_list.selectedItems():
             # Save current zoom/pan state before regenerating
             self.save_plot_ranges()
+            # Clear Y-range to force auto-scaling when switching plot modes
+            self.saved_y_range = None
             # Small delay to allow JavaScript to execute
             asyncio.ensure_future(self.update_plot_with_delay())
 
