@@ -113,7 +113,9 @@ async def main_async(app, viewer, args):
                 viewer.mode_aggregate.setEnabled(True)  # Enable aggregate mode
                 viewer.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
                 viewer.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
-                viewer.position_type_checkbox.setEnabled(True)  # Enable reference positions
+                viewer.position_type_checkbox.setEnabled(
+                    True
+                )  # Enable reference positions
 
                 viewer.statusBar().showMessage(
                     f"Loaded and validated BAM file: {bam_path.name} "

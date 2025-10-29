@@ -82,9 +82,9 @@ class TestSignalAccuracy:
 
             plot_signal = np.array(signal_sources[0].data["signal"])
 
-            assert len(plot_signal) == len(
-                original_signal
-            ), f"Signal length mismatch: POD5 has {len(original_signal)}, plot has {len(plot_signal)}"
+            assert len(plot_signal) == len(original_signal), (
+                f"Signal length mismatch: POD5 has {len(original_signal)}, plot has {len(plot_signal)}"
+            )
 
     def test_single_read_time_axis_accuracy(self, sample_pod5_file):
         """Test that time axis values are calculated correctly from sample rate."""
@@ -287,11 +287,13 @@ class TestSignalAccuracy:
                     err_msg=f"Read {i} signal does not match in overlay plot",
                 )
 
-    def test_signal_with_base_annotations_accuracy(self, sample_pod5_file, sample_bam_file):
+    def test_signal_with_base_annotations_accuracy(
+        self, sample_pod5_file, sample_bam_file
+    ):
         """Test that signal accuracy is maintained when base annotations are added."""
+        from squiggy.constants import NormalizationMethod
         from squiggy.plotter import SquigglePlotter
         from squiggy.utils import get_basecall_data
-        from squiggy.constants import NormalizationMethod
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -323,7 +325,9 @@ class TestSignalAccuracy:
                     and "signal" in r.data_source.data
                 ]
 
-                assert len(signal_sources) > 0, "No signal data found with base annotations"
+                assert len(signal_sources) > 0, (
+                    "No signal data found with base annotations"
+                )
 
                 plot_signal = np.array(signal_sources[0].data["signal"])
 
@@ -372,7 +376,9 @@ class TestSignalAccuracy:
                     and "y" in r.data_source.data
                 ]
 
-                assert len(signal_sources) > 0, "No signal data found in event-aligned plot"
+                assert len(signal_sources) > 0, (
+                    "No signal data found in event-aligned plot"
+                )
 
                 plot_signal = np.array(signal_sources[0].data["y"])
 

@@ -104,7 +104,9 @@ class ReferenceBrowserDialog(QDialog):
         self.resize(600, 400)
 
         self.references = references  # Store full reference data
-        self.selected_reference = None  # Just the name string (for backward compatibility)
+        self.selected_reference = (
+            None  # Just the name string (for backward compatibility)
+        )
         self.selected_reference_dict = None  # Full reference dict
 
         layout = QVBoxLayout(self)
@@ -190,8 +192,7 @@ class ReferenceBrowserDialog(QDialog):
                 self.selected_reference = ref_name
                 # Find and store the full reference dict
                 self.selected_reference_dict = next(
-                    (ref for ref in self.references if ref["name"] == ref_name),
-                    None
+                    (ref for ref in self.references if ref["name"] == ref_name), None
                 )
                 self.accept()
 
@@ -204,8 +205,7 @@ class ReferenceBrowserDialog(QDialog):
             self.selected_reference = ref_name
             # Find and store the full reference dict
             self.selected_reference_dict = next(
-                (ref for ref in self.references if ref["name"] == ref_name),
-                None
+                (ref for ref in self.references if ref["name"] == ref_name), None
             )
             self.accept()
 

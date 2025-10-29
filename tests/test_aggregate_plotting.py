@@ -1,7 +1,5 @@
 """Tests for aggregate plotting functionality."""
 
-import pytest
-
 
 class TestAggregateDataExtraction:
     """Tests for extracting reads and calculating aggregate statistics."""
@@ -22,7 +20,7 @@ class TestAggregateDataExtraction:
             indexed_bam_file,
             ref_name,
             max_reads=10,
-            random_sample=True
+            random_sample=True,
         )
 
         # Verify we got some reads

@@ -12,7 +12,6 @@ from bokeh.models import (
     HoverTool,
     LabelSet,
     LinearColorMapper,
-    VBar,
     WheelZoomTool,
 )
 from bokeh.plotting import figure
@@ -1401,17 +1400,21 @@ class SquigglePlotter:
         lower = mean_signal - std_signal
 
         # Data source for signal
-        signal_source = ColumnDataSource(data={
-            "x": positions,
-            "mean": mean_signal,
-            "upper": upper,
-            "lower": lower,
-            "std": std_signal,
-            "coverage": coverage,
-        })
+        signal_source = ColumnDataSource(
+            data={
+                "x": positions,
+                "mean": mean_signal,
+                "upper": upper,
+                "lower": lower,
+                "std": std_signal,
+                "coverage": coverage,
+            }
+        )
 
         # Add confidence band (use theme-appropriate color)
-        band_color = "#56B4E9" if theme == Theme.LIGHT else "#0072B2"  # Light blue for light mode, darker blue for dark mode
+        band_color = (
+            "#56B4E9" if theme == Theme.LIGHT else "#0072B2"
+        )  # Light blue for light mode, darker blue for dark mode
         band = Band(
             base="x",
             lower="lower",
@@ -1556,7 +1559,9 @@ class SquigglePlotter:
                     ref_base = pileup_data["ref_base"][i]
                     if ref_base == base_type:
                         label_data["x"].append(pos)
-                        label_data["y"].append(1.05)  # Slightly above the top of the bar
+                        label_data["y"].append(
+                            1.05
+                        )  # Slightly above the top of the bar
                         label_data["text"].append(ref_base)
 
                 if label_data["x"]:
@@ -1589,14 +1594,18 @@ class SquigglePlotter:
         std_quality = quality_stats["std_quality"]
 
         # Data source for quality
-        quality_source = ColumnDataSource(data={
-            "x": quality_positions,
-            "mean_q": mean_quality,
-            "std_q": std_quality,
-        })
+        quality_source = ColumnDataSource(
+            data={
+                "x": quality_positions,
+                "mean_q": mean_quality,
+                "std_q": std_quality,
+            }
+        )
 
         # Add quality line (use theme-appropriate color)
-        quality_color = "#009E73" if theme == Theme.LIGHT else "#56B4E9"  # Green for light mode, blue for dark mode
+        quality_color = (
+            "#009E73" if theme == Theme.LIGHT else "#56B4E9"
+        )  # Green for light mode, blue for dark mode
         quality_line = p_quality.line(
             "x",
             "mean_q",

@@ -642,7 +642,11 @@ def get_bam_references(bam_file):
                         # If counting fails, leave as None
                         pass
 
-                references.append(ref_info)
+                # Only include references that have reads
+                # If read_count is None (no index), include it
+                # If read_count is 0, skip it
+                if ref_info["read_count"] is None or ref_info["read_count"] > 0:
+                    references.append(ref_info)
 
     except Exception as e:
         raise ValueError(f"Error reading BAM file: {str(e)}") from e
@@ -895,17 +899,21 @@ def extract_reads_for_reference(
                 moves = move_table[1:]
 
                 # Get quality scores
-                quality_scores = np.array(read.query_qualities) if read.query_qualities else None
+                quality_scores = (
+                    np.array(read.query_qualities) if read.query_qualities else None
+                )
 
-                reads_info.append({
-                    "read_id": read.query_name,
-                    "reference_start": read.reference_start,
-                    "reference_end": read.reference_end,
-                    "sequence": read.query_sequence,
-                    "move_table": moves,
-                    "stride": stride,
-                    "quality_scores": quality_scores,
-                })
+                reads_info.append(
+                    {
+                        "read_id": read.query_name,
+                        "reference_start": read.reference_start,
+                        "reference_end": read.reference_end,
+                        "sequence": read.query_sequence,
+                        "move_table": moves,
+                        "stride": stride,
+                        "quality_scores": quality_scores,
+                    }
+                )
 
         # Subsample if we have too many reads
         if len(reads_info) > max_reads:
@@ -934,15 +942,19 @@ def extract_reads_for_reference(
         for read_info in reads_info:
             read_id = read_info["read_id"]
             if read_id in signal_data:
-                result.append({
-                    **read_info,
-                    **signal_data[read_id],
-                })
+                result.append(
+                    {
+                        **read_info,
+                        **signal_data[read_id],
+                    }
+                )
 
         return result
 
     except Exception as e:
-        raise ValueError(f"Error extracting reads for reference {reference_name}: {str(e)}") from e
+        raise ValueError(
+            f"Error extracting reads for reference {reference_name}: {str(e)}"
+        ) from e
 
 
 def calculate_aggregate_signal(reads_data, normalization_method):
@@ -1060,7 +1072,9 @@ def calculate_base_pileup(reads_data, bam_file=None, reference_name=None):
         try:
             # Get reference sequence from any read (they all map to same reference)
             first_read = reads_data[0]
-            ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(bam_file, first_read["read_id"])
+            ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+                bam_file, first_read["read_id"]
+            )
 
             if ref_seq and ref_start is not None:
                 # Create dict mapping position to reference base

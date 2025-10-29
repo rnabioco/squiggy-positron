@@ -167,7 +167,10 @@ class ReadTreeWidget(QTreeWidget):
             if visible_children > 0:
                 total_children = ref_item.childCount()
                 if search_text:
-                    ref_item.setText(0, f"{reference_name} ({visible_children}/{total_children} reads)")
+                    ref_item.setText(
+                        0,
+                        f"{reference_name} ({visible_children}/{total_children} reads)",
+                    )
                 else:
                     ref_item.setText(0, f"{reference_name} ({total_children} reads)")
 
@@ -233,10 +236,11 @@ class ReadTreeWidget(QTreeWidget):
 
                     # Update item text to show alignment info
                     aln_info = reads_in_region_dict[read_id]
-                    child.setText(0,
+                    child.setText(
+                        0,
                         f"{read_id} [{aln_info['chromosome']}:"
                         f"{aln_info['start']}-{aln_info['end']} "
-                        f"{aln_info['strand']}]"
+                        f"{aln_info['strand']}]",
                     )
                 else:
                     child.setHidden(True)
@@ -247,6 +251,8 @@ class ReadTreeWidget(QTreeWidget):
             # Update count in reference label
             if visible_children > 0:
                 total_children = ref_item.childCount()
-                ref_item.setText(0, f"{reference_name} ({visible_children}/{total_children} reads)")
+                ref_item.setText(
+                    0, f"{reference_name} ({visible_children}/{total_children} reads)"
+                )
 
         return visible_count
