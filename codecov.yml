@@ -1,0 +1,63 @@
+# Codecov Configuration for Squiggy
+# https://docs.codecov.com/docs/codecovyml-reference
+
+# Coverage calculation settings
+coverage:
+  precision: 2  # Decimal places for coverage percentage
+  round: down   # Round coverage percentages down
+  range: 70..100  # Green at 100%, red at 70%
+
+  # Status checks that appear on PRs
+  status:
+    # Overall project coverage
+    project:
+      default:
+        target: auto  # Maintain current coverage level
+        threshold: 0%  # Don't fail if coverage stays same
+        informational: true  # Don't block PRs
+
+    # Coverage on changed code (patch)
+    patch:
+      default:
+        target: 70%  # Encourage good coverage on new code
+        threshold: 0%  # Don't fail, just inform
+        informational: true  # Don't block PRs
+
+# PR comment configuration
+comment:
+  layout: "header, diff, components, tree"
+  behavior: default  # Post new comment on each push
+  require_changes: false  # Always comment
+  require_base: false  # Comment even if base has no coverage
+  require_head: true  # Only comment if head has coverage
+
+# Paths to ignore in coverage calculation
+ignore:
+  - "tests/**/*"  # Don't measure coverage of test files
+  - "build/**/*"  # Don't measure build scripts
+  - "docs/**/*"   # Don't measure documentation
+  - "**/conftest.py"  # Don't measure pytest fixtures
+  - "setup.py"    # Don't measure setup script
+
+# Component-based coverage (optional - can expand later)
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+  individual_components:
+    - component_id: core
+      name: "Core Logic"
+      paths:
+        - src/squiggy/utils.py
+        - src/squiggy/alignment.py
+        - src/squiggy/normalization.py
+    - component_id: plotting
+      name: "Plotting"
+      paths:
+        - src/squiggy/plotter_bokeh.py
+    - component_id: gui
+      name: "GUI"
+      paths:
+        - src/squiggy/viewer.py
+        - src/squiggy/dialogs.py
