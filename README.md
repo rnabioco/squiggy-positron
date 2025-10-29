@@ -28,39 +28,21 @@ Squiggy is a cross-platform GUI application that allows you to visualize raw nan
 Download the latest release for your platform:
 
 - **macOS**: [Squiggy-macos.dmg](https://github.com/rnabioco/squiggy/releases/latest)
-- **Windows**: [Squiggy-windows-x64.zip](https://github.com/rnabioco/squiggy/releases/latest)
-- **Linux**: [Squiggy-linux-x64.tar.gz](https://github.com/rnabioco/squiggy/releases/latest)
 
 For the latest development build (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggy/releases/tag/latest).
 
 ### Option 2: Install from Source
 
 ```bash
-# Install Git LFS (if not already installed)
-# macOS
-brew install git-lfs
-
-# Ubuntu/Debian
-sudo apt-get install git-lfs
-
-# Windows (using chocolatey)
-choco install git-lfs
-
-# Initialize Git LFS
-git lfs install
-
-# Clone the repository
 git clone https://github.com/rnabioco/squiggy.git
 cd squiggy
 
-# Pull LFS files (test data)
+# brew install git-lfs
+# git lfs install
 git lfs pull
 
-# Install dependencies (using uv - recommended)
+# brew install uv
 uv pip install -e .
-
-# Or using pip
-pip install -e .
 
 # Run the application
 squiggy
@@ -70,7 +52,7 @@ squiggy
 
 ### Quick Start with Sample Data
 
-Squiggy comes with bundled sample data to help you get started:
+Squiggy comes with bundled sample data (yeast [aa-tRNA-seq](https://pubmed.ncbi.nlm.nih.gov/40835813/)) to help you get started:
 
 1. **Launch Squiggy**: Open the application
 2. **Open Sample Data**: Go to **File → Open Sample Data** (or press `Ctrl+Shift+O` / `Cmd+Shift+O`)
@@ -116,13 +98,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - The Python scientific computing community (NumPy, Pandas, Matplotlib ecosystems)
 - **[Remora](https://github.com/nanoporetech/remora)** - Oxford Nanopore's modified base calling and visualization toolkit
 - **[Squigualiser](https://github.com/hiruna72/squigualiser)** - Efficient nanopore signal visualization tool by Hiruna Samarakoon
-
-### Note on Implementation
-
-Squiggy's plotting and I/O functionality is independently implemented using standard scientific Python libraries (plotnine, pod5, pysam). While inspired by common nanopore visualization conventions, the implementation does not use or depend on ont-remora. This design choice was made to:
-- Avoid heavy dependencies (particularly PyTorch)
-- Maintain MIT license compatibility
-- Keep the application lightweight and focused on visualization
 
 ## Citation
 
