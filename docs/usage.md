@@ -41,6 +41,9 @@ Squiggy offers multiple visualization modes (expand **Plot Options** panel to ac
 - Best for examining individual read quality and characteristics
 - Shows time (seconds) on X-axis, raw signal (pA) on Y-axis
 
+![Single read plot showing raw nanopore signal with median normalization](images/single_read.png)
+*Figure: Single read visualization with median normalization*
+
 ### Overlay Mode
 - Displays multiple reads on the same axes
 - Best for comparing signal variation across reads
@@ -48,18 +51,32 @@ Squiggy offers multiple visualization modes (expand **Plot Options** panel to ac
 - Each read shown in a different color (colorblind-friendly palette)
 - Requires normalization for meaningful comparison
 
+![Overlay plot with three reads using z-score normalization](images/overlay_mode.png)
+*Figure: Overlay mode comparing three reads with z-score normalization*
+
 ### Stacked Mode (Squigualiser-style)
 - Displays multiple reads vertically offset
 - Best for visualizing patterns across multiple reads
 - Each read is vertically spaced for clarity
 - Great for seeing consensus signal behavior
 
+![Stacked plot with three reads vertically offset](images/stacked_mode.png)
+*Figure: Stacked mode showing three reads with vertical spacing*
+
 ### Event-Aligned Mode
 - Displays reads with base annotations (requires BAM file)
 - Shows bases with fixed width (one unit per base)
-- Colored bands indicate bases (A=green, C=blue, G=orange, T=red)
+- Colored bands indicate bases (A=orange, C=yellow, G=blue, T=orange)
 - Signal is averaged per base for cleaner visualization
 - Best for examining base-level signal characteristics
+
+![Event-aligned plot with colored base annotations overlaid on signal](images/eventalign_mode.png)
+*Figure: Event-aligned mode with base annotations showing base-to-signal alignment*
+
+The event-aligned mode also supports dwell time scaling, which adjusts the x-axis to reflect the actual time spent on each base:
+
+![Event-aligned plot with dwell time scaling](images/eventalign_dwell.png)
+*Figure: Event-aligned mode with dwell time scaling enabled*
 
 ## Signal Normalization
 
@@ -79,6 +96,13 @@ The squiggle plot shows:
 - **Line color**: Indicates different reads in multi-read modes
 
 Each peak and valley represents ionic current changes as DNA/RNA molecules pass through the nanopore.
+
+### Visualizing Signal Points
+
+You can enable the display of individual signal data points to see the discrete measurements:
+
+![Single read with signal points displayed](images/signal_points.png)
+*Figure: Signal visualization with individual data points shown (downsampled)*
 
 ## Exporting Plots
 
@@ -149,8 +173,8 @@ Squiggy supports POD5 files, which are the standard format for Oxford Nanopore r
 ## Troubleshooting
 
 **Application won't start**
-- On macOS: Check System Preferences → Security to allow the app
-- On Linux: Ensure the executable has run permissions (`chmod +x Squiggy`)
+- On macOS: Check System Preferences → Security & Privacy to allow the app
+- First launch may require right-clicking the app and selecting "Open"
 
 **Can't open POD5 file**
 - Verify the file is a valid POD5 format

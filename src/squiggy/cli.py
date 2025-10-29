@@ -170,13 +170,13 @@ def export_plot(args) -> int:
                     f.write(html)
             elif export_format == "png":
                 # Set figure dimensions for export
-                fig.plot_width = args.export_width
-                fig.plot_height = args.export_height
+                fig.width = args.export_width
+                fig.height = args.export_height
                 export_png(fig, filename=str(export_path))
             elif export_format == "svg":
                 # Set figure dimensions for export
-                fig.plot_width = args.export_width
-                fig.plot_height = args.export_height
+                fig.width = args.export_width
+                fig.height = args.export_height
                 svgs = export_svgs(fig, filename=str(export_path))
                 # export_svgs returns list of SVG strings, write first one
                 with open(export_path, "w") as f:

@@ -1,24 +1,14 @@
 # Installation
 
-## Standalone Executables (Recommended)
+## Standalone Application (Recommended)
 
-Download the pre-built executable for your platform from the [releases page](https://github.com/rnabioco/squiggy/releases):
-
-### Windows
-1. Download `Squiggy-windows-x64.zip`
-2. Extract the ZIP file
-3. Run `Squiggy.exe`
+Download the pre-built macOS application from the [releases page](https://github.com/rnabioco/squiggy/releases):
 
 ### macOS
 1. Download `Squiggy-macos.dmg`
 2. Open the DMG file
 3. Drag Squiggy to your Applications folder
-4. Launch from Applications (you may need to allow the app in System Preferences → Security)
-
-### Linux
-1. Download `Squiggy-linux-x64.tar.gz`
-2. Extract: `tar -xzf Squiggy-linux-x64.tar.gz`
-3. Run: `./Squiggy`
+4. Launch from Applications (you may need to allow the app in System Preferences → Security & Privacy)
 
 ## Install from Source
 
@@ -73,17 +63,26 @@ This installs `selenium` and `pillow`, which enable Bokeh's image export functio
 
 ## Building from Source
 
-To build standalone executables yourself:
+To build the macOS application yourself:
 
 ```bash
-# Install PyInstaller
-pip install pyinstaller
+# Install development dependencies (includes PyInstaller)
+uv pip install -e ".[dev]"
 
-# Build the executable
+# Build from the build directory
+cd build
 pyinstaller squiggy.spec
 
-# Output will be in dist/
-# - dist/Squiggy (Linux)
-# - dist/Squiggy.exe (Windows)
-# - dist/Squiggy.app (macOS)
+# Output will be in dist/Squiggy.app
+
+# Optional: Create a DMG installer
+brew install create-dmg
+create-dmg \
+  --volname "Squiggy Installer" \
+  --window-pos 200 120 \
+  --window-size 800 400 \
+  --icon-size 100 \
+  --app-drop-link 600 185 \
+  Squiggy-macos.dmg \
+  dist/Squiggy.app
 ```
