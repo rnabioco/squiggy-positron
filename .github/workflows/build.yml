@@ -13,20 +13,8 @@ env:
 
 jobs:
     build:
-        name: Build ${{ matrix.platform }}
-        runs-on: ${{ matrix.os }}
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - platform: macOS
-                      os: macos-latest
-                      artifact_name: squiggy-macos
-                      artifact_path: Squiggy-*.dmg
-                    - platform: Linux
-                      os: ubuntu-latest
-                      artifact_name: squiggy-linux
-                      artifact_path: Squiggy-*.tar.gz
+        name: Build macOS
+        runs-on: macos-latest
 
         steps:
             - uses: actions/checkout@v4
@@ -47,8 +35,7 @@ jobs:
             - name: Build with PyInstaller
               run: pyinstaller build/squiggy.spec
 
-            - name: Package (macOS)
-              if: runner.os == 'macOS'
+            - name: Package
               run: |
                   brew install create-dmg
                   create-dmg \
@@ -60,15 +47,11 @@ jobs:
                     "Squiggy-${{ env.VERSION }}-macos.dmg" \
                     "dist/Squiggy.app"
 
-            - name: Package (Linux)
-              if: runner.os == 'Linux'
-              run: tar -czf Squiggy-${{ env.VERSION }}-linux-x64.tar.gz -C dist Squiggy
-
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: ${{ matrix.artifact_name }}
-                  path: ${{ matrix.artifact_path }}
+                  name: squiggy-macos
+                  path: Squiggy-*.dmg
 
     release:
         needs: [build]
@@ -99,8 +82,7 @@ jobs:
                   gh release create ${{ env.VERSION }} \
                     --title "Squiggy ${{ env.VERSION }}" \
                     --notes-file release_body.md \
-                    squiggy-macos/Squiggy-*-macos.dmg \
-                    squiggy-linux/Squiggy-*-linux-x64.tar.gz
+                    squiggy-macos/Squiggy-*-macos.dmg
 
     release-latest:
         needs: [build]
