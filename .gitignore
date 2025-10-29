@@ -36,3 +36,6 @@ tests/data/sample.pod5
 tests/data/*.arrow
 tests/*.arrow
 *.arrow
+
+# mkdocs
+site/
