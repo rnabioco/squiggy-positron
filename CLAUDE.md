@@ -2,13 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**IMPORTANT**: Before working on UI code, read `.claude/ui-suggestions.md` for critical Qt/PySide6 patterns and best practices, especially regarding QCheckBox signal handling.
+## Communication Guidelines
+
+When working on this project, maintain clear and neutral communication:
+- Use professional, direct language as you would with a mid-level colleague
+- Carefully evaluate assertions and suggestions before accepting them
+- Respectfully push back when something seems incorrect or unclear
+- Avoid overly agreeable or sycophantic responses (e.g., "You're absolutely right")
+- Focus on technical accuracy and practical solutions
+- Ask clarifying questions when requirements are ambiguous
 
 ## Project Overview
 
 Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing data ("squiggle plots") from POD5 files. It's built as a standalone application that can be distributed as native executables for Windows, macOS, and Linux.
 
 The application supports optional base annotations overlaid on signal data when a BAM file with basecalls is provided.
+
+## 🚨 CRITICAL: modular suggestions for claude code
+
+**Essential workflows:**
+
+- **Working on UI code**: read `.claude/ui-suggestions.md` for critical Qt/PySide6
+  patterns and best practices.
 
 ## Architecture
 
@@ -34,7 +49,7 @@ src/squiggy/
 ├── ui_components.py   # UI panel components (FileInfo, PlotOptions, Advanced, Search)
 ├── widgets.py         # Reusable Qt widgets (CollapsibleBox, ReadTreeWidget)
 ├── search.py          # SearchManager - Search operations (ID, region, sequence)
-├── plotter_bokeh.py   # BokehSquigglePlotter - Interactive bokeh plotting
+├── plotter.py         # SquigglePlotter - Interactive bokeh plotting
 ├── alignment.py       # Base annotation data structures (BaseAnnotation, AlignedRead)
 ├── normalization.py   # Signal normalization functions (z-norm, median, MAD)
 ├── dialogs.py         # Custom dialog windows (About, Reference Browser, Export)
@@ -93,7 +108,7 @@ tests/data/
 - browse_references(): Get list of references from BAM file
 - All operations run async and display appropriate error dialogs
 
-**src/squiggy/plotter_bokeh.py** - Bokeh plotting engine (BokehSquigglePlotter):
+**src/squiggy/plotter.py** - Bokeh plotting engine (SquigglePlotter):
 - Converts raw signal data into interactive Bokeh figures
 - Four plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN
 - Interactive features: zoom, pan, reset, hover tooltips, base annotation toggle
@@ -148,7 +163,7 @@ tests/data/
 **Read Visualization:**
 1. User selects read(s) from list (supports multi-select with Ctrl/Cmd/Shift)
 2. `utils.py` extracts signal data and metadata for selected read(s)
-3. Signal data passed to `plotter_bokeh.py` BokehSquigglePlotter
+3. Signal data passed to `plotter.py` SquigglePlotter
 4. Signal normalized using selected method (NONE, ZNORM, MEDIAN, or MAD)
 5. Bokeh generates interactive figure with zoom/pan tools and hover tooltips
 6. HTML with embedded JavaScript generated via `file_html()` with CDN resources
@@ -232,7 +247,7 @@ uv run pytest tests/
 uv run pytest -v tests/
 
 # Run specific test file
-uv run pytest tests/test_bokeh_plotting.py
+uv run pytest tests/test_plotting.py
 
 # Run with coverage report
 uv run pytest --cov=squiggy tests/
@@ -444,7 +459,7 @@ The repository includes sample data in `tests/data/`:
 ### Debugging Tips
 - **Qt issues**: Check Qt Designer documentation and PySide6 examples
 - **Async issues**: Ensure all blocking I/O is wrapped in `asyncio.to_thread()`
-- **Plot issues**: Test plotting functions independently in `plotter_bokeh.py`
+- **Plot issues**: Test plotting functions independently in `plotter.py`
 - **BAM parsing**: Use `pysam.AlignmentFile(..., check_sq=False)` to avoid header issues
 - **POD5 files**: Always use context managers to ensure proper cleanup
 - **Bokeh JavaScript**: Use browser dev tools to debug Bokeh interactions - QWebEngineView uses Chromium
@@ -492,7 +507,7 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 - Uses `utils.py:reverse_complement()` for reverse complement searches
 
 ### Making Changes to Plotting
-- Main plotting logic is in `plotter_bokeh.py` using Bokeh for interactive plots
+- Main plotting logic is in `plotter.py` using Bokeh for interactive plots
 - Four plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN (defined in `constants.py`)
 - Plots are generated as Bokeh figure objects, converted to HTML with `file_html()`
 - HTML loaded into QWebEngineView via `setHtml()` for interactive display
@@ -599,7 +614,7 @@ The sequence search feature (`viewer.py:1208-1440`) allows finding DNA motifs in
 
 ### Code Organization
 - Keep modules focused and single-purpose
-- Separate GUI code (`viewer.py`, `dialogs.py`) from logic (`plotter_bokeh.py`, `utils.py`)
+- Separate GUI code (`viewer.py`, `dialogs.py`) from logic (`plotter.py`, `utils.py`)
 - Separate data structures (`alignment.py`) from algorithms (`normalization.py`)
 - Put constants and configuration in `constants.py`
 - Use type hints for function signatures (Python 3.8+ compatible)
