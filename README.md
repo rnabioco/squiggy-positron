@@ -46,7 +46,7 @@ git lfs pull
 uv pip install -e .
 
 # Run the application
-squiggy
+uv run squiggy
 ```
 
 ## Usage
