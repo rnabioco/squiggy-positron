@@ -105,17 +105,16 @@ async def main_async(app, viewer, args):
                 viewer.bam_file = bam_path
                 viewer.bam_label.setText(bam_path.name)
 
-                # Enable BAM-dependent features
-                viewer.base_checkbox.setEnabled(True)
-                viewer.base_checkbox.setChecked(True)  # Check by default
-                viewer.mode_eventalign.setEnabled(True)
-                viewer.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
-                viewer.mode_aggregate.setEnabled(True)  # Enable aggregate mode
+                # Enable BAM-dependent features using panel methods
+                viewer.plot_options_panel.set_bam_controls_enabled(True)
+                viewer.plot_options_panel.set_plot_mode(PlotMode.EVENTALIGN)
                 viewer.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
-                viewer.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
-                viewer.position_type_checkbox.setEnabled(
-                    True
-                )  # Enable reference positions
+                viewer.advanced_options_panel.set_dwell_time_enabled(True)
+                viewer.advanced_options_panel.set_position_type_enabled(True)
+
+                # Enable browse references button if in region search mode
+                if viewer.search_panel.get_search_mode() == "region":
+                    viewer.search_panel.set_browse_enabled(True)
 
                 viewer.statusBar().showMessage(
                     f"Loaded and validated BAM file: {bam_path.name} "
@@ -133,7 +132,7 @@ async def main_async(app, viewer, args):
 
     # Apply CLI settings to viewer
     if args.pod5:  # Only apply settings if files are loaded
-        # Set normalization method
+        # Set normalization method using panel
         norm_map = {
             "none": (0, NormalizationMethod.NONE),
             "znorm": (1, NormalizationMethod.ZNORM),
@@ -142,56 +141,57 @@ async def main_async(app, viewer, args):
         }
         if args.normalization in norm_map:
             idx, method = norm_map[args.normalization]
-            viewer.norm_combo.setCurrentIndex(idx)
+            viewer.plot_options_panel.norm_combo.setCurrentIndex(idx)
             viewer.normalization_method = method
 
-        # Set plot mode (if specified or default based on BAM)
+        # Set plot mode (if specified or default based on BAM) using panel method
         if args.mode:
             mode_map = {
-                "single": (viewer.mode_single, PlotMode.SINGLE),
-                "overlay": (viewer.mode_overlay, PlotMode.OVERLAY),
-                "stacked": (viewer.mode_stacked, PlotMode.STACKED),
-                "eventalign": (viewer.mode_eventalign, PlotMode.EVENTALIGN),
+                "single": PlotMode.SINGLE,
+                "overlay": PlotMode.OVERLAY,
+                "stacked": PlotMode.STACKED,
+                "eventalign": PlotMode.EVENTALIGN,
             }
             if args.mode in mode_map:
-                radio, mode = mode_map[args.mode]
-                if radio.isEnabled():  # Check if mode is available
-                    radio.setChecked(True)
-                    viewer.plot_mode = mode
+                mode = mode_map[args.mode]
+                viewer.plot_options_panel.set_plot_mode(mode)
+                viewer.plot_mode = mode
         elif args.bam:
             # Default to eventalign if BAM provided and no mode specified
-            viewer.mode_eventalign.setChecked(True)
+            viewer.plot_options_panel.set_plot_mode(PlotMode.EVENTALIGN)
             viewer.plot_mode = PlotMode.EVENTALIGN
 
-        # Set base annotations visibility
+        # Set base annotations visibility using panel
         if args.no_show_bases:
-            viewer.base_checkbox.setChecked(False)
+            viewer.plot_options_panel.base_checkbox.setChecked(False)
         elif args.show_bases:
-            viewer.base_checkbox.setChecked(True)
+            viewer.plot_options_panel.base_checkbox.setChecked(True)
         elif args.bam and not args.mode:
             # Default to showing bases if BAM loaded
-            viewer.base_checkbox.setChecked(True)
+            viewer.plot_options_panel.base_checkbox.setChecked(True)
 
-        # Set signal points visibility
+        # Set signal points visibility using panel
         if args.show_points:
-            viewer.points_checkbox.setChecked(True)
+            viewer.plot_options_panel.points_checkbox.setChecked(True)
 
-        # Set dwell time scaling
+        # Set dwell time scaling using advanced panel
         if args.dwell_time:
-            if viewer.dwell_time_checkbox.isEnabled():
-                viewer.dwell_time_checkbox.setChecked(True)
+            if viewer.advanced_options_panel.dwell_time_checkbox.isEnabled():
+                viewer.advanced_options_panel.dwell_time_checkbox.setChecked(True)
 
-        # Set downsample factor
-        viewer.downsample_slider.setValue(args.downsample)
-        viewer.downsample_spinbox.setValue(args.downsample)
+        # Set downsample factor using advanced panel
+        viewer.advanced_options_panel.downsample_slider.setValue(args.downsample)
+        viewer.advanced_options_panel.downsample_spinbox.setValue(args.downsample)
 
-        # Set position label interval
-        viewer.position_interval_spinbox.setValue(args.position_interval)
+        # Set position label interval using advanced panel
+        viewer.advanced_options_panel.position_interval_spinbox.setValue(
+            args.position_interval
+        )
 
-        # Set reference positions
+        # Set reference positions using advanced panel
         if args.reference_positions:
-            if viewer.position_type_checkbox.isEnabled():
-                viewer.position_type_checkbox.setChecked(True)
+            if viewer.advanced_options_panel.position_type_checkbox.isEnabled():
+                viewer.advanced_options_panel.position_type_checkbox.setChecked(True)
 
     # Auto-select and display read(s) if specified
     if args.read_id and viewer.pod5_file:

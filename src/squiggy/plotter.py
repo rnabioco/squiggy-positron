@@ -1,7 +1,5 @@
 """Plotting for nanopore squiggle visualization"""
 
-from typing import List, Optional, Tuple
-
 import numpy as np
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
@@ -74,8 +72,8 @@ class SquigglePlotter:
         signal: np.ndarray,
         normalization: NormalizationMethod,
         downsample: int = 1,
-        seq_to_sig_map: Optional[List[int]] = None,
-    ) -> Tuple[np.ndarray, Optional[List[int]]]:
+        seq_to_sig_map: list[int] | None = None,
+    ) -> tuple[np.ndarray, list[int] | None]:
         """Process signal: normalize and optionally downsample
 
         Args:
@@ -98,8 +96,8 @@ class SquigglePlotter:
     def _create_signal_data_source(
         x: np.ndarray,
         signal: np.ndarray,
-        read_id: Optional[str] = None,
-        base_labels: Optional[List[str]] = None,
+        read_id: str | None = None,
+        base_labels: list[str] | None = None,
     ) -> ColumnDataSource:
         """Create a standard signal data source with common fields
 
@@ -120,7 +118,7 @@ class SquigglePlotter:
         return ColumnDataSource(data=data)
 
     @staticmethod
-    def _add_hover_tool(p, renderers: List, tooltip_fields: List[Tuple[str, str]]):
+    def _add_hover_tool(p, renderers: list, tooltip_fields: list[tuple[str, str]]):
         """Add a hover tool with specified tooltips
 
         Args:
@@ -149,12 +147,12 @@ class SquigglePlotter:
         source: ColumnDataSource,
         color: str,
         show_signal_points: bool = False,
-        legend_label: Optional[str] = None,
+        legend_label: str | None = None,
         x_field: str = "x",
         y_field: str = "y",
         line_width: int = 1,
         alpha: float = 0.8,
-    ) -> List:
+    ) -> list:
         """Add signal line and optional scatter points
 
         Args:
@@ -265,7 +263,7 @@ class SquigglePlotter:
     @staticmethod
     def _format_plot_title(
         mode_name: str,
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod = None,
         downsample: int = 1,
     ) -> str:
@@ -281,7 +279,7 @@ class SquigglePlotter:
 
     @staticmethod
     def _format_html_title(
-        mode_name: str, reads_data: List[Tuple[str, np.ndarray, int]]
+        mode_name: str, reads_data: list[tuple[str, np.ndarray, int]]
     ) -> str:
         """Generate a consistent HTML title"""
         if len(reads_data) == 1:
@@ -292,7 +290,7 @@ class SquigglePlotter:
     @staticmethod
     def _calculate_base_regions_time_mode(
         sequence: str,
-        seq_to_sig_map: List[int],
+        seq_to_sig_map: list[int],
         time_ms: np.ndarray,
         signal: np.ndarray,
         signal_min: float,
@@ -407,7 +405,7 @@ class SquigglePlotter:
 
     @staticmethod
     def _calculate_base_regions_position_mode(
-        base_annotations: List,
+        base_annotations: list,
         signal_min: float,
         signal_max: float,
         sample_rate: int,
@@ -476,7 +474,7 @@ class SquigglePlotter:
 
     @staticmethod
     def _add_dwell_time_patches(
-        p, all_regions: List[dict], all_dwell_times: List[float]
+        p, all_regions: list[dict], all_dwell_times: list[float]
     ):
         """Add background patches colored by dwell time"""
         if not all_regions:
@@ -573,7 +571,7 @@ class SquigglePlotter:
     @staticmethod
     def _add_base_labels_position_mode(
         p,
-        base_annotations: List,
+        base_annotations: list,
         signal_max: float,
         show_dwell_time: bool,
         base_colors: dict,
@@ -707,7 +705,7 @@ class SquigglePlotter:
     @staticmethod
     def _add_simple_labels(
         p,
-        base_sources: List[Tuple[str, ColumnDataSource]],
+        base_sources: list[tuple[str, ColumnDataSource]],
         base_colors: dict,
         theme: Theme = Theme.LIGHT,
     ):
@@ -737,8 +735,8 @@ class SquigglePlotter:
         signal: np.ndarray,
         read_id: str,
         sample_rate: int,
-        sequence: Optional[str] = None,
-        seq_to_sig_map: Optional[List[int]] = None,
+        sequence: str | None = None,
+        seq_to_sig_map: list[int] | None = None,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
         downsample: int = 1,
         show_dwell_time: bool = False,
@@ -747,7 +745,7 @@ class SquigglePlotter:
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
-    ) -> Tuple[str, figure]:
+    ) -> tuple[str, figure]:
         """
         Plot a single nanopore read with optional base annotations
 
@@ -848,8 +846,8 @@ class SquigglePlotter:
         p,
         signal: np.ndarray,
         time_ms: np.ndarray,
-        sequence: Optional[str],
-        seq_to_sig_map: Optional[List[int]],
+        sequence: str | None,
+        seq_to_sig_map: list[int] | None,
         sample_rate: int,
         show_dwell_time: bool,
         show_labels: bool,
@@ -924,10 +922,10 @@ class SquigglePlotter:
 
     @staticmethod
     def plot_multiple_reads(
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         mode: PlotMode,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
-        aligned_reads: Optional[List] = None,
+        aligned_reads: list | None = None,
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
@@ -935,7 +933,7 @@ class SquigglePlotter:
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
-    ) -> Tuple[str, figure]:
+    ) -> tuple[str, figure]:
         """
         Plot multiple reads in overlay or stacked mode
 
@@ -981,12 +979,12 @@ class SquigglePlotter:
 
     @staticmethod
     def _plot_overlay(
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
         show_signal_points: bool = False,
         theme: Theme = Theme.LIGHT,
-    ) -> Tuple[str, figure]:
+    ) -> tuple[str, figure]:
         """Plot multiple reads overlaid on same axes"""
         # Create figure with status information
         title = SquigglePlotter._format_plot_title(
@@ -1035,12 +1033,12 @@ class SquigglePlotter:
 
     @staticmethod
     def _plot_stacked(
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
         downsample: int = 1,
         show_signal_points: bool = False,
         theme: Theme = Theme.LIGHT,
-    ) -> Tuple[str, figure]:
+    ) -> tuple[str, figure]:
         """Plot multiple reads stacked vertically with offset"""
         # Create figure with status information
         title = SquigglePlotter._format_plot_title(
@@ -1096,9 +1094,9 @@ class SquigglePlotter:
 
     @staticmethod
     def _plot_eventalign(
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
-        aligned_reads: Optional[List],
+        aligned_reads: list | None,
         downsample: int = 1,
         show_dwell_time: bool = False,
         show_labels: bool = True,
@@ -1106,7 +1104,7 @@ class SquigglePlotter:
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
-    ) -> Tuple[str, figure]:
+    ) -> tuple[str, figure]:
         """Plot event-aligned reads with base annotations"""
         if not aligned_reads:
             raise ValueError("Event-aligned mode requires aligned_reads data")
@@ -1172,9 +1170,9 @@ class SquigglePlotter:
     @staticmethod
     def _add_base_annotations_eventalign(
         p,
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
-        aligned_reads: List,
+        aligned_reads: list,
         show_dwell_time: bool,
         show_labels: bool,
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
@@ -1234,9 +1232,9 @@ class SquigglePlotter:
     @staticmethod
     def _plot_eventalign_signals(
         p,
-        reads_data: List[Tuple[str, np.ndarray, int]],
+        reads_data: list[tuple[str, np.ndarray, int]],
         normalization: NormalizationMethod,
-        aligned_reads: List,
+        aligned_reads: list,
         show_dwell_time: bool = False,
         downsample: int = 1,
         show_signal_points: bool = False,
@@ -1361,7 +1359,7 @@ class SquigglePlotter:
         num_reads: int,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
         theme: Theme = Theme.LIGHT,
-    ) -> Tuple[str, object]:
+    ) -> tuple[str, object]:
         """Plot aggregate multi-read visualization with three synchronized tracks
 
         Args:
