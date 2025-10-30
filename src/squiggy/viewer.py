@@ -1830,8 +1830,9 @@ class SquiggleViewer(QMainWindow):
             unique_url = QUrl(f"http://localhost/{time.time()}")
             self._display_html_in_plot_view(html, unique_url)
 
-            # Restore zoom/pan state if available
-            self.restore_plot_ranges()
+            # Note: Skip restore_plot_ranges() for dual-view mode
+            # Dual-view uses gridplot with synchronized panels, not a single figure
+            # Range restoration would fail on gridplot structure
 
             # Build status message
             self.statusBar().showMessage(
