@@ -10,7 +10,6 @@ class TestBokehHTMLOutput:
     def test_plot_single_read_returns_html(self, sample_pod5_file):
         """Test that plot_single_read returns an HTML string and figure."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -31,7 +30,6 @@ class TestBokehHTMLOutput:
     def test_html_contains_bokeh_elements(self, sample_pod5_file):
         """Test that generated HTML contains Bokeh JavaScript and structure."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -59,7 +57,6 @@ class TestSingleReadPlotting:
     def test_plot_single_read_basic(self, sample_pod5_file):
         """Test basic single read plot without annotations."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -81,8 +78,8 @@ class TestSingleReadPlotting:
     def test_plot_single_read_with_bases(self, sample_pod5_file, sample_bam_file):
         """Test single read plot with base annotations from BAM."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
+
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -112,8 +109,8 @@ class TestSingleReadPlotting:
     def test_plot_single_read_dwell_time(self, sample_pod5_file, sample_bam_file):
         """Test single read plot with dwell time coloring enabled."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
+
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -143,8 +140,8 @@ class TestSingleReadPlotting:
     def test_plot_single_read_with_labels(self, sample_pod5_file, sample_bam_file):
         """Test single read plot with base labels shown."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
+
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -188,8 +185,9 @@ class TestSignalNormalization:
 
     def test_normalize_signal_znorm(self):
         """Test Z-score normalization (mean=0, std=1)."""
-        from squiggy.constants import NormalizationMethod
         from squiggy.plotter import SquigglePlotter
+
+        from squiggy.constants import NormalizationMethod
 
         # Create synthetic signal
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
@@ -203,8 +201,9 @@ class TestSignalNormalization:
 
     def test_normalize_signal_median(self):
         """Test median normalization."""
-        from squiggy.constants import NormalizationMethod
         from squiggy.plotter import SquigglePlotter
+
+        from squiggy.constants import NormalizationMethod
 
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
@@ -217,8 +216,9 @@ class TestSignalNormalization:
 
     def test_normalize_signal_mad(self):
         """Test MAD (Median Absolute Deviation) normalization."""
-        from squiggy.constants import NormalizationMethod
         from squiggy.plotter import SquigglePlotter
+
+        from squiggy.constants import NormalizationMethod
 
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
@@ -231,8 +231,9 @@ class TestSignalNormalization:
 
     def test_normalize_signal_none(self):
         """Test no normalization (returns original signal)."""
-        from squiggy.constants import NormalizationMethod
         from squiggy.plotter import SquigglePlotter
+
+        from squiggy.constants import NormalizationMethod
 
         signal = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
@@ -248,9 +249,9 @@ class TestMultipleReadModes:
     def test_plot_overlay_mode(self, sample_pod5_file):
         """Test OVERLAY mode with multiple reads."""
         import pod5
+        from squiggy.plotter import SquigglePlotter
 
         from squiggy.constants import NormalizationMethod, PlotMode
-        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]  # Get first 3 reads
@@ -273,9 +274,9 @@ class TestMultipleReadModes:
     def test_plot_stacked_mode(self, sample_pod5_file):
         """Test STACKED mode with multiple reads."""
         import pod5
+        from squiggy.plotter import SquigglePlotter
 
         from squiggy.constants import NormalizationMethod, PlotMode
-        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]  # Get first 3 reads
@@ -298,10 +299,10 @@ class TestMultipleReadModes:
     def test_plot_eventalign_mode(self, sample_pod5_file, indexed_bam_file):
         """Test EVENTALIGN mode with aligned reads."""
         import pod5
+        from squiggy.plotter import SquigglePlotter
 
         from squiggy.alignment import extract_alignment_from_bam
         from squiggy.constants import NormalizationMethod, PlotMode
-        from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]
@@ -349,7 +350,6 @@ class TestDownsampling:
     def test_plot_with_downsampling(self, sample_pod5_file):
         """Test plot generation with downsampled signal."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -373,8 +373,8 @@ class TestDwellTimeVisualization:
     def test_dwell_time_calculation_time_mode(self, sample_pod5_file, sample_bam_file):
         """Test dwell time calculation in time-based plots."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
+
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -430,9 +430,9 @@ class TestDwellTimeVisualization:
         """Test dwell time calculation in position-based plots (EVENTALIGN)."""
         import pod5
         import pysam
+        from squiggy.plotter import SquigglePlotter
 
         from squiggy.alignment import extract_alignment_from_bam
-        from squiggy.plotter import SquigglePlotter
 
         # Get first aligned read from BAM
         with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
@@ -498,8 +498,8 @@ class TestDwellTimeVisualization:
     def test_dwell_time_patches_created(self, sample_pod5_file, sample_bam_file):
         """Test that dwell time color patches are created."""
         import pod5
-
         from squiggy.plotter import SquigglePlotter
+
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
