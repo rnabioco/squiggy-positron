@@ -42,7 +42,7 @@ from .constants import (
     Theme,
 )
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
-from .plotter import SquigglePlotter
+from .plotting import SquigglePlotter
 from .search import SearchManager
 from .ui_components import (
     AdvancedOptionsPanel,

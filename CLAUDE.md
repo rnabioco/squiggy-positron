@@ -49,7 +49,15 @@ src/squiggy/
 ├── ui_components.py   # UI panel components (FileInfo, PlotOptions, Advanced, Search)
 ├── widgets.py         # Reusable Qt widgets (CollapsibleBox, ReadTreeWidget)
 ├── search.py          # SearchManager - Search operations (ID, region, sequence)
-├── plotter.py         # SquigglePlotter - Interactive bokeh plotting
+├── plotting/          # Modular plotting package
+│   ├── __init__.py         # SquigglePlotter facade for backward compatibility
+│   ├── base.py             # Core utilities (normalize, process, figure creation)
+│   ├── base_annotations.py # Shared annotation logic (patches, labels, regions)
+│   ├── single.py           # SINGLE read mode
+│   ├── overlay.py          # OVERLAY mode
+│   ├── stacked.py          # STACKED mode
+│   ├── eventalign.py       # EVENTALIGN mode
+│   └── aggregate.py        # AGGREGATE mode
 ├── alignment.py       # Base annotation data structures (BaseAnnotation, AlignedRead)
 ├── normalization.py   # Signal normalization functions (z-norm, median, MAD)
 ├── dialogs.py         # Custom dialog windows (About, Reference Browser, Export)
@@ -108,9 +116,16 @@ tests/data/
 - browse_references(): Get list of references from BAM file
 - All operations run async and display appropriate error dialogs
 
-**src/squiggy/plotter.py** - Bokeh plotting engine (SquigglePlotter):
+**src/squiggy/plotting/** - Bokeh plotting package (modular structure):
+- **__init__.py**: SquigglePlotter class facade for backward compatibility
+- **base.py**: Core utilities (signal processing, figure creation, renderers)
+- **base_annotations.py**: Shared base annotation logic (regions, patches, labels)
+- **single.py**: SINGLE mode implementation with base annotations
+- **overlay.py**: OVERLAY mode implementation
+- **stacked.py**: STACKED mode implementation
+- **eventalign.py**: EVENTALIGN mode with position-based annotations
+- **aggregate.py**: AGGREGATE mode with three synchronized tracks
 - Converts raw signal data into interactive Bokeh figures
-- Four plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN
 - Interactive features: zoom, pan, reset, hover tooltips, base annotation toggle
 - Generates HTML with embedded JavaScript for Qt WebEngine display
 - Handles signal normalization and downsampling for performance

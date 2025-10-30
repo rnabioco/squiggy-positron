@@ -7,7 +7,7 @@ from bokeh.io import export_png, export_svgs
 from rich.console import Console
 
 from .constants import NormalizationMethod, PlotMode, Theme
-from .plotter import SquigglePlotter
+from .plotting import SquigglePlotter
 from .utils import get_basecall_data
 
 # Create Rich console for styled output
