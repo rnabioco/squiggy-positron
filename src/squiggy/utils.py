@@ -68,23 +68,14 @@ def get_icon_path():
 
     # 2. Package data directory (when installed)
     try:
-        if sys.version_info >= (3, 9):
-            import importlib.resources as resources
+        import importlib.resources as resources
 
-            files = resources.files("squiggy")
-            icon_path = files / "data" / icon_name
-            if hasattr(icon_path, "as_posix"):
-                path = Path(str(icon_path))
-                if path.exists():
-                    return path
-        else:
-            import pkg_resources
-
-            icon_path = Path(
-                pkg_resources.resource_filename("squiggy", f"data/{icon_name}")
-            )
-            if icon_path.exists():
-                return icon_path
+        files = resources.files("squiggy")
+        icon_path = files / "data" / icon_name
+        if hasattr(icon_path, "as_posix"):
+            path = Path(str(icon_path))
+            if path.exists():
+                return path
     except Exception:
         pass
 
@@ -117,23 +108,14 @@ def get_logo_path():
 
     # 2. Package data directory
     try:
-        if sys.version_info >= (3, 9):
-            import importlib.resources as resources
+        import importlib.resources as resources
 
-            files = resources.files("squiggy")
-            logo_path = files / "data" / "squiggy.png"
-            if hasattr(logo_path, "as_posix"):
-                path = Path(str(logo_path))
-                if path.exists():
-                    return path
-        else:
-            import pkg_resources
-
-            logo_path = Path(
-                pkg_resources.resource_filename("squiggy", "data/squiggy.png")
-            )
-            if logo_path.exists():
-                return logo_path
+        files = resources.files("squiggy")
+        logo_path = files / "data" / "squiggy.png"
+        if hasattr(logo_path, "as_posix"):
+            path = Path(str(logo_path))
+            if path.exists():
+                return path
     except Exception:
         pass
 
@@ -173,30 +155,20 @@ def get_sample_data_path():
         # Find the bundled sample data
         source_path = None
 
-        # For Python 3.9+
-        if sys.version_info >= (3, 9):
-            import importlib.resources as resources
+        import importlib.resources as resources
 
-            files = resources.files("squiggy")
-            sample_path = files / "data" / "yeast_trna_reads.pod5"
+        files = resources.files("squiggy")
+        sample_path = files / "data" / "yeast_trna_reads.pod5"
 
-            # If it's a regular file path, use it directly as source
-            if hasattr(sample_path, "as_posix"):
-                source_path = Path(str(sample_path))
-            else:
-                # For traversable objects, extract to temp
-                if not temp_file.exists():
-                    with resources.as_file(sample_path) as f:
-                        shutil.copy(f, temp_file)
-                return temp_file
+        # If it's a regular file path, use it directly as source
+        if hasattr(sample_path, "as_posix"):
+            source_path = Path(str(sample_path))
         else:
-            # Fallback for older Python
-            import pkg_resources
-
-            sample_path = pkg_resources.resource_filename(
-                "squiggy", "data/yeast_trna_reads.pod5"
-            )
-            source_path = Path(sample_path)
+            # For traversable objects, extract to temp
+            if not temp_file.exists():
+                with resources.as_file(sample_path) as f:
+                    shutil.copy(f, temp_file)
+            return temp_file
 
         # If we got a source path, check if it's in a read-only location
         # (PyInstaller bundle) and copy to temp
@@ -293,42 +265,28 @@ def get_sample_bam_path():
         source_bam = None
         source_bai = None
 
-        # For Python 3.9+
-        if sys.version_info >= (3, 9):
-            import importlib.resources as resources
+        import importlib.resources as resources
 
-            files = resources.files("squiggy")
-            sample_bam_path = files / "data" / "yeast_trna_mappings.bam"
-            sample_bai_path = files / "data" / "yeast_trna_mappings.bam.bai"
+        files = resources.files("squiggy")
+        sample_bam_path = files / "data" / "yeast_trna_mappings.bam"
+        sample_bai_path = files / "data" / "yeast_trna_mappings.bam.bai"
 
-            # If it's a regular file path, use it directly as source
-            if hasattr(sample_bam_path, "as_posix"):
-                source_bam = Path(str(sample_bam_path))
-                source_bai = Path(str(sample_bai_path))
-            else:
-                # For traversable objects, extract to temp
-                if not temp_bam.exists():
-                    with resources.as_file(sample_bam_path) as f:
-                        shutil.copy(f, temp_bam)
-                if not temp_bai.exists() and sample_bai_path:
-                    try:
-                        with resources.as_file(sample_bai_path) as f:
-                            shutil.copy(f, temp_bai)
-                    except Exception:
-                        pass  # BAI file optional
-                return temp_bam
+        # If it's a regular file path, use it directly as source
+        if hasattr(sample_bam_path, "as_posix"):
+            source_bam = Path(str(sample_bam_path))
+            source_bai = Path(str(sample_bai_path))
         else:
-            # Fallback for older Python
-            import pkg_resources
-
-            bam_path = pkg_resources.resource_filename(
-                "squiggy", "data/yeast_trna_mappings.bam"
-            )
-            bai_path = pkg_resources.resource_filename(
-                "squiggy", "data/yeast_trna_mappings.bam.bai"
-            )
-            source_bam = Path(bam_path)
-            source_bai = Path(bai_path)
+            # For traversable objects, extract to temp
+            if not temp_bam.exists():
+                with resources.as_file(sample_bam_path) as f:
+                    shutil.copy(f, temp_bam)
+            if not temp_bai.exists() and sample_bai_path:
+                try:
+                    with resources.as_file(sample_bai_path) as f:
+                        shutil.copy(f, temp_bai)
+                except Exception:
+                    pass  # BAI file optional
+            return temp_bam
 
         # If we got a source path, check if it's in a read-only location
         if source_bam and source_bam.exists():
