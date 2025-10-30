@@ -70,7 +70,7 @@ from .widgets import CollapsibleBox, ReadTreeWidget
 class SquiggleViewer(QMainWindow):
     """Main application window for nanopore squiggle visualization"""
 
-    def __init__(self):
+    def __init__(self, window_width=None, window_height=None):
         super().__init__()
         self.pod5_file = None
         self.bam_file = None
@@ -100,6 +100,10 @@ class SquiggleViewer(QMainWindow):
             DEFAULT_AGGREGATE_SAMPLE_SIZE  # Max reads for aggregate
         )
 
+        # Window dimensions (can be overridden from CLI)
+        self.window_width = window_width or DEFAULT_WINDOW_WIDTH
+        self.window_height = window_height or DEFAULT_WINDOW_HEIGHT
+
         # Initialize search manager
         self.search_manager = SearchManager(self)
 
@@ -109,7 +113,7 @@ class SquiggleViewer(QMainWindow):
     def init_ui(self):
         """Initialize the user interface"""
         self.setWindowTitle(f"{APP_NAME} - {APP_DESCRIPTION}")
-        self.setGeometry(100, 100, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        self.setGeometry(100, 100, self.window_width, self.window_height)
 
         # Create menu bar
         self.create_menu_bar()

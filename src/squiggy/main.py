@@ -427,6 +427,23 @@ Version: {APP_VERSION}
         help="Application theme (default: dark)",
     )
 
+    # Expert options
+    expert_group = parser.add_argument_group("Expert Options")
+    expert_group.add_argument(
+        "--window-width",
+        type=int,
+        default=1200,
+        metavar="PX",
+        help="Initial window width in pixels (default: 1200)",
+    )
+    expert_group.add_argument(
+        "--window-height",
+        type=int,
+        default=800,
+        metavar="PX",
+        help="Initial window height in pixels (default: 800)",
+    )
+
     # Version
     parser.add_argument(
         "--version", "-v", action="version", version=f"{APP_NAME} {APP_VERSION}"
@@ -496,7 +513,9 @@ Version: {APP_VERSION}
     # Lazy import SquiggleViewer to defer pod5/pysam imports
     from squiggy.viewer import SquiggleViewer
 
-    viewer = SquiggleViewer()
+    viewer = SquiggleViewer(
+        window_width=args.window_width, window_height=args.window_height
+    )
 
     # Set window icon (in addition to app icon)
     if icon_path:
