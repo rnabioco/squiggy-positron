@@ -355,11 +355,26 @@ class TestConfigurationConstants:
         """Test that downsampling settings are defined."""
         from squiggy.constants import (
             DEFAULT_DOWNSAMPLE_FACTOR,
+            DOWNSAMPLE_MULTI_READ,
+            DOWNSAMPLE_SINGLE_READ,
             MIN_POINTS_FOR_DOWNSAMPLING,
         )
 
         assert DEFAULT_DOWNSAMPLE_FACTOR > 0
         assert MIN_POINTS_FOR_DOWNSAMPLING > 0
+        assert DOWNSAMPLE_SINGLE_READ > 0
+        assert DOWNSAMPLE_MULTI_READ > 0
+
+    def test_downsample_mode_constants(self):
+        """Test that mode-specific downsample constants are properly defined."""
+        from squiggy.constants import DOWNSAMPLE_MULTI_READ, DOWNSAMPLE_SINGLE_READ
+
+        # Multi-read should have higher downsampling for performance
+        assert DOWNSAMPLE_MULTI_READ > DOWNSAMPLE_SINGLE_READ
+
+        # Values should be within reasonable range
+        assert 1 <= DOWNSAMPLE_SINGLE_READ <= 100
+        assert 1 <= DOWNSAMPLE_MULTI_READ <= 100
 
     def test_base_annotation_settings_exist(self):
         """Test that base annotation settings are defined."""

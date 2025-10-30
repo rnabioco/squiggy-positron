@@ -451,6 +451,16 @@ class AdvancedOptionsPanel(QWidget):
         self.downsample_slider.blockSignals(False)
         self.downsample_changed.emit(value)
 
+    def set_downsample_value(self, value):
+        """Set downsample value programmatically without emitting signal"""
+        # Block both widgets' signals to avoid triggering user_set_downsample flag
+        self.downsample_slider.blockSignals(True)
+        self.downsample_spinbox.blockSignals(True)
+        self.downsample_slider.setValue(value)
+        self.downsample_spinbox.setValue(value)
+        self.downsample_slider.blockSignals(False)
+        self.downsample_spinbox.blockSignals(False)
+
     def set_dwell_time_enabled(self, enabled):
         """Enable/disable dwell time checkbox"""
         self.dwell_time_checkbox.setEnabled(enabled)

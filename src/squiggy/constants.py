@@ -29,6 +29,10 @@ MIN_POINTS_FOR_DOWNSAMPLING = (
     10000  # Only downsample if signal has more than this many points
 )
 
+# Auto-adjustment downsampling for different plot modes
+DOWNSAMPLE_SINGLE_READ = 25  # Default for single-read modes
+DOWNSAMPLE_MULTI_READ = 50  # Default for multi-read modes (overlay/stacked/aggregate)
+
 # Base colors for visualization
 # Using Okabe-Ito colorblind-friendly palette
 BASE_COLORS = {

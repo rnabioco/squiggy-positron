@@ -35,6 +35,8 @@ from .constants import (
     DEFAULT_AGGREGATE_SAMPLE_SIZE,
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
+    DOWNSAMPLE_MULTI_READ,
+    DOWNSAMPLE_SINGLE_READ,
     PLOT_MIN_HEIGHT,
     PLOT_MIN_WIDTH,
     NormalizationMethod,
@@ -83,6 +85,7 @@ class SquiggleViewer(QMainWindow):
         )  # Default to event-aligned mode (primary mode)
         self.normalization_method = NormalizationMethod.MEDIAN
         self.downsample_factor = 25  # Default downsampling for performance
+        self.user_set_downsample = False  # Track if user manually changed downsample
         self.show_dwell_time = False  # Show dwell time coloring
         self.current_plot_html = None  # Store current plot HTML for export
         self.current_plot_figure = None  # Store current plot figure for export
@@ -306,6 +309,7 @@ class SquiggleViewer(QMainWindow):
     async def set_downsample_factor(self, value):
         """Set the downsampling factor and refresh plot"""
         self.downsample_factor = value
+        self.user_set_downsample = True  # User manually changed downsample
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
             QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -459,6 +463,9 @@ class SquiggleViewer(QMainWindow):
             return
 
         self.plot_mode = mode
+
+        # Reset user_set_downsample flag to allow auto-adjustment with new mode
+        self.user_set_downsample = False
 
         # Enable dwell time checkbox only in EVENTALIGN mode with BAM file
         # Only update checkbox if it exists (may not exist during initialization)
@@ -1228,6 +1235,32 @@ class SquiggleViewer(QMainWindow):
 
         if not read_ids:
             return
+
+        # Auto-adjust downsampling based on plot mode and number of reads
+        # Only adjust if user hasn't manually set the downsample factor
+        if not self.user_set_downsample:
+            # Determine if we're in a multi-read mode
+            is_multi_read_mode = self.plot_mode in (
+                PlotMode.OVERLAY,
+                PlotMode.STACKED,
+                PlotMode.AGGREGATE,
+            )
+            has_multiple_reads = len(read_ids) > 1
+
+            # Auto-adjust to DOWNSAMPLE_MULTI_READ for multi-read modes with multiple reads
+            if is_multi_read_mode and has_multiple_reads:
+                if self.downsample_factor != DOWNSAMPLE_MULTI_READ:
+                    self.downsample_factor = DOWNSAMPLE_MULTI_READ
+                    self.advanced_options_panel.set_downsample_value(
+                        DOWNSAMPLE_MULTI_READ
+                    )
+            # Auto-adjust to DOWNSAMPLE_SINGLE_READ for single-read scenarios
+            elif not is_multi_read_mode or not has_multiple_reads:
+                if self.downsample_factor != DOWNSAMPLE_SINGLE_READ:
+                    self.downsample_factor = DOWNSAMPLE_SINGLE_READ
+                    self.advanced_options_panel.set_downsample_value(
+                        DOWNSAMPLE_SINGLE_READ
+                    )
 
         # Automatic fallback: if event-aligned mode is selected but no BAM is loaded,
         # switch to single read mode for a smoother user experience
