@@ -168,9 +168,8 @@ class TestAggregatePlotting:
 
     def test_plot_aggregate_returns_html(self, sample_pod5_file, indexed_bam_file):
         """Test that plot_aggregate returns HTML and a grid object."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
         from squiggy.utils import (
             calculate_aggregate_signal,
             calculate_base_pileup,
@@ -213,9 +212,8 @@ class TestAggregatePlotting:
 
     def test_aggregate_html_contains_bokeh(self, sample_pod5_file, indexed_bam_file):
         """Test that aggregate HTML contains Bokeh elements."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
         from squiggy.utils import (
             calculate_aggregate_signal,
             calculate_base_pileup,
@@ -264,9 +262,8 @@ class TestAggregatePlotting:
         self, sample_pod5_file, indexed_bam_file
     ):
         """Test aggregate plotting with different normalization methods."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
         from squiggy.utils import (
             calculate_aggregate_signal,
             calculate_base_pileup,

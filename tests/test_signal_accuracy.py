@@ -11,9 +11,8 @@ class TestSignalAccuracy:
 
     def test_single_read_signal_values_match(self, sample_pod5_file):
         """Test that signal values from POD5 match exactly in the plot data source."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -54,9 +53,8 @@ class TestSignalAccuracy:
 
     def test_single_read_signal_length_match(self, sample_pod5_file):
         """Test that the number of signal points matches between POD5 and plot."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -90,9 +88,8 @@ class TestSignalAccuracy:
 
     def test_single_read_time_axis_accuracy(self, sample_pod5_file):
         """Test that time axis values are calculated correctly from sample rate."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -134,9 +131,8 @@ class TestSignalAccuracy:
 
     def test_downsampled_signal_accuracy(self, sample_pod5_file):
         """Test that downsampled signal contains correct subset of original signal."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -177,9 +173,8 @@ class TestSignalAccuracy:
 
     def test_normalized_signal_properties(self, sample_pod5_file):
         """Test that normalized signals have correct statistical properties."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -216,9 +211,8 @@ class TestSignalAccuracy:
 
     def test_median_normalized_signal_properties(self, sample_pod5_file):
         """Test that median-normalized signals have median of zero."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -252,9 +246,8 @@ class TestSignalAccuracy:
 
     def test_multiple_reads_signal_accuracy_overlay(self, sample_pod5_file):
         """Test that multiple reads maintain signal accuracy in overlay mode."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod, PlotMode
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             reads = list(reader.reads())[:3]  # Get first 3 reads
@@ -298,9 +291,8 @@ class TestSignalAccuracy:
         self, sample_pod5_file, sample_bam_file
     ):
         """Test that signal accuracy is maintained when base annotations are added."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
         from squiggy.utils import get_basecall_data
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -350,10 +342,9 @@ class TestSignalAccuracy:
 
     def test_eventalign_signal_accuracy(self, sample_pod5_file, indexed_bam_file):
         """Test that signal values are accurate in event-aligned mode."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.alignment import extract_alignment_from_bam
         from squiggy.constants import NormalizationMethod, PlotMode
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -406,9 +397,8 @@ class TestSignalAccuracy:
 
     def test_signal_range_preserved(self, sample_pod5_file):
         """Test that signal min/max range is preserved across all normalization methods."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
@@ -444,9 +434,8 @@ class TestSignalAccuracy:
 
     def test_sample_index_accuracy(self, sample_pod5_file):
         """Test that sample indices are correctly assigned in plot data."""
-        from squiggy.plotting import SquigglePlotter
-
         from squiggy.constants import NormalizationMethod
+        from squiggy.plotting import SquigglePlotter
 
         with pod5.Reader(sample_pod5_file) as reader:
             read = next(reader.reads())
