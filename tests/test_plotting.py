@@ -394,8 +394,11 @@ class TestDwellTimeVisualization:
 
                 # Call internal method
                 from squiggy.constants import BASE_COLORS
+                from squiggy.plotting.base_annotations import (
+                    calculate_base_regions_time_mode,
+                )
 
-                result = SquigglePlotter._calculate_base_regions_time_mode(
+                result = calculate_base_regions_time_mode(
                     sequence,
                     seq_to_sig_map,
                     time_ms,
@@ -451,11 +454,14 @@ class TestDwellTimeVisualization:
 
                                 # Test internal method
                                 from squiggy.constants import BASE_COLORS
+                                from squiggy.plotting.base_annotations import (
+                                    calculate_base_regions_position_mode,
+                                )
 
                                 signal_min = float(np.min(signal))
                                 signal_max = float(np.max(signal))
 
-                                result = SquigglePlotter._calculate_base_regions_position_mode(
+                                result = calculate_base_regions_position_mode(
                                     aligned_read.bases,
                                     signal_min,
                                     signal_max,
@@ -532,11 +538,11 @@ class TestPlotFormatting:
 
     def test_format_plot_title_single_read(self):
         """Test plot title formatting for single read."""
-        from squiggy.plotting import SquigglePlotter
+        from squiggy.plotting.base import format_plot_title
 
         reads_data = [("read_001", np.random.randn(1000), 4000)]
 
-        title = SquigglePlotter._format_plot_title("Test Mode", reads_data)
+        title = format_plot_title("Test Mode", reads_data)
 
         assert isinstance(title, str)
         assert "Test Mode" in title
@@ -544,7 +550,7 @@ class TestPlotFormatting:
 
     def test_format_plot_title_multiple_reads(self):
         """Test plot title formatting for multiple reads."""
-        from squiggy.plotting import SquigglePlotter
+        from squiggy.plotting.base import format_plot_title
 
         reads_data = [
             ("read_001", np.random.randn(1000), 4000),
@@ -552,7 +558,7 @@ class TestPlotFormatting:
             ("read_003", np.random.randn(1000), 4000),
         ]
 
-        title = SquigglePlotter._format_plot_title("Overlay", reads_data)
+        title = format_plot_title("Overlay", reads_data)
 
         assert isinstance(title, str)
         assert "Overlay" in title
@@ -560,9 +566,9 @@ class TestPlotFormatting:
 
     def test_create_figure(self):
         """Test figure creation with proper labels."""
-        from squiggy.plotting import SquigglePlotter
+        from squiggy.plotting.base import create_figure
 
-        fig = SquigglePlotter._create_figure(
+        fig = create_figure(
             title="Test Plot", x_label="Time (ms)", y_label="Signal (pA)"
         )
 
