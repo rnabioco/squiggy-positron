@@ -104,6 +104,9 @@ class SquiggleViewer(QMainWindow):
         self.window_width = window_width or DEFAULT_WINDOW_WIDTH
         self.window_height = window_height or DEFAULT_WINDOW_HEIGHT
 
+        # Task tracking for debouncing plot updates
+        self._update_plot_task = None
+
         # Initialize search manager
         self.search_manager = SearchManager(self)
 
@@ -1221,8 +1224,25 @@ class SquiggleViewer(QMainWindow):
 
     @qasync.asyncSlot()
     async def on_read_selection_changed(self):
-        """Handle read selection changes"""
-        await self.update_plot_from_selection()
+        """Handle read selection changes with debouncing to prevent race conditions"""
+        # Cancel any existing update task to prevent multiple concurrent updates
+        if self._update_plot_task and not self._update_plot_task.done():
+            self._update_plot_task.cancel()
+
+        # Create a new task for this selection change
+        self._update_plot_task = asyncio.create_task(self._debounced_update_plot())
+
+    async def _debounced_update_plot(self):
+        """Debounced plot update with cancellation handling"""
+        try:
+            # Wait for selection to stabilize (200ms debounce)
+            await asyncio.sleep(0.2)
+
+            # Update the plot with the current selection
+            await self.update_plot_from_selection()
+        except asyncio.CancelledError:
+            # Task was cancelled by a newer selection change - this is expected behavior
+            pass
 
     @qasync.asyncSlot()
     async def update_plot_from_selection(self):
