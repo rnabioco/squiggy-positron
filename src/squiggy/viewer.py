@@ -464,7 +464,7 @@ class SquiggleViewer(QMainWindow):
         # Only update checkbox if it exists (may not exist during initialization)
         if hasattr(self, "advanced_options_panel"):
             self.advanced_options_panel.set_dwell_time_enabled(
-                mode == PlotMode.EVENTALIGN and self.bam_file
+                mode == PlotMode.EVENTALIGN and self.bam_file is not None
             )
 
         # Toggle between read list and reference list based on mode
