@@ -39,3 +39,6 @@ tests/*.arrow
 
 # mkdocs
 site/
+
+# claude code worktree flow
+TASK.md
