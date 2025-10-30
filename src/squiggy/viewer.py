@@ -698,11 +698,12 @@ class SquiggleViewer(QMainWindow):
         self.apply_theme()
 
         # Regenerate plot if one is displayed
-        if self.read_list.selectedItems():
-            await self._regenerate_plot_async()
-        elif self.plot_mode == PlotMode.AGGREGATE and self.selected_reference:
+        # Check aggregate mode first to avoid triggering read selection warning
+        if self.plot_mode == PlotMode.AGGREGATE and self.selected_reference:
             # Regenerate aggregate plot if in aggregate mode with selected reference
             await self.display_aggregate()
+        elif self.read_list.selectedItems():
+            await self._regenerate_plot_async()
         else:
             self.statusBar().showMessage(
                 f"Theme changed to {self.current_theme.value} mode"
