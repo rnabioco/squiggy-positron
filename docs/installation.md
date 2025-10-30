@@ -15,7 +15,7 @@ Download the pre-built macOS application from the [releases page](https://github
 If you want to run or develop Squiggy from source:
 
 ### Prerequisites
-- Python 3.8 or later
+- Python 3.12 or later
 - pip or uv package manager
 
 ### Steps

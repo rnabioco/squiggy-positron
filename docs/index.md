@@ -14,6 +14,7 @@ Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing 
   - **Overlay** - Compare multiple reads on same axes
   - **Stacked** - Squigualiser-style vertically offset reads
   - **Event-aligned** - Base annotations with fixed-width bases
+  - **Aggregate** - Multi-read pileup with synchronized tracks
 - 📐 **Signal normalization** - Z-score, Median, MAD for cross-read comparison
 - 🧬 Optional base annotations from BAM files with color-coded bases
 - 💾 **Export plots** to HTML, PNG, or SVG (publication quality)
