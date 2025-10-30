@@ -47,6 +47,23 @@ git rev-parse --git-dir
 # Get repository name for path generation
 basename $(git rev-parse --show-toplevel)
 
+# Ensure we're on the main branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+    echo "❌ Error: Must be on 'main' branch to create worktrees"
+    echo "Current branch: $CURRENT_BRANCH"
+    echo "Run: git checkout main"
+    exit 1
+fi
+
+# Ensure main branch is up to date with remote
+git fetch origin main
+BEHIND=$(git rev-list --count HEAD..origin/main)
+if [ "$BEHIND" -gt 0 ]; then
+    echo "⚠️  Warning: 'main' branch is $BEHIND commit(s) behind origin/main"
+    echo "Consider running: git pull origin main"
+fi
+
 # Check for uncommitted changes (warn but don't block)
 git status --porcelain
 
@@ -59,8 +76,8 @@ git worktree list
 For each worktree specification:
 
 ```bash
-# Determine base branch (default: current branch or main)
-BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+# Always use main as the base branch (validated in Step 2)
+BASE_BRANCH="main"
 
 # Sanitize branch name for path (replace / with -)
 SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
@@ -68,7 +85,7 @@ SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
 # Generate default path if not provided
 WORKTREE_PATH="../${REPO_NAME}-${SANITIZED_BRANCH}"
 
-# Create worktree with new branch
+# Create worktree with new branch from main
 git worktree add -b "$BRANCH_NAME" "$WORKTREE_PATH" "$BASE_BRANCH"
 ```
 
@@ -98,7 +115,7 @@ cat > TASK.md << 'EOF'
 
 ## Notes
 - Branch: $BRANCH_NAME
-- Base: $BASE_BRANCH
+- Base: main
 - Created: $(date)
 - Worktree: $WORKTREE_PATH
 EOF
@@ -250,6 +267,8 @@ cleanup_merged_worktrees() {
 
 ## Important Notes
 
+- **Must be on main branch**: All worktrees are created from the `main` branch for consistency
+- **Main branch should be up-to-date**: Fetch latest changes before creating worktrees
 - All worktrees share the same `.git` directory (efficient disk usage)
 - Commits made in any worktree are immediately available in all others
 - Cannot checkout the same branch in multiple worktrees simultaneously
@@ -257,6 +276,10 @@ cleanup_merged_worktrees() {
 - Clean up worktrees when done to avoid clutter
 
 ## Troubleshooting
+
+**"Must be on 'main' branch"**: You must switch to the main branch before creating worktrees. Run `git checkout main` first.
+
+**"main branch is behind origin/main"**: Your local main branch is out of sync. Run `git pull origin main` to update.
 
 **"Branch already checked out"**: Another worktree is using this branch. List with `git worktree list`.
 
