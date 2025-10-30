@@ -7,7 +7,7 @@ from bokeh.io import export_png, export_svgs
 from rich.console import Console
 
 from .constants import NormalizationMethod, PlotMode, Theme
-from .plotter import SquigglePlotter
+from .plotting import SquigglePlotter
 from .utils import get_basecall_data
 
 # Create Rich console for styled output
@@ -30,15 +30,11 @@ def export_plot(args) -> int:
             console.print(f"[red]Error:[/red] POD5 file does not exist: {pod5_path}")
             return 1
 
-        # Determine export format
+        # Determine export format from file extension
         export_path = Path(args.export)
-        if args.export_format:
-            export_format = args.export_format
-        else:
-            # Infer from file extension
-            ext = export_path.suffix.lower()
-            format_map = {".html": "html", ".png": "png", ".svg": "svg"}
-            export_format = format_map.get(ext, "html")
+        ext = export_path.suffix.lower()
+        format_map = {".html": "html", ".png": "png", ".svg": "svg"}
+        export_format = format_map.get(ext, "html")
 
         # Parse normalization method
         norm_map = {
