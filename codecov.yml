@@ -1,13 +1,15 @@
 # Codecov Configuration for Squiggy
 # https://docs.codecov.com/docs/codecovyml-reference
 
+# Notification settings (disable emails)
+notify:
+  email: false
+
 # Coverage calculation settings
 coverage:
   precision: 2  # Decimal places for coverage percentage
   round: down   # Round coverage percentages down
   range: 70..100  # Green at 100%, red at 70%
-  notify:
-    email: false # no email notifications
 
   # Status checks that appear on PRs
   status:
