@@ -100,7 +100,7 @@ Add screenshots demonstrating the changes
 ## Requirements
 
 ### Runtime Requirements
-- Python 3.8 or higher (for source installation)
+- Python 3.12 or higher (for source installation)
 - For POD5 files with VBZ compression: `vbz_h5py_plugin` (automatically installed)
 
 ### Dependencies

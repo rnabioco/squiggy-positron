@@ -5,7 +5,7 @@
 A desktop application for visualizing Oxford Nanopore sequencing data from POD5 files.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 [![codecov](https://codecov.io/gh/rnabioco/squiggy/branch/main/graph/badge.svg)](https://codecov.io/gh/rnabioco/squiggy)
 
 ## Overview
@@ -87,6 +87,15 @@ Squiggy comes with bundled sample data (yeast [aa-tRNA-seq](https://pubmed.ncbi.
 # Launch with both POD5 and BAM files (recommended)
 squiggy --pod5 data.pod5 --bam alignments.bam
 squiggy -p data.pod5 -b alignments.bam
+
+# Launch with specific read in eventalign mode
+squiggy -p data.pod5 -b alignments.bam --mode eventalign --read-id READ_ID
+
+# Launch with reads from genomic region
+squiggy -p data.pod5 -b alignments.bam --mode overlay --region "chr1:1000-2000"
+
+# Launch aggregate mode for a reference sequence
+squiggy -p data.pod5 -b alignments.bam --mode aggregate --reference "chr1"
 
 # Launch with just POD5 file (limited functionality)
 squiggy --pod5 data.pod5

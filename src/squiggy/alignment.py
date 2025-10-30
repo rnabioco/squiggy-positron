@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import pysam
@@ -20,9 +19,9 @@ class BaseAnnotation:
     position: int  # Position in sequence (0-indexed)
     signal_start: int  # Signal sample start index
     signal_end: int  # Signal sample end index
-    genomic_pos: Optional[int] = None  # Genomic position (if aligned)
-    quality: Optional[int] = None  # Base quality score
-    dwell_time_ms: Optional[float] = None  # Dwell time in milliseconds
+    genomic_pos: int | None = None  # Genomic position (if aligned)
+    quality: int | None = None  # Base quality score
+    dwell_time_ms: float | None = None  # Dwell time in milliseconds
 
 
 @dataclass
@@ -31,17 +30,17 @@ class AlignedRead:
 
     read_id: str
     sequence: str
-    bases: List[BaseAnnotation]
-    chromosome: Optional[str] = None
-    genomic_start: Optional[int] = None
-    genomic_end: Optional[int] = None
-    strand: Optional[str] = None  # '+' or '-'
+    bases: list[BaseAnnotation]
+    chromosome: str | None = None
+    genomic_start: int | None = None
+    genomic_end: int | None = None
+    strand: str | None = None  # '+' or '-'
     is_reverse: bool = False
 
 
 def extract_alignment_from_bam(
-    bam_path: Path, read_id: str, sample_rate: Optional[int] = None
-) -> Optional[AlignedRead]:
+    bam_path: Path, read_id: str, sample_rate: int | None = None
+) -> AlignedRead | None:
     """Extract alignment information for a read from BAM file
 
     Args:
@@ -65,9 +64,7 @@ def extract_alignment_from_bam(
     return None
 
 
-def _parse_alignment(
-    alignment, sample_rate: Optional[int] = None
-) -> Optional[AlignedRead]:
+def _parse_alignment(alignment, sample_rate: int | None = None) -> AlignedRead | None:
     """Parse a pysam AlignmentSegment into AlignedRead
 
     Args:
@@ -163,7 +160,7 @@ def _parse_alignment(
     )
 
 
-def get_base_to_signal_mapping(aligned_read: AlignedRead) -> Tuple[str, np.ndarray]:
+def get_base_to_signal_mapping(aligned_read: AlignedRead) -> tuple[str, np.ndarray]:
     """Extract sequence and signal mapping from AlignedRead
 
     Args:

@@ -88,9 +88,8 @@ ignore = [
 quote-style = "double"
 indent-style = "space"
 
-[tool.setuptools]
-packages = ["squiggy"]
-package-dir = { "" = "src" }
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
 squiggy = [
