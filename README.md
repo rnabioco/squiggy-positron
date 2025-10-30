@@ -39,7 +39,7 @@ git clone https://github.com/rnabioco/squiggy.git
 cd squiggy
 git lfs pull  # Requires git-lfs: brew install git-lfs
 uv pip install -e .  # Requires uv: brew install uv
-squiggy
+uv run squiggy
 ```
 
 ## Quick Start
