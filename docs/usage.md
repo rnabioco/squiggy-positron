@@ -9,7 +9,23 @@
 
 Alternatively, you can:
 - Use **File → Open Sample Data** (Ctrl/Cmd+Shift+O) to load the bundled sample POD5 file
-- Launch with a file from command line: `squiggy --pod5 /path/to/file.pod5`
+- Launch with files from command line:
+  ```bash
+  # Basic file loading
+  squiggy --pod5 /path/to/file.pod5
+
+  # With BAM file for base annotations
+  squiggy --pod5 data.pod5 --bam alignments.bam
+
+  # Auto-select specific read
+  squiggy -p data.pod5 --read-id READ_ID --mode eventalign
+
+  # Auto-select reads from genomic region
+  squiggy -p data.pod5 -b alignments.bam --region "chr1:1000-2000" --mode overlay
+
+  # Launch aggregate mode for a reference
+  squiggy -p data.pod5 -b alignments.bam --reference "chr1" --mode aggregate
+  ```
 
 ## Optional: Adding Base Annotations
 

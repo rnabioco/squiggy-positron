@@ -151,6 +151,7 @@ async def main_async(app, viewer, args):
                 "overlay": PlotMode.OVERLAY,
                 "stacked": PlotMode.STACKED,
                 "eventalign": PlotMode.EVENTALIGN,
+                "aggregate": PlotMode.AGGREGATE,
             }
             if args.mode in mode_map:
                 mode = mode_map[args.mode]
@@ -193,7 +194,7 @@ async def main_async(app, viewer, args):
             if viewer.advanced_options_panel.position_type_checkbox.isEnabled():
                 viewer.advanced_options_panel.position_type_checkbox.setChecked(True)
 
-    # Auto-select and display read(s) if specified
+    # Auto-select and display read(s) or reference if specified
     if args.read_id and viewer.pod5_file:
         # Single read ID
         items = viewer.read_list.findItems(args.read_id, Qt.MatchExactly)
@@ -221,6 +222,48 @@ async def main_async(app, viewer, args):
                 "Reads Not Found",
                 "None of the specified read IDs were found in POD5 file",
             )
+    elif args.region and viewer.pod5_file and viewer.bam_file:
+        # Genomic region-based read selection
+        viewer.statusBar().showMessage(f"Searching region: {args.region}...")
+        try:
+            # Use the viewer's search manager to filter by region
+            await viewer.search_manager.filter_by_region(args.region)
+            if viewer.read_list.count() > 0:
+                # Auto-display if reads were found
+                if viewer.plot_mode in [PlotMode.OVERLAY, PlotMode.STACKED, PlotMode.EVENTALIGN]:
+                    # For multi-read modes, select all filtered reads (up to a reasonable limit)
+                    max_reads = 10 if viewer.plot_mode == PlotMode.OVERLAY else 100
+                    for i in range(min(viewer.read_list.count(), max_reads)):
+                        viewer.read_list.item(i).setSelected(True)
+                else:
+                    # For single mode, select the first read
+                    viewer.read_list.setCurrentRow(0)
+                await viewer.display_squiggle()
+            else:
+                QMessageBox.warning(
+                    viewer,
+                    "No Reads Found",
+                    f"No reads found in region: {args.region}",
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                viewer,
+                "Region Search Failed",
+                f"Failed to search region '{args.region}':\n{str(e)}",
+            )
+    elif args.reference and viewer.pod5_file and viewer.bam_file:
+        # Reference sequence for aggregate mode
+        viewer.statusBar().showMessage(f"Loading aggregate view for: {args.reference}...")
+        try:
+            # Set selected reference and display aggregate
+            viewer.selected_reference = args.reference
+            await viewer.display_aggregate()
+        except Exception as e:
+            QMessageBox.critical(
+                viewer,
+                "Aggregate Display Failed",
+                f"Failed to display aggregate for reference '{args.reference}':\n{str(e)}",
+            )
 
 
 def main():
@@ -235,9 +278,13 @@ Examples:
   squiggy --pod5 data.pod5                            Launch GUI with POD5 file pre-loaded
   squiggy --pod5 data.pod5 --bam calls.bam            Launch GUI with POD5 and BAM files
 
-  # With plot options
-  squiggy -p data.pod5 -b calls.bam --mode eventalign --normalization median
+  # With specific reads
+  squiggy -p data.pod5 -b calls.bam --mode eventalign --read-id READ_ID
   squiggy -p data.pod5 --read-id READ_ID --show-points --downsample 10
+  squiggy -p data.pod5 -b calls.bam --mode overlay --region "chr1:1000-2000"
+
+  # Aggregate mode
+  squiggy -p data.pod5 -b calls.bam --mode aggregate --reference "chr1"
 
   # Headless export (no GUI)
   squiggy -p data.pod5 --read-id READ_ID --export plot.html
@@ -267,7 +314,7 @@ Version: {APP_VERSION}
         "--mode",
         "-m",
         type=str,
-        choices=["single", "overlay", "stacked", "eventalign"],
+        choices=["single", "overlay", "stacked", "eventalign", "aggregate"],
         help="Plot mode (default: eventalign if BAM provided, else single)",
     )
     plot_group.add_argument(
@@ -335,6 +382,16 @@ Version: {APP_VERSION}
         nargs="+",
         help="Auto-select multiple read IDs (for overlay/stacked modes)",
     )
+    read_group.add_argument(
+        "--region",
+        type=str,
+        help="Select reads by genomic region (e.g., 'chr1:1000-2000', requires BAM file)",
+    )
+    read_group.add_argument(
+        "--reference",
+        type=str,
+        help="Select reference sequence for aggregate mode (requires BAM file)",
+    )
 
     # Export options
     export_group = parser.add_argument_group("Export Options (Headless Mode)")
@@ -398,6 +455,28 @@ Version: {APP_VERSION}
     # Validate downsample range
     if args.downsample < 1 or args.downsample > 100:
         parser.error("--downsample must be between 1 and 100")
+
+    # Validate read selection parameters are mutually exclusive
+    read_selection_args = [args.read_id, args.reads, args.region, args.reference]
+    if sum(bool(arg) for arg in read_selection_args) > 1:
+        parser.error(
+            "Only one of --read-id, --reads, --region, or --reference can be specified"
+        )
+
+    # Validate --region requires BAM file
+    if args.region and not args.bam:
+        parser.error("--region requires --bam file")
+
+    # Validate --reference requires BAM file
+    if args.reference and not args.bam:
+        parser.error("--reference requires --bam file")
+
+    # Validate --reference requires aggregate mode (or set it as default)
+    if args.reference and args.mode and args.mode != "aggregate":
+        parser.error("--reference can only be used with --mode aggregate")
+    elif args.reference and not args.mode:
+        # Auto-set mode to aggregate if reference is specified
+        args.mode = "aggregate"
 
     # Handle headless export mode (no GUI)
     if args.export:
