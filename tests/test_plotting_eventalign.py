@@ -23,6 +23,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -63,6 +64,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -79,6 +81,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_002",
                 sequence="CCCCCCCCCC",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -109,6 +112,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -140,6 +144,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -171,6 +176,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="ACGTACGTAC",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -201,6 +207,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -231,6 +238,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="A" * 100,
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1100,
@@ -260,6 +268,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -290,6 +299,7 @@ class TestPlotEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -340,6 +350,7 @@ class TestPlotEventalignSignals:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -373,6 +384,7 @@ class TestPlotEventalignSignals:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -409,6 +421,7 @@ class TestAddBaseAnnotationsEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,
@@ -465,6 +478,7 @@ class TestAddBaseAnnotationsEventalign:
             AlignedRead(
                 read_id="read_001",
                 sequence="AAAAAAAAAA",
+                stride=5,
                 chromosome="chr1",
                 genomic_start=1000,
                 genomic_end=1010,

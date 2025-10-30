@@ -30,6 +30,7 @@ class AlignedRead:
     read_id: str
     sequence: str
     bases: list[BaseAnnotation]
+    stride: int  # Neural network downsampling factor (5 for DNA, 10-12 for RNA)
     chromosome: str | None = None
     genomic_start: int | None = None
     genomic_end: int | None = None
@@ -140,6 +141,7 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         read_id=alignment.query_name,
         sequence=sequence,
         bases=bases,
+        stride=stride,
         chromosome=chromosome,
         genomic_start=genomic_start,
         genomic_end=genomic_end,
@@ -161,3 +163,68 @@ def get_base_to_signal_mapping(aligned_read: AlignedRead) -> tuple[str, np.ndarr
     seq_to_sig_map = np.array([base.signal_start for base in aligned_read.bases])
 
     return sequence, seq_to_sig_map
+
+
+def calculate_base_dwell_times(
+    aligned_read: AlignedRead, sample_rate: float
+) -> list[float]:
+    """Calculate dwell time (in milliseconds) for each base
+
+    Args:
+        aligned_read: AlignedRead object with base annotations
+        sample_rate: Sampling rate in Hz (samples per second)
+
+    Returns:
+        List of dwell times in milliseconds for each base
+    """
+    dwell_times = []
+    for base in aligned_read.bases:
+        samples = base.signal_end - base.signal_start
+        dwell_time_ms = (samples / sample_rate) * 1000
+        dwell_times.append(dwell_time_ms)
+    return dwell_times
+
+
+def calculate_base_mean_currents(
+    aligned_read: AlignedRead, signal: np.ndarray
+) -> list[float]:
+    """Calculate mean current (in pA) for each base's signal segment
+
+    Args:
+        aligned_read: AlignedRead object with base annotations
+        signal: Raw signal array
+
+    Returns:
+        List of mean current values in picoamperes for each base
+    """
+    mean_currents = []
+    for base in aligned_read.bases:
+        # Extract signal segment for this base
+        start = base.signal_start
+        end = min(base.signal_end, len(signal))  # Ensure we don't exceed signal length
+        if end > start:
+            segment = signal[start:end]
+            mean_current = float(np.mean(segment))
+        else:
+            mean_current = 0.0
+        mean_currents.append(mean_current)
+    return mean_currents
+
+
+def get_base_transitions(aligned_read: AlignedRead) -> list[int]:
+    """Get signal positions where base transitions occur
+
+    Args:
+        aligned_read: AlignedRead object with base annotations
+
+    Returns:
+        List of signal sample indices where base transitions occur
+    """
+    transitions = []
+    for base in aligned_read.bases:
+        # Add the start position of each base as a transition point
+        transitions.append(base.signal_start)
+    # Add the end of the last base
+    if aligned_read.bases:
+        transitions.append(aligned_read.bases[-1].signal_end)
+    return transitions

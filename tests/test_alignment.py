@@ -616,6 +616,7 @@ class TestDataclassCreation:
             read_id="test_read",
             sequence="ACG",
             bases=bases,
+            stride=5,
             chromosome="chr1",
             genomic_start=1000,
             genomic_end=1003,

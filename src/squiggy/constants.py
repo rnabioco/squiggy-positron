@@ -63,6 +63,7 @@ class PlotMode(Enum):
     OVERLAY = "overlay"  # Multiple reads overlaid on same axes
     STACKED = "stacked"  # Multiple reads stacked vertically (squigualiser-style)
     EVENTALIGN = "eventalign"  # Event-aligned with base annotations
+    DUAL_VIEW = "dual_view"  # Dual synchronized signal and sequence panels
     AGGREGATE = "aggregate"  # Multi-read aggregate with pileup statistics
 
 

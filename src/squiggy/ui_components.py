@@ -159,6 +159,22 @@ class PlotOptionsPanel(QWidget):
         self.mode_button_group.addButton(self.mode_eventalign)
         content_layout.addWidget(self.mode_eventalign)
 
+        # Dual view mode (synchronized signal and sequence panels)
+        self.mode_dual_view = QRadioButton("Dual View (signal + sequence)")
+        self.mode_dual_view.setToolTip(
+            "Show synchronized signal and sequence panels\n"
+            "Top: signal trace, Bottom: base sequence track\n"
+            "(requires BAM file)"
+        )
+        self.mode_dual_view.toggled.connect(
+            lambda checked: self.plot_mode_changed.emit(PlotMode.DUAL_VIEW)
+            if checked
+            else None
+        )
+        self.mode_dual_view.setEnabled(False)  # Disabled until BAM file loaded
+        self.mode_button_group.addButton(self.mode_dual_view)
+        content_layout.addWidget(self.mode_dual_view)
+
         # Aggregate mode (multi-read pileup)
         self.mode_aggregate = QRadioButton("Aggregate (multi-read pileup)")
         self.mode_aggregate.setToolTip(
@@ -272,6 +288,7 @@ class PlotOptionsPanel(QWidget):
     def set_bam_controls_enabled(self, enabled):
         """Enable/disable controls that require BAM file"""
         self.mode_eventalign.setEnabled(enabled)
+        self.mode_dual_view.setEnabled(enabled)
         self.mode_aggregate.setEnabled(enabled)
         self.base_checkbox.setEnabled(enabled)
 
@@ -279,6 +296,8 @@ class PlotOptionsPanel(QWidget):
         """Set the current plot mode"""
         if mode == PlotMode.EVENTALIGN:
             self.mode_eventalign.setChecked(True)
+        elif mode == PlotMode.DUAL_VIEW:
+            self.mode_dual_view.setChecked(True)
         elif mode == PlotMode.AGGREGATE:
             self.mode_aggregate.setChecked(True)
         elif mode == PlotMode.OVERLAY:
@@ -295,6 +314,7 @@ class AdvancedOptionsPanel(QWidget):
     # Signals
     downsample_changed = Signal(int)
     dwell_time_toggled = Signal(bool)
+    transitions_toggled = Signal(bool)
     position_interval_changed = Signal(int)
     position_type_toggled = Signal(bool)
 
@@ -374,6 +394,34 @@ class AdvancedOptionsPanel(QWidget):
         dwell_info_label.setWordWrap(True)
         content_layout.addWidget(dwell_info_label)
 
+        # Base transitions visualization
+        transitions_label = QLabel("Base Transitions:")
+        transitions_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        content_layout.addWidget(transitions_label)
+
+        self.show_transitions_checkbox = QCheckBox("Show base transition lines")
+        self.show_transitions_checkbox.setToolTip(
+            "Display vertical lines marking base transitions\n"
+            "Hover over transition lines to see:\n"
+            "  • Base identity\n"
+            "  • Dwell time (in milliseconds)\n"
+            "  • Mean current (in picoamperes)\n"
+            "(requires DUAL_VIEW mode with BAM file)"
+        )
+        self.show_transitions_checkbox.setEnabled(
+            False
+        )  # Enabled when in DUAL_VIEW mode with BAM
+        self.show_transitions_checkbox.toggled.connect(self.transitions_toggled.emit)
+        content_layout.addWidget(self.show_transitions_checkbox)
+
+        # Transitions info label
+        transitions_info_label = QLabel(
+            "💡 Transition lines mark where one base ends and another begins"
+        )
+        transitions_info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        transitions_info_label.setWordWrap(True)
+        content_layout.addWidget(transitions_info_label)
+
         # Position label settings
         position_label = QLabel("Position Labels:")
         position_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
@@ -446,6 +494,10 @@ class AdvancedOptionsPanel(QWidget):
     def set_dwell_time_enabled(self, enabled):
         """Enable/disable dwell time checkbox"""
         self.dwell_time_checkbox.setEnabled(enabled)
+
+    def set_transitions_enabled(self, enabled):
+        """Enable/disable transitions checkbox"""
+        self.show_transitions_checkbox.setEnabled(enabled)
 
     def set_position_type_enabled(self, enabled):
         """Enable/disable position type checkbox"""

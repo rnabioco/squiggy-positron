@@ -43,6 +43,7 @@ from .constants import (
 )
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
 from .plotting import SquigglePlotter
+from .plotting.dual_view import create_dual_view
 from .search import SearchManager
 from .ui_components import (
     AdvancedOptionsPanel,
@@ -84,6 +85,7 @@ class SquiggleViewer(QMainWindow):
         self.normalization_method = NormalizationMethod.MEDIAN
         self.downsample_factor = 25  # Default downsampling for performance
         self.show_dwell_time = False  # Show dwell time coloring
+        self.show_transitions = False  # Show base transition lines (DUAL_VIEW mode)
         self.current_plot_html = None  # Store current plot HTML for export
         self.current_plot_figure = None  # Store current plot figure for export
         self.search_mode = "read_id"  # "read_id" or "region"
@@ -167,6 +169,7 @@ class SquiggleViewer(QMainWindow):
             self.set_downsample_factor
         )
         self.advanced_options_panel.dwell_time_toggled.connect(self.toggle_dwell_time)
+        self.advanced_options_panel.transitions_toggled.connect(self.toggle_transitions)
         self.advanced_options_panel.position_interval_changed.connect(
             self.on_position_interval_changed
         )
@@ -395,6 +398,22 @@ class SquiggleViewer(QMainWindow):
             finally:
                 QApplication.restoreOverrideCursor()
 
+    @qasync.asyncSlot(bool)
+    async def toggle_transitions(self, state):
+        """Toggle base transition lines visualization"""
+        self.show_transitions = bool(state)  # state is 0 (unchecked) or 2 (checked)
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
     @qasync.asyncSlot(int)
     async def toggle_signal_points(self, state):
         """Toggle display of individual signal points"""
@@ -461,10 +480,14 @@ class SquiggleViewer(QMainWindow):
         self.plot_mode = mode
 
         # Enable dwell time checkbox only in EVENTALIGN mode with BAM file
-        # Only update checkbox if it exists (may not exist during initialization)
+        # Enable transitions checkbox only in DUAL_VIEW mode with BAM file
+        # Only update checkboxes if they exist (may not exist during initialization)
         if hasattr(self, "advanced_options_panel"):
             self.advanced_options_panel.set_dwell_time_enabled(
                 mode == PlotMode.EVENTALIGN and self.bam_file is not None
+            )
+            self.advanced_options_panel.set_transitions_enabled(
+                mode == PlotMode.DUAL_VIEW and self.bam_file is not None
             )
 
         # Toggle between read list and reference list based on mode
@@ -1252,6 +1275,18 @@ class SquiggleViewer(QMainWindow):
                 )
                 return
             await self.display_eventaligned_reads(read_ids)
+        elif self.plot_mode == PlotMode.DUAL_VIEW:
+            # Dual view mode requires BAM file
+            if not self.bam_file:
+                QMessageBox.warning(
+                    self,
+                    "BAM File Required",
+                    "Dual View mode requires a BAM file with base call information.\n\n"
+                    "Please load a BAM file first.",
+                )
+                return
+            # Dual view mode only supports single read (first selected)
+            await self.display_dual_view_read(read_ids[0])
         elif self.plot_mode == PlotMode.AGGREGATE:
             # Aggregate mode uses reference selection, not read selection
             # Show informative message to guide user
@@ -1704,6 +1739,76 @@ class SquiggleViewer(QMainWindow):
         except Exception as e:
             QMessageBox.critical(
                 self, "Error", f"Failed to display event-aligned plot:\n{str(e)}"
+            )
+
+    def _generate_dual_view_plot_blocking(self, read_id):
+        """Blocking function to generate dual-view bokeh plot HTML"""
+        from .alignment import extract_alignment_from_bam
+
+        # Get signal data
+        with writable_working_directory():
+            with pod5.Reader(self.pod5_file) as reader:
+                read = None
+                for r in reader.reads():
+                    if str(r.read_id) == read_id:
+                        read = r
+                        break
+
+                if read is None:
+                    raise ValueError(f"Read {read_id} not found in POD5 file")
+
+                signal = read.signal
+                sample_rate = read.run_info.sample_rate
+
+        # Get alignment info from BAM
+        aligned_read = extract_alignment_from_bam(self.bam_file, read_id)
+        if aligned_read is None:
+            raise ValueError(f"No alignment found for read {read_id} in BAM file")
+
+        # Generate dual-view bokeh plot HTML
+        html, figure = create_dual_view(
+            read_id=read_id,
+            signal=signal,
+            sample_rate=sample_rate,
+            normalization=self.normalization_method,
+            aligned_read=aligned_read,
+            show_transitions=self.show_transitions,
+            downsample=self.downsample_factor,
+            theme=self.current_theme,
+        )
+
+        return html, figure, signal, aligned_read
+
+    async def display_dual_view_read(self, read_id):
+        """Display single read in dual-view mode (async)"""
+        self.statusBar().showMessage(f"Generating dual-view plot for {read_id}...")
+
+        try:
+            # Generate plot in thread pool
+            html, figure, signal, aligned_read = await asyncio.to_thread(
+                self._generate_dual_view_plot_blocking, read_id
+            )
+
+            # Store HTML and figure for export
+            self.current_plot_html = html
+            self.current_plot_figure = figure
+            self.export_action.setEnabled(True)
+
+            # Display on main thread - use unique URL to force complete reload
+            unique_url = QUrl(f"http://localhost/{time.time()}")
+            self.plot_view.setHtml(html, baseUrl=unique_url)
+
+            # Restore zoom/pan state if available
+            self.restore_plot_ranges()
+
+            # Build status message
+            self.statusBar().showMessage(
+                f"Displaying {read_id} (dual-view, {len(signal)} samples, {len(aligned_read.bases)} bases, {self.normalization_method.value} normalization)"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to display dual-view plot:\n{str(e)}"
             )
 
     def _get_current_view_ranges(self):
