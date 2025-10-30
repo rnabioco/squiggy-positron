@@ -7,6 +7,7 @@ with a backward-compatible SquigglePlotter class facade.
 import numpy as np
 
 from ..constants import (
+    CoordinateSpace,
     DEFAULT_POSITION_LABEL_INTERVAL,
     NormalizationMethod,
     PlotMode,
@@ -86,6 +87,7 @@ class SquigglePlotter:
         normalization: NormalizationMethod = NormalizationMethod.NONE,
         aligned_reads: list | None = None,
         downsample: int = 1,
+        coordinate_space: CoordinateSpace = CoordinateSpace.SIGNAL,
         show_dwell_time: bool = False,
         show_labels: bool = True,
         show_signal_points: bool = False,
@@ -99,6 +101,8 @@ class SquigglePlotter:
                 reads_data=reads_data,
                 normalization=normalization,
                 downsample=downsample,
+                coordinate_space=coordinate_space,
+                aligned_reads=aligned_reads,
                 show_signal_points=show_signal_points,
                 theme=theme,
             )
@@ -155,6 +159,7 @@ def plot_multiple_reads(
     normalization: NormalizationMethod = NormalizationMethod.NONE,
     aligned_reads: list | None = None,
     downsample: int = 1,
+    coordinate_space: CoordinateSpace = CoordinateSpace.SIGNAL,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     show_signal_points: bool = False,
@@ -169,6 +174,7 @@ def plot_multiple_reads(
         normalization=normalization,
         aligned_reads=aligned_reads,
         downsample=downsample,
+        coordinate_space=coordinate_space,
         show_dwell_time=show_dwell_time,
         show_labels=show_labels,
         show_signal_points=show_signal_points,

@@ -76,6 +76,14 @@ class NormalizationMethod(Enum):
     MAD = "mad"  # Median absolute deviation
 
 
+# Coordinate space for multi-read plots
+class CoordinateSpace(Enum):
+    """Coordinate space for plotting multiple reads"""
+
+    SIGNAL = "signal"  # Signal space (sample indices)
+    SEQUENCE = "sequence"  # Sequence space (reference positions)
+
+
 # Multi-read plotting settings
 MAX_OVERLAY_READS = 10  # Maximum reads to overlay
 STACKED_VERTICAL_SPACING = 20  # Vertical spacing between stacked reads (in pA)

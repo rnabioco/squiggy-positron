@@ -32,6 +32,7 @@ from qt_material import apply_stylesheet
 from .constants import (
     APP_DESCRIPTION,
     APP_NAME,
+    CoordinateSpace,
     DEFAULT_AGGREGATE_SAMPLE_SIZE,
     DEFAULT_WINDOW_HEIGHT,
     DEFAULT_WINDOW_WIDTH,
@@ -83,6 +84,7 @@ class SquiggleViewer(QMainWindow):
         )  # Default to event-aligned mode (primary mode)
         self.normalization_method = NormalizationMethod.MEDIAN
         self.downsample_factor = 25  # Default downsampling for performance
+        self.coordinate_space = CoordinateSpace.SIGNAL  # Default to signal space
         self.show_dwell_time = False  # Show dwell time coloring
         self.current_plot_html = None  # Store current plot HTML for export
         self.current_plot_figure = None  # Store current plot figure for export
@@ -165,6 +167,9 @@ class SquiggleViewer(QMainWindow):
         self.advanced_options_panel = AdvancedOptionsPanel()
         self.advanced_options_panel.downsample_changed.connect(
             self.set_downsample_factor
+        )
+        self.advanced_options_panel.coordinate_space_changed.connect(
+            self.set_coordinate_space
         )
         self.advanced_options_panel.dwell_time_toggled.connect(self.toggle_dwell_time)
         self.advanced_options_panel.position_interval_changed.connect(
@@ -308,6 +313,22 @@ class SquiggleViewer(QMainWindow):
         self.downsample_factor = value
         # Refresh plot if reads are selected
         if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                # Save current zoom/pan state before regenerating
+                self.save_plot_ranges()
+                # Small delay to allow JavaScript to execute
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot()
+    async def set_coordinate_space(self, space):
+        """Set the coordinate space for OVERLAY mode and refresh plot"""
+        self.coordinate_space = space
+        # Refresh plot if reads are selected and in OVERLAY mode
+        if self.read_list.selectedItems() and self.plot_mode == PlotMode.OVERLAY:
             QApplication.setOverrideCursor(Qt.WaitCursor)
             self.statusBar().showMessage("Regenerating plot...")
             try:
@@ -466,6 +487,21 @@ class SquiggleViewer(QMainWindow):
             self.advanced_options_panel.set_dwell_time_enabled(
                 mode == PlotMode.EVENTALIGN and self.bam_file is not None
             )
+
+        # Enable coordinate space controls in OVERLAY mode
+        if hasattr(self, "advanced_options_panel"):
+            if mode == PlotMode.OVERLAY:
+                # Signal space always enabled, sequence space only with BAM
+                self.advanced_options_panel.set_coordinate_space_enabled(
+                    signal_enabled=True,
+                    sequence_enabled=self.bam_file is not None,
+                )
+            else:
+                # Disable both when not in OVERLAY mode
+                self.advanced_options_panel.set_coordinate_space_enabled(
+                    signal_enabled=False,
+                    sequence_enabled=False,
+                )
 
         # Toggle between read list and reference list based on mode
         if hasattr(self, "read_list") and hasattr(self, "reference_list"):
@@ -1555,6 +1591,8 @@ class SquiggleViewer(QMainWindow):
 
     def _generate_multi_read_plot_blocking(self, read_ids):
         """Blocking function to generate multi-read bokeh plot HTML"""
+        from .alignment import extract_alignment_from_bam
+
         reads_data = []
 
         # Collect signal data for all reads
@@ -1572,12 +1610,27 @@ class SquiggleViewer(QMainWindow):
         if not reads_data:
             raise ValueError("No matching reads found in POD5 file")
 
+        # Extract alignments if needed for SEQUENCE coordinate space
+        aligned_reads = None
+        if (
+            self.plot_mode == PlotMode.OVERLAY
+            and self.coordinate_space == CoordinateSpace.SEQUENCE
+            and self.bam_file
+        ):
+            aligned_reads = []
+            for read_id, _, _ in reads_data:
+                aligned_read = extract_alignment_from_bam(self.bam_file, read_id)
+                if aligned_read:
+                    aligned_reads.append(aligned_read)
+
         # Generate bokeh multi-read plot HTML
         html, figure = SquigglePlotter.plot_multiple_reads(
             reads_data,
             mode=self.plot_mode,
             normalization=self.normalization_method,
+            aligned_reads=aligned_reads,
             downsample=self.downsample_factor,
+            coordinate_space=self.coordinate_space,
             show_dwell_time=self.show_dwell_time,
             show_labels=self.show_bases,
             show_signal_points=self.show_signal_points,

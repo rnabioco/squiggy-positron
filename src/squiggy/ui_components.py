@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .constants import MAX_OVERLAY_READS, NormalizationMethod, PlotMode
+from .constants import CoordinateSpace, MAX_OVERLAY_READS, NormalizationMethod, PlotMode
 from .widgets import CollapsibleBox
 
 
@@ -298,6 +298,7 @@ class AdvancedOptionsPanel(QWidget):
 
     # Signals
     downsample_changed = Signal(int)
+    coordinate_space_changed = Signal(object)
     dwell_time_toggled = Signal(bool)
     position_interval_changed = Signal(int)
     position_type_toggled = Signal(bool)
@@ -352,6 +353,51 @@ class AdvancedOptionsPanel(QWidget):
         info_label.setStyleSheet("color: #666; font-size: 9pt;")
         info_label.setWordWrap(True)
         content_layout.addWidget(info_label)
+
+        # Coordinate space selection (for OVERLAY mode)
+        coord_label = QLabel("Coordinate Space (OVERLAY mode):")
+        coord_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        content_layout.addWidget(coord_label)
+
+        self.coord_signal_radio = QRadioButton("Signal Space")
+        self.coord_signal_radio.setChecked(True)  # Default to signal space
+        self.coord_signal_radio.setEnabled(False)  # Enabled when in OVERLAY mode
+        self.coord_signal_radio.setToolTip(
+            "Plot reads by sample index (current behavior)\n"
+            "Each read maintains its original signal length"
+        )
+        self.coord_signal_radio.toggled.connect(
+            lambda checked: self.coordinate_space_changed.emit(CoordinateSpace.SIGNAL)
+            if checked
+            else None
+        )
+        content_layout.addWidget(self.coord_signal_radio)
+
+        self.coord_sequence_radio = QRadioButton("Sequence Space")
+        self.coord_sequence_radio.setEnabled(False)  # Enabled when in OVERLAY mode with BAM
+        self.coord_sequence_radio.setToolTip(
+            "Plot reads aligned to reference positions (requires BAM file)\n"
+            "Reads are aligned by genomic coordinates for comparison"
+        )
+        self.coord_sequence_radio.toggled.connect(
+            lambda checked: self.coordinate_space_changed.emit(CoordinateSpace.SEQUENCE)
+            if checked
+            else None
+        )
+        content_layout.addWidget(self.coord_sequence_radio)
+
+        # Group radio buttons
+        self.coord_button_group = QButtonGroup(self)
+        self.coord_button_group.addButton(self.coord_signal_radio)
+        self.coord_button_group.addButton(self.coord_sequence_radio)
+
+        # Coordinate space info label
+        coord_info_label = QLabel(
+            "💡 Sequence space allows comparison of signals at specific genomic positions"
+        )
+        coord_info_label.setStyleSheet("color: #666; font-size: 9pt;")
+        coord_info_label.setWordWrap(True)
+        content_layout.addWidget(coord_info_label)
 
         # Dwell time visualization
         dwell_label = QLabel("Dwell Time Visualization:")
@@ -458,6 +504,16 @@ class AdvancedOptionsPanel(QWidget):
     def set_position_type_enabled(self, enabled):
         """Enable/disable position type checkbox"""
         self.position_type_checkbox.setEnabled(enabled)
+
+    def set_coordinate_space_enabled(self, signal_enabled, sequence_enabled):
+        """Enable/disable coordinate space radio buttons
+
+        Args:
+            signal_enabled: Enable signal space option (always True for OVERLAY mode)
+            sequence_enabled: Enable sequence space option (True when BAM loaded)
+        """
+        self.coord_signal_radio.setEnabled(signal_enabled)
+        self.coord_sequence_radio.setEnabled(sequence_enabled)
 
 
 class SearchPanel(QWidget):
