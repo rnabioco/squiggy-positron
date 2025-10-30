@@ -288,7 +288,7 @@ Examples:
 
   # Headless export (no GUI)
   squiggy -p data.pod5 --read-id READ_ID --export plot.html
-  squiggy -p data.pod5 -b calls.bam --read-id READ_ID --export plot.png --export-format png
+  squiggy -p data.pod5 -b calls.bam --read-id READ_ID --export plot.png
 
   # Other
   squiggy --version                                   Show version information
@@ -400,27 +400,21 @@ Version: {APP_VERSION}
         "-e",
         type=str,
         metavar="FILE",
-        help="Export plot to file and exit (no GUI). Requires --pod5 and --read-id",
-    )
-    export_group.add_argument(
-        "--export-format",
-        type=str,
-        choices=["html", "png", "svg"],
-        help="Export format (default: inferred from file extension)",
+        help="Export plot to file and exit (no GUI). Format inferred from extension (.html, .png, .svg). Requires --pod5 and --read-id",
     )
     export_group.add_argument(
         "--export-width",
         type=int,
         default=1200,
         metavar="PX",
-        help="Export width in pixels (default: 1200)",
+        help="Export width in pixels for PNG/SVG (default: 1200)",
     )
     export_group.add_argument(
         "--export-height",
         type=int,
         default=600,
         metavar="PX",
-        help="Export height in pixels (default: 600)",
+        help="Export height in pixels for PNG/SVG (default: 600)",
     )
 
     # Theme
