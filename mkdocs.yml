@@ -37,6 +37,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Quick Start: quickstart.md
   - Installation: installation.md
   - Usage: usage.md
   - Development: development.md
