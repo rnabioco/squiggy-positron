@@ -231,9 +231,7 @@ class PlotOptionsPanel(QWidget):
         self.base_checkbox.setToolTip(
             "Show base letters on event-aligned plots (requires BAM file)"
         )
-        self.base_checkbox.stateChanged.connect(
-            lambda state: self.base_annotations_toggled.emit(state == Qt.Checked)
-        )
+        self.base_checkbox.toggled.connect(self.base_annotations_toggled.emit)
         content_layout.addWidget(self.base_checkbox)
 
         # Signal points toggle
@@ -242,9 +240,7 @@ class PlotOptionsPanel(QWidget):
         self.points_checkbox.setToolTip(
             "Display individual signal data points as circles on the squiggle line"
         )
-        self.points_checkbox.stateChanged.connect(
-            lambda state: self.signal_points_toggled.emit(state == Qt.Checked)
-        )
+        self.points_checkbox.toggled.connect(self.signal_points_toggled.emit)
         content_layout.addWidget(self.points_checkbox)
 
         # Info label
@@ -367,9 +363,7 @@ class AdvancedOptionsPanel(QWidget):
         self.dwell_time_checkbox.setEnabled(
             False
         )  # Enabled when in EVENTALIGN mode with BAM
-        self.dwell_time_checkbox.stateChanged.connect(
-            lambda state: self.dwell_time_toggled.emit(state == Qt.Checked)
-        )
+        self.dwell_time_checkbox.toggled.connect(self.dwell_time_toggled.emit)
         content_layout.addWidget(self.dwell_time_checkbox)
 
         # Dwell time info label
@@ -413,9 +407,7 @@ class AdvancedOptionsPanel(QWidget):
             "Show genomic coordinates instead of sequence positions\n"
             "(requires BAM file with alignment)"
         )
-        self.position_type_checkbox.stateChanged.connect(
-            lambda state: self.position_type_toggled.emit(state == Qt.Checked)
-        )
+        self.position_type_checkbox.toggled.connect(self.position_type_toggled.emit)
         content_layout.addWidget(self.position_type_checkbox)
 
         # Position label info

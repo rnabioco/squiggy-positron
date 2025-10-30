@@ -282,6 +282,49 @@ class TestPlotEventalign:
         assert isinstance(html, str)
         assert fig is not None
 
+    def test_plot_eventalign_with_signal_points(self):
+        """Test eventalign with signal points displayed"""
+        reads_data = [("read_001", np.random.randn(100), 4000)]
+
+        aligned_reads = [
+            AlignedRead(
+                read_id="read_001",
+                sequence="AAAAAAAAAA",
+                chromosome="chr1",
+                genomic_start=1000,
+                genomic_end=1010,
+                bases=[
+                    BaseAnnotation(
+                        base="A",
+                        position=i,
+                        signal_start=i * 10,
+                        signal_end=(i + 1) * 10,
+                    )
+                    for i in range(10)
+                ],
+            )
+        ]
+
+        html, fig = plot_eventalign(
+            reads_data,
+            NormalizationMethod.ZNORM,
+            aligned_reads,
+            show_signal_points=True,
+        )
+
+        assert isinstance(html, str)
+        assert fig is not None
+
+        # Check that scatter renderer was added for signal points
+        scatter_renderers = [
+            r
+            for r in fig.renderers
+            if "Scatter" in type(r.glyph).__name__ or "Circle" in type(r.glyph).__name__
+        ]
+        assert len(scatter_renderers) > 0, (
+            "No scatter renderer found when show_signal_points=True"
+        )
+
 
 class TestPlotEventalignSignals:
     """Tests for plot_eventalign_signals function"""
