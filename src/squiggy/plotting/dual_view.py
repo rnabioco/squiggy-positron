@@ -65,6 +65,7 @@ def create_dual_view(
         normalization,
         aligned_read,
         show_transitions,
+        downsample,
         theme,
     )
 
@@ -76,10 +77,19 @@ def create_dual_view(
     # Synchronize x-ranges between panels
     p_sequence.x_range = p_signal.x_range
 
-    # Set explicit heights for each panel
-    p_signal.sizing_mode = "stretch_width"
+    # Match y-axis width by setting explicit min_border_left
+    # This ensures both panels allocate the same space for y-axis labels
+    y_axis_width = 80  # Explicit width for y-axis area
+    p_signal.min_border_left = y_axis_width
+    p_sequence.min_border_left = y_axis_width
+
+    # Set explicit dimensions for each panel
+    p_signal.sizing_mode = None
+    p_signal.width = 900  # Total width including axes
     p_signal.height = 350
-    p_sequence.sizing_mode = "stretch_width"
+
+    p_sequence.sizing_mode = None
+    p_sequence.width = 900  # Match signal panel total width
     p_sequence.height = 150
 
     # Add synchronized crosshair tool
@@ -90,16 +100,14 @@ def create_dual_view(
     # Create grid layout with two panels stacked vertically
     grid = gridplot(
         [[p_signal], [p_sequence]],
-        sizing_mode="stretch_width",
         toolbar_location="right",
     )
 
     # Generate HTML
+    reads_data = [(read_id, signal, sample_rate)]
     html_title = format_html_title(
-        "Dual View",
-        read_id,
-        normalization,
-        single_read=True,
+        mode_name="Dual View",
+        reads_data=reads_data,
     )
     html = file_html(grid, CDN, title=html_title)
 
@@ -113,6 +121,7 @@ def _create_signal_panel(
     normalization: NormalizationMethod,
     aligned_read: AlignedRead,
     show_transitions: bool,
+    downsample: int,
     theme: Theme,
 ) -> figure:
     """Create top panel with signal trace and optional transition lines
@@ -124,16 +133,18 @@ def _create_signal_panel(
         normalization: Normalization method applied
         aligned_read: AlignedRead object with base annotations
         show_transitions: Whether to show base transition lines
+        downsample: Downsampling factor applied to signal
         theme: Color theme
 
     Returns:
         Bokeh figure for signal panel
     """
     # Create figure
+    reads_data = [(read_id, signal, sample_rate)]
     title = format_plot_title(
-        read_id=read_id,
+        mode_name="Dual View - Signal",
+        reads_data=reads_data,
         normalization=normalization,
-        mode_label="Dual View - Signal",
     )
 
     p = create_figure(
@@ -145,8 +156,9 @@ def _create_signal_panel(
         theme=theme,
     )
 
-    # Create x-axis (sample indices)
-    x = np.arange(len(signal))
+    # Create x-axis (sample indices accounting for downsampling)
+    # If downsampled, x-positions should be [0, downsample, 2*downsample, ...]
+    x = np.arange(len(signal)) * downsample
 
     # Add signal trace
     source = create_signal_data_source(x, signal, read_id)

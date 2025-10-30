@@ -652,30 +652,62 @@ class SquiggleViewer(QMainWindow):
             apply_stylesheet(
                 QApplication.instance(), theme="dark_amber.xml", extra=extra
             )
+            # Set QWebEngineView background to match dark theme
+            self.plot_view.setStyleSheet("background-color: #2b2b2b;")
         else:
             apply_stylesheet(
                 QApplication.instance(), theme="light_blue.xml", extra=extra
             )
+            # Set QWebEngineView background to match light theme
+            self.plot_view.setStyleSheet("background-color: #ffffff;")
 
         # Update welcome message in plot view if no plot is currently displayed
         if self.current_plot_html is None:
             self._show_welcome_message()
 
+    def _display_html_in_plot_view(self, html: str, base_url: QUrl = None):
+        """Display HTML in plot view with theme-appropriate background
+
+        Args:
+            html: HTML string (typically from Bokeh)
+            base_url: Optional base URL for relative resources
+        """
+        bg_color = "#2b2b2b" if self.current_theme == Theme.DARK else "#ffffff"
+
+        # Inject CSS to set body background color
+        style_injection = f"""
+        <style>
+            body {{
+                background-color: {bg_color} !important;
+                margin: 0;
+                padding: 0;
+            }}
+        </style>
+        """
+
+        # Insert style before closing </head> tag if it exists
+        if "</head>" in html:
+            themed_html = html.replace("</head>", f"{style_injection}</head>")
+        else:
+            # If no head tag, insert at the beginning
+            themed_html = style_injection + html
+
+        # Display with or without base URL
+        if base_url:
+            self.plot_view.setHtml(themed_html, baseUrl=base_url)
+        else:
+            self.plot_view.setHtml(themed_html)
+
     def _show_welcome_message(self):
         """Display themed welcome message in plot view"""
         # Use simple dark/light colors for welcome message
-        if self.current_theme == Theme.DARK:
-            bg_color = "#2b2b2b"
-            text_color = "#ffffff"
-        else:
-            bg_color = "#ffffff"
-            text_color = "#000000"
+        text_color = "#ffffff" if self.current_theme == Theme.DARK else "#000000"
 
         welcome_html = f"""
         <html>
+        <head></head>
         <body style='display:flex;align-items:center;justify-content:center;
-                     height:100vh;margin:0;font-family:sans-serif;
-                     background-color:{bg_color};color:{text_color};'>
+                     height:100vh;margin:0;font-family:sans-serif;color:{text_color};'>
             <div style='text-align:center;'>
                 <h2>Squiggy</h2>
                 <p>Select a POD5 file and read to display squiggle plot</p>
@@ -683,7 +715,7 @@ class SquiggleViewer(QMainWindow):
         </body>
         </html>
         """
-        self.plot_view.setHtml(welcome_html)
+        self._display_html_in_plot_view(welcome_html)
 
     async def _regenerate_plot_async(self):
         """Helper method to regenerate plot asynchronously"""
@@ -1206,7 +1238,7 @@ class SquiggleViewer(QMainWindow):
 
             # Display on main thread
             unique_url = QUrl(f"http://localhost/{time.time()}")
-            self.plot_view.setHtml(html, baseUrl=unique_url)
+            self._display_html_in_plot_view(html, unique_url)
 
             self.statusBar().showMessage(
                 f"Aggregate plot: {self.selected_reference} "
@@ -1573,7 +1605,7 @@ class SquiggleViewer(QMainWindow):
 
             # Display on main thread - use unique URL to force complete reload
             unique_url = QUrl(f"http://localhost/{time.time()}")
-            self.plot_view.setHtml(html, baseUrl=unique_url)
+            self._display_html_in_plot_view(html, unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
@@ -1640,7 +1672,7 @@ class SquiggleViewer(QMainWindow):
 
             # Display on main thread - use unique URL to force complete reload
             unique_url = QUrl(f"http://localhost/{time.time()}")
-            self.plot_view.setHtml(html, baseUrl=unique_url)
+            self._display_html_in_plot_view(html, unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
@@ -1725,7 +1757,7 @@ class SquiggleViewer(QMainWindow):
 
             # Display on main thread - use unique URL to force complete reload
             unique_url = QUrl(f"http://localhost/{time.time()}")
-            self.plot_view.setHtml(html, baseUrl=unique_url)
+            self._display_html_in_plot_view(html, unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
@@ -1796,7 +1828,7 @@ class SquiggleViewer(QMainWindow):
 
             # Display on main thread - use unique URL to force complete reload
             unique_url = QUrl(f"http://localhost/{time.time()}")
-            self.plot_view.setHtml(html, baseUrl=unique_url)
+            self._display_html_in_plot_view(html, unique_url)
 
             # Restore zoom/pan state if available
             self.restore_plot_ranges()
