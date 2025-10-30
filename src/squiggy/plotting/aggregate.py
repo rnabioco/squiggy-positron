@@ -110,6 +110,9 @@ def plot_aggregate(
         ],
     )
 
+    # Hide legend (title is descriptive enough)
+    p_signal.legend.visible = False
+
     # Track 2: Base pileup (IGV-style stacked bars)
     p_pileup = create_figure(
         title="Base Call Pileup",
@@ -203,6 +206,9 @@ def plot_aggregate(
     p_pileup.add_tools(hover_pileup)
     configure_legend(p_pileup)
 
+    # Hide legend (title is descriptive enough)
+    p_pileup.legend.visible = False
+
     # Add reference base labels above bars
     if reference_bases:
         # Extend y-axis range to accommodate labels
@@ -284,6 +290,9 @@ def plot_aggregate(
             ("Std Dev", "@std_q{0.1f}"),
         ],
     )
+
+    # Hide legend (title is descriptive enough)
+    p_quality.legend.visible = False
 
     # Link x-axes for synchronized zoom/pan
     p_pileup.x_range = p_signal.x_range
