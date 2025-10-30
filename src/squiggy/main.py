@@ -105,17 +105,16 @@ async def main_async(app, viewer, args):
                 viewer.bam_file = bam_path
                 viewer.bam_label.setText(bam_path.name)
 
-                # Enable BAM-dependent features
-                viewer.base_checkbox.setEnabled(True)
-                viewer.base_checkbox.setChecked(True)  # Check by default
-                viewer.mode_eventalign.setEnabled(True)
-                viewer.mode_eventalign.setChecked(True)  # Switch to event-aligned mode
-                viewer.mode_aggregate.setEnabled(True)  # Enable aggregate mode
+                # Enable BAM-dependent features using panel methods
+                viewer.plot_options_panel.set_bam_controls_enabled(True)
+                viewer.plot_options_panel.set_plot_mode(PlotMode.EVENTALIGN)
                 viewer.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
-                viewer.dwell_time_checkbox.setEnabled(True)  # Enable dwell time option
-                viewer.position_type_checkbox.setEnabled(
-                    True
-                )  # Enable reference positions
+                viewer.advanced_options_panel.set_dwell_time_enabled(True)
+                viewer.advanced_options_panel.set_position_type_enabled(True)
+
+                # Enable browse references button if in region search mode
+                if viewer.search_panel.get_search_mode() == "region":
+                    viewer.search_panel.set_browse_enabled(True)
 
                 viewer.statusBar().showMessage(
                     f"Loaded and validated BAM file: {bam_path.name} "
@@ -133,7 +132,7 @@ async def main_async(app, viewer, args):
 
     # Apply CLI settings to viewer
     if args.pod5:  # Only apply settings if files are loaded
-        # Set normalization method
+        # Set normalization method using panel
         norm_map = {
             "none": (0, NormalizationMethod.NONE),
             "znorm": (1, NormalizationMethod.ZNORM),
@@ -142,58 +141,60 @@ async def main_async(app, viewer, args):
         }
         if args.normalization in norm_map:
             idx, method = norm_map[args.normalization]
-            viewer.norm_combo.setCurrentIndex(idx)
+            viewer.plot_options_panel.norm_combo.setCurrentIndex(idx)
             viewer.normalization_method = method
 
-        # Set plot mode (if specified or default based on BAM)
+        # Set plot mode (if specified or default based on BAM) using panel method
         if args.mode:
             mode_map = {
-                "single": (viewer.mode_single, PlotMode.SINGLE),
-                "overlay": (viewer.mode_overlay, PlotMode.OVERLAY),
-                "stacked": (viewer.mode_stacked, PlotMode.STACKED),
-                "eventalign": (viewer.mode_eventalign, PlotMode.EVENTALIGN),
+                "single": PlotMode.SINGLE,
+                "overlay": PlotMode.OVERLAY,
+                "stacked": PlotMode.STACKED,
+                "eventalign": PlotMode.EVENTALIGN,
+                "aggregate": PlotMode.AGGREGATE,
             }
             if args.mode in mode_map:
-                radio, mode = mode_map[args.mode]
-                if radio.isEnabled():  # Check if mode is available
-                    radio.setChecked(True)
-                    viewer.plot_mode = mode
+                mode = mode_map[args.mode]
+                viewer.plot_options_panel.set_plot_mode(mode)
+                viewer.plot_mode = mode
         elif args.bam:
             # Default to eventalign if BAM provided and no mode specified
-            viewer.mode_eventalign.setChecked(True)
+            viewer.plot_options_panel.set_plot_mode(PlotMode.EVENTALIGN)
             viewer.plot_mode = PlotMode.EVENTALIGN
 
-        # Set base annotations visibility
+        # Set base annotations visibility using panel
         if args.no_show_bases:
-            viewer.base_checkbox.setChecked(False)
+            viewer.plot_options_panel.base_checkbox.setChecked(False)
         elif args.show_bases:
-            viewer.base_checkbox.setChecked(True)
+            viewer.plot_options_panel.base_checkbox.setChecked(True)
         elif args.bam and not args.mode:
             # Default to showing bases if BAM loaded
-            viewer.base_checkbox.setChecked(True)
+            viewer.plot_options_panel.base_checkbox.setChecked(True)
 
-        # Set signal points visibility
+        # Set signal points visibility using panel
         if args.show_points:
-            viewer.points_checkbox.setChecked(True)
+            viewer.plot_options_panel.points_checkbox.setChecked(True)
 
-        # Set dwell time scaling
+        # Set dwell time scaling using advanced panel
         if args.dwell_time:
-            if viewer.dwell_time_checkbox.isEnabled():
-                viewer.dwell_time_checkbox.setChecked(True)
+            if viewer.advanced_options_panel.dwell_time_checkbox.isEnabled():
+                viewer.advanced_options_panel.dwell_time_checkbox.setChecked(True)
 
-        # Set downsample factor
-        viewer.downsample_slider.setValue(args.downsample)
-        viewer.downsample_spinbox.setValue(args.downsample)
+        # Set downsample factor using advanced panel
+        viewer.advanced_options_panel.downsample_slider.setValue(args.downsample)
+        viewer.advanced_options_panel.downsample_spinbox.setValue(args.downsample)
 
-        # Set position label interval
-        viewer.position_interval_spinbox.setValue(args.position_interval)
+        # Set position label interval using advanced panel
+        viewer.advanced_options_panel.position_interval_spinbox.setValue(
+            args.position_interval
+        )
 
-        # Set reference positions
+        # Set reference positions using advanced panel
         if args.reference_positions:
-            if viewer.position_type_checkbox.isEnabled():
-                viewer.position_type_checkbox.setChecked(True)
+            if viewer.advanced_options_panel.position_type_checkbox.isEnabled():
+                viewer.advanced_options_panel.position_type_checkbox.setChecked(True)
 
-    # Auto-select and display read(s) if specified
+    # Auto-select and display read(s) or reference if specified
     if args.read_id and viewer.pod5_file:
         # Single read ID
         items = viewer.read_list.findItems(args.read_id, Qt.MatchExactly)
@@ -221,6 +222,48 @@ async def main_async(app, viewer, args):
                 "Reads Not Found",
                 "None of the specified read IDs were found in POD5 file",
             )
+    elif args.region and viewer.pod5_file and viewer.bam_file:
+        # Genomic region-based read selection
+        viewer.statusBar().showMessage(f"Searching region: {args.region}...")
+        try:
+            # Use the viewer's search manager to filter by region
+            await viewer.search_manager.filter_by_region(args.region)
+            if viewer.read_list.count() > 0:
+                # Auto-display if reads were found
+                if viewer.plot_mode in [PlotMode.OVERLAY, PlotMode.STACKED, PlotMode.EVENTALIGN]:
+                    # For multi-read modes, select all filtered reads (up to a reasonable limit)
+                    max_reads = 10 if viewer.plot_mode == PlotMode.OVERLAY else 100
+                    for i in range(min(viewer.read_list.count(), max_reads)):
+                        viewer.read_list.item(i).setSelected(True)
+                else:
+                    # For single mode, select the first read
+                    viewer.read_list.setCurrentRow(0)
+                await viewer.display_squiggle()
+            else:
+                QMessageBox.warning(
+                    viewer,
+                    "No Reads Found",
+                    f"No reads found in region: {args.region}",
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                viewer,
+                "Region Search Failed",
+                f"Failed to search region '{args.region}':\n{str(e)}",
+            )
+    elif args.reference and viewer.pod5_file and viewer.bam_file:
+        # Reference sequence for aggregate mode
+        viewer.statusBar().showMessage(f"Loading aggregate view for: {args.reference}...")
+        try:
+            # Set selected reference and display aggregate
+            viewer.selected_reference = args.reference
+            await viewer.display_aggregate()
+        except Exception as e:
+            QMessageBox.critical(
+                viewer,
+                "Aggregate Display Failed",
+                f"Failed to display aggregate for reference '{args.reference}':\n{str(e)}",
+            )
 
 
 def main():
@@ -235,13 +278,17 @@ Examples:
   squiggy --pod5 data.pod5                            Launch GUI with POD5 file pre-loaded
   squiggy --pod5 data.pod5 --bam calls.bam            Launch GUI with POD5 and BAM files
 
-  # With plot options
-  squiggy -p data.pod5 -b calls.bam --mode eventalign --normalization median
+  # With specific reads
+  squiggy -p data.pod5 -b calls.bam --mode eventalign --read-id READ_ID
   squiggy -p data.pod5 --read-id READ_ID --show-points --downsample 10
+  squiggy -p data.pod5 -b calls.bam --mode overlay --region "chr1:1000-2000"
+
+  # Aggregate mode
+  squiggy -p data.pod5 -b calls.bam --mode aggregate --reference "chr1"
 
   # Headless export (no GUI)
   squiggy -p data.pod5 --read-id READ_ID --export plot.html
-  squiggy -p data.pod5 -b calls.bam --read-id READ_ID --export plot.png --export-format png
+  squiggy -p data.pod5 -b calls.bam --read-id READ_ID --export plot.png
 
   # Other
   squiggy --version                                   Show version information
@@ -267,7 +314,7 @@ Version: {APP_VERSION}
         "--mode",
         "-m",
         type=str,
-        choices=["single", "overlay", "stacked", "eventalign"],
+        choices=["single", "overlay", "stacked", "eventalign", "aggregate"],
         help="Plot mode (default: eventalign if BAM provided, else single)",
     )
     plot_group.add_argument(
@@ -335,6 +382,16 @@ Version: {APP_VERSION}
         nargs="+",
         help="Auto-select multiple read IDs (for overlay/stacked modes)",
     )
+    read_group.add_argument(
+        "--region",
+        type=str,
+        help="Select reads by genomic region (e.g., 'chr1:1000-2000', requires BAM file)",
+    )
+    read_group.add_argument(
+        "--reference",
+        type=str,
+        help="Select reference sequence for aggregate mode (requires BAM file)",
+    )
 
     # Export options
     export_group = parser.add_argument_group("Export Options (Headless Mode)")
@@ -343,27 +400,21 @@ Version: {APP_VERSION}
         "-e",
         type=str,
         metavar="FILE",
-        help="Export plot to file and exit (no GUI). Requires --pod5 and --read-id",
-    )
-    export_group.add_argument(
-        "--export-format",
-        type=str,
-        choices=["html", "png", "svg"],
-        help="Export format (default: inferred from file extension)",
+        help="Export plot to file and exit (no GUI). Format inferred from extension (.html, .png, .svg). Requires --pod5 and --read-id",
     )
     export_group.add_argument(
         "--export-width",
         type=int,
         default=1200,
         metavar="PX",
-        help="Export width in pixels (default: 1200)",
+        help="Export width in pixels for PNG/SVG (default: 1200)",
     )
     export_group.add_argument(
         "--export-height",
         type=int,
         default=600,
         metavar="PX",
-        help="Export height in pixels (default: 600)",
+        help="Export height in pixels for PNG/SVG (default: 600)",
     )
 
     # Theme
@@ -374,6 +425,23 @@ Version: {APP_VERSION}
         choices=["light", "dark"],
         default="dark",
         help="Application theme (default: dark)",
+    )
+
+    # Expert options
+    expert_group = parser.add_argument_group("Expert Options")
+    expert_group.add_argument(
+        "--window-width",
+        type=int,
+        default=1200,
+        metavar="PX",
+        help="Initial window width in pixels (default: 1200)",
+    )
+    expert_group.add_argument(
+        "--window-height",
+        type=int,
+        default=800,
+        metavar="PX",
+        help="Initial window height in pixels (default: 800)",
     )
 
     # Version
@@ -399,6 +467,28 @@ Version: {APP_VERSION}
     if args.downsample < 1 or args.downsample > 100:
         parser.error("--downsample must be between 1 and 100")
 
+    # Validate read selection parameters are mutually exclusive
+    read_selection_args = [args.read_id, args.reads, args.region, args.reference]
+    if sum(bool(arg) for arg in read_selection_args) > 1:
+        parser.error(
+            "Only one of --read-id, --reads, --region, or --reference can be specified"
+        )
+
+    # Validate --region requires BAM file
+    if args.region and not args.bam:
+        parser.error("--region requires --bam file")
+
+    # Validate --reference requires BAM file
+    if args.reference and not args.bam:
+        parser.error("--reference requires --bam file")
+
+    # Validate --reference requires aggregate mode (or set it as default)
+    if args.reference and args.mode and args.mode != "aggregate":
+        parser.error("--reference can only be used with --mode aggregate")
+    elif args.reference and not args.mode:
+        # Auto-set mode to aggregate if reference is specified
+        args.mode = "aggregate"
+
     # Handle headless export mode (no GUI)
     if args.export:
         # Lazy import export_plot only when needed (CLI mode)
@@ -423,7 +513,9 @@ Version: {APP_VERSION}
     # Lazy import SquiggleViewer to defer pod5/pysam imports
     from squiggy.viewer import SquiggleViewer
 
-    viewer = SquiggleViewer()
+    viewer = SquiggleViewer(
+        window_width=args.window_width, window_height=args.window_height
+    )
 
     # Set window icon (in addition to app icon)
     if icon_path:

@@ -6,6 +6,7 @@ repo_name: rnabioco/squiggy
 
 theme:
   name: material
+  custom_dir: docs/overrides
   palette:
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
@@ -36,6 +37,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Quick Start: quickstart.md
   - Installation: installation.md
   - Usage: usage.md
   - Development: development.md
