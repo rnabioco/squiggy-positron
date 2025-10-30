@@ -9,7 +9,7 @@
 
 Alternatively, you can:
 - Use **File → Open Sample Data** (Ctrl/Cmd+Shift+O) to load the bundled sample POD5 file
-- Launch with a file from command line: `squiggy --file /path/to/file.pod5`
+- Launch with a file from command line: `squiggy --pod5 /path/to/file.pod5`
 
 ## Optional: Adding Base Annotations
 
@@ -79,6 +79,15 @@ The event-aligned mode also supports dwell time scaling, which adjusts the x-axi
 
 ![Event-aligned plot with dwell time scaling](images/eventalign_dwell.png)
 *Figure: Event-aligned mode with dwell time scaling enabled*
+
+### Aggregate Mode
+- Displays multi-read pileup statistics for a reference sequence (requires BAM file)
+- Shows three synchronized tracks:
+  - **Signal Track**: Mean signal with confidence bands (±1 std dev)
+  - **Base Pileup**: IGV-style stacked bars showing base proportions at each position
+  - **Quality Track**: Mean quality scores across reads
+- Best for examining consensus signal patterns and base calling accuracy
+- Searchable by reference sequence name from the reference browser
 
 ## Signal Normalization
 
@@ -162,6 +171,7 @@ You can export the currently displayed plot in multiple formats:
 - **Ctrl/Cmd + O**: Open POD5 file dialog
 - **Ctrl/Cmd + Shift + O**: Open sample data
 - **Ctrl/Cmd + E**: Export current plot
+- **Ctrl/Cmd + D**: Toggle dark/light theme
 - **Ctrl/Cmd + Q**: Quit application
 
 ## File Format Support
