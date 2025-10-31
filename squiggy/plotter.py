@@ -4,9 +4,10 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 from bokeh.embed import file_html
-from bokeh.layouts import gridplot
+from bokeh.layouts import column, gridplot
 from bokeh.models import (
     Band,
+    BoxAnnotation,
     ColorBar,
     ColumnDataSource,
     HoverTool,
@@ -25,6 +26,7 @@ from .constants import (
     DARK_THEME,
     DEFAULT_POSITION_LABEL_INTERVAL,
     LIGHT_THEME,
+    MODIFICATION_COLORS,
     SIGNAL_LINE_COLOR,
     SIGNAL_POINT_ALPHA,
     SIGNAL_POINT_COLOR,
@@ -49,6 +51,33 @@ class SquigglePlotter:
         "pink",
         "gray",
     ]
+
+    def __init__(self, theme: Theme = Theme.LIGHT):
+        """
+        Initialize the plotter with a theme
+
+        Args:
+            theme: Color theme for plots (LIGHT or DARK)
+        """
+        self.theme = theme
+
+        # Set base colors based on theme
+        if theme == Theme.DARK:
+            self.base_colors = BASE_COLORS_DARK
+        else:
+            self.base_colors = BASE_COLORS
+
+    def figure_to_html(self, fig) -> str:
+        """
+        Convert a Bokeh figure to HTML string
+
+        Args:
+            fig: Bokeh figure object
+
+        Returns:
+            HTML string with embedded Bokeh plot
+        """
+        return file_html(fig, CDN, "Squiggy Plot")
 
     @staticmethod
     def normalize_signal(signal: np.ndarray, method: NormalizationMethod) -> np.ndarray:
@@ -327,7 +356,7 @@ class SquigglePlotter:
 
                 start_time = time_ms[sig_idx]
 
-                # Calculate end time and dwell time
+                # Calculate end time (x-coordinate)
                 if seq_pos + 1 < len(seq_to_sig_map):
                     next_sig_idx = seq_to_sig_map[seq_pos + 1]
                     end_time = (
@@ -338,7 +367,15 @@ class SquigglePlotter:
                 else:
                     end_time = time_ms[-1]
 
-                dwell_time = end_time - start_time
+                # Calculate actual dwell time in milliseconds (for color mapping)
+                # This is always based on signal sample counts, not x-axis coordinates
+                if seq_pos + 1 < len(seq_to_sig_map):
+                    next_sig_idx = seq_to_sig_map[seq_pos + 1]
+                    sig_samples = next_sig_idx - sig_idx
+                else:
+                    sig_samples = len(signal) - sig_idx
+
+                dwell_time = sig_samples * 1000 / sample_rate
 
                 all_regions.append(
                     {
@@ -351,10 +388,10 @@ class SquigglePlotter:
                 )
                 all_dwell_times.append(dwell_time)
 
-                # Store label data
+                # Store label data (position at top of plot)
                 mid_time = (start_time + end_time) / 2
                 all_labels_data.append(
-                    {"time": mid_time, "y": signal[sig_idx], "text": f"{base}{seq_pos}"}
+                    {"time": mid_time, "y": signal_max, "text": f"{base}"}
                 )
 
             return all_regions, all_dwell_times, all_labels_data
@@ -400,7 +437,7 @@ class SquigglePlotter:
 
                 mid_time = (start_time + end_time) / 2
                 base_labels_data[base].append(
-                    {"time": mid_time, "y": signal[sig_idx], "text": f"{base}{seq_pos}"}
+                    {"time": mid_time, "y": signal_max, "text": f"{base}"}
                 )
 
             return base_regions, base_labels_data
@@ -747,6 +784,12 @@ class SquigglePlotter:
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
+        modifications: Optional[List] = None,
+        show_modification_overlay: bool = True,
+        modification_overlay_opacity: float = 0.6,
+        scale_dwell_time: bool = False,
+        min_mod_probability: float = 0.5,
+        enabled_mod_types: Optional[List[str]] = None,
     ) -> Tuple[str, figure]:
         """
         Plot a single nanopore read with optional base annotations
@@ -765,6 +808,10 @@ class SquigglePlotter:
             position_label_interval: Show position number every N bases
             use_reference_positions: Use reference genome positions (requires alignment data)
             theme: Color theme (LIGHT or DARK)
+            modifications: Optional list of ModificationAnnotation objects for modBAM visualization
+            show_modification_overlay: Whether to display modification overlays (default: True)
+            modification_overlay_opacity: Base opacity for modification shading 0-1 (default: 0.6)
+            scale_dwell_time: Scale x-axis by cumulative dwell time instead of regular time (default: False)
 
         Returns:
             Tuple[str, figure]: (HTML string, Bokeh figure object)
@@ -775,15 +822,74 @@ class SquigglePlotter:
             signal, normalization, downsample, seq_to_sig_map
         )
 
-        # Create time axis and figure with status information
-        time_ms = np.arange(len(signal)) * 1000 / sample_rate
+        # Create x-axis based on scale_dwell_time setting and base annotations
+        if sequence and seq_to_sig_map is not None and len(seq_to_sig_map) > 0:
+            if scale_dwell_time:
+                # Build cumulative time array from dwell times
+                cumulative_time_ms = np.zeros(len(signal))
+                current_time = 0.0
+
+                for seq_pos in range(len(sequence)):
+                    if seq_pos >= len(seq_to_sig_map):
+                        break
+
+                    sig_start = seq_to_sig_map[seq_pos]
+
+                    # Find end of this base's signal region
+                    if seq_pos + 1 < len(seq_to_sig_map):
+                        sig_end = seq_to_sig_map[seq_pos + 1]
+                    else:
+                        sig_end = len(signal)
+
+                    # Calculate dwell time for this base in milliseconds
+                    dwell_time_ms = (sig_end - sig_start) * 1000 / sample_rate
+
+                    # Assign cumulative time to all signal samples for this base
+                    for i in range(sig_start, min(sig_end, len(signal))):
+                        # Linear interpolation within the base
+                        progress = (i - sig_start) / max(1, sig_end - sig_start)
+                        cumulative_time_ms[i] = current_time + (progress * dwell_time_ms)
+
+                    current_time += dwell_time_ms
+
+                time_ms = cumulative_time_ms
+                x_label = "Cumulative Dwell Time (ms)"
+            else:
+                # Use base positions (equal width per base)
+                base_positions = np.zeros(len(signal))
+
+                for seq_pos in range(len(sequence)):
+                    if seq_pos >= len(seq_to_sig_map):
+                        break
+
+                    sig_start = seq_to_sig_map[seq_pos]
+
+                    # Find end of this base's signal region
+                    if seq_pos + 1 < len(seq_to_sig_map):
+                        sig_end = seq_to_sig_map[seq_pos + 1]
+                    else:
+                        sig_end = len(signal)
+
+                    # Assign base position to all signal samples for this base
+                    for i in range(sig_start, min(sig_end, len(signal))):
+                        # Linear interpolation within the base
+                        progress = (i - sig_start) / max(1, sig_end - sig_start)
+                        base_positions[i] = seq_pos + progress
+
+                time_ms = base_positions
+                x_label = "Base Position"
+        else:
+            # No base annotations - fall back to regular time
+            time_ms = np.arange(len(signal)) * 1000 / sample_rate
+            x_label = "Time (ms)"
+
         reads_data = [(read_id, signal, sample_rate)]
         title = SquigglePlotter._format_plot_title(
             "Single", reads_data, normalization, downsample
         )
         p = SquigglePlotter._create_figure(
             title=title,
-            x_label="Time (ms)",
+            x_label=x_label,
             y_label=f"Signal ({normalization.value})",
             theme=theme,
         )
@@ -837,11 +943,44 @@ class SquigglePlotter:
             )
             p.add_layout(color_bar, "right")
 
-        # Note: Not using column/row layout to avoid JavaScript navigation issues
-        # The toggle controls are embedded in the figure via JS callbacks
-        # Generate HTML
-        html = file_html(p, CDN, title=f"Squiggy: {read_id}")
-        return html, p
+        # Create modification track if modifications are available
+        p_mod = SquigglePlotter._create_modification_track(
+            sequence,
+            seq_to_sig_map,
+            time_ms,
+            sample_rate,
+            modifications,
+            show_modification_overlay,
+            modification_overlay_opacity,
+            show_dwell_time,
+            theme,
+            min_mod_probability,
+            enabled_mod_types,
+        )
+
+        # Generate HTML - either single plot or column layout with modification track
+        if p_mod is not None:
+            # Link x-axes for synchronized zoom/pan
+            p_mod.x_range = p.x_range
+
+            # Minimize top border of main plot to remove gap with modification track
+            p.min_border_top = 0
+            p.min_border_left = 5
+            p.min_border_right = 5
+
+            # Create column layout with tracks stacked vertically
+            layout = column(
+                p_mod,
+                p,
+                sizing_mode="stretch_both",  # Stretch both width and height
+                spacing=0,  # No spacing between plots
+            )
+            html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
+            return html, layout
+        else:
+            # No modifications - return single plot
+            html = file_html(p, CDN, title=f"Squiggy: {read_id}")
+            return html, p
 
     @staticmethod
     def _add_base_annotations_single_read(
@@ -921,6 +1060,183 @@ class SquigglePlotter:
             p.legend.location = "top_right"
 
         return color_mapper, None
+
+    @staticmethod
+    def _create_modification_track(
+        sequence: Optional[str],
+        seq_to_sig_map: Optional[List[int]],
+        time_ms: np.ndarray,
+        sample_rate: int,
+        modifications: Optional[List],
+        show_modification_overlay: bool,
+        modification_overlay_opacity: float,
+        show_dwell_time: bool,
+        theme: Theme,
+        min_mod_probability: float = 0.5,
+        enabled_mod_types: Optional[List[str]] = None,
+    ):
+        """Create a separate track for base modifications
+
+        Args:
+            sequence: Base sequence
+            seq_to_sig_map: Mapping from sequence positions to signal indices
+            time_ms: Time axis array
+            sample_rate: Sampling rate in Hz
+            modifications: List of ModificationAnnotation objects
+            show_modification_overlay: Whether to show modification track
+            modification_overlay_opacity: Base opacity for modification rectangles
+            show_dwell_time: Whether using time-based x-axis
+            theme: Color theme (LIGHT or DARK)
+            min_mod_probability: Minimum probability threshold (0-1)
+            enabled_mod_types: List of enabled modification types (None = all)
+
+        Returns:
+            Bokeh figure with modification track, or None if no modifications
+        """
+        if not show_modification_overlay or not modifications or len(modifications) == 0:
+            return None
+
+        if not sequence or seq_to_sig_map is None:
+            return None
+
+        from .constants import MODIFICATION_CODES
+
+        # Prepare data for modification rectangles
+        mod_data = {
+            "x": [],  # Center position
+            "y": [],  # Y position (always 0.5 for single row)
+            "left": [],  # Left edge
+            "right": [],  # Right edge
+            "width": [],  # Width
+            "mod_type": [],  # Modification type code
+            "mod_name": [],  # Modification name
+            "probability": [],  # Modification probability
+            "base": [],  # Canonical base
+            "position": [],  # Base position
+            "color": [],  # Color for each modification
+        }
+
+        # Create mapping from sequence position to signal indices for quick lookup
+        pos_to_signal = {i: sig_idx for i, sig_idx in enumerate(seq_to_sig_map)}
+
+        for mod in modifications:
+            # Filter by probability threshold
+            if mod.probability < min_mod_probability:
+                continue
+
+            # Filter by enabled modification types
+            if enabled_mod_types is not None and len(enabled_mod_types) > 0:
+                # Convert mod_code to string for comparison
+                mod_code_str = str(mod.mod_code)
+                if mod_code_str not in enabled_mod_types:
+                    continue
+
+            # Get signal start/end for this modification position
+            if mod.position not in pos_to_signal:
+                continue
+
+            sig_start_idx = pos_to_signal[mod.position]
+
+            # Find signal end index (next base or end of sequence)
+            sig_end_idx = sig_start_idx + 1  # Default: one sample
+            if mod.position + 1 < len(seq_to_sig_map):
+                sig_end_idx = pos_to_signal[mod.position + 1]
+
+            # Calculate x-axis range using time_ms (same as main plot)
+            # Main plot always uses time_ms for x-axis, so modification track must too
+            if sig_start_idx < len(time_ms) and sig_end_idx <= len(time_ms):
+                left_x = time_ms[sig_start_idx]
+                right_x = time_ms[min(sig_end_idx, len(time_ms) - 1)]
+            else:
+                continue
+
+            # Get modification color and name
+            mod_color = MODIFICATION_COLORS.get(
+                mod.mod_code, MODIFICATION_COLORS["default"]
+            )
+            mod_name = MODIFICATION_CODES.get(mod.mod_code, str(mod.mod_code))
+
+            # Add data point
+            mod_data["x"].append((left_x + right_x) / 2)
+            mod_data["y"].append(0.5)  # Single row
+            mod_data["left"].append(left_x)
+            mod_data["right"].append(right_x)
+            mod_data["width"].append(right_x - left_x)
+            mod_data["mod_type"].append(str(mod.mod_code))
+            mod_data["mod_name"].append(mod_name)
+            mod_data["probability"].append(mod.probability)
+            mod_data["base"].append(sequence[mod.position])
+            mod_data["position"].append(mod.position)
+            mod_data["color"].append(mod_color)
+
+        # If no modifications after filtering, return None
+        if not mod_data["x"]:
+            return None
+
+        # Create modification track figure
+        p_mod = SquigglePlotter._create_figure(
+            title="Base Modifications (modBAM)",
+            x_label="",  # No label needed - axes are shared with main plot
+            y_label="",
+            theme=theme,
+        )
+
+        # Hide toolbar (main plot below will have the toolbar)
+        p_mod.toolbar_location = None
+
+        # Hide y-axis (only one row)
+        p_mod.yaxis.visible = False
+
+        # Hide x-axis labels but keep ticks (axes are shared with main plot below)
+        p_mod.xaxis.major_label_text_font_size = "0pt"
+
+        # Minimize borders to reduce gap with main plot
+        p_mod.min_border_bottom = 0
+        p_mod.min_border_left = 5
+        p_mod.min_border_right = 5
+        p_mod.min_border_top = 5
+
+        # Create data source
+        mod_source = ColumnDataSource(data=mod_data)
+
+        # Create rectangles for modifications
+        # Use alpha from overlay_opacity and probability
+        alphas = [modification_overlay_opacity * p for p in mod_data["probability"]]
+        mod_source.data["alpha"] = alphas
+
+        rects = p_mod.rect(
+            x="x",
+            y="y",
+            width="width",
+            height=0.8,  # Height of rectangle (0-1 range)
+            source=mod_source,
+            fill_color="color",
+            fill_alpha="alpha",
+            line_color=None,
+        )
+
+        # Add hover tool with modification details
+        hover_mod = HoverTool(
+            renderers=[rects],
+            tooltips=[
+                ("Position", "@position"),
+                ("Base", "@base"),
+                ("Modification", "@mod_name (@mod_type)"),
+                ("Probability", "@probability{0.3f}"),
+            ],
+            mode="mouse",
+        )
+        p_mod.add_tools(hover_mod)
+
+        # Set y-axis range
+        p_mod.y_range.start = 0
+        p_mod.y_range.end = 1
+
+        # Set height for modification track
+        p_mod.sizing_mode = "stretch_width"
+        p_mod.height = 80
+
+        return p_mod
 
     @staticmethod
     def plot_multiple_reads(

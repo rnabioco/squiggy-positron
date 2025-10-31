@@ -41,8 +41,10 @@ from .plotter import SquigglePlotter
 from .io import (
     load_pod5,
     load_bam,
+    get_bam_modification_info,
     get_current_files,
     get_read_ids,
+    get_read_to_reference_mapping,
     close_pod5,
 )
 
@@ -76,7 +78,11 @@ def plot_read(
     theme: str = "LIGHT",
     downsample: bool = True,
     show_dwell_time: bool = False,
+    show_labels: bool = True,
     position_label_interval: int = 100,
+    scale_dwell_time: bool = False,
+    min_mod_probability: float = 0.5,
+    enabled_mod_types: list = None,
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -87,8 +93,12 @@ def plot_read(
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
         downsample: Whether to downsample long signals
-        show_dwell_time: Show dwell time on base annotations
+        show_dwell_time: Color bases by dwell time (requires event-aligned mode)
+        show_labels: Show base labels on plot (event-aligned mode)
         position_label_interval: Interval for position labels
+        scale_dwell_time: Scale x-axis by cumulative dwell time instead of regular time
+        min_mod_probability: Minimum probability threshold for displaying modifications (0-1)
+        enabled_mod_types: List of modification type codes to display (None = all)
 
     Returns:
         Bokeh HTML string
@@ -133,21 +143,25 @@ def plot_read(
 
     plotter = SquigglePlotter(theme=theme_enum)
 
-    # Extract sequence and seq_to_sig_map if available
+    # Extract sequence, seq_to_sig_map, and modifications if available
     sequence = None
     seq_to_sig_map = None
+    modifications = None
     if aligned_read:
         sequence = aligned_read.sequence
         # Build seq_to_sig_map from base annotations
-        if aligned_read.base_annotations:
-            seq_to_sig_map = [ann.signal_start for ann in aligned_read.base_annotations]
+        if aligned_read.bases:
+            seq_to_sig_map = [ann.signal_start for ann in aligned_read.bases]
+        # Extract modifications
+        if hasattr(aligned_read, 'modifications') and aligned_read.modifications:
+            modifications = aligned_read.modifications
 
-    # Generate figure
+    # Generate plot (returns HTML and figure)
     if plot_mode in (PlotMode.SINGLE, PlotMode.EVENTALIGN):
         if plot_mode == PlotMode.EVENTALIGN and aligned_read is None:
             raise ValueError("EVENTALIGN mode requires a BAM file. Call load_bam() first.")
 
-        figure = plotter.plot_single_read(
+        html, figure = SquigglePlotter.plot_single_read(
             signal=signal,
             read_id=read_id,
             sample_rate=read_obj.run_info.sample_rate,
@@ -155,13 +169,15 @@ def plot_read(
             seq_to_sig_map=seq_to_sig_map,
             normalization=norm_method,
             show_dwell_time=show_dwell_time,
-            show_labels=True,
+            show_labels=show_labels,
+            modifications=modifications,
+            scale_dwell_time=scale_dwell_time,
+            min_mod_probability=min_mod_probability,
+            enabled_mod_types=enabled_mod_types,
         )
+        return html
     else:
         raise ValueError(f"Plot mode {plot_mode} not yet supported in extension. Use SINGLE or EVENTALIGN.")
-
-    # Convert to HTML
-    return plotter.figure_to_html(figure)
 
 
 def plot_reads(

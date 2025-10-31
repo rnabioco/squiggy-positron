@@ -11,7 +11,10 @@
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],
-      "preLaunchTask": "${defaultBuildTask}"
+      "preLaunchTask": "${defaultBuildTask}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}"
+      }
     }
   ]
 }

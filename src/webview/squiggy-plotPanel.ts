@@ -76,8 +76,14 @@ export class SquigglePlotPanel {
             : `Squiggle Plot: ${readIds.length} reads`;
         this._panel.title = title;
 
-        // Set webview content
-        this._panel.webview.html = this._getWebviewContent(bokehHtml);
+        // Show loading state first to make the update visible
+        this._panel.webview.html = this._getLoadingContent();
+
+        // Then set the actual content after a brief delay
+        // This ensures the webview visibly refreshes
+        setTimeout(() => {
+            this._panel.webview.html = this._getWebviewContent(bokehHtml);
+        }, 100);
     }
 
     /**
@@ -109,6 +115,52 @@ export class SquigglePlotPanel {
                 disposable.dispose();
             }
         }
+    }
+
+    /**
+     * Get loading indicator HTML
+     */
+    private _getLoadingContent(): string {
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: var(--vscode-font-family);
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
+        }
+        .spinner {
+            border: 4px solid var(--vscode-progressBar-background);
+            border-top: 4px solid var(--vscode-progressBar-foreground);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="spinner"></div>
+    <div class="loading-text">Loading plot...</div>
+</body>
+</html>`;
     }
 
     /**

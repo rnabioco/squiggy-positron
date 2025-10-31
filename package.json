@@ -61,6 +61,17 @@
     "views": {
       "squiggy-sidebar": [
         {
+          "id": "squiggyFilePanel",
+          "name": "Files",
+          "type": "webview"
+        },
+        {
+          "id": "squiggyReadSearch",
+          "name": "",
+          "type": "webview",
+          "visibility": "visible"
+        },
+        {
           "id": "squiggyReadList",
           "name": "Reads"
         },
@@ -68,6 +79,12 @@
           "id": "squiggyPlotOptions",
           "name": "Plot Options",
           "type": "webview"
+        },
+        {
+          "id": "squiggyModificationsPanel",
+          "name": "Base Modifications",
+          "type": "webview",
+          "when": "squiggy.hasModifications"
         }
       ]
     },
@@ -92,7 +109,7 @@
       "properties": {
         "squiggy.defaultPlotMode": {
           "type": "string",
-          "enum": ["SINGLE", "OVERLAY", "STACKED", "EVENTALIGN"],
+          "enum": ["SINGLE", "EVENTALIGN"],
           "default": "SINGLE",
           "description": "Default plot mode for visualizations"
         },

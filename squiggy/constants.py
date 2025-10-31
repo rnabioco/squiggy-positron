@@ -159,3 +159,82 @@ BASE_COLORS_DARK = {
     "U": "#ff8c42",  # Same as T
     "N": "#999999",  # Lighter gray (unknown)
 }
+
+# ==============================================================================
+# Base Modification (modBAM) Settings
+# ==============================================================================
+
+# Common modification codes and display names
+# Based on https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf
+# Complete list from modkit (https://github.com/nanoporetech/modkit)
+# Supports both single-letter codes and ChEBI numeric codes
+MODIFICATION_CODES = {
+    # Cytosine modifications
+    "m": "5mC",  # 5-methylcytosine
+    "h": "5hmC",  # 5-hydroxymethylcytosine
+    "f": "5fC",  # 5-formylcytosine
+    "c": "5caC",  # 5-carboxylcytosine
+    21839: "4mC",  # 4-methylcytosine
+    19228: "Cm",  # 2'-O-methylcytosine
+    "C": "C*",  # any cytosine modification
+    # Adenine modifications
+    "a": "6mA",  # N6-methyladenine
+    17596: "I",  # inosine
+    69426: "Am",  # 2'-O-methyladenine
+    "A": "A*",  # any adenine modification
+    # Thymine/Uracil modifications
+    "g": "5hmU",  # 5-hydroxymethyluracil
+    "e": "5fU",  # 5-formyluracil
+    "b": "5caU",  # 5-carboxyuracil
+    17802: "Ψ",  # pseudouridine
+    16450: "dU",  # deoxyuridine
+    19227: "Um",  # 2'-O-methyluracil
+    "T": "T*",  # any thymine modification
+    # Guanine modifications
+    "o": "8oxoG",  # 8-oxoguanine
+    19229: "Gm",  # 2'-O-methylguanine
+    "G": "G*",  # any guanine modification
+}
+
+# Modification type colors (colorblind-friendly, distinct from base colors)
+# Uses Okabe-Ito palette colors organized by base type
+MODIFICATION_COLORS = {
+    # Cytosine modifications (blue/cyan hues)
+    "m": "#0072B2",  # Blue (5mC)
+    "h": "#56B4E9",  # Sky blue (5hmC)
+    "f": "#4682B4",  # Steel blue (5fC)
+    "c": "#87CEEB",  # Sky blue light (5caC)
+    21839: "#1E90FF",  # Dodger blue (4mC)
+    19228: "#00CED1",  # Dark turquoise (Cm)
+    "C": "#0072B2",  # Blue (any C*)
+    # Adenine modifications (orange/red hues)
+    "a": "#D55E00",  # Vermillion (6mA)
+    17596: "#CC6600",  # Dark orange (inosine)
+    69426: "#E69F00",  # Orange (Am)
+    "A": "#D55E00",  # Vermillion (any A*)
+    # Thymine/Uracil modifications (purple/magenta hues)
+    "g": "#CC79A7",  # Reddish purple (5hmU)
+    "e": "#9370DB",  # Medium purple (5fU)
+    "b": "#BA55D3",  # Medium orchid (5caU)
+    17802: "#8B008B",  # Dark magenta (pseudouridine Ψ)
+    16450: "#DA70D6",  # Orchid (dU)
+    19227: "#DDA0DD",  # Plum (Um)
+    "T": "#CC79A7",  # Reddish purple (any T*)
+    # Guanine modifications (green/teal hues)
+    "o": "#009E73",  # Bluish green (8oxoG)
+    19229: "#20B2AA",  # Light sea green (Gm)
+    "G": "#009E73",  # Bluish green (any G*)
+    # Default for unknown modifications
+    "default": "#000000",  # Black
+}
+
+# Modification overlay settings
+DEFAULT_MOD_OVERLAY_OPACITY = 0.6  # Default opacity for modification shading (0-1)
+MOD_OVERLAY_MIN_OPACITY = 0.1  # Minimum overlay opacity
+MOD_OVERLAY_MAX_OPACITY = 0.9  # Maximum overlay opacity
+
+# Modification threshold settings
+DEFAULT_MOD_THRESHOLD = 0.5  # Default probability threshold (tau)
+MOD_THRESHOLD_MIN = 0.0  # Minimum threshold
+MOD_THRESHOLD_MAX = 1.0  # Maximum threshold
+MOD_THRESHOLD_STEP = 0.05  # Threshold slider step size

@@ -7,15 +7,28 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PositronRuntime } from './backend/positronRuntime';
-import { PythonBackend } from './backend/pythonBackend';
-import { ReadTreeProvider, ReadItem } from './views/readExplorer';
-import { SquigglePlotPanel } from './webview/plotPanel';
+import { PositronRuntime } from './backend/squiggy-positronRuntime';
+import { PythonBackend } from './backend/squiggy-pythonBackend';
+import { ReadTreeProvider, ReadItem } from './views/squiggy-readExplorer';
+import { ReadSearchViewProvider } from './views/squiggy-readSearchView';
+import { PlotOptionsViewProvider } from './views/squiggy-plotOptionsView';
+import { FilePanelProvider } from './views/squiggy-filePanel';
+import { ModificationsPanelProvider } from './views/squiggy-modificationsPanel';
+import { SquigglePlotPanel } from './webview/squiggy-plotPanel';
 
 let positronRuntime: PositronRuntime;
 let pythonBackend: PythonBackend | null = null;
 let readTreeProvider: ReadTreeProvider;
+let readSearchProvider: ReadSearchViewProvider;
+let plotOptionsProvider: PlotOptionsViewProvider;
+let filePanelProvider: FilePanelProvider;
+let modificationsProvider: ModificationsPanelProvider;
 let usePositron = false;
+
+// Track loaded files and current plot
+let currentPod5File: string | undefined;
+let currentBamFile: string | undefined;
+let currentPlotReadIds: string[] | undefined;
 
 /**
  * Extension activation
@@ -35,23 +48,24 @@ export async function activate(context: vscode.ExtensionContext) {
         try {
             const isInstalled = await positronRuntime.isSquiggyInstalled();
             if (!isInstalled) {
-                const install = await vscode.window.showInformationMessage(
-                    'Squiggy package is not installed in the Python kernel. Install it now?',
-                    'Install',
-                    'Cancel'
+                // In development mode, automatically add workspace to sys.path
+                const workspaceFolder = context.extensionPath;
+                console.log(`Squiggy not installed, adding ${workspaceFolder} to sys.path`);
+
+                await positronRuntime.executeWithOutput(
+                    `import sys\nif '${workspaceFolder}' not in sys.path:\n    sys.path.insert(0, '${workspaceFolder}')`
                 );
 
-                if (install === 'Install') {
-                    await vscode.window.withProgress({
-                        location: vscode.ProgressLocation.Notification,
-                        title: 'Installing squiggy package...',
-                        cancellable: false
-                    }, async () => {
-                        await positronRuntime.installSquiggy();
-                    });
-                    vscode.window.showInformationMessage('Squiggy package installed successfully!');
+                // Check again
+                const nowInstalled = await positronRuntime.isSquiggyInstalled();
+                if (nowInstalled) {
+                    vscode.window.showInformationMessage(
+                        'Squiggy package loaded from development workspace'
+                    );
                 } else {
-                    vscode.window.showWarningMessage('Squiggy extension requires the squiggy Python package');
+                    vscode.window.showWarningMessage(
+                        'Could not load Squiggy package. Extension may not work correctly.'
+                    );
                 }
             }
         } catch (error) {
@@ -81,6 +95,15 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    // Create and register file panel provider
+    filePanelProvider = new FilePanelProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            FilePanelProvider.viewType,
+            filePanelProvider
+        )
+    );
+
     // Create read tree provider
     readTreeProvider = new ReadTreeProvider();
     const readTreeView = vscode.window.createTreeView('squiggyReadList', {
@@ -88,6 +111,73 @@ export async function activate(context: vscode.ExtensionContext) {
         canSelectMany: true
     });
     context.subscriptions.push(readTreeView);
+
+    // Create and register read search provider
+    readSearchProvider = new ReadSearchViewProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            ReadSearchViewProvider.viewType,
+            readSearchProvider
+        )
+    );
+
+    // Connect search to tree provider
+    context.subscriptions.push(
+        readSearchProvider.onDidChangeSearchText((searchText) => {
+            readTreeProvider.filterReads(searchText);
+        })
+    );
+
+    // Create and register plot options provider
+    plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            PlotOptionsViewProvider.viewType,
+            plotOptionsProvider
+        )
+    );
+
+    // Listen for plot option changes and refresh current plot
+    context.subscriptions.push(
+        plotOptionsProvider.onDidChangeOptions(() => {
+            if (currentPlotReadIds && currentPlotReadIds.length > 0) {
+                // Re-plot with new options
+                plotReads(currentPlotReadIds, context);
+            }
+        })
+    );
+
+    // Create and register modifications panel provider
+    modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            ModificationsPanelProvider.viewType,
+            modificationsProvider
+        )
+    );
+
+    // Set initial context for modifications panel (hidden by default)
+    vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+
+    // Listen for modification filter changes and refresh current plot
+    context.subscriptions.push(
+        modificationsProvider.onDidChangeFilters(() => {
+            if (currentPlotReadIds && currentPlotReadIds.length > 0) {
+                // Re-plot with new modification filters
+                plotReads(currentPlotReadIds, context);
+            }
+        })
+    );
+
+    // Listen for theme changes and refresh current plot
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            if (currentPlotReadIds && currentPlotReadIds.length > 0) {
+                // Re-plot with new theme
+                plotReads(currentPlotReadIds, context);
+            }
+        })
+    );
 
     // Register commands
     registerCommands(context, readTreeView);
@@ -144,14 +234,27 @@ function registerCommands(context: vscode.ExtensionContext, readTreeView: vscode
 
     // Plot selected reads
     context.subscriptions.push(
-        vscode.commands.registerCommand('squiggy.plotRead', async (item?: ReadItem) => {
-            const selection = readTreeView.selection;
-            if (selection.length === 0) {
-                vscode.window.showWarningMessage('Please select one or more reads to plot');
-                return;
+        vscode.commands.registerCommand('squiggy.plotRead', async (readIdOrItem?: string | ReadItem) => {
+            let readIds: string[];
+
+            // If called with a readId string (from TreeView click)
+            if (typeof readIdOrItem === 'string') {
+                readIds = [readIdOrItem];
+            }
+            // If called with a ReadItem (from command palette or context menu)
+            else if (readIdOrItem && 'readId' in readIdOrItem) {
+                readIds = [readIdOrItem.readId];
+            }
+            // Otherwise use current selection
+            else {
+                const selection = readTreeView.selection;
+                if (selection.length === 0) {
+                    vscode.window.showWarningMessage('Please select one or more reads to plot');
+                    return;
+                }
+                readIds = selection.map(item => item.readId);
             }
 
-            const readIds = selection.map(item => item.readId);
             await plotReads(readIds, context);
         })
     );
@@ -226,6 +329,16 @@ async function openPOD5File(filePath: string) {
                     `Read IDs are available in the '_squiggy_read_ids' variable in the console.`
                 );
             }
+
+            // Track file and update file panel display
+            currentPod5File = filePath;
+
+            // Get file size
+            const fs = require('fs').promises;
+            const stats = await fs.stat(filePath);
+            const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+            filePanelProvider.setPOD5Info(filePath, result.numReads, `${fileSizeMB} MB`);
         });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -250,7 +363,13 @@ async function openBAMFile(filePath: string) {
             title: 'Opening BAM file...',
             cancellable: false
         }, async () => {
-            let result: { numReads: number };
+            let result: {
+                numReads: number;
+                referenceToReads?: Record<string, string[]>;
+                hasModifications?: boolean;
+                modificationTypes?: string[];
+                hasProbabilities?: boolean;
+            };
 
             if (usePositron) {
                 // Use Positron kernel
@@ -259,14 +378,47 @@ async function openBAMFile(filePath: string) {
                 // Use subprocess backend
                 const backendResult = await pythonBackend.call('open_bam', { file_path: filePath });
                 result = {
-                    numReads: backendResult.num_reads
+                    numReads: backendResult.num_reads,
+                    referenceToReads: backendResult.reference_to_reads,
+                    hasModifications: backendResult.has_modifications,
+                    modificationTypes: backendResult.modification_types,
+                    hasProbabilities: backendResult.has_probabilities
                 };
             } else {
                 throw new Error('No backend available');
             }
 
+            // Track file and update file panel display
+            currentBamFile = filePath;
+
+            // Get file size
+            const fs = require('fs').promises;
+            const stats = await fs.stat(filePath);
+            const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+            filePanelProvider.setBAMInfo(filePath, result.numReads, `${fileSizeMB} MB`);
+
+            // Update read tree to show reads grouped by reference
+            if (result.referenceToReads && Object.keys(result.referenceToReads).length > 0) {
+                const refMap = new Map<string, string[]>(Object.entries(result.referenceToReads));
+                readTreeProvider.setReadsGrouped(refMap);
+            }
+
+            // Update modifications panel and context
+            const hasModifications = result.hasModifications || false;
+            const modificationTypes = result.modificationTypes || [];
+            const hasProbabilities = result.hasProbabilities || false;
+
+            if (hasModifications) {
+                modificationsProvider.setModificationInfo(hasModifications, modificationTypes, hasProbabilities);
+                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', true);
+            } else {
+                modificationsProvider.clear();
+                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+            }
+
             vscode.window.showInformationMessage(
-                `Loaded BAM file with ${result.numReads} reads`
+                `Loaded BAM file with ${result.numReads} reads${hasModifications ? ' (contains base modifications)' : ''}`
             );
         });
     } catch (error) {
@@ -279,16 +431,28 @@ async function openBAMFile(filePath: string) {
  */
 async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
     try {
+        // Track current plot for refresh
+        currentPlotReadIds = readIds;
+
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: `Generating plot for ${readIds.length} read(s)...`,
             cancellable: false
         }, async () => {
-            // Get configuration
+            // Get options from sidebar panel
+            const options = plotOptionsProvider.getOptions();
+            const mode = options.mode;
+            const normalization = options.normalization;
+
+            // Get modification filters
+            const modFilters = modificationsProvider.getFilters();
+
+            // Detect VS Code theme
+            const colorThemeKind = vscode.window.activeColorTheme.kind;
+            const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
+
+            // Get config for other settings
             const config = vscode.workspace.getConfiguration('squiggy');
-            const mode = config.get<string>('defaultPlotMode', 'SINGLE');
-            const normalization = config.get<string>('defaultNormalization', 'ZNORM');
-            const theme = config.get<string>('theme', 'LIGHT');
 
             let html: string;
 
@@ -298,7 +462,12 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
                     readIds,
                     mode,
                     normalization,
-                    theme
+                    theme,
+                    options.showDwellTime,
+                    options.showBaseAnnotations,
+                    options.scaleDwellTime,
+                    modFilters.minProbability,
+                    modFilters.enabledModTypes
                 );
 
                 // Read HTML from temp file
@@ -316,7 +485,9 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
                     options: {
                         theme: theme,
                         downsample: true,
-                        downsample_threshold: config.get<number>('downsampleThreshold', 100000)
+                        downsample_threshold: config.get<number>('downsampleThreshold', 100000),
+                        show_dwell_time: options.showDwellTime,
+                        show_base_annotations: options.showBaseAnnotations
                     }
                 });
                 html = result.html;
