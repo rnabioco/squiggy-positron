@@ -19,7 +19,10 @@ build/dist/
 build/*.spec.log
 
 # IDEs
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -39,3 +42,14 @@ tests/*.arrow
 
 # mkdocs
 site/
+
+# TypeScript/Node.js
+node_modules/
+out/
+*.vsix
+
+# Claude planning files
+.claude-*.md
+*-planning.md
+
+positron/
