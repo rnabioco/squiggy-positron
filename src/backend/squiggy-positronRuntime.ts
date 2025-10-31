@@ -127,15 +127,26 @@ print('SQUIGGY_LOADED:' + json.dumps({
     /**
      * Load a BAM file
      */
-    async loadBAM(filePath: string): Promise<{ numReads: number }> {
+    async loadBAM(filePath: string): Promise<{
+        numReads: number;
+        referenceToReads: Record<string, string[]>;
+        hasModifications: boolean;
+        modificationTypes: string[];
+        hasProbabilities: boolean;
+    }> {
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         const code = `
 import squiggy
 import json
 _squiggy_bam_info = squiggy.load_bam('${escapedPath}')
+_squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
 print('SQUIGGY_BAM_LOADED:' + json.dumps({
-    'num_reads': _squiggy_bam_info['num_reads']
+    'num_reads': _squiggy_bam_info['num_reads'],
+    'reference_to_reads': _squiggy_ref_mapping,
+    'has_modifications': _squiggy_bam_info.get('has_modifications', False),
+    'modification_types': _squiggy_bam_info.get('modification_types', []),
+    'has_probabilities': _squiggy_bam_info.get('has_probabilities', False)
 }))
 `;
 
@@ -145,9 +156,21 @@ print('SQUIGGY_BAM_LOADED:' + json.dumps({
             const match = output.match(/SQUIGGY_BAM_LOADED:(\{.*\})/);
             if (match) {
                 const data = JSON.parse(match[1]);
-                return { numReads: data.num_reads };
+                return {
+                    numReads: data.num_reads,
+                    referenceToReads: data.reference_to_reads || {},
+                    hasModifications: data.has_modifications || false,
+                    modificationTypes: data.modification_types || [],
+                    hasProbabilities: data.has_probabilities || false
+                };
             } else {
-                return { numReads: 0 };
+                return {
+                    numReads: 0,
+                    referenceToReads: {},
+                    hasModifications: false,
+                    modificationTypes: [],
+                    hasProbabilities: false
+                };
             }
         } catch (error) {
             throw new Error(`Failed to load BAM file: ${error}`);
@@ -163,9 +186,16 @@ print('SQUIGGY_BAM_LOADED:' + json.dumps({
         readIds: string[],
         mode: string = 'SINGLE',
         normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
+        theme: string = 'LIGHT',
+        showDwellTime: boolean = false,
+        showBaseAnnotations: boolean = true,
+        scaleDwellTime: boolean = false,
+        minModProbability: number = 0.5,
+        enabledModTypes: string[] = []
     ): Promise<string> {
         const readIdsJson = JSON.stringify(readIds);
+
+        const enabledModTypesJson = JSON.stringify(enabledModTypes);
 
         const code = `
 import squiggy
@@ -174,8 +204,8 @@ import json
 
 # Generate plot HTML
 ${readIds.length === 1
-    ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}')`
-    : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}')`
+    ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
+    : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
 }
 
 # Write to temp file

@@ -2,6 +2,10 @@
 
 Positron extension for visualizing Oxford Nanopore sequencing data (squiggle plots) from POD5 files.
 
+## 🚀 Quick Start for Developers
+
+**Testing the extension?** See **[DEVELOPMENT.md](DEVELOPMENT.md)** for the complete testing workflow including the required test workspace setup.
+
 ## Architecture
 
 - **TypeScript Frontend**: VS Code extension with TreeView and Webview panels

@@ -1,6 +1,6 @@
 """Alignment handling for event-aligned squiggle visualization"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -32,6 +32,7 @@ class AlignedRead:
     genomic_end: Optional[int] = None
     strand: Optional[str] = None  # '+' or '-'
     is_reverse: bool = False
+    modifications: List = field(default_factory=list)  # List of ModificationAnnotation objects
 
 
 def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[AlignedRead]:
@@ -131,6 +132,15 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
     genomic_end = alignment.reference_end if not alignment.is_unmapped else None
     strand = "-" if alignment.is_reverse else "+"
 
+    # Extract base modifications if present
+    modifications = []
+    try:
+        from .modifications import extract_modifications_from_alignment
+        modifications = extract_modifications_from_alignment(alignment, bases)
+    except Exception as e:
+        # Modifications are optional, don't fail if extraction fails
+        print(f"Warning: Could not extract modifications: {e}")
+
     return AlignedRead(
         read_id=alignment.query_name,
         sequence=sequence,
@@ -140,6 +150,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
         genomic_end=genomic_end,
         strand=strand,
         is_reverse=alignment.is_reverse,
+        modifications=modifications,
     )
 
 
