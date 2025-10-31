@@ -12,7 +12,6 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QDialog,
     QFileDialog,
     QFrame,
     QLabel,
@@ -41,7 +40,8 @@ from .constants import (
     PlotMode,
     Theme,
 )
-from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
+from .dialogs import AboutDialog, ReferenceBrowserDialog
+from .managers import ExportManager, ZoomManager
 from .plotting import SquigglePlotter
 from .search import SearchManager
 from .ui import (
@@ -88,8 +88,6 @@ class SquiggleViewer(QMainWindow):
         self.current_plot_html = None  # Store current plot HTML for export
         self.current_plot_figure = None  # Store current plot figure for export
         self.search_mode = "read_id"  # "read_id" or "region"
-        self.saved_x_range = None  # Store current x-axis range for zoom preservation
-        self.saved_y_range = None  # Store current y-axis range for zoom preservation
         self.show_signal_points = False  # Show individual signal points on plot
         self.position_label_interval = 10  # Show position labels every N bases
         self.use_reference_positions = (
@@ -117,8 +115,10 @@ class SquiggleViewer(QMainWindow):
         # Task tracking for debouncing plot updates
         self._update_plot_task = None
 
-        # Initialize search manager
+        # Initialize managers
         self.search_manager = SearchManager(self)
+        self.export_manager = ExportManager(self)
+        self.zoom_manager = ZoomManager(self)
 
         self.init_ui()
         self.apply_theme()  # Apply initial theme
@@ -281,65 +281,11 @@ class SquiggleViewer(QMainWindow):
 
     def save_plot_ranges(self):
         """Extract and save current plot ranges via JavaScript"""
-        js_code = """
-        (function() {
-            try {
-                // Find the Bokeh plot object
-                const plots = Bokeh.documents[0].roots();
-                if (plots.length > 0) {
-                    // Get the first plot (main figure)
-                    let plot = plots[0];
-
-                    // If it's a layout, find the actual plot figure
-                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {
-                        for (let child of plot.children) {
-                            if (child.constructor.name === 'Figure') {
-                                plot = child;
-                                break;
-                            }
-                            // Check nested layouts
-                            if (child.children) {
-                                for (let nested of child.children) {
-                                    if (nested.constructor.name === 'Figure') {
-                                        plot = nested;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Return the ranges
-                    return JSON.stringify({
-                        x_start: plot.x_range.start,
-                        x_end: plot.x_range.end,
-                        y_start: plot.y_range.start,
-                        y_end: plot.y_range.end
-                    });
-                }
-            } catch (e) {
-                return null;
-            }
-            return null;
-        })();
-        """
-
-        # Execute JavaScript and get the result
-        self.plot_view.page().runJavaScript(js_code, self.on_ranges_extracted)
+        self.zoom_manager.save_plot_ranges()
 
     def on_ranges_extracted(self, result):
         """Callback when ranges are extracted from JavaScript"""
-        if result:
-            import json
-
-            try:
-                ranges = json.loads(result)
-                self.saved_x_range = (ranges["x_start"], ranges["x_end"])
-                self.saved_y_range = (ranges["y_start"], ranges["y_end"])
-            except (json.JSONDecodeError, KeyError, TypeError):
-                # If parsing fails, just use None (will reset zoom)
-                self.saved_x_range = None
-                self.saved_y_range = None
+        self.zoom_manager.on_ranges_extracted(result)
 
     @qasync.asyncSlot()
     async def set_downsample_factor(self, value):
@@ -364,59 +310,7 @@ class SquiggleViewer(QMainWindow):
 
     def restore_plot_ranges(self):
         """Restore saved plot ranges via JavaScript after plot is loaded"""
-        if self.saved_x_range is None or self.saved_y_range is None:
-            return
-
-        x_start, x_end = self.saved_x_range
-        y_start, y_end = self.saved_y_range
-
-        js_code = f"""
-        (function() {{
-            try {{
-                // Wait for Bokeh to be ready
-                if (typeof Bokeh === 'undefined') {{
-                    return;
-                }}
-
-                // Find the Bokeh plot object
-                const plots = Bokeh.documents[0].roots();
-                if (plots.length > 0) {{
-                    // Get the first plot (main figure)
-                    let plot = plots[0];
-
-                    // If it's a layout, find the actual plot figure
-                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
-                        for (let child of plot.children) {{
-                            if (child.constructor.name === 'Figure') {{
-                                plot = child;
-                                break;
-                            }}
-                            // Check nested layouts
-                            if (child.children) {{
-                                for (let nested of child.children) {{
-                                    if (nested.constructor.name === 'Figure') {{
-                                        plot = nested;
-                                        break;
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
-
-                    // Restore the ranges
-                    plot.x_range.start = {x_start};
-                    plot.x_range.end = {x_end};
-                    plot.y_range.start = {y_start};
-                    plot.y_range.end = {y_end};
-                }}
-            }} catch (e) {{
-                console.error('Error restoring plot ranges:', e);
-            }}
-        }})();
-        """
-
-        # Execute JavaScript with a delay to ensure plot is loaded
-        QTimer.singleShot(200, lambda: self.plot_view.page().runJavaScript(js_code))
+        self.zoom_manager.restore_plot_ranges()
 
     @qasync.asyncSlot()
     async def toggle_dwell_time(self, state):
@@ -970,7 +864,6 @@ class SquiggleViewer(QMainWindow):
         right_width = min(needed_width, 400)
 
         # Use QTimer to set sizes after the panel is visible
-        from PySide6.QtCore import QTimer
 
         def do_resize():
             # Get current sizes
@@ -1659,63 +1552,7 @@ class SquiggleViewer(QMainWindow):
 
     def zoom_to_sequence_match(self, item):
         """Zoom plot to show a sequence match"""
-        match = item.data(Qt.UserRole)
-        if not match:
-            return
-
-        # Extract base position range
-        base_start = match["base_start"]
-        base_end = match["base_end"]
-
-        # Add some padding (show 20 bases before and after)
-        padding = 20
-        zoom_start = max(0, base_start - padding)
-        zoom_end = base_end + padding
-
-        # JavaScript to zoom the plot
-        js_code = f"""
-        (function() {{
-            try {{
-                if (typeof Bokeh === 'undefined') {{
-                    return;
-                }}
-
-                const plots = Bokeh.documents[0].roots();
-                if (plots.length > 0) {{
-                    let plot = plots[0];
-
-                    // If it's a layout, find the actual plot figure
-                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
-                        for (let child of plot.children) {{
-                            if (child.constructor.name === 'Figure') {{
-                                plot = child;
-                                break;
-                            }}
-                            if (child.children) {{
-                                for (let nested of child.children) {{
-                                    if (nested.constructor.name === 'Figure') {{
-                                        plot = nested;
-                                        break;
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
-
-                    // Zoom to the region
-                    plot.x_range.start = {zoom_start};
-                    plot.x_range.end = {zoom_end};
-                }}
-            }} catch (e) {{
-                console.error('Error zooming to sequence:', e);
-            }}
-        }})();
-        """
-
-        self.plot_view.page().runJavaScript(js_code)
-        self.statusBar().showMessage(
-            f"Zoomed to {match['strand']} match at position {match['base_start']}-{match['base_end']}"
-        )
+        self.zoom_manager.zoom_to_sequence_match(item)
 
     def _generate_plot_blocking(self, read_id):
         """Blocking function to generate bokeh plot HTML"""
@@ -1965,327 +1802,6 @@ class SquiggleViewer(QMainWindow):
                 self, "Error", f"Failed to display event-aligned plot:\n{str(e)}"
             )
 
-    def _get_current_view_ranges(self):
-        """Get current x and y ranges from the displayed Bokeh plot
-
-        Returns:
-            tuple: ((x_start, x_end), (y_start, y_end)) or (None, None) if unavailable
-        """
-        # JavaScript to extract current range values from Bokeh plot
-        js_code = """
-        (function() {
-            try {
-                // Get the Bokeh document root
-                var root = Bokeh.documents[0].roots()[0];
-
-                // Get x and y ranges
-                var x_range = root.x_range;
-                var y_range = root.y_range;
-
-                return JSON.stringify({
-                    x_start: x_range.start,
-                    x_end: x_range.end,
-                    y_start: y_range.start,
-                    y_end: y_range.end
-                });
-            } catch(e) {
-                return null;
-            }
-        })();
-        """
-
-        # Execute JavaScript and get result synchronously
-        result = [None]  # Use list to store result in callback
-
-        def callback(js_result):
-            result[0] = js_result
-
-        self.plot_view.page().runJavaScript(js_code, callback)
-
-        # Process events to wait for JavaScript execution
-        # This is a simple approach - for production might need QEventLoop
-        from PySide6.QtWidgets import QApplication
-
-        QApplication.processEvents()
-
-        if result[0]:
-            try:
-                import json
-
-                ranges = json.loads(result[0])
-                x_range = (ranges["x_start"], ranges["x_end"])
-                y_range = (ranges["y_start"], ranges["y_end"])
-                return x_range, y_range
-            except Exception:
-                pass
-
-        return None, None
-
-    def _export_html(self, file_path):
-        """Export plot as HTML file
-
-        Args:
-            file_path: Path to save HTML file
-        """
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(self.current_plot_html)
-
-    def _export_png(self, file_path, width, height, x_range=None, y_range=None):
-        """Export plot as PNG image
-
-        Args:
-            file_path: Path to save PNG file
-            width: Image width in pixels
-            height: Image height in pixels
-            x_range: Optional tuple (x_start, x_end) to set x-axis range
-            y_range: Optional tuple (y_start, y_end) to set y-axis range
-
-        Raises:
-            ImportError: If selenium or pillow not installed
-        """
-        try:
-            from bokeh.io import export_png
-        except ImportError as e:
-            raise ImportError(
-                "PNG export requires additional dependencies. "
-                "Install with: uv pip install -e '.[export]'"
-            ) from e
-
-        # Store original dimensions, sizing mode, and ranges
-        original_width = self.current_plot_figure.width
-        original_height = self.current_plot_figure.height
-        original_sizing_mode = self.current_plot_figure.sizing_mode
-        original_x_range = None
-        original_y_range = None
-
-        try:
-            # Temporarily modify figure dimensions and sizing mode
-            # Setting sizing_mode to None allows explicit width/height to work properly
-            self.current_plot_figure.sizing_mode = None
-            self.current_plot_figure.width = width
-            self.current_plot_figure.height = height
-
-            # Apply custom ranges if provided
-            if x_range is not None:
-                original_x_range = (
-                    self.current_plot_figure.x_range.start,
-                    self.current_plot_figure.x_range.end,
-                )
-                self.current_plot_figure.x_range.start = x_range[0]
-                self.current_plot_figure.x_range.end = x_range[1]
-
-            if y_range is not None:
-                original_y_range = (
-                    self.current_plot_figure.y_range.start,
-                    self.current_plot_figure.y_range.end,
-                )
-                self.current_plot_figure.y_range.start = y_range[0]
-                self.current_plot_figure.y_range.end = y_range[1]
-
-            # Export to PNG
-            export_png(self.current_plot_figure, filename=str(file_path))
-        finally:
-            # Restore original dimensions and sizing mode
-            self.current_plot_figure.sizing_mode = original_sizing_mode
-            self.current_plot_figure.width = original_width
-            self.current_plot_figure.height = original_height
-
-            # Restore original ranges
-            if original_x_range is not None:
-                self.current_plot_figure.x_range.start = original_x_range[0]
-                self.current_plot_figure.x_range.end = original_x_range[1]
-
-            if original_y_range is not None:
-                self.current_plot_figure.y_range.start = original_y_range[0]
-                self.current_plot_figure.y_range.end = original_y_range[1]
-
-    def _export_svg(self, file_path, width, height, x_range=None, y_range=None):
-        """Export plot as SVG image
-
-        Args:
-            file_path: Path to save SVG file
-            width: Image width in pixels
-            height: Image height in pixels
-            x_range: Optional tuple (x_start, x_end) to set x-axis range
-            y_range: Optional tuple (y_start, y_end) to set y-axis range
-
-        Raises:
-            ImportError: If selenium not installed
-        """
-        try:
-            from bokeh.io import export_svgs
-        except ImportError as e:
-            raise ImportError(
-                "SVG export requires additional dependencies. "
-                "Install with: uv pip install -e '.[export]'"
-            ) from e
-
-        # Store original dimensions, backend, sizing mode, and ranges
-        original_width = self.current_plot_figure.width
-        original_height = self.current_plot_figure.height
-        original_backend = self.current_plot_figure.output_backend
-        original_sizing_mode = self.current_plot_figure.sizing_mode
-        original_x_range = None
-        original_y_range = None
-
-        try:
-            # Temporarily modify figure dimensions, backend, and sizing mode
-            # Setting sizing_mode to None allows explicit width/height to work properly
-            self.current_plot_figure.sizing_mode = None
-            self.current_plot_figure.width = width
-            self.current_plot_figure.height = height
-            self.current_plot_figure.output_backend = "svg"
-
-            # Apply custom ranges if provided
-            if x_range is not None:
-                original_x_range = (
-                    self.current_plot_figure.x_range.start,
-                    self.current_plot_figure.x_range.end,
-                )
-                self.current_plot_figure.x_range.start = x_range[0]
-                self.current_plot_figure.x_range.end = x_range[1]
-
-            if y_range is not None:
-                original_y_range = (
-                    self.current_plot_figure.y_range.start,
-                    self.current_plot_figure.y_range.end,
-                )
-                self.current_plot_figure.y_range.start = y_range[0]
-                self.current_plot_figure.y_range.end = y_range[1]
-
-            # Export to SVG
-            export_svgs(self.current_plot_figure, filename=str(file_path))
-        finally:
-            # Restore original dimensions, backend, and sizing mode
-            self.current_plot_figure.sizing_mode = original_sizing_mode
-            self.current_plot_figure.width = original_width
-            self.current_plot_figure.height = original_height
-            self.current_plot_figure.output_backend = original_backend
-
-            # Restore original ranges
-            if original_x_range is not None:
-                self.current_plot_figure.x_range.start = original_x_range[0]
-                self.current_plot_figure.x_range.end = original_x_range[1]
-
-            if original_y_range is not None:
-                self.current_plot_figure.y_range.start = original_y_range[0]
-                self.current_plot_figure.y_range.end = original_y_range[1]
-
     def export_plot(self):
         """Export the current plot with format and dimension options"""
-        if self.current_plot_html is None or self.current_plot_figure is None:
-            QMessageBox.warning(
-                self,
-                "No Plot",
-                "No plot to export. Please display a plot first.",
-            )
-            return
-
-        # Show export dialog
-        dialog = ExportDialog(self)
-        if dialog.exec() != QDialog.Accepted:
-            return  # User cancelled
-
-        # Get export settings
-        settings = dialog.get_export_settings()
-        export_format = settings["format"]
-        width = settings["width"]
-        height = settings["height"]
-        use_current_view = settings["use_current_view"]
-
-        # Get current view ranges if needed
-        x_range, y_range = None, None
-        if use_current_view:
-            x_range, y_range = self._get_current_view_ranges()
-            if x_range is None or y_range is None:
-                QMessageBox.warning(
-                    self,
-                    "Cannot Get View Range",
-                    "Unable to extract current zoom level. Exporting full plot instead.",
-                )
-                use_current_view = False
-
-        # Determine file extension and filter based on format
-        if export_format == "html":
-            filter_str = "HTML File (*.html);;All Files (*)"
-            default_ext = ".html"
-        elif export_format == "png":
-            filter_str = "PNG Image (*.png);;All Files (*)"
-            default_ext = ".png"
-        else:  # svg
-            filter_str = "SVG Image (*.svg);;All Files (*)"
-            default_ext = ".svg"
-
-        # Get file path from user
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Plot",
-            "",
-            filter_str,
-        )
-
-        if not file_path:
-            return  # User cancelled
-
-        try:
-            # Ensure correct extension
-            file_path = Path(file_path)
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(default_ext)
-
-            # Show progress
-            QApplication.setOverrideCursor(Qt.WaitCursor)
-            self.statusBar().showMessage(
-                f"Exporting plot as {export_format.upper()}..."
-            )
-
-            try:
-                # Export based on format
-                if export_format == "html":
-                    self._export_html(file_path)
-                    view_info = " (current view)" if use_current_view else ""
-                    message = (
-                        f"Interactive plot successfully exported to:\n{file_path}\n\n"
-                        f"Open the file in a web browser to view the interactive plot."
-                    )
-                elif export_format == "png":
-                    self._export_png(file_path, width, height, x_range, y_range)
-                    view_info = " (current view)" if use_current_view else ""
-                    message = (
-                        f"PNG image successfully exported to:\n{file_path}\n\n"
-                        f"Dimensions: {width} × {height} pixels{view_info}"
-                    )
-                else:  # svg
-                    self._export_svg(file_path, width, height, x_range, y_range)
-                    view_info = " (current view)" if use_current_view else ""
-                    message = (
-                        f"SVG image successfully exported to:\n{file_path}\n\n"
-                        f"Dimensions: {width} × {height} pixels{view_info}\n"
-                        f"Edit in vector graphics software like Inkscape or Adobe Illustrator."
-                    )
-
-                self.statusBar().showMessage(f"Plot exported to {file_path.name}")
-                QMessageBox.information(self, "Export Successful", message)
-
-            finally:
-                QApplication.restoreOverrideCursor()
-
-        except ImportError as e:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.critical(
-                self,
-                "Missing Dependencies",
-                f"{str(e)}\n\n"
-                f"PNG and SVG export require additional dependencies:\n"
-                f"• selenium (for headless browser rendering)\n"
-                f"• pillow (for image handling)\n\n"
-                f"Install with:\n"
-                f"  uv pip install -e '.[export]'\n\n"
-                f"or:\n"
-                f"  pip install selenium pillow",
-            )
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.critical(
-                self, "Export Failed", f"Failed to export plot:\n{str(e)}"
-            )
+        self.export_manager.export_plot()
