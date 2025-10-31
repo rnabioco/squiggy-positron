@@ -44,7 +44,7 @@ from .constants import (
 from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
 from .plotting import SquigglePlotter
 from .search import SearchManager
-from .ui_components import (
+from .ui import (
     AdvancedOptionsPanel,
     FileInfoPanel,
     ModificationsPanel,
