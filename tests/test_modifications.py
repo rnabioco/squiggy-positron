@@ -17,7 +17,7 @@ from squiggy.modifications import (
 try:
     from PySide6.QtWidgets import QApplication
 
-    from squiggy.ui_components import ModificationsPanel
+    from squiggy.ui import ModificationsPanel
 
     HAVE_QT = True
 except ImportError:
