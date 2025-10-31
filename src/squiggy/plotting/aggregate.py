@@ -2,10 +2,26 @@
 
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
-from bokeh.models import Band, ColumnDataSource, HoverTool, LabelSet
+from bokeh.models import (
+    Band,
+    ColorBar,
+    ColumnDataSource,
+    HoverTool,
+    LabelSet,
+    LinearColorMapper,
+)
+from bokeh.palettes import Viridis256
 from bokeh.resources import CDN
+from bokeh.transform import transform
 
-from ..constants import DARK_THEME, LIGHT_THEME, NormalizationMethod, Theme
+from ..constants import (
+    DARK_THEME,
+    LIGHT_THEME,
+    MOD_TRACK_HEIGHT,
+    MODIFICATION_CODES,
+    NormalizationMethod,
+    Theme,
+)
 from .base import (
     add_hover_tool,
     configure_legend,
@@ -22,8 +38,9 @@ def plot_aggregate(
     num_reads: int,
     normalization: NormalizationMethod = NormalizationMethod.NONE,
     theme: Theme = Theme.LIGHT,
+    modification_pileup_stats: dict | None = None,
 ) -> tuple[str, object]:
-    """Plot aggregate multi-read visualization with three synchronized tracks
+    """Plot aggregate multi-read visualization with synchronized tracks
 
     Args:
         aggregate_stats: Dict from calculate_aggregate_signal() with keys:
@@ -36,6 +53,8 @@ def plot_aggregate(
         num_reads: Number of reads included in aggregate
         normalization: Normalization method used
         theme: Color theme (LIGHT or DARK)
+        modification_pileup_stats: Optional dict from calculate_modification_pileup()
+            mapping (ref_pos, mod_type) -> ModPositionStats
 
     Returns:
         Tuple[str, object]: (HTML string, gridplot object)
@@ -294,9 +313,18 @@ def plot_aggregate(
     # Hide legend (title is descriptive enough)
     p_quality.legend.visible = False
 
+    # Track 4: Modification heatmap (optional)
+    p_modifications = None
+    if modification_pileup_stats:
+        p_modifications = _create_modification_heatmap(
+            modification_pileup_stats, theme, theme_colors
+        )
+
     # Link x-axes for synchronized zoom/pan
     p_pileup.x_range = p_signal.x_range
     p_quality.x_range = p_signal.x_range
+    if p_modifications:
+        p_modifications.x_range = p_signal.x_range
 
     # Set explicit heights and change sizing mode for each track
     # Override the default "stretch_both" from _create_figure
@@ -306,10 +334,17 @@ def plot_aggregate(
     p_pileup.height = 200
     p_quality.sizing_mode = "stretch_width"
     p_quality.height = 200
+    if p_modifications:
+        p_modifications.sizing_mode = "stretch_width"
+        p_modifications.height = MOD_TRACK_HEIGHT
 
-    # Create grid layout with three tracks stacked vertically
+    # Create grid layout with tracks stacked vertically
+    tracks = [[p_signal], [p_pileup], [p_quality]]
+    if p_modifications:
+        tracks.append([p_modifications])
+
     grid = gridplot(
-        [[p_signal], [p_pileup], [p_quality]],
+        tracks,
         sizing_mode="stretch_width",
         toolbar_location="right",
     )
@@ -319,3 +354,118 @@ def plot_aggregate(
     html = file_html(grid, CDN, title=html_title)
 
     return html, grid
+
+
+def _create_modification_heatmap(
+    modification_pileup_stats: dict, theme: Theme, theme_colors: dict
+):
+    """Create a heatmap track for base modifications
+
+    Args:
+        modification_pileup_stats: Dict mapping (ref_pos, mod_type) -> ModPositionStats
+        theme: Color theme (LIGHT or DARK)
+        theme_colors: Theme color dictionary
+
+    Returns:
+        Bokeh figure with modification heatmap
+    """
+    p_mod = create_figure(
+        title="Base Modifications (modBAM)",
+        x_label="Reference Position",
+        y_label="Modification Type",
+        theme=theme,
+    )
+
+    # Organize data by modification type
+    # Group modifications by type
+    mod_types = set()
+    for (ref_pos, mod_type), stats in modification_pileup_stats.items():
+        mod_types.add(mod_type)
+
+    # Sort modification types: strings first, then ChEBI codes
+    mod_types_sorted = sorted(mod_types, key=lambda x: (isinstance(x, int), str(x)))
+
+    # Create y-axis mapping (mod type -> y position)
+    mod_type_to_y = {mod_type: i for i, mod_type in enumerate(mod_types_sorted)}
+
+    # Prepare data for heatmap
+    heatmap_data = {
+        "x": [],  # Reference position
+        "y": [],  # Y position (categorical)
+        "mod_type": [],  # Modification type (for display)
+        "mod_name": [],  # Modification name (e.g., "5mC")
+        "mean_prob": [],  # Mean probability (for color)
+        "coverage": [],  # Number of reads
+        "frequency": [],  # Modification frequency (if tau was used)
+    }
+
+    for (ref_pos, mod_type), stats in modification_pileup_stats.items():
+        heatmap_data["x"].append(ref_pos)
+        heatmap_data["y"].append(mod_type_to_y[mod_type])
+        heatmap_data["mod_type"].append(str(mod_type))
+        mod_name = MODIFICATION_CODES.get(mod_type, str(mod_type))
+        heatmap_data["mod_name"].append(mod_name)
+        heatmap_data["mean_prob"].append(stats.mean_prob)
+        heatmap_data["coverage"].append(stats.coverage)
+        # Frequency may be None if no threshold was used
+        freq = stats.frequency if stats.frequency is not None else stats.mean_prob
+        heatmap_data["frequency"].append(freq)
+
+    heatmap_source = ColumnDataSource(data=heatmap_data)
+
+    # Color mapper for mean probability (0-1 range)
+    color_mapper = LinearColorMapper(
+        palette=Viridis256, low=0, high=1, nan_color="lightgray"
+    )
+
+    # Create rect glyphs for heatmap
+    rect_height = 0.8  # Leave small gap between rows
+    rect_width = 0.8  # Leave small gap between positions
+
+    rects = p_mod.rect(
+        x="x",
+        y="y",
+        width=rect_width,
+        height=rect_height,
+        source=heatmap_source,
+        fill_color=transform("mean_prob", color_mapper),
+        line_color=None,
+    )
+
+    # Add hover tool
+    hover_mod = HoverTool(
+        renderers=[rects],
+        tooltips=[
+            ("Position", "@x"),
+            ("Modification", "@mod_name (@mod_type)"),
+            ("Mean Prob", "@mean_prob{0.3f}"),
+            ("Coverage", "@coverage"),
+            ("Frequency", "@frequency{0.3f}"),
+        ],
+        mode="mouse",
+    )
+    p_mod.add_tools(hover_mod)
+
+    # Set y-axis tick labels to modification names
+    y_ticks = [
+        (i, MODIFICATION_CODES.get(mod_type, str(mod_type)))
+        for i, mod_type in enumerate(mod_types_sorted)
+    ]
+    p_mod.yaxis.ticker = [y for y, _ in y_ticks]
+    p_mod.yaxis.major_label_overrides = {y: label for y, label in y_ticks}
+
+    # Add color bar
+    color_bar = ColorBar(
+        color_mapper=color_mapper,
+        width=10,
+        location=(0, 0),
+        title="Mean Prob",
+        title_text_font_size="10pt",
+    )
+    p_mod.add_layout(color_bar, "right")
+
+    # Set y-axis range to accommodate all modification types
+    p_mod.y_range.start = -0.5
+    p_mod.y_range.end = len(mod_types_sorted) - 0.5
+
+    return p_mod

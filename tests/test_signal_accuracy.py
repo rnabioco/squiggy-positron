@@ -360,17 +360,25 @@ class TestSignalAccuracy:
                 aligned_reads = [aligned_read]
 
                 # Generate event-aligned plot
-                html, figure = SquigglePlotter.plot_multiple_reads(
+                html, layout = SquigglePlotter.plot_multiple_reads(
                     reads_data,
                     mode=PlotMode.EVENTALIGN,
                     normalization=NormalizationMethod.NONE,
                     aligned_reads=aligned_reads,
                 )
 
-                # Extract signal data
+                # Extract signal data - layout may be a Column (with modifications) or Figure (without)
+                if hasattr(layout, "children"):
+                    # Column layout with modification track - get main plot (second child)
+                    main_plot = layout.children[1]
+                    renderers = main_plot.renderers
+                else:
+                    # Single figure
+                    renderers = layout.renderers
+
                 signal_sources = [
                     r.data_source
-                    for r in figure.renderers
+                    for r in renderers
                     if hasattr(r, "data_source")
                     and isinstance(r.data_source, ColumnDataSource)
                     and "y" in r.data_source.data
