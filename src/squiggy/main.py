@@ -230,7 +230,11 @@ async def main_async(app, viewer, args):
             await viewer.search_manager.filter_by_region(args.region)
             if viewer.read_list.count() > 0:
                 # Auto-display if reads were found
-                if viewer.plot_mode in [PlotMode.OVERLAY, PlotMode.STACKED, PlotMode.EVENTALIGN]:
+                if viewer.plot_mode in [
+                    PlotMode.OVERLAY,
+                    PlotMode.STACKED,
+                    PlotMode.EVENTALIGN,
+                ]:
                     # For multi-read modes, select all filtered reads (up to a reasonable limit)
                     max_reads = 10 if viewer.plot_mode == PlotMode.OVERLAY else 100
                     for i in range(min(viewer.read_list.count(), max_reads)):
@@ -253,7 +257,9 @@ async def main_async(app, viewer, args):
             )
     elif args.reference and viewer.pod5_file and viewer.bam_file:
         # Reference sequence for aggregate mode
-        viewer.statusBar().showMessage(f"Loading aggregate view for: {args.reference}...")
+        viewer.statusBar().showMessage(
+            f"Loading aggregate view for: {args.reference}..."
+        )
         try:
             # Set selected reference and display aggregate
             viewer.selected_reference = args.reference

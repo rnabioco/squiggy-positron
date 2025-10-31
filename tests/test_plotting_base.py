@@ -291,7 +291,9 @@ class TestHoverAndLegend:
         configure_legend(p)
 
         assert p.legend.click_policy == "hide"
-        assert p.legend.location == "top_right"
+        assert p.legend.location == "bottom_right"
+        assert p.legend.orientation == "horizontal"
+        assert p.legend.background_fill_alpha == 0.6
 
 
 class TestThemeColors:

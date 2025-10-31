@@ -25,8 +25,15 @@ def plot_overlay(
     downsample: int = 1,
     show_signal_points: bool = False,
     theme: Theme = Theme.LIGHT,
+    aligned_reads: list | None = None,
 ) -> tuple[str, figure]:
-    """Plot multiple reads overlaid on same axes"""
+    """Plot multiple reads overlaid on same axes
+
+    Note:
+        Read subsetting by modification status should be performed by the caller
+        before passing reads_data to this function. The aligned_reads parameter
+        is accepted for API consistency but not currently used in this plot mode.
+    """
     # Create figure with status information
     title = format_plot_title("Overlay", reads_data, normalization, downsample)
     p = create_figure(

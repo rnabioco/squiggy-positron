@@ -7,6 +7,11 @@ import numpy as np
 import pysam
 from rich.console import Console
 
+from squiggy.modifications import (
+    ModificationAnnotation,
+    extract_modifications_from_alignment,
+)
+
 # Create Rich console for styled output
 console = Console()
 
@@ -30,6 +35,7 @@ class AlignedRead:
     read_id: str
     sequence: str
     bases: list[BaseAnnotation]
+    modifications: list[ModificationAnnotation] | None = None
     chromosome: str | None = None
     genomic_start: int | None = None
     genomic_end: int | None = None
@@ -136,10 +142,14 @@ def _parse_alignment(alignment) -> AlignedRead | None:
     genomic_end = alignment.reference_end if not alignment.is_unmapped else None
     strand = "-" if alignment.is_reverse else "+"
 
+    # Extract modifications from MM/ML tags if present
+    modifications = extract_modifications_from_alignment(alignment, bases)
+
     return AlignedRead(
         read_id=alignment.query_name,
         sequence=sequence,
         bases=bases,
+        modifications=modifications if modifications else None,
         chromosome=chromosome,
         genomic_start=genomic_start,
         genomic_end=genomic_end,
