@@ -255,7 +255,7 @@ def add_base_type_patches(p, base_regions: dict, base_colors: dict):
                 source=patch_source,
                 color=base_colors[base],
                 alpha=BASE_ANNOTATION_ALPHA,
-                legend_label=f"Base {base}",
+                legend_label=base,
             )
 
 

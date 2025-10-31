@@ -92,6 +92,11 @@ class SquigglePlotter:
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         use_reference_positions: bool = False,
         theme: Theme = Theme.LIGHT,
+        show_modification_overlay: bool = True,
+        modification_overlay_opacity: float = 0.3,
+        modification_type_filter: str = "all",
+        modification_threshold_enabled: bool = False,
+        modification_threshold: float = 0.5,
     ):
         """Plot multiple reads in overlay, stacked, or event-aligned mode"""
         if mode == PlotMode.OVERLAY:
@@ -122,6 +127,11 @@ class SquigglePlotter:
                 position_label_interval=position_label_interval,
                 use_reference_positions=use_reference_positions,
                 theme=theme,
+                show_modification_overlay=show_modification_overlay,
+                modification_overlay_opacity=modification_overlay_opacity,
+                modification_type_filter=modification_type_filter,
+                modification_threshold_enabled=modification_threshold_enabled,
+                modification_threshold=modification_threshold,
             )
         else:
             raise ValueError(f"Unsupported plot mode: {mode}")
@@ -161,6 +171,11 @@ def plot_multiple_reads(
     position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
     use_reference_positions: bool = False,
     theme: Theme = Theme.LIGHT,
+    show_modification_overlay: bool = True,
+    modification_overlay_opacity: float = 0.3,
+    modification_type_filter: str = "all",
+    modification_threshold_enabled: bool = False,
+    modification_threshold: float = 0.5,
 ):
     """Convenience function that delegates to SquigglePlotter.plot_multiple_reads"""
     return SquigglePlotter.plot_multiple_reads(
@@ -175,4 +190,9 @@ def plot_multiple_reads(
         position_label_interval=position_label_interval,
         use_reference_positions=use_reference_positions,
         theme=theme,
+        show_modification_overlay=show_modification_overlay,
+        modification_overlay_opacity=modification_overlay_opacity,
+        modification_type_filter=modification_type_filter,
+        modification_threshold_enabled=modification_threshold_enabled,
+        modification_threshold=modification_threshold,
     )

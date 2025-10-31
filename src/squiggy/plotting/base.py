@@ -118,9 +118,27 @@ def add_hover_tool(p, renderers: list, tooltip_fields: list[tuple[str, str]]):
 
 
 def configure_legend(p):
-    """Configure standard legend appearance and behavior"""
+    """Configure standard legend appearance and behavior
+
+    Creates a compact, horizontal legend at the bottom right with transparency.
+    """
     p.legend.click_policy = "hide"
-    p.legend.location = "top_right"
+    p.legend.location = "bottom_right"
+    p.legend.orientation = "horizontal"
+
+    # Add transparency and reduce visual footprint
+    p.legend.background_fill_alpha = 0.6
+    p.legend.border_line_alpha = 0.5
+
+    # Reduce spacing and padding for even more compact appearance
+    p.legend.label_text_font_size = "8pt"
+    p.legend.spacing = 1  # Space between legend items
+    p.legend.padding = 2  # Padding inside legend box
+    p.legend.margin = 3  # Margin around legend box
+    p.legend.glyph_width = 12  # Width of color boxes
+    p.legend.glyph_height = 8  # Height of color boxes
+    p.legend.label_height = 8  # Height of labels
+    p.legend.label_standoff = 2  # Space between glyph and label
 
 
 def add_signal_renderers(

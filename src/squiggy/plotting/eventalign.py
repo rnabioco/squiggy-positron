@@ -2,11 +2,16 @@
 
 import numpy as np
 from bokeh.embed import file_html
+from bokeh.layouts import column
+from bokeh.models import BoxAnnotation, ColumnDataSource, HoverTool
 from bokeh.plotting import figure
 from bokeh.resources import CDN
 
 from ..constants import (
+    DEFAULT_MOD_OVERLAY_OPACITY,
     DEFAULT_POSITION_LABEL_INTERVAL,
+    MODIFICATION_CODES,
+    MODIFICATION_COLORS,
     NormalizationMethod,
     Theme,
 )
@@ -209,6 +214,297 @@ def plot_eventalign_signals(
     return line_renderers
 
 
+def create_modification_track_eventalign(
+    aligned_reads: list,
+    show_dwell_time: bool,
+    sample_rate: int,
+    theme: Theme,
+    show_overlay: bool = True,
+    overlay_opacity: float = DEFAULT_MOD_OVERLAY_OPACITY,
+    mod_type_filter: str = "all",
+    threshold_enabled: bool = False,
+    threshold: float = 0.5,
+):
+    """Create a separate track for base modifications in eventalign mode
+
+    Args:
+        aligned_reads: List of AlignedRead objects with modifications
+        show_dwell_time: If True, use time-based x-axis; otherwise use position-based
+        sample_rate: Sampling rate in Hz
+        theme: Color theme (LIGHT or DARK)
+        show_overlay: Whether to show modification track
+        overlay_opacity: Opacity for modification rectangles (0-1)
+        mod_type_filter: Filter to show specific modification type ("all" or "base+code" like "C+m")
+        threshold_enabled: Whether to apply probability threshold
+        threshold: Probability threshold (only show mods with prob >= threshold)
+
+    Returns:
+        Bokeh figure with modification track, or None if no modifications
+    """
+    if not show_overlay or not aligned_reads:
+        return None
+
+    # Use first aligned read for modifications (assuming single-read)
+    first_read = aligned_reads[0]
+    if not first_read.modifications:
+        return None
+
+    base_annotations = first_read.bases
+
+    # Prepare data for modification rectangles
+    mod_data = {
+        "x": [],  # Center position
+        "y": [],  # Y position (always 0.5 for single row)
+        "left": [],  # Left edge
+        "right": [],  # Right edge
+        "width": [],  # Width
+        "mod_type": [],  # Modification type code
+        "mod_name": [],  # Modification name
+        "probability": [],  # Modification probability
+        "base": [],  # Canonical base
+        "position": [],  # Base position
+        "color": [],  # Color for each modification
+    }
+
+    for mod in first_read.modifications:
+        # Find the base annotation for this modification position
+        matching_base = None
+        for base_ann in base_annotations:
+            if base_ann.position == mod.position:
+                matching_base = base_ann
+                break
+
+        if not matching_base:
+            continue
+
+        # Apply modification type filter
+        if mod_type_filter != "all":
+            # Filter format is "base+code" like "C+m"
+            mod_key = f"{matching_base.base}+{mod.mod_code}"
+            if mod_key != mod_type_filter:
+                continue
+
+        # Apply probability threshold filter
+        if threshold_enabled and mod.probability < threshold:
+            continue
+
+        # Calculate x-axis range based on mode
+        if show_dwell_time:
+            # Time-based: calculate cumulative time up to this base
+            cumulative_time = 0.0
+            for i, base_ann in enumerate(base_annotations):
+                if base_ann.position == mod.position:
+                    # Calculate dwell time for this base
+                    if i + 1 < len(base_annotations):
+                        end_idx = base_annotations[i + 1].signal_start
+                    else:
+                        # Last base - approximate
+                        end_idx = base_ann.signal_end
+
+                    dwell_samples = end_idx - base_ann.signal_start
+                    dwell_time = (dwell_samples / sample_rate) * 1000  # ms
+
+                    left_x = cumulative_time
+                    right_x = cumulative_time + dwell_time
+                    break
+
+                # Accumulate time for previous bases
+                if i + 1 < len(base_annotations):
+                    next_start = base_annotations[i + 1].signal_start
+                else:
+                    next_start = base_ann.signal_end
+                dwell_samples = next_start - base_ann.signal_start
+                cumulative_time += (dwell_samples / sample_rate) * 1000
+        else:
+            # Position-based: use base index ± 0.5
+            left_x = mod.position - 0.5
+            right_x = mod.position + 0.5
+
+        # Get modification color
+        mod_color = MODIFICATION_COLORS.get(
+            mod.mod_code, MODIFICATION_COLORS["default"]
+        )
+
+        # Get modification name
+        mod_name = MODIFICATION_CODES.get(mod.mod_code, str(mod.mod_code))
+
+        # Add data point
+        mod_data["x"].append((left_x + right_x) / 2)
+        mod_data["y"].append(0.5)  # Single row
+        mod_data["left"].append(left_x)
+        mod_data["right"].append(right_x)
+        mod_data["width"].append(right_x - left_x)
+        mod_data["mod_type"].append(str(mod.mod_code))
+        mod_data["mod_name"].append(mod_name)
+        mod_data["probability"].append(mod.probability)
+        mod_data["base"].append(matching_base.base)
+        mod_data["position"].append(mod.position)
+        mod_data["color"].append(mod_color)
+
+    # If no modifications, return None
+    if not mod_data["x"]:
+        return None
+
+    # Create modification track figure
+    p_mod = create_figure(
+        title="Base Modifications (modBAM)",
+        x_label="",  # No label needed - axes are shared with main plot
+        y_label="",
+        theme=theme,
+    )
+
+    # Hide toolbar (main plot below will have the toolbar)
+    p_mod.toolbar_location = None
+
+    # Hide y-axis (only one row)
+    p_mod.yaxis.visible = False
+
+    # Hide x-axis labels but keep ticks (axes are shared with main plot below)
+    p_mod.xaxis.major_label_text_font_size = "0pt"
+
+    # Minimize borders to reduce gap with main plot
+    p_mod.min_border_bottom = 0
+    p_mod.min_border_left = 5
+    p_mod.min_border_right = 5
+    p_mod.min_border_top = 5
+
+    # Create data source
+    mod_source = ColumnDataSource(data=mod_data)
+
+    # Create rectangles for modifications
+    # Use alpha from overlay_opacity and probability
+    alphas = [overlay_opacity * p for p in mod_data["probability"]]
+    mod_source.data["alpha"] = alphas
+
+    rects = p_mod.rect(
+        x="x",
+        y="y",
+        width="width",
+        height=0.8,  # Height of rectangle (0-1 range)
+        source=mod_source,
+        fill_color="color",
+        fill_alpha="alpha",
+        line_color=None,
+    )
+
+    # Add hover tool with modification details
+    hover_mod = HoverTool(
+        renderers=[rects],
+        tooltips=[
+            ("Position", "@position"),
+            ("Base", "@base"),
+            ("Modification", "@mod_name (@mod_type)"),
+            ("Probability", "@probability{0.3f}"),
+        ],
+        mode="mouse",
+    )
+    p_mod.add_tools(hover_mod)
+
+    # Set y-axis range
+    p_mod.y_range.start = 0
+    p_mod.y_range.end = 1
+
+    # Set height for modification track
+    p_mod.sizing_mode = "stretch_width"
+    p_mod.height = 80
+
+    return p_mod
+
+
+def add_modification_overlays_eventalign(
+    p,
+    aligned_reads: list,
+    show_dwell_time: bool,
+    sample_rate: int,
+    show_overlay: bool = True,
+    overlay_opacity: float = DEFAULT_MOD_OVERLAY_OPACITY,
+):
+    """Add vertical shaded regions for base modifications in eventalign mode
+
+    DEPRECATED: This function creates full-height vertical overlays.
+    Use create_modification_track_eventalign() instead for a separate track.
+
+    Args:
+        p: Bokeh figure
+        aligned_reads: List of AlignedRead objects with modifications
+        show_dwell_time: If True, use time-based x-axis; otherwise use position-based
+        sample_rate: Sampling rate in Hz
+        show_overlay: Whether to show modification overlays
+        overlay_opacity: Opacity for modification shading (0-1)
+    """
+    if not show_overlay or not aligned_reads:
+        return
+
+    # Use first aligned read for modifications (assuming single-read or merged)
+    first_read = aligned_reads[0]
+    if not first_read.modifications:
+        return
+
+    base_annotations = first_read.bases
+
+    for mod in first_read.modifications:
+        # Find the base annotation for this modification position
+        matching_base = None
+        for base_ann in base_annotations:
+            if base_ann.position == mod.position:
+                matching_base = base_ann
+                break
+
+        if not matching_base:
+            continue
+
+        # Calculate x-axis range based on mode
+        if show_dwell_time:
+            # Time-based: calculate cumulative time up to this base
+            cumulative_time = 0.0
+            for i, base_ann in enumerate(base_annotations):
+                if base_ann.position == mod.position:
+                    # Calculate dwell time for this base
+                    if i + 1 < len(base_annotations):
+                        end_idx = base_annotations[i + 1].signal_start
+                    else:
+                        # Last base - approximate
+                        end_idx = base_ann.signal_end
+
+                    dwell_samples = end_idx - base_ann.signal_start
+                    dwell_time = (dwell_samples / sample_rate) * 1000  # ms
+
+                    left_x = cumulative_time
+                    right_x = cumulative_time + dwell_time
+                    break
+
+                # Accumulate time for previous bases
+                if i + 1 < len(base_annotations):
+                    next_start = base_annotations[i + 1].signal_start
+                else:
+                    next_start = base_ann.signal_end
+                dwell_samples = next_start - base_ann.signal_start
+                cumulative_time += (dwell_samples / sample_rate) * 1000
+        else:
+            # Position-based: use base index ± 0.5
+            left_x = mod.position - 0.5
+            right_x = mod.position + 0.5
+
+        # Get modification color
+        mod_color = MODIFICATION_COLORS.get(
+            mod.mod_code, MODIFICATION_COLORS["default"]
+        )
+
+        # Scale opacity by probability
+        alpha = overlay_opacity * mod.probability
+
+        # Add vertical box annotation
+        box = BoxAnnotation(
+            left=left_x,
+            right=right_x,
+            fill_color=mod_color,
+            fill_alpha=alpha,
+            line_width=0,
+            level="underlay",  # Draw behind signal
+        )
+        p.add_layout(box)
+
+
 def plot_eventalign(
     reads_data: list[tuple[str, np.ndarray, int]],
     normalization: NormalizationMethod,
@@ -220,6 +516,11 @@ def plot_eventalign(
     position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
     use_reference_positions: bool = False,
     theme: Theme = Theme.LIGHT,
+    show_modification_overlay: bool = True,
+    modification_overlay_opacity: float = DEFAULT_MOD_OVERLAY_OPACITY,
+    modification_type_filter: str = "all",
+    modification_threshold_enabled: bool = False,
+    modification_threshold: float = 0.5,
 ) -> tuple[str, figure]:
     """Plot event-aligned reads with base annotations"""
     if not aligned_reads:
@@ -276,7 +577,46 @@ def plot_eventalign(
     )
     configure_legend(p)
 
-    # Generate HTML
+    # Create modification track if available
+    sample_rate = reads_data[0][2]
+    p_mod = create_modification_track_eventalign(
+        aligned_reads,
+        show_dwell_time,
+        sample_rate,
+        theme,
+        show_modification_overlay,
+        modification_overlay_opacity,
+        modification_type_filter,
+        modification_threshold_enabled,
+        modification_threshold,
+    )
+
+    # Generate HTML - either single plot or gridplot with modification track
     html_title = format_html_title("Event-Aligned", reads_data)
-    html = file_html(p, CDN, title=html_title)
-    return html, p
+
+    if p_mod is not None:
+        # Link x-axes for synchronized zoom/pan
+        p_mod.x_range = p.x_range
+
+        # Minimize top border of main plot to remove gap with modification track
+        p.min_border_top = 0
+        p.min_border_left = 5
+        p.min_border_right = 5
+
+        # Modification track has fixed height (80px), main plot stretches to fill remaining space
+        # Keep default stretch_both on main plot for proper filling
+        # The column layout will manage overall sizing with minimal spacing
+
+        # Create column layout with tracks stacked vertically
+        layout = column(
+            p_mod,
+            p,
+            sizing_mode="stretch_both",  # Stretch both width and height
+            spacing=0,  # No spacing between plots
+        )
+        html = file_html(layout, CDN, title=html_title)
+        return html, layout
+    else:
+        # No modifications - return single plot
+        html = file_html(p, CDN, title=html_title)
+        return html, p
