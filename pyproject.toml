@@ -16,14 +16,10 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-  "PySide6>=6.5.0",
   "bokeh>=3.1.1",
   "numpy>=1.20.0",
   "pod5>=0.3.0",
   "pysam>=0.20.0",
-  "qasync>=0.24.0",
-  "qt-material>=2.14",
-  "rich>=13.0.0",
 ]
 
 [project.urls]
@@ -31,24 +27,21 @@ Homepage = "https://github.com/rnabioco/squiggy"
 Issues = "https://github.com/rnabioco/squiggy/issues"
 Repository = "https://github.com/rnabioco/squiggy"
 
-[project.scripts]
-squiggy = "squiggy.main:main"
+# No CLI entry point - use as library in Jupyter/Positron
+# or via Positron extension
 
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",
   "pytest-cov>=4.0",
   "ruff>=0.1.0",
-  "pyinstaller>=5.0",
   "mkdocs>=1.5.0",
   "mkdocs-material>=9.0.0",
+  "jupyter>=1.0.0",  # For testing in notebooks
 ]
 export = [
   "selenium>=4.6",  # Selenium Manager (auto-downloads geckodriver) requires 4.6+
   "pillow>=9.0",
-]
-macos = [
-  "pyobjc-framework-Cocoa>=9.0",
 ]
 
 [build-system]
@@ -90,7 +83,8 @@ indent-style = "space"
 
 [tool.setuptools]
 packages = ["squiggy"]
-package-dir = { "" = "src" }
+# Using root squiggy/ package (extension version without Qt)
+# Old Qt-based app is in src/squiggy/
 
 [tool.setuptools.package-data]
 squiggy = [

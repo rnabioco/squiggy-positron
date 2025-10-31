@@ -1,0 +1,139 @@
+{
+  "name": "squiggy-positron",
+  "displayName": "Squiggy",
+  "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files",
+  "version": "0.1.0",
+  "publisher": "rnabioco",
+  "engines": {
+    "vscode": "^1.74.0",
+    "positron": "^2025.6.0"
+  },
+  "categories": [
+    "Data Science",
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "squiggy.openPOD5",
+        "title": "Open POD5 File",
+        "category": "Squiggy",
+        "icon": "$(file-binary)"
+      },
+      {
+        "command": "squiggy.openBAM",
+        "title": "Open BAM File",
+        "category": "Squiggy",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "squiggy.plotRead",
+        "title": "Plot Selected Read(s)",
+        "category": "Squiggy",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "squiggy.exportPlot",
+        "title": "Export Plot",
+        "category": "Squiggy",
+        "icon": "$(save)"
+      },
+      {
+        "command": "squiggy.refreshReads",
+        "title": "Refresh Read List",
+        "category": "Squiggy",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "squiggy-sidebar",
+          "title": "Squiggy",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "squiggy-sidebar": [
+        {
+          "id": "squiggyReadList",
+          "name": "Reads"
+        },
+        {
+          "id": "squiggyPlotOptions",
+          "name": "Plot Options",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "squiggy.refreshReads",
+          "when": "view == squiggyReadList",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "squiggy.plotRead",
+          "when": "view == squiggyReadList",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Squiggy",
+      "properties": {
+        "squiggy.defaultPlotMode": {
+          "type": "string",
+          "enum": ["SINGLE", "OVERLAY", "STACKED", "EVENTALIGN"],
+          "default": "SINGLE",
+          "description": "Default plot mode for visualizations"
+        },
+        "squiggy.defaultNormalization": {
+          "type": "string",
+          "enum": ["NONE", "ZNORM", "MEDIAN", "MAD"],
+          "default": "ZNORM",
+          "description": "Default signal normalization method"
+        },
+        "squiggy.downsampleThreshold": {
+          "type": "number",
+          "default": 100000,
+          "description": "Downsample signals with more than this many samples"
+        },
+        "squiggy.theme": {
+          "type": "string",
+          "enum": ["LIGHT", "DARK"],
+          "default": "LIGHT",
+          "description": "Plot color theme"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^2.22.0",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@posit-dev/positron": "^0.1.0"
+  }
+}
