@@ -23,7 +23,7 @@ Example usage in Jupyter notebook:
     >>> show(Div(text=html))
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Core data structures and constants
 from .alignment import AlignedRead, BaseAnnotation, extract_alignment_from_bam
