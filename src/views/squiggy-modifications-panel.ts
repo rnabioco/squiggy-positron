@@ -118,13 +118,46 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
             a: '6-methyladenine (6mA)',
             o: '8-oxoguanine (8-oxoG)',
             // ChEBI codes (common RNA modifications)
-            '17596': 'Pseudouridine (Ψ)',
+            '17596': 'Inosine (I)',
             '28177': '1-methyladenosine (m1A)',
             '21863': '1-methylguanosine (m1G)',
             '28527': '7-methylguanosine (m7G)',
-            '17802': 'Inosine (I)',
+            '17802': 'Pseudouridine (Ψ)',
             '27301': '5-methyluridine (m5U)',
             '18421': 'Dihydrouridine (D)',
+        };
+
+        // Modification colors (shades matching base colors from eventalign view)
+        // Each modification uses shades within the same color family as its canonical base
+        // BASE_COLORS: C=#F0E442 (yellow), A=#009E73 (green), G=#0072B2 (blue), T/U=#D55E00 (orange)
+        const modificationColors: Record<string, string> = {
+            // Cytosine modifications (yellow family - C=#F0E442)
+            m: '#F0E442',       // 5mC - base yellow
+            h: '#E6D835',       // 5hmC - dark yellow
+            f: '#DCC728',       // 5fC - darker yellow
+            c: '#FFF78A',       // 5caC - light yellow
+            '21839': '#FFFC9E', // 4mC - very light yellow
+            '19228': '#D4BC1F', // Cm - deep yellow
+            C: '#F0E442',       // any C* - base yellow
+            // Adenine modifications (green family - A=#009E73)
+            a: '#009E73',       // 6mA - base green
+            '17596': '#00C490', // I - light green
+            '69426': '#007A57', // Am - dark green
+            A: '#009E73',       // any A* - base green
+            // Guanine modifications (blue family - G=#0072B2)
+            o: '#0072B2',       // 8oxoG - base blue
+            '19229': '#4DA6E0', // Gm - light blue
+            G: '#0072B2',       // any G* - base blue
+            // Thymine/Uracil modifications (orange family - T/U=#D55E00)
+            g: '#D55E00',       // 5hmU - base orange
+            e: '#FF7518',       // 5fU - light orange
+            b: '#B34C00',       // 5caU - dark orange
+            '17802': '#FF9447', // Ψ - lighter orange
+            '16450': '#8F3D00', // dU - deep orange
+            '19227': '#FFB880', // Um - very light orange
+            T: '#D55E00',       // any T* - base orange
+            // Default
+            default: '#000000',
         };
 
         return `<!DOCTYPE html>
@@ -146,51 +179,19 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
             padding: 10px;
             text-align: center;
         }
-        .info-section {
-            margin-bottom: 12px;
-        }
         .section-label {
             font-weight: bold;
             font-size: 0.85em;
             color: var(--vscode-descriptionForeground);
             margin-bottom: 4px;
         }
-        .modification-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .modification-item {
-            padding: 6px 8px;
-            margin: 4px 0;
-            background: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 3px;
-            font-size: 0.9em;
-        }
         .mod-code {
             font-family: var(--vscode-editor-font-family);
-            font-weight: bold;
-            color: var(--vscode-textLink-foreground);
+            color: var(--vscode-descriptionForeground);
+            font-size: 0.85em;
         }
         .mod-name {
             color: var(--vscode-foreground);
-            margin-left: 6px;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-        .status-present {
-            background: var(--vscode-testing-iconPassed);
-            color: var(--vscode-editor-background);
-        }
-        .status-absent {
-            background: var(--vscode-descriptionForeground);
-            color: var(--vscode-editor-background);
         }
         .filter-section {
             margin-bottom: 16px;
@@ -205,6 +206,10 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
             justify-content: space-between;
             font-size: 0.85em;
             margin-bottom: 4px;
+            align-items: center;
+        }
+        .slider-value {
+            font-weight: bold;
         }
         input[type="range"] {
             width: 100%;
@@ -222,6 +227,16 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
             flex: 1;
             cursor: pointer;
             font-size: 0.9em;
+            display: flex;
+            align-items: center;
+        }
+        .mod-color-square {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 6px;
+            border-radius: 2px;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -236,6 +251,7 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
         const vscode = acquireVsCodeApi();
 
         const modCodeToName = ${JSON.stringify(modCodeToName)};
+        const modificationColors = ${JSON.stringify(modificationColors)};
 
         // Receive updates from extension
         window.addEventListener('message', event => {
@@ -260,11 +276,12 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
             // Probability filter section (only show if probabilities are present)
             if (data.hasProbabilities) {
                 html += '<div class="filter-section">';
-                html += '<div class="section-label">Minimum Probability</div>';
+                html += '<div class="section-label">Minimum Probability Threshold</div>';
                 html += '<div class="slider-container">';
                 html += '<div class="slider-label">';
-                html += '<span>Threshold:</span>';
-                html += '<span id="probValue">0.50</span>';
+                html += '<span>0.00</span>';
+                html += '<span id="probValue" class="slider-value">0.50</span>';
+                html += '<span>1.00</span>';
                 html += '</div>';
                 html += '<input type="range" id="probSlider" min="0" max="100" value="50" step="1">';
                 html += '</div>';
@@ -273,7 +290,7 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
 
             // Modification type filters
             html += '<div class="filter-section">';
-            html += '<div class="section-label">Show Modifications</div>';
+            html += '<div class="section-label">Available Modifications</div>';
 
             for (const code of data.modificationTypes) {
                 let name = modCodeToName[code];
@@ -287,40 +304,19 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
                     name = 'Unknown modification';
                 }
 
+                // Get color for this modification
+                const color = modificationColors[code] || modificationColors.default;
+
                 html += '<div class="checkbox-item">';
                 html += '<input type="checkbox" id="mod_' + code + '" data-modtype="' + code + '" checked>';
                 html += '<label for="mod_' + code + '">';
-                html += '<span class="mod-code">' + displayCode + '</span> ';
-                html += '<span class="mod-name">' + name + '</span>';
+                html += '<span class="mod-color-square" style="background-color: ' + color + ';"></span>';
+                html += '<span class="mod-name">' + name + '</span> ';
+                html += '<span class="mod-code">(' + displayCode + ')</span>';
                 html += '</label>';
                 html += '</div>';
             }
 
-            html += '</div>';
-
-            // Modification types section (just for info)
-            html += '<div class="info-section">';
-            html += '<div class="section-label">Detected in BAM</div>';
-            html += '<ul class="modification-list">';
-
-            for (const code of data.modificationTypes) {
-                let name = modCodeToName[code];
-                let displayCode = code;
-
-                if (!name && /^[0-9]+$/.test(code)) {
-                    displayCode = 'ChEBI:' + code;
-                    name = 'Unknown modification';
-                } else if (!name) {
-                    name = 'Unknown modification';
-                }
-
-                html += '<li class="modification-item">';
-                html += '<span class="mod-code">' + displayCode + '</span>';
-                html += '<span class="mod-name">' + name + '</span>';
-                html += '</li>';
-            }
-
-            html += '</ul>';
             html += '</div>';
 
             content.innerHTML = html;
