@@ -26,7 +26,9 @@ The extension provides interactive Bokeh visualizations with support for base an
 - **VSCode Extension API**: Positron-compatible extension framework
 - **Positron Runtime API**: Execute Python code in active kernel
 - **Webview API**: Display interactive Bokeh plots
-- **TreeView API**: Hierarchical read list with filtering
+- **React 18**: Webview UI components (reads panel)
+- **react-window**: Virtualized list rendering for large datasets
+- **webpack**: Module bundler (dual bundle: extension + webview)
 
 **Python Package (Backend)**:
 - **pod5**: Reading Oxford Nanopore POD5 files
@@ -47,10 +49,13 @@ The extension provides interactive Bokeh visualizations with support for base an
 ```
 squiggy-positron-extension/
 ├── squiggy/                           # Python package (backend)
-│   ├── __init__.py                    # Public API (load_pod5, load_bam, plot_read)
+│   ├── __init__.py                    # Public API (legacy + OO)
+│   ├── api.py                         # Object-oriented API for notebooks
 │   ├── io.py                          # POD5/BAM file loading with kernel state
 │   ├── plotter.py                     # Bokeh plot generation
 │   ├── alignment.py                   # Base annotation extraction from BAM
+│   ├── constants.py                   # Enums and constants
+│   ├── modifications.py               # Base modification parsing
 │   ├── normalization.py               # Signal normalization (ZNORM, MEDIAN, MAD)
 │   └── utils.py                       # Utility functions
 │
@@ -60,21 +65,37 @@ squiggy-positron-extension/
 │   │   ├── squiggy-positron-runtime.ts # Positron kernel communication
 │   │   └── squiggy-python-backend.ts   # JSON-RPC subprocess fallback
 │   ├── views/
+│   │   ├── components/                 # React components for reads panel
+│   │   │   ├── squiggy-reads-core.tsx  # Main table logic
+│   │   │   ├── squiggy-reads-instance.tsx # Webview host
+│   │   │   ├── squiggy-read-item.tsx   # Individual read row
+│   │   │   ├── squiggy-reference-group.tsx # Grouped by reference
+│   │   │   ├── column-resizer.tsx      # Resizable columns
+│   │   │   └── webview-entry.tsx       # React entry point
 │   │   ├── squiggy-file-panel.ts       # File info webview
-│   │   ├── squiggy-read-explorer.ts    # Read list TreeView
-│   │   ├── squiggy-read-search-view.ts  # Search panel webview
+│   │   ├── squiggy-reads-view-pane.ts  # Read list React webview
 │   │   ├── squiggy-plot-options-view.ts # Plot options webview
 │   │   └── squiggy-modifications-panel.ts # Modifications filter webview
 │   ├── webview/
 │   │   └── squiggy-plot-panel.ts       # Bokeh plot display
 │   ├── types/
-│   │   └── squiggy-positron.d.ts      # Positron API type definitions
+│   │   ├── squiggy-positron.d.ts       # Positron API type definitions
+│   │   └── squiggy-reads-types.ts      # Types for reads data
 │   └── __mocks__/
-│       └── vscode.ts                  # VSCode API mock for testing
+│       └── vscode.ts                   # VSCode API mock for testing
+│
+├── examples/                          # Example notebooks
+│   └── notebook_api_demo.ipynb        # OO API tutorial
 │
 ├── tests/                             # Python tests
+│   ├── test_alignment.py              # Alignment tests
+│   ├── test_api.py                    # Legacy API tests
 │   ├── test_io.py                     # File I/O tests
+│   ├── test_modifications.py          # Modification parsing tests
+│   ├── test_normalization.py          # Normalization tests
+│   ├── test_oo_api.py                 # Object-oriented API tests
 │   ├── test_plotting.py               # Plotting tests
+│   ├── test_utils.py                  # Utility function tests
 │   └── data/                          # Test data (POD5/BAM files)
 │
 ├── .github/workflows/                 # CI/CD
@@ -88,6 +109,7 @@ squiggy-positron-extension/
 │
 ├── package.json                       # Extension manifest and dependencies
 ├── tsconfig.json                      # TypeScript configuration
+├── webpack.config.js                  # Webpack bundling configuration
 ├── jest.config.js                     # Jest test configuration
 ├── .prettierrc.json                   # Prettier formatting config
 ├── pyproject.toml                     # Python package configuration
@@ -242,12 +264,11 @@ export namespace runtime {
 ### UI Panels
 
 **FilePanelProvider** - Webview showing POD5/BAM file metadata
-**ReadTreeProvider** - TreeView with hierarchical read list (grouped by reference if BAM loaded)
-**ReadSearchView** - Webview for filtering reads by ID or reference name
+**ReadsViewPane** - React webview with virtualized multi-column table (Read ID, Length, Quality, Reference, Position). Uses react-window for performance with large datasets. Search functionality integrated into UI. Grouped by reference when BAM loaded.
 **PlotOptionsView** - Webview for plot configuration (mode, normalization, x-axis scaling)
 **ModificationsPanelProvider** - Webview for base modification filtering (when BAM has MM/ML tags)
 
-All webview panels use HTML/CSS/JavaScript for UI, communicate with extension via `postMessage`.
+All webview panels communicate with extension via `postMessage`. The Reads panel uses React components for interactive UI.
 
 ### Plot Display
 
