@@ -731,7 +731,7 @@ async function openBAMFile(filePath: string) {
 /**
  * Plot reads
  */
-async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
+async function plotReads(readIds: string[], _context: vscode.ExtensionContext) {
     try {
         // Track current plot for refresh
         currentPlotReadIds = readIds;
@@ -789,7 +789,7 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
 /**
  * Generate and display aggregate plot for a reference sequence
  */
-async function plotAggregate(referenceName: string, context: vscode.ExtensionContext) {
+async function plotAggregate(referenceName: string, _context: vscode.ExtensionContext) {
     try {
         await vscode.window.withProgress(
             {
