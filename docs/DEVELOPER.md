@@ -24,8 +24,8 @@ This guide covers setting up the development environment, understanding the arch
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/rnabioco/squiggy.git
-cd squiggy
+git clone https://github.com/rnabioco/squiggy-positron.git
+cd squiggy-positron
 
 # Initialize Git LFS for test data
 git lfs install

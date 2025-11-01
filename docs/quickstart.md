@@ -9,7 +9,7 @@ This guide will help you get started with Squiggy quickly, from installation to 
 The easiest way to get started is to download a pre-built executable for your platform:
 
 **macOS:**
-1. Download [Squiggy-macos.dmg](https://github.com/rnabioco/squiggy/releases/latest)
+1. Download [Squiggy-macos.dmg](https://github.com/rnabioco/squiggy-positron/releases/latest)
 2. Open the DMG file
 3. Drag Squiggy.app to your Applications folder
 4. Right-click the app and select "Open" (first launch only)
@@ -18,7 +18,7 @@ The easiest way to get started is to download a pre-built executable for your pl
     On first launch, macOS may block the app. Go to System Preferences → Security & Privacy and click "Open Anyway".
 
 **Development Builds:**
-For the latest development version (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggy/releases/tag/latest).
+For the latest development version (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggy-positron/releases/tag/latest).
 
 ### Option 2: Install from Source (Development)
 
@@ -250,5 +250,5 @@ Now that you've got the basics:
 ## Getting Help
 
 - **Documentation**: [Complete usage guide](usage.md)
-- **Issues**: [GitHub Issues](https://github.com/rnabioco/squiggy/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/rnabioco/squiggy/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rnabioco/squiggy-positron/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rnabioco/squiggy-positron/discussions)

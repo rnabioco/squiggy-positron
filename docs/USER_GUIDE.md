@@ -17,7 +17,7 @@ Complete guide to using the Squiggy Positron extension for nanopore signal visua
 
 ### Installation
 
-1. Download the latest `.vsix` file from [GitHub Releases](https://github.com/rnabioco/squiggy/releases)
+1. Download the latest `.vsix` file from [GitHub Releases](https://github.com/rnabioco/squiggy-positron/releases)
 2. In Positron: `Extensions` → `...` → `Install from VSIX...`
 3. Select the downloaded `.vsix` file
 4. Reload Positron when prompted
@@ -370,6 +370,6 @@ Common modification types:
 
 ## Getting Help
 
-- **GitHub Issues**: [Report bugs](https://github.com/rnabioco/squiggy/issues)
-- **GitHub Discussions**: [Ask questions](https://github.com/rnabioco/squiggy/discussions)
-- **Documentation**: [Online docs](https://rnabioco.github.io/squiggy/)
+- **GitHub Issues**: [Report bugs](https://github.com/rnabioco/squiggy-positron/issues)
+- **GitHub Discussions**: [Ask questions](https://github.com/rnabioco/squiggy-positron/discussions)
+- **Documentation**: [Online docs](https://rnabioco.github.io/squiggy-positron/)

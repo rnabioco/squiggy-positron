@@ -6,11 +6,14 @@ A Positron IDE extension for visualizing Oxford Nanopore sequencing data from PO
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)
-[![codecov](https://codecov.io/gh/rnabioco/squiggy/branch/main/graph/badge.svg)](https://codecov.io/gh/rnabioco/squiggy)
+[![OpenVSX](https://img.shields.io/open-vsx/v/rnabioco/squiggy-positron)](https://open-vsx.org/extension/rnabioco/squiggy-positron)
+[![codecov](https://codecov.io/gh/rnabioco/squiggy-positron/branch/main/graph/badge.svg)](https://codecov.io/gh/rnabioco/squiggy-positron)
 
 ## Overview
 
 Squiggy is a Positron extension that integrates nanopore signal visualization into your data science workflow. Work with POD5 and BAM files directly in Positron, leveraging the active Python kernel for seamless data exploration.
+
+![Squiggy in action](resources/screenshot.png)
 
 **Key Features:**
 - **Positron Integration**: Works with your active Python kernel - no separate environment needed
@@ -19,30 +22,13 @@ Squiggy is a Positron extension that integrates nanopore signal visualization in
 - **Read Filtering**: Search by read ID, reference region, or sequence motif
 - **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
 
-## Screenshots
-
-*Coming soon*
-
 ## Installation
 
-### From VSIX (Recommended)
-
-1. Download the latest `.vsix` file from [Releases](https://github.com/rnabioco/squiggy/releases)
+1. Download the latest `.vsix` file from [Releases](https://github.com/rnabioco/squiggy-positron/releases)
 2. In Positron: `Extensions` → `...` → `Install from VSIX...`
 3. Select the downloaded `.vsix` file
 
-### From Source (Development)
-
-```bash
-git clone https://github.com/rnabioco/squiggy.git
-cd squiggy
-
-# Install dependencies (Python + Node.js + npm packages)
-pixi install && pixi run setup
-
-# Build extension
-pixi run build
-```
+> For development installation, see the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-guide/).
 
 ## Quick Start
 
@@ -145,50 +131,17 @@ pip install squiggy
 
 - **BAM file** with basecalls for advanced features (event-aligned plots, modifications)
 
-## Extension Development
-
-See [DEVELOPER.md](docs/DEVELOPER.md) for detailed development setup and contribution guidelines.
-
-### Quick Development Setup
-
-```bash
-# Install dependencies
-pixi install
-
-# Main development commands
-pixi run dev      # Watch mode (auto-compile TypeScript)
-pixi run test     # Run all tests (Python + TypeScript)
-pixi run build    # Build extension (.vsix)
-pixi run docs     # Serve documentation locally
-
-# Code quality
-pixi run lint     # Lint Python + TypeScript
-pixi run format   # Format Python + TypeScript
-```
-
-## Architecture
-
-The extension has two main components:
-
-1. **TypeScript Extension** (`src/`): Positron IDE integration
-   - Communicates with Python via Positron's runtime API
-   - Manages UI panels (file info, read list, plot options, modifications)
-   - Displays Bokeh plots in webview panels
-
-2. **Python Package** (`squiggy/`): Signal processing and plotting
-   - Reads POD5 and BAM files
-   - Generates interactive Bokeh visualizations
-   - Handles signal normalization and downsampling
-
 ## Documentation
 
-- [User Guide](docs/USER_GUIDE.md) - Complete usage guide
-- [Developer Guide](docs/DEVELOPER.md) - Extension development setup
-- [Online Docs](https://rnabioco.github.io/squiggy/) - MkDocs documentation site
+📚 **Full documentation available at [rnabioco.github.io/squiggy-positron](https://rnabioco.github.io/squiggy-positron/)**
+
+- [User Guide](https://rnabioco.github.io/squiggy-positron/user-guide/) - Complete usage guide
+- [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-guide/) - Extension development setup
+- [API Reference](https://rnabioco.github.io/squiggy-positron/api/) - Python API documentation
 
 ## Contributing
 
-Contributions are welcome! Please see [DEVELOPER.md](docs/DEVELOPER.md) for:
+Contributions are welcome! Please see the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-guide/) for:
 - Development setup
 - Coding standards
 - Testing guidelines
@@ -215,5 +168,5 @@ If you use Squiggy in your research, please cite:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/rnabioco/squiggy/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/rnabioco/squiggy/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rnabioco/squiggy-positron/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rnabioco/squiggy-positron/discussions)

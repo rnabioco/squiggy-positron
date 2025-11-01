@@ -296,8 +296,8 @@ html = plot_read(
 
 ```bash
 # Clone and install
-git clone https://github.com/rnabioco/squiggy.git
-cd squiggy
+git clone https://github.com/rnabioco/squiggy-positron.git
+cd squiggy-positron
 git lfs install && git lfs pull
 
 # Install all dependencies

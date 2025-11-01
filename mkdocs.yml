@@ -1,8 +1,8 @@
 site_name: Squiggy
 site_description: A Positron IDE extension for visualizing Oxford Nanopore sequencing data
 site_author: rnabioco
-repo_url: https://github.com/rnabioco/squiggy
-repo_name: rnabioco/squiggy
+repo_url: https://github.com/rnabioco/squiggy-positron
+repo_name: rnabioco/squiggy-positron
 
 theme:
   name: material
