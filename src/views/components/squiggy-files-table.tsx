@@ -21,9 +21,7 @@ export const FilesTable: React.FC<FilesTableProps> = ({
         if (sortColumn !== column) {
             return null;
         }
-        return (
-            <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
-        );
+        return <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>;
     };
 
     return (
@@ -68,7 +66,10 @@ export const FilesTable: React.FC<FilesTableProps> = ({
                 <div className="files-header-cell files-col-mods" title="Modifications">
                     Mods
                 </div>
-                <div className="files-header-cell files-col-events" title="Event alignment (move table)">
+                <div
+                    className="files-header-cell files-col-events"
+                    title="Event alignment (move table)"
+                >
                     Moves
                 </div>
                 <div className="files-header-cell files-col-actions">Close</div>

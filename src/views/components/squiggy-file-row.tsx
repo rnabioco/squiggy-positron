@@ -23,15 +23,11 @@ export const FileRow: React.FC<FileRowProps> = ({ file, isEvenRow, onCloseFile }
 
             {/* Type */}
             <div className="file-cell file-col-type">
-                <span className={`file-type-badge ${file.type.toLowerCase()}`}>
-                    {file.type}
-                </span>
+                <span className={`file-type-badge ${file.type.toLowerCase()}`}>{file.type}</span>
             </div>
 
             {/* Size */}
-            <div className="file-cell file-col-size file-cell-numeric">
-                {file.sizeFormatted}
-            </div>
+            <div className="file-cell file-col-size file-cell-numeric">{file.sizeFormatted}</div>
 
             {/* Reads */}
             <div className="file-cell file-col-reads file-cell-numeric">
