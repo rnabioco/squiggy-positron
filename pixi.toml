@@ -13,7 +13,8 @@ setup = "npm install"
 
 # === Main Development Workflow ===
 dev = "npm run watch"
-test = { cmd = "pytest tests/ -v && npm test" }
+test = { depends-on = ["test-py", "test-ts"] }
+check = { depends-on = ["lint", "test"] }
 build = "npm run package"
 docs = "mkdocs serve"
 
@@ -25,12 +26,12 @@ lint-ts = "npm run lint"
 format-ts = "npm run format"
 
 # Python
-test-py = "pytest tests/ -v"
+test-py = "python -m pytest tests/ -v"
 lint-py = "ruff check squiggy/ tests/"
 format-py = "ruff format squiggy/ tests/"
 
 # Combined
-lint = { depends-on = ["lint-py", "lint-ts"] }
+lint = { depends-on = ["format-py", "format-ts", "lint-py", "lint-ts"] }
 format = { depends-on = ["format-py", "format-ts"] }
 
 [dependencies]

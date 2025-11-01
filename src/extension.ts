@@ -149,7 +149,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for Positron runtime session changes (kernel restarts)
     if (usePositron) {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
             const positron = require('positron');
 
             // Helper function to clear extension state
@@ -216,7 +216,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     await setupSessionListeners();
                 })
             );
-        } catch (error) {
+        } catch (_error) {
             // Positron API not available - not running in Positron
         }
     }
@@ -413,7 +413,7 @@ if '_squiggy_reader' in globals():
 if '_squiggy_read_ids' in globals():
     del _squiggy_read_ids
 `);
-                } catch (error) {
+                } catch (_error) {
                     // Ignore errors if kernel is not running
                 }
             }
@@ -491,7 +491,7 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
             filePanelProvider.setSquiggyStatus(false);
             return false;
         }
-    } catch (error) {
+    } catch (_error) {
         // Error during check - mark as unavailable
         filePanelProvider.setSquiggyStatus(false);
         squiggyInstallChecked = true;
