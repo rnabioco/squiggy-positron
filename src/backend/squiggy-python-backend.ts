@@ -10,17 +10,17 @@ import * as readline from 'readline';
 interface JSONRPCRequest {
     jsonrpc: '2.0';
     method: string;
-    params?: any;
+    params?: unknown;
     id: number;
 }
 
 interface JSONRPCResponse {
     jsonrpc: '2.0';
-    result?: any;
+    result?: unknown;
     error?: {
         code: number;
         message: string;
-        data?: any;
+        data?: unknown;
     };
     id: number;
 }
@@ -31,7 +31,7 @@ export class PythonBackend {
     private pendingRequests = new Map<
         number,
         {
-            resolve: (result: any) => void;
+            resolve: (result: unknown) => void;
             reject: (error: Error) => void;
         }
     >();
@@ -135,7 +135,7 @@ export class PythonBackend {
     /**
      * Call a method on the Python backend
      */
-    async call(method: string, params?: any): Promise<any> {
+    async call(method: string, params?: unknown): Promise<unknown> {
         if (!this.process || !this.process.stdin) {
             throw new Error('Python backend is not running');
         }

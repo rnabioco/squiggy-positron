@@ -62,7 +62,7 @@ export class PositronRuntime {
             };
 
             // Listen for state changes
-            const disposable = session.onDidChangeRuntimeState((state: any) => {
+            const disposable = session.onDidChangeRuntimeState((state: string) => {
                 if (checkState(state)) {
                     disposable.dispose();
                 }
@@ -108,7 +108,7 @@ export class PositronRuntime {
         allowIncomplete: boolean = true,
         mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent,
         observer?: positron.RuntimeCodeExecutionObserver
-    ): Promise<Record<string, any>> {
+    ): Promise<Record<string, unknown>> {
         if (!this.isAvailable()) {
             throw new Error('Positron runtime not available');
         }
@@ -182,7 +182,7 @@ export class PositronRuntime {
      * @param varName Python variable name (can include indexing like 'var[0:10]')
      * @returns Promise that resolves with the variable value
      */
-    async getVariable(varName: string): Promise<any> {
+    async getVariable(varName: string): Promise<unknown> {
         const session = await positron.runtime.getForegroundSession();
         if (!session || session.runtimeMetadata.languageId !== 'python') {
             throw new Error('No active Python session');
@@ -308,7 +308,7 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
         return {
             numReads,
             hasModifications,
-            modificationTypes: modificationTypes.map((x: any) => String(x)),
+            modificationTypes: modificationTypes.map((x: unknown) => String(x)),
             hasProbabilities,
         };
     }

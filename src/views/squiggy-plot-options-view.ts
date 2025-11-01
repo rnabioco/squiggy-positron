@@ -138,7 +138,7 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private _updateConfig(key: string, value: any) {
+    private _updateConfig(key: string, value: unknown) {
         const config = vscode.workspace.getConfiguration('squiggy');
         config.update(key, value, vscode.ConfigurationTarget.Global);
     }

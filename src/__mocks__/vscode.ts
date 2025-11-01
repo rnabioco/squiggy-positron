@@ -4,13 +4,13 @@
 
 export class TreeItem {
     label: string;
-    collapsibleState: any;
+    collapsibleState: TreeItemCollapsibleState | number;
     tooltip?: string;
     contextValue?: string;
-    iconPath?: any;
-    command?: any;
+    iconPath?: ThemeIcon | string | { light: string; dark: string };
+    command?: Command;
 
-    constructor(label: string, collapsibleState: any) {
+    constructor(label: string, collapsibleState: TreeItemCollapsibleState | number) {
         this.label = label;
         this.collapsibleState = collapsibleState;
     }
@@ -23,10 +23,10 @@ export enum TreeItemCollapsibleState {
 }
 
 export class EventEmitter<T> {
-    private listeners: ((e: T) => any)[] = [];
+    private listeners: ((e: T) => void)[] = [];
 
     get event() {
-        return (listener: (e: T) => any) => {
+        return (listener: (e: T) => void) => {
             this.listeners.push(listener);
             return { dispose: () => {} };
         };
@@ -44,5 +44,5 @@ export class ThemeIcon {
 export interface Command {
     command: string;
     title: string;
-    arguments?: any[];
+    arguments?: unknown[];
 }
