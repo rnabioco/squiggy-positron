@@ -41,6 +41,12 @@
         "icon": "$(graph)"
       },
       {
+        "command": "squiggy.plotAggregate",
+        "title": "Plot Aggregate for Reference",
+        "category": "Squiggy",
+        "icon": "$(graph-line)"
+      },
+      {
         "command": "squiggy.exportPlot",
         "title": "Export Plot",
         "category": "Squiggy",
@@ -103,7 +109,12 @@
       "view/item/context": [
         {
           "command": "squiggy.plotRead",
-          "when": "view == squiggyReadList",
+          "when": "view == squiggyReadList && viewItem == read",
+          "group": "inline"
+        },
+        {
+          "command": "squiggy.plotAggregate",
+          "when": "view == squiggyReadList && viewItem == reference",
           "group": "inline"
         }
       ]
@@ -144,6 +155,13 @@
           ],
           "default": "LIGHT",
           "description": "Plot color theme"
+        },
+        "squiggy.aggregateSampleSize": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 10000,
+          "description": "Maximum number of reads to sample for aggregate plots"
         }
       }
     }

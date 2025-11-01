@@ -303,6 +303,60 @@ _squiggy_plot_path = _squiggy_temp_file.name
     }
 
     /**
+     * Generate an aggregate plot for a reference sequence
+     * @param referenceName - Name of reference sequence from BAM file
+     * @param maxReads - Maximum number of reads to sample (default 100)
+     * @param normalization - Normalization method (ZNORM, MAD, etc.)
+     * @param theme - Color theme (LIGHT or DARK)
+     * @returns Path to temp file containing Bokeh HTML
+     */
+    async generateAggregatePlot(
+        referenceName: string,
+        maxReads: number = 100,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<string> {
+        // Escape single quotes in reference name for Python string
+        const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+import tempfile
+
+# Generate aggregate plot HTML
+html = squiggy.plot_aggregate(
+    reference_name='${escapedRefName}',
+    max_reads=${maxReads},
+    normalization='${normalization}',
+    theme='${theme}'
+)
+
+# Write to temp file
+_squiggy_temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
+_squiggy_temp_file.write(html)
+_squiggy_temp_file.close()
+
+# Store path in kernel variable (NO print!)
+_squiggy_plot_path = _squiggy_temp_file.name
+`;
+
+        try {
+            // Execute silently
+            await this.executeSilent(code);
+
+            // Read variable directly from kernel memory
+            const filePath = await this.getVariable('_squiggy_plot_path');
+
+            // Clean up temporary variables
+            await this.executeSilent('del _squiggy_plot_path, _squiggy_temp_file');
+
+            return filePath;
+        } catch (error) {
+            throw new Error(`Failed to generate aggregate plot: ${error}`);
+        }
+    }
+
+    /**
      * Check if squiggy package is installed in the kernel
      */
     async isSquiggyInstalled(): Promise<boolean> {
