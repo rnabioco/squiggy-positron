@@ -1,7 +1,6 @@
 """Tests for utility functions"""
 
 import os
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -77,7 +76,9 @@ class TestDownsampleSignal:
         result = downsample_signal(signal, downsample_factor=2)
 
         assert result.dtype == np.float32
-        np.testing.assert_array_almost_equal(result, np.array([1.5, 3.5], dtype=np.float32))
+        np.testing.assert_array_almost_equal(
+            result, np.array([1.5, 3.5], dtype=np.float32)
+        )
 
     def test_downsample_zero_factor(self):
         """Test that downsample_factor=0 returns original signal"""
@@ -313,7 +314,7 @@ class TestWritableWorkingDirectory:
 
         original_cwd = os.getcwd()
 
-        with writable_working_directory() as temp_dir:
+        with writable_working_directory():
             current_cwd = os.getcwd()
             # Should be in temp directory
             assert current_cwd != original_cwd
@@ -401,7 +402,9 @@ class TestGetBasecallData:
         """Test extracting data for nonexistent read"""
         from squiggy.utils import get_basecall_data
 
-        sequence, seq_to_sig_map = get_basecall_data(sample_bam_file, "NONEXISTENT_READ")
+        sequence, seq_to_sig_map = get_basecall_data(
+            sample_bam_file, "NONEXISTENT_READ"
+        )
 
         assert sequence is None
         assert seq_to_sig_map is None
@@ -419,7 +422,9 @@ class TestGetBasecallData:
         """Test extracting data from invalid BAM path"""
         from squiggy.utils import get_basecall_data
 
-        sequence, seq_to_sig_map = get_basecall_data("/nonexistent/file.bam", "any_read")
+        sequence, seq_to_sig_map = get_basecall_data(
+            "/nonexistent/file.bam", "any_read"
+        )
 
         # Should handle error gracefully and return None
         assert sequence is None
