@@ -1,0 +1,416 @@
+/**
+ * File Commands
+ *
+ * Handles opening/closing POD5 and BAM files, plus loading test data.
+ * Extracted from extension.ts to improve modularity.
+ */
+
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { promises as fs } from 'fs';
+import { ExtensionState } from '../state/extension-state';
+import { ErrorContext, handleError, safeExecuteWithProgress } from '../utils/error-handler';
+
+/**
+ * Register file-related commands
+ */
+export function registerFileCommands(
+    context: vscode.ExtensionContext,
+    state: ExtensionState
+): void {
+    // Open POD5 file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.openPOD5', async () => {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { 'POD5 Files': ['pod5'] },
+                title: 'Open POD5 File',
+            });
+
+            if (fileUri && fileUri[0]) {
+                await openPOD5File(fileUri[0].fsPath, state);
+            }
+        })
+    );
+
+    // Open BAM file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.openBAM', async () => {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { 'BAM Files': ['bam'] },
+                title: 'Open BAM File',
+            });
+
+            if (fileUri && fileUri[0]) {
+                await openBAMFile(fileUri[0].fsPath, state);
+            }
+        })
+    );
+
+    // Close POD5 file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.closePOD5', async () => {
+            const confirm = await vscode.window.showWarningMessage(
+                'Close POD5 file?',
+                { modal: true },
+                'Close'
+            );
+
+            if (confirm === 'Close') {
+                await closePOD5File(state);
+            }
+        })
+    );
+
+    // Close BAM file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.closeBAM', async () => {
+            const confirm = await vscode.window.showWarningMessage(
+                'Close BAM file?',
+                { modal: true },
+                'Close'
+            );
+
+            if (confirm === 'Close') {
+                await closeBAMFile(state);
+            }
+        })
+    );
+
+    // Load test data
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadTestData', async () => {
+            const pod5Path = path.join(
+                context.extensionPath,
+                'tests',
+                'data',
+                'yeast_trna_reads.pod5'
+            );
+            const bamPath = path.join(
+                context.extensionPath,
+                'tests',
+                'data',
+                'yeast_trna_mappings.bam'
+            );
+
+            // Check if files are already loaded
+            const pod5AlreadyLoaded = state.currentPod5File === pod5Path;
+            const bamAlreadyLoaded = state.currentBamFile === bamPath;
+
+            if (pod5AlreadyLoaded && bamAlreadyLoaded) {
+                vscode.window.showInformationMessage(
+                    'Test data is already loaded. Use "Refresh Read List" to update the view.'
+                );
+                return;
+            }
+
+            // Load files sequentially (only if not already loaded)
+            if (!pod5AlreadyLoaded) {
+                await openPOD5File(pod5Path, state);
+            }
+            if (!bamAlreadyLoaded) {
+                await openBAMFile(bamPath, state);
+            }
+
+            vscode.window.showInformationMessage('Test data loaded successfully!');
+        })
+    );
+}
+
+/**
+ * Ensure squiggy package is available (check if installed, prompt if needed)
+ */
+async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
+    if (!state.usePositron) {
+        // Non-Positron mode - assume squiggy is available via subprocess backend
+        return true;
+    }
+
+    const packageManager = state.packageManager;
+    if (!packageManager) {
+        return false;
+    }
+
+    // Always check if squiggy is installed (user may have installed manually)
+    const installed = await packageManager.isSquiggyInstalled();
+
+    if (installed) {
+        // Package is installed - return success
+        state.squiggyInstallChecked = true;
+        state.squiggyInstallDeclined = false; // Reset declined flag since it's now installed
+        return true;
+    }
+
+    // Not installed - check if we should prompt
+    if (state.squiggyInstallChecked && state.squiggyInstallDeclined) {
+        // User already declined this session - don't prompt again
+        return false;
+    }
+
+    try {
+        // Prompt user to install
+        const userChoice = await packageManager.promptInstallSquiggy();
+
+        if (userChoice === 'install') {
+            // Install squiggy
+            const extensionPath = state.extensionContext?.extensionPath || '';
+            const success = await packageManager.installSquiggyWithProgress(extensionPath);
+            state.squiggyInstallChecked = true;
+            return success;
+        } else if (userChoice === 'manual') {
+            // Show manual installation guide
+            const extensionPath = state.extensionContext?.extensionPath || '';
+            await packageManager.showManualInstallationGuide(extensionPath);
+            state.squiggyInstallDeclined = true;
+            state.squiggyInstallChecked = true;
+            return false;
+        } else {
+            // User canceled installation
+            state.squiggyInstallDeclined = true;
+            state.squiggyInstallChecked = true;
+            return false;
+        }
+    } catch (_error) {
+        // Error during check - mark as unavailable
+        state.squiggyInstallChecked = true;
+        return false;
+    }
+}
+
+/**
+ * Open a POD5 file
+ */
+async function openPOD5File(filePath: string, state: ExtensionState): Promise<void> {
+    // Ensure squiggy is available (check if installed, prompt if needed)
+    const squiggyAvailable = await ensureSquiggyAvailable(state);
+
+    if (!squiggyAvailable) {
+        vscode.window.showWarningMessage(
+            'Cannot open POD5 file: squiggy Python package is not installed. ' +
+                'Please install it manually with: pip install -e <extension-path>'
+        );
+        return;
+    }
+
+    await safeExecuteWithProgress(
+        async () => {
+            let numReads: number;
+            let readIds: string[] = [];
+
+            if (state.usePositron && state.squiggyAPI) {
+                // Use Positron kernel - lazy load read IDs
+                const result = await state.squiggyAPI.loadPOD5(filePath);
+                numReads = result.numReads;
+
+                // Get first 1000 read IDs for tree view (lazy loading)
+                readIds = await state.squiggyAPI.getReadIds(0, 1000);
+            } else if (state.pythonBackend) {
+                // Use subprocess backend
+                const backendResult = (await state.pythonBackend.call('open_pod5', {
+                    file_path: filePath,
+                })) as { num_reads: number; read_ids?: string[] };
+                numReads = backendResult.num_reads;
+                readIds = backendResult.read_ids || [];
+            } else {
+                throw new Error('No backend available');
+            }
+
+            // Update reads view
+            if (readIds.length > 0) {
+                state.readsViewPane?.setReads(readIds);
+            }
+
+            // Track file and update file panel display
+            state.currentPod5File = filePath;
+
+            // Get file size
+            const stats = await fs.stat(filePath);
+
+            state.filePanelProvider?.setPOD5({
+                path: filePath,
+                numReads,
+                size: stats.size,
+            });
+        },
+        ErrorContext.POD5_LOAD,
+        'Opening POD5 file...'
+    );
+}
+
+/**
+ * Open a BAM file
+ */
+async function openBAMFile(filePath: string, state: ExtensionState): Promise<void> {
+    // Ensure squiggy is available (check if installed, prompt if needed)
+    const squiggyAvailable = await ensureSquiggyAvailable(state);
+
+    if (!squiggyAvailable) {
+        vscode.window.showWarningMessage(
+            'Cannot open BAM file: squiggy Python package is not installed. ' +
+                'Please install it manually with: pip install -e <extension-path>'
+        );
+        return;
+    }
+
+    await safeExecuteWithProgress(
+        async () => {
+            let numReads: number;
+            let hasModifications: boolean;
+            let modificationTypes: string[];
+            let hasProbabilities: boolean;
+            let hasEventAlignment: boolean = false;
+            let referenceToReads: Record<string, string[]> = {};
+
+            if (state.usePositron && state.squiggyAPI) {
+                // Use Positron kernel - lazy load reference mapping
+                const result = await state.squiggyAPI.loadBAM(filePath);
+                numReads = result.numReads;
+                hasModifications = result.hasModifications;
+                modificationTypes = result.modificationTypes;
+                hasProbabilities = result.hasProbabilities;
+                hasEventAlignment = result.hasEventAlignment || false;
+
+                // Get references and build mapping (lazy loading)
+                const references = await state.squiggyAPI.getReferences();
+                for (const ref of references) {
+                    const reads = await state.squiggyAPI.getReadsForReference(ref);
+                    referenceToReads[ref] = reads;
+                }
+            } else if (state.pythonBackend) {
+                // Use subprocess backend
+                const backendResult = (await state.pythonBackend.call('open_bam', {
+                    file_path: filePath,
+                })) as {
+                    num_reads: number;
+                    reference_to_reads?: Record<string, string[]>;
+                    has_modifications?: boolean;
+                    modification_types?: string[];
+                    has_probabilities?: boolean;
+                    has_event_alignment?: boolean;
+                };
+                numReads = backendResult.num_reads;
+                referenceToReads = backendResult.reference_to_reads || {};
+                hasModifications = backendResult.has_modifications || false;
+                modificationTypes = backendResult.modification_types || [];
+                hasProbabilities = backendResult.has_probabilities || false;
+                hasEventAlignment = backendResult.has_event_alignment || false;
+            } else {
+                throw new Error('No backend available');
+            }
+
+            // Track file and update file panel display
+            state.currentBamFile = filePath;
+
+            // Get file size
+            const stats = await fs.stat(filePath);
+
+            state.filePanelProvider?.setBAM({
+                path: filePath,
+                numReads,
+                numRefs: Object.keys(referenceToReads).length,
+                size: stats.size,
+                hasMods: hasModifications,
+                hasEvents: hasEventAlignment,
+            });
+
+            // Update reads view to show reads grouped by reference
+            if (Object.keys(referenceToReads).length > 0) {
+                const refMap = new Map<string, string[]>(Object.entries(referenceToReads));
+
+                // Convert to ReadItem[] with reference info
+                const readItemsMap = new Map<string, any[]>();
+                for (const [ref, reads] of refMap.entries()) {
+                    readItemsMap.set(
+                        ref,
+                        reads.map((readId) => ({
+                            type: 'read' as const,
+                            readId,
+                            referenceName: ref,
+                            indentLevel: 1,
+                        }))
+                    );
+                }
+                state.readsViewPane?.setReadsGrouped(readItemsMap);
+            }
+
+            // Update modifications panel and context
+            if (hasModifications) {
+                state.modificationsProvider?.setModificationInfo(
+                    hasModifications,
+                    modificationTypes,
+                    hasProbabilities
+                );
+                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', true);
+            } else {
+                state.modificationsProvider?.clear();
+                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+            }
+
+            // Update plot options to show EVENTALIGN mode and set as default
+            state.plotOptionsProvider?.updateBamStatus(true);
+        },
+        ErrorContext.BAM_LOAD,
+        'Opening BAM file...'
+    );
+}
+
+/**
+ * Close POD5 file
+ */
+async function closePOD5File(state: ExtensionState): Promise<void> {
+    try {
+        // Clear Python state
+        if (state.usePositron && state.positronClient) {
+            await state.positronClient.executeSilent(`
+import squiggy
+squiggy.close_pod5()
+`);
+        }
+
+        // Clear extension state
+        state.currentPod5File = undefined;
+
+        // Clear UI
+        state.filePanelProvider?.clearPOD5();
+        state.readsViewPane?.setReads([]);
+
+        vscode.window.showInformationMessage('POD5 file closed');
+    } catch (error) {
+        handleError(error, ErrorContext.POD5_CLOSE);
+    }
+}
+
+/**
+ * Close BAM file
+ */
+async function closeBAMFile(state: ExtensionState): Promise<void> {
+    try {
+        // Clear Python state
+        if (state.usePositron && state.positronClient) {
+            await state.positronClient.executeSilent(`
+# Clear BAM file state
+_current_bam_path = None
+`);
+        }
+
+        // Clear extension state
+        state.currentBamFile = undefined;
+
+        // Clear UI
+        state.filePanelProvider?.clearBAM();
+        state.modificationsProvider?.clear();
+        state.plotOptionsProvider?.updateBamStatus(false);
+        vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+
+        // If POD5 is still loaded, revert to flat read list
+        if (state.currentPod5File && state.usePositron && state.squiggyAPI) {
+            const readIds = await state.squiggyAPI.getReadIds(0, 1000);
+            state.readsViewPane?.setReads(readIds);
+        }
+
+        vscode.window.showInformationMessage('BAM file closed');
+    } catch (error) {
+        handleError(error, ErrorContext.BAM_CLOSE);
+    }
+}
