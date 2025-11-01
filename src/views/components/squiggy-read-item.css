@@ -1,0 +1,115 @@
+/**
+ * Styles for ReadItemComponent
+ */
+
+.read-item {
+    display: flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 8px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+/* Tiger striping - alternate row colors */
+.read-item.even-row {
+    background-color: var(--vscode-list-inactiveSelectionBackground, rgba(128, 128, 128, 0.04));
+}
+
+.read-item:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.read-item.selected {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+.read-item.focused {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.read-item-column {
+    padding: 0 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Name column */
+.read-item-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--vscode-font-family, sans-serif);
+}
+
+.read-item-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.read-item-id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Details column */
+.read-item-details {
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.read-item-position,
+.read-item-reference {
+    font-family: var(--vscode-font-family, sans-serif);
+}
+
+.read-item-quality {
+    padding: 2px 4px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Column divider */
+.read-item-divider {
+    width: 4px;
+    flex-shrink: 0;
+}
+
+/* Actions column */
+.read-item-actions {
+    width: 80px;
+    flex-shrink: 0;
+    justify-content: flex-end;
+}
+
+.read-item-action-button {
+    padding: 2px 8px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--vscode-font-family);
+}
+
+.read-item-action-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.read-item-action-button:active {
+    background-color: var(--vscode-button-background);
+    opacity: 0.8;
+}

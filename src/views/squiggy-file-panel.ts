@@ -33,6 +33,13 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+        // Handle visibility changes - restore state when view becomes visible
+        webviewView.onDidChangeVisibility(() => {
+            if (webviewView.visible) {
+                this._updateView();
+            }
+        });
+
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
@@ -47,6 +54,9 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
                     break;
             }
         });
+
+        // Send initial state if we have data
+        this._updateView();
     }
 
     /**

@@ -1,0 +1,107 @@
+/**
+ * Styles for ReferenceGroupComponent
+ */
+
+.reference-group {
+    display: flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 8px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background-color: var(--vscode-sideBar-background);
+    font-weight: 600;
+}
+
+/* Tiger striping for reference groups */
+.reference-group.even-row {
+    background-color: var(--vscode-list-inactiveSelectionBackground, rgba(128, 128, 128, 0.04));
+}
+
+.reference-group:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.reference-group-column {
+    padding: 0 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Name column */
+.reference-group-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reference-group-chevron {
+    font-size: 10px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    width: 12px;
+    text-align: center;
+}
+
+.reference-group-chevron.expanded {
+    transform: rotate(90deg);
+}
+
+.reference-group-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.reference-group-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--vscode-font-family, sans-serif);
+}
+
+/* Details column */
+.reference-group-details {
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.reference-group-count {
+    font-style: italic;
+}
+
+/* Column divider */
+.reference-group-divider {
+    width: 4px;
+    flex-shrink: 0;
+}
+
+/* Actions column */
+.reference-group-actions {
+    width: 80px;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    display: flex;
+}
+
+.reference-group-action-button {
+    padding: 2px 8px;
+    background-color: var(--vscode-testing-iconErrored, #f14c4c);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--vscode-font-family);
+}
+
+.reference-group-action-button:hover {
+    opacity: 0.9;
+}
+
+.reference-group-action-button:active {
+    opacity: 0.8;
+}

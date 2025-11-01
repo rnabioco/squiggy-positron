@@ -1,0 +1,57 @@
+/**
+ * Styles for ReadsCore component
+ */
+
+.reads-core-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Search box */
+.reads-search-box {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background-color: var(--vscode-sideBar-background);
+    gap: 4px;
+}
+
+.reads-search-input {
+    flex: 1;
+    padding: 4px 8px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    outline: none;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+}
+
+.reads-search-input:focus {
+    border-color: var(--vscode-focusBorder);
+}
+
+.reads-search-clear {
+    padding: 0 8px;
+    background: none;
+    border: none;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.reads-search-clear:hover {
+    background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.reads-search-count {
+    padding: 4px 8px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    white-space: nowrap;
+}
