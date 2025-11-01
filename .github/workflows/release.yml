@@ -63,7 +63,7 @@ jobs:
                   gh release create ${{ steps.get_version.outputs.VERSION }} \
                     --title "Squiggy ${{ steps.get_version.outputs.VERSION }}" \
                     --notes-file release_body.md \
-                    *.vsix
+                    build/*.vsix
 
             - name: Publish to VS Code Marketplace
               if: success() && startsWith(github.ref, 'refs/tags/v')

@@ -38,5 +38,5 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: squiggy-positron-extension
-                  path: "*.vsix"
+                  path: "build/*.vsix"
                   retention-days: 30

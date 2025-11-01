@@ -37,6 +37,15 @@ jobs:
             - name: Build extension
               run: pixi run build
 
+            - name: Verify .vsix file exists
+              run: |
+                  echo "Checking for .vsix file in build/..."
+                  ls -lh build/*.vsix
+                  if [ ! -f build/*.vsix ]; then
+                      echo "Error: No .vsix file found in build/!"
+                      exit 1
+                  fi
+
             - name: Get package version
               id: package_version
               run: |
@@ -95,4 +104,4 @@ jobs:
                     --prerelease \
                     --title "Latest Development Build (v${{ steps.package_version.outputs.VERSION }}-dev)" \
                     --notes-file release_notes.md \
-                    *.vsix
+                    build/*.vsix
