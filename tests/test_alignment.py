@@ -124,7 +124,9 @@ class TestExtractAlignmentFromBAM:
         """Test extracting alignment for non-existent read"""
         from squiggy.alignment import extract_alignment_from_bam
 
-        aligned_read = extract_alignment_from_bam(sample_bam_file, "nonexistent_read_id")
+        aligned_read = extract_alignment_from_bam(
+            sample_bam_file, "nonexistent_read_id"
+        )
 
         assert aligned_read is None
 
@@ -287,7 +289,11 @@ class TestGetBaseToSignalMapping:
 
     def test_get_base_to_signal_mapping_basic(self):
         """Test basic extraction of sequence and signal mapping"""
-        from squiggy.alignment import AlignedRead, BaseAnnotation, get_base_to_signal_mapping
+        from squiggy.alignment import (
+            AlignedRead,
+            BaseAnnotation,
+            get_base_to_signal_mapping,
+        )
 
         bases = [
             BaseAnnotation(base="A", position=0, signal_start=0, signal_end=100),
@@ -317,7 +323,11 @@ class TestGetBaseToSignalMapping:
 
     def test_get_base_to_signal_mapping_returns_numpy_array(self):
         """Test that seq_to_sig_map is a numpy array"""
-        from squiggy.alignment import AlignedRead, BaseAnnotation, get_base_to_signal_mapping
+        from squiggy.alignment import (
+            AlignedRead,
+            BaseAnnotation,
+            get_base_to_signal_mapping,
+        )
 
         bases = [BaseAnnotation(base="A", position=0, signal_start=50, signal_end=150)]
 
@@ -329,7 +339,10 @@ class TestGetBaseToSignalMapping:
 
     def test_get_base_to_signal_mapping_integration(self, sample_bam_file):
         """Test extraction with real alignment from BAM"""
-        from squiggy.alignment import extract_alignment_from_bam, get_base_to_signal_mapping
+        from squiggy.alignment import (
+            extract_alignment_from_bam,
+            get_base_to_signal_mapping,
+        )
 
         # Find a read with alignment
         with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
@@ -405,7 +418,7 @@ class TestAlignmentEdgeCases:
             aligned_reads.append(aligned_read)
 
         # Verify they're different
-        assert len(set(ar.read_id for ar in aligned_reads)) == len(aligned_reads)
+        assert len({ar.read_id for ar in aligned_reads}) == len(aligned_reads)
 
     def test_aligned_read_base_positions_sequential(self, sample_bam_file):
         """Test that base positions are sequential (0, 1, 2, ...)"""
@@ -450,6 +463,6 @@ class TestAlignmentEdgeCases:
             next_base = aligned_read.bases[i + 1]
 
             # Current end should be <= next start (allowing for exact match)
-            assert (
-                current.signal_end <= next_base.signal_start + 1
-            ), f"Overlapping signals at position {i}"
+            assert current.signal_end <= next_base.signal_start + 1, (
+                f"Overlapping signals at position {i}"
+            )
