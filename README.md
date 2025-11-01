@@ -85,11 +85,15 @@ If your BAM file contains base modifications:
 ## Requirements
 
 - **Positron IDE** (version 2025.6.0+)
-- **Python 3.12+** with the `squiggy` package:
+- **Python 3.12+** with an active Python console
+- **squiggy Python package**: Installed automatically on first use, or install manually:
   ```bash
   pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
   # OR for development: pixi install
   ```
+
+  > **Note**: When you first open a POD5 file, Squiggy will check if the Python package is installed and prompt you to install it automatically if needed.
+
 - **Optional**: BAM file with basecalls for advanced features
 
 ## Extension Development
