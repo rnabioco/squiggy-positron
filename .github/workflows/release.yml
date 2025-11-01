@@ -1,0 +1,82 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        name: Create Release
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  lfs: true
+
+            - name: Setup pixi
+              uses: prefix-dev/setup-pixi@v0.8.1
+              with:
+                  pixi-version: latest
+                  cache: true
+
+            - name: Install dependencies
+              run: pixi install
+
+            - name: Install npm dependencies
+              run: npm ci
+
+            - name: Run tests
+              run: pixi run test
+
+            - name: Build extension
+              run: pixi run build
+
+            - name: Get version from tag
+              id: get_version
+              run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+            - name: Extract release notes
+              id: release_notes
+              run: |
+                  VERSION="${{ steps.get_version.outputs.VERSION }}"
+                  # Extract content for current version only (between this version heading and next version heading)
+                  sed -n '/^# Squiggy '"${VERSION#v}"'/,/^# Squiggy [0-9]/p' NEWS.md | sed '$d' > release_body.md
+                  # If no next version found, just get everything from current version to end
+                  if [ ! -s release_body.md ]; then
+                      sed -n '/^# Squiggy '"${VERSION#v}"'/,$p' NEWS.md > release_body.md
+                  fi
+                  # Fallback if NEWS.md doesn't exist or version not found
+                  if [ ! -s release_body.md ]; then
+                      echo "Release $VERSION" > release_body.md
+                  fi
+
+            - name: Create GitHub Release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release create ${{ steps.get_version.outputs.VERSION }} \
+                    --title "Squiggy ${{ steps.get_version.outputs.VERSION }}" \
+                    --notes-file release_body.md \
+                    *.vsix
+
+            - name: Publish to VS Code Marketplace
+              if: success() && startsWith(github.ref, 'refs/tags/v')
+              continue-on-error: true
+              run: |
+                  echo "Skipping VS Code Marketplace publish (not configured yet)"
+                  # Uncomment when ready to publish to marketplace:
+                  # npx vsce publish -p ${{ secrets.VSCE_PAT }}
+
+            - name: Publish to Open VSX Registry
+              if: success() && startsWith(github.ref, 'refs/tags/v')
+              continue-on-error: true
+              run: |
+                  echo "Skipping Open VSX publish (not configured yet)"
+                  # Uncomment when ready to publish to Open VSX:
+                  # npx ovsx publish -p ${{ secrets.OVSX_PAT }}

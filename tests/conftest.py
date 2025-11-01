@@ -5,6 +5,24 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def clean_squiggy_state():
+    """Automatically clean squiggy global state before and after each test."""
+    # Clean state before test
+    from squiggy import close_pod5
+    from squiggy import io as squiggy_io
+
+    close_pod5()
+    # Also clear BAM path
+    squiggy_io._current_bam_path = None
+
+    yield
+
+    # Clean state after test
+    close_pod5()
+    squiggy_io._current_bam_path = None
+
+
 @pytest.fixture
 def test_data_dir():
     """Return the path to the test data directory."""

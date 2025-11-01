@@ -213,7 +213,7 @@ fi
 ```bash
 # Install dependencies in parallel for all worktrees
 for worktree in $WORKTREE_PATHS; do
-    (cd "$worktree" && uv pip install -e ".[dev]") &
+    (cd "$worktree" && pixi install) &
 done
 wait
 ```

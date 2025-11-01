@@ -12,14 +12,13 @@ dist/
 .venv/
 venv/
 ENV/
-
-# PyInstaller build artifacts
-build/build/
-build/dist/
-build/*.spec.log
+.pixi/
 
 # IDEs
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -40,5 +39,13 @@ tests/*.arrow
 # mkdocs
 site/
 
-# claude code worktree flow
-TASK.md
+# TypeScript/Node.js
+node_modules/
+build/
+*.vsix
+
+# Claude planning files
+.claude-*.md
+*-planning.md
+
+positron/
