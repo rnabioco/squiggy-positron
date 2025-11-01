@@ -564,7 +564,8 @@ async function promptInstallSquiggy(): Promise<'install' | 'manual' | 'cancel'> 
  * Show manual installation guide with copy-able commands
  */
 async function showManualInstallationGuide(): Promise<void> {
-    const extensionPath = vscode.extensions.getExtension('rnabioco.squiggy-positron')?.extensionPath || '';
+    const extensionPath =
+        vscode.extensions.getExtension('rnabioco.squiggy-positron')?.extensionPath || '';
 
     const items = [
         {
