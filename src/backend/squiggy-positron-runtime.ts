@@ -31,8 +31,23 @@ export class PositronRuntime {
             throw new Error('No Python kernel is running. Please start a Python console first.');
         }
 
-        // Check if session has runtimeMetadata to determine state
-        // Note: We need to check the actual current state
+        // Check if session has onDidChangeRuntimeState event (may not exist in all Positron versions)
+        const hasStateEvent =
+            typeof (session as any).onDidChangeRuntimeState === 'function';
+
+        if (hasStateEvent) {
+            // Use event-based approach if available
+            return this.ensureKernelReadyViaEvents(session);
+        } else {
+            // Fallback to polling approach
+            return this.ensureKernelReadyViaPolling();
+        }
+    }
+
+    /**
+     * Ensure kernel ready using event-based approach (Positron API with onDidChangeRuntimeState)
+     */
+    private async ensureKernelReadyViaEvents(session: any): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
                 reject(new Error('Timeout waiting for Python kernel to be ready'));
@@ -69,7 +84,6 @@ export class PositronRuntime {
             });
 
             // Also check current state immediately (in case already ready)
-            // We'll try to execute a simple test to see if kernel responds
             Promise.resolve(
                 positron.runtime.executeCode(
                     'python',
@@ -90,6 +104,37 @@ export class PositronRuntime {
                     // The onDidChangeRuntimeState listener will handle it
                 });
         });
+    }
+
+    /**
+     * Ensure kernel ready using polling approach (fallback for older Positron versions)
+     */
+    private async ensureKernelReadyViaPolling(): Promise<void> {
+        const startTime = Date.now();
+        const maxWaitMs = 10000; // 10 seconds
+        const retryDelayMs = 500; // 500ms between retries
+
+        while (Date.now() - startTime < maxWaitMs) {
+            try {
+                // Try to execute a simple test command
+                await positron.runtime.executeCode(
+                    'python',
+                    '1+1',
+                    false,
+                    true,
+                    positron.RuntimeCodeExecutionMode.Silent
+                );
+                // Success - kernel is ready
+                console.log('Squiggy: Kernel is ready (polling check)');
+                return;
+            } catch (error) {
+                // Kernel not ready yet, wait and retry
+                await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+            }
+        }
+
+        // Timeout reached
+        throw new Error('Timeout waiting for Python kernel to be ready');
     }
 
     /**

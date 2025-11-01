@@ -92,7 +92,14 @@ jobs:
                   fi
 
                   echo "📦 Publishing to Open VSX Registry..."
-                  if npx ovsx publish build/*.vsix -p $OVSX_PAT; then
+
+                  # Set pre-release flag if this is a pre-release version
+                  PRERELEASE_FLAG=""
+                  if [ "${{ steps.get_version.outputs.IS_PRERELEASE }}" = "true" ]; then
+                    PRERELEASE_FLAG="--pre-release"
+                  fi
+
+                  if npx ovsx publish build/*.vsix -p $OVSX_PAT $PRERELEASE_FLAG; then
                     if [ "${{ steps.get_version.outputs.IS_PRERELEASE }}" = "true" ]; then
                       echo "✅ Pre-release published to Open VSX"
                     else
