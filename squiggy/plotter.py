@@ -616,6 +616,7 @@ class SquigglePlotter:
         signal_length: int = None,
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         use_reference_positions: bool = False,
+        theme: Theme = Theme.LIGHT,
     ):
         """Add base labels for position-based plots (event-aligned mode)
 
@@ -626,6 +627,7 @@ class SquigglePlotter:
             signal_length: Required if show_dwell_time=True
             position_label_interval: Show position number every N bases
             use_reference_positions: Use reference positions (currently not implemented)
+            theme: Color theme for position label text
         """
         label_data = []
         position_number_data = []
@@ -718,6 +720,10 @@ class SquigglePlotter:
 
         # Add position numbers
         if position_number_data:
+            # Use theme-appropriate color for position labels
+            theme_colors = DARK_THEME if theme == Theme.DARK else LIGHT_THEME
+            position_text_color = theme_colors["axis_text"]
+
             position_source = ColumnDataSource(
                 data={
                     "x": [d["x"] for d in position_number_data],
@@ -731,7 +737,7 @@ class SquigglePlotter:
                 text="text",
                 source=position_source,
                 text_font_size="8pt",
-                text_color="black",
+                text_color=position_text_color,
                 text_alpha=0.6,
                 text_align="center",
                 text_baseline="bottom",
@@ -1547,6 +1553,7 @@ class SquigglePlotter:
                 signal_length,
                 position_label_interval,
                 use_reference_positions,
+                theme,
             )
 
         return None

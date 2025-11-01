@@ -76,13 +76,14 @@ def plot_read(
     mode: str = "SINGLE",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: bool = True,
+    downsample: int = 1,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     position_label_interval: int = 100,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
+    show_signal_points: bool = False,
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -92,13 +93,14 @@ def plot_read(
         mode: Plot mode (SINGLE, EVENTALIGN)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
-        downsample: Whether to downsample long signals
+        downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
         show_dwell_time: Color bases by dwell time (requires event-aligned mode)
         show_labels: Show base labels on plot (event-aligned mode)
         position_label_interval: Interval for position labels
         scale_dwell_time: Scale x-axis by cumulative dwell time instead of regular time
         min_mod_probability: Minimum probability threshold for displaying modifications (0-1)
         enabled_mod_types: List of modification type codes to display (None = all)
+        show_signal_points: Show individual signal points as circles
 
     Returns:
         Bokeh HTML string
@@ -125,10 +127,8 @@ def plot_read(
     if read_obj is None:
         raise ValueError(f"Read not found: {read_id}")
 
-    # Extract signal and downsample if needed
+    # Extract signal (no automatic downsampling - use user-specified factor)
     signal = read_obj.signal
-    if downsample and len(signal) > 100000:
-        signal = downsample_signal(signal, downsample_factor=len(signal) // 100000)
 
     # Get alignment if available
     aligned_read = None
@@ -161,6 +161,9 @@ def plot_read(
                 "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
 
+        # Parse theme parameter
+        theme_enum = Theme[theme.upper()]
+
         html, figure = SquigglePlotter.plot_single_read(
             signal=signal,
             read_id=read_id,
@@ -168,12 +171,15 @@ def plot_read(
             sequence=sequence,
             seq_to_sig_map=seq_to_sig_map,
             normalization=norm_method,
+            downsample=downsample,
             show_dwell_time=show_dwell_time,
             show_labels=show_labels,
+            show_signal_points=show_signal_points,
             modifications=modifications,
             scale_dwell_time=scale_dwell_time,
             min_mod_probability=min_mod_probability,
             enabled_mod_types=enabled_mod_types,
+            theme=theme_enum,
         )
         return html
     else:
@@ -187,12 +193,13 @@ def plot_reads(
     mode: str = "OVERLAY",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: bool = True,
+    downsample: int = 1,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
+    show_signal_points: bool = False,
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -202,12 +209,13 @@ def plot_reads(
         mode: Plot mode (OVERLAY, STACKED)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
-        downsample: Whether to downsample long signals
+        downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
         show_dwell_time: Color bases by dwell time
         show_labels: Show base labels on plot
         scale_dwell_time: Scale x-axis by cumulative dwell time
         min_mod_probability: Minimum probability threshold for displaying modifications
         enabled_mod_types: List of modification type codes to display
+        show_signal_points: Show individual signal points as circles
 
     Returns:
         Bokeh HTML string
@@ -240,6 +248,7 @@ def plot_reads(
                 scale_dwell_time=scale_dwell_time,
                 min_mod_probability=min_mod_probability,
                 enabled_mod_types=enabled_mod_types,
+                show_signal_points=show_signal_points,
             )
             htmls.append(html)
         # Return first plot for now - full OVERLAY implementation TODO
