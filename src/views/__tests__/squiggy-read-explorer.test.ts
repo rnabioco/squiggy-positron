@@ -46,9 +46,11 @@ describe('ReadTreeProvider', () => {
 
             const references = await provider.getChildren();
             expect(references).toHaveLength(2);
-            expect(references[0].label).toBe('chr1 (2)');
+            expect(references[0].label).toBe('chr1');
+            expect(references[0].description).toBe('2 reads');
             expect(references[0].itemType).toBe('reference');
-            expect(references[1].label).toBe('chr2 (3)');
+            expect(references[1].label).toBe('chr2');
+            expect(references[1].description).toBe('3 reads');
         });
 
         it('should return reads for a reference group', async () => {
@@ -127,7 +129,7 @@ describe('ReadTreeProvider', () => {
 
             const references = await provider.getChildren();
             expect(references).toHaveLength(1);
-            expect(references[0].label).toBe('chr1 (2)');
+            expect(references[0].label).toBe('chr1');
 
             const reads = await provider.getChildren(references[0]);
             expect(reads).toHaveLength(2);
@@ -155,7 +157,7 @@ describe('ReadTreeProvider', () => {
 
             const references = await provider.getChildren();
             expect(references).toHaveLength(1);
-            expect(references[0].label).toBe('chrX (1)');
+            expect(references[0].label).toBe('chrX');
         });
 
         it('should hide references with no matching reads', async () => {
@@ -163,7 +165,7 @@ describe('ReadTreeProvider', () => {
 
             const references = await provider.getChildren();
             expect(references).toHaveLength(1);
-            expect(references[0].label).toBe('chr2 (1)');
+            expect(references[0].label).toBe('chr2');
         });
     });
 
