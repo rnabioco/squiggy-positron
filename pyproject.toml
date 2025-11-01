@@ -23,9 +23,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rnabioco/squiggy"
-Issues = "https://github.com/rnabioco/squiggy/issues"
-Repository = "https://github.com/rnabioco/squiggy"
+Homepage = "https://github.com/rnabioco/squiggy-positron"
+Issues = "https://github.com/rnabioco/squiggy-positron/issues"
+Repository = "https://github.com/rnabioco/squiggy-positron"
 
 # No CLI entry point - use as library in Jupyter/Positron
 # or via Positron extension

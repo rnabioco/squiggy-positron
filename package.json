@@ -6,7 +6,7 @@
   "publisher": "rnabioco",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rnabioco/squiggy.git"
+    "url": "https://github.com/rnabioco/squiggy-positron.git"
   },
   "engines": {
     "vscode": "^1.74.0",
