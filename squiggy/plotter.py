@@ -1955,6 +1955,13 @@ class SquigglePlotter:
         p_quality.sizing_mode = "stretch_width"
         p_quality.height = 200
 
+        # Hide x-axis labels and tick labels on top and middle panels
+        # (keep ticks, just hide the labels for cleaner stacked layout)
+        p_signal.xaxis.axis_label = None
+        p_signal.xaxis.major_label_text_font_size = "0pt"
+        p_pileup.xaxis.axis_label = None
+        p_pileup.xaxis.major_label_text_font_size = "0pt"
+
         # Create grid layout with three tracks stacked vertically
         grid = gridplot(
             [[p_signal], [p_pileup], [p_quality]],
