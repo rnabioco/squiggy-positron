@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import { PythonBackend } from '../backend/squiggy-pythonBackend';
+import { PythonBackend } from '../backend/squiggy-python-backend';
 
 type TreeItemType = 'reference' | 'read';
 

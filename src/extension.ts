@@ -302,7 +302,7 @@ async function ensureSquiggyAvailable() {
     try {
         // Silently add workspace to sys.path if needed (for development)
         const workspaceFolder = extensionContext.extensionPath;
-        await positronRuntime.executeWithOutput(
+        await positronRuntime.executeSilent(
             `import sys; sys.path.insert(0, '${workspaceFolder}') if '${workspaceFolder}' not in sys.path else None`
         );
         squiggyEnsured = true;
@@ -331,35 +331,30 @@ async function openPOD5File(filePath: string) {
                 cancellable: false,
             },
             async () => {
-                let result: { readIds?: string[]; numReads: number };
+                let numReads: number;
+                let readIds: string[] = [];
 
                 if (usePositron) {
-                    // Use Positron kernel
-                    result = await positronRuntime.loadPOD5(filePath);
+                    // Use Positron kernel - lazy load read IDs
+                    const result = await positronRuntime.loadPOD5(filePath);
+                    numReads = result.numReads;
+
+                    // Get first 1000 read IDs for tree view (lazy loading)
+                    readIds = await positronRuntime.getReadIds(0, 1000);
                 } else if (pythonBackend) {
                     // Use subprocess backend
                     const backendResult = await pythonBackend.call('open_pod5', {
                         file_path: filePath,
                     });
-                    result = {
-                        readIds: backendResult.read_ids,
-                        numReads: backendResult.num_reads,
-                    };
+                    numReads = backendResult.num_reads;
+                    readIds = backendResult.read_ids || [];
                 } else {
                     throw new Error('No backend available');
                 }
 
-                // Update read tree if we got read IDs
-                if (result.readIds && result.readIds.length > 0) {
-                    readTreeProvider.setReads(result.readIds);
-                    vscode.window.showInformationMessage(
-                        `Loaded ${result.numReads} reads (showing first ${result.readIds.length}) from ${path.basename(filePath)}`
-                    );
-                } else {
-                    vscode.window.showInformationMessage(
-                        `Loaded ${result.numReads} reads from ${path.basename(filePath)}. ` +
-                            `Read IDs are available in the '_squiggy_read_ids' variable in the console.`
-                    );
+                // Update read tree
+                if (readIds.length > 0) {
+                    readTreeProvider.setReads(readIds);
                 }
 
                 // Track file and update file panel display
@@ -370,7 +365,7 @@ async function openPOD5File(filePath: string) {
                 const stats = await fs.stat(filePath);
                 const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-                filePanelProvider.setPOD5Info(filePath, result.numReads, `${fileSizeMB} MB`);
+                filePanelProvider.setPOD5Info(filePath, numReads, `${fileSizeMB} MB`);
             }
         );
     } catch (error) {
@@ -398,29 +393,36 @@ async function openBAMFile(filePath: string) {
                 cancellable: false,
             },
             async () => {
-                let result: {
-                    numReads: number;
-                    referenceToReads?: Record<string, string[]>;
-                    hasModifications?: boolean;
-                    modificationTypes?: string[];
-                    hasProbabilities?: boolean;
-                };
+                let numReads: number;
+                let hasModifications: boolean;
+                let modificationTypes: string[];
+                let hasProbabilities: boolean;
+                let referenceToReads: Record<string, string[]> = {};
 
                 if (usePositron) {
-                    // Use Positron kernel
-                    result = await positronRuntime.loadBAM(filePath);
+                    // Use Positron kernel - lazy load reference mapping
+                    const result = await positronRuntime.loadBAM(filePath);
+                    numReads = result.numReads;
+                    hasModifications = result.hasModifications;
+                    modificationTypes = result.modificationTypes;
+                    hasProbabilities = result.hasProbabilities;
+
+                    // Get references and build mapping (lazy loading)
+                    const references = await positronRuntime.getReferences();
+                    for (const ref of references) {
+                        const reads = await positronRuntime.getReadsForReference(ref);
+                        referenceToReads[ref] = reads;
+                    }
                 } else if (pythonBackend) {
                     // Use subprocess backend
                     const backendResult = await pythonBackend.call('open_bam', {
                         file_path: filePath,
                     });
-                    result = {
-                        numReads: backendResult.num_reads,
-                        referenceToReads: backendResult.reference_to_reads,
-                        hasModifications: backendResult.has_modifications,
-                        modificationTypes: backendResult.modification_types,
-                        hasProbabilities: backendResult.has_probabilities,
-                    };
+                    numReads = backendResult.num_reads;
+                    referenceToReads = backendResult.reference_to_reads || {};
+                    hasModifications = backendResult.has_modifications || false;
+                    modificationTypes = backendResult.modification_types || [];
+                    hasProbabilities = backendResult.has_probabilities || false;
                 } else {
                     throw new Error('No backend available');
                 }
@@ -433,21 +435,15 @@ async function openBAMFile(filePath: string) {
                 const stats = await fs.stat(filePath);
                 const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-                filePanelProvider.setBAMInfo(filePath, result.numReads, `${fileSizeMB} MB`);
+                filePanelProvider.setBAMInfo(filePath, numReads, `${fileSizeMB} MB`);
 
                 // Update read tree to show reads grouped by reference
-                if (result.referenceToReads && Object.keys(result.referenceToReads).length > 0) {
-                    const refMap = new Map<string, string[]>(
-                        Object.entries(result.referenceToReads)
-                    );
+                if (Object.keys(referenceToReads).length > 0) {
+                    const refMap = new Map<string, string[]>(Object.entries(referenceToReads));
                     readTreeProvider.setReadsGrouped(refMap);
                 }
 
                 // Update modifications panel and context
-                const hasModifications = result.hasModifications || false;
-                const modificationTypes = result.modificationTypes || [];
-                const hasProbabilities = result.hasProbabilities || false;
-
                 if (hasModifications) {
                     modificationsProvider.setModificationInfo(
                         hasModifications,
@@ -459,10 +455,6 @@ async function openBAMFile(filePath: string) {
                     modificationsProvider.clear();
                     vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
                 }
-
-                vscode.window.showInformationMessage(
-                    `Loaded BAM file with ${result.numReads} reads${hasModifications ? ' (contains base modifications)' : ''}`
-                );
             }
         );
     } catch (error) {

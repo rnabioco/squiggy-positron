@@ -23,6 +23,35 @@ declare module 'positron' {
         Continue = 'continue',
     }
 
+    export interface BaseLanguageRuntimeSession {
+        metadata: {
+            sessionId: string;
+            sessionName: string;
+            sessionMode: string;
+        };
+        runtimeMetadata: {
+            languageId: string;
+            languageName: string;
+            runtimeId: string;
+            runtimeName: string;
+            runtimeVersion: string;
+        };
+    }
+
+    export interface RuntimeVariable {
+        access_key: string[];
+        display_name: string;
+        display_value: string;
+        display_type: string;
+        type_info: string;
+        size: number;
+        kind: number;
+        length: number;
+        has_children: boolean;
+        has_viewer: boolean;
+        is_truncated: boolean;
+    }
+
     export namespace runtime {
         export function executeCode(
             languageId: string,
@@ -33,6 +62,13 @@ declare module 'positron' {
             errorBehavior?: RuntimeErrorBehavior,
             observer?: RuntimeCodeExecutionObserver
         ): Thenable<Record<string, any>>;
+
+        export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
+
+        export function getSessionVariables(
+            sessionId: string,
+            accessKeys?: Array<Array<string>>
+        ): Thenable<Array<Array<RuntimeVariable>>>;
     }
 
     export interface LanguageRuntimeMetadata {

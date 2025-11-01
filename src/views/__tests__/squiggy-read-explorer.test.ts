@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { ReadTreeProvider, ReadItem } from '../squiggy-readExplorer';
+import { ReadTreeProvider, ReadItem } from '../squiggy-read-explorer';
 import * as vscode from 'vscode';
 
 // Use manual mock for vscode

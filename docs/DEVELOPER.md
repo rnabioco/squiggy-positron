@@ -131,16 +131,16 @@ squiggy-positron-extension/
 ├── src/                        # TypeScript extension (frontend)
 │   ├── extension.ts            # Entry point
 │   ├── backend/                # Python communication
-│   │   ├── squiggy-positronRuntime.ts  # Positron kernel integration
-│   │   └── squiggy-pythonBackend.ts    # JSON-RPC subprocess fallback
+│   │   ├── squiggy-positron-runtime.ts  # Positron kernel integration
+│   │   └── squiggy-python-backend.ts    # JSON-RPC subprocess fallback
 │   ├── views/                  # UI panels
-│   │   ├── squiggy-filePanel.ts        # File info panel
-│   │   ├── squiggy-readExplorer.ts     # Read list tree view
-│   │   ├── squiggy-readSearchView.ts   # Search panel
-│   │   ├── squiggy-plotOptionsView.ts  # Plot options panel
-│   │   └── squiggy-modificationsPanel.ts # Modifications panel
+│   │   ├── squiggy-file-panel.ts        # File info panel
+│   │   ├── squiggy-read-explorer.ts     # Read list tree view
+│   │   ├── squiggy-read-search-view.ts   # Search panel
+│   │   ├── squiggy-plot-options-view.ts  # Plot options panel
+│   │   └── squiggy-modifications-panel.ts # Modifications panel
 │   ├── webview/                # Plot display
-│   │   └── squiggy-plotPanel.ts        # Bokeh plot webview
+│   │   └── squiggy-plot-panel.ts        # Bokeh plot webview
 │   ├── types/                  # TypeScript type definitions
 │   │   └── squiggy-positron.d.ts       # Positron API types
 │   └── __mocks__/              # Test mocks
@@ -194,11 +194,11 @@ Entry point when extension loads:
 
 #### 2. Python Communication
 
-**PositronRuntime** (`src/backend/squiggy-positronRuntime.ts`):
+**PositronRuntime** (`src/backend/squiggy-positron-runtime.ts`):
 - Executes Python code in active kernel
 - Used when running inside Positron
 
-**PythonBackend** (`src/backend/squiggy-pythonBackend.ts`):
+**PythonBackend** (`src/backend/squiggy-python-backend.ts`):
 - JSON-RPC subprocess communication
 - Fallback for non-Positron environments (e.g., VSCode)
 
@@ -212,7 +212,7 @@ Entry point when extension loads:
 
 #### 4. Plot Display
 
-**PlotPanel** (`src/webview/squiggy-plotPanel.ts`):
+**PlotPanel** (`src/webview/squiggy-plot-panel.ts`):
 - Webview panel for displaying Bokeh plots
 - Receives HTML from Python backend
 - Handles export functionality
