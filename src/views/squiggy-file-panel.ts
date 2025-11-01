@@ -41,6 +41,9 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
                 case 'openBAM':
                     vscode.commands.executeCommand('squiggy.openBAM');
                     break;
+                case 'loadTestData':
+                    vscode.commands.executeCommand('squiggy.loadTestData');
+                    break;
             }
         });
     }
@@ -107,6 +110,17 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
         button:hover {
             background: var(--vscode-button-hoverBackground);
         }
+        button.secondary {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        button.secondary:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .test-data-button {
+            width: 100%;
+            margin-bottom: 12px;
+        }
         .file-section {
             margin-bottom: 16px;
             padding: 10px;
@@ -140,6 +154,9 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
     </style>
 </head>
 <body>
+    <!-- Test Data Button -->
+    <button id="loadTestData" class="secondary test-data-button">📊 Load Test Data</button>
+
     <!-- File Open Buttons -->
     <div class="button-container">
         <button id="openPOD5">Open POD5</button>
@@ -164,6 +181,7 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
         const vscode = acquireVsCodeApi();
 
         // Get elements
+        const loadTestDataBtn = document.getElementById('loadTestData');
         const openPOD5Btn = document.getElementById('openPOD5');
         const openBAMBtn = document.getElementById('openBAM');
         const pod5Section = document.getElementById('pod5Section');
@@ -174,6 +192,10 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
         const bamMeta = document.getElementById('bamMeta');
 
         // Button click handlers
+        loadTestDataBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'loadTestData' });
+        });
+
         openPOD5Btn.addEventListener('click', () => {
             vscode.postMessage({ type: 'openPOD5' });
         });
