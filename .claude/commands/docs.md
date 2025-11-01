@@ -21,6 +21,7 @@ For each file, check:
 - Are dependencies and installation instructions accurate? (check `pyproject.toml` and `pixi.toml`)
 - Are pixi commands documented? (check `pixi.toml` tasks section)
 - Are extension commands current? (check `src/extension.ts` and `package.json`)
+- Are file references current? (check that referenced files exist: `squiggy-reads-view-pane.ts` not `squiggy-read-explorer.ts`)
 
 **IMPORTANT**: Review the actual source code files to verify documentation accuracy. Don't assume - check!
 
