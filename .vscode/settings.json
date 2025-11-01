@@ -1,2 +1,19 @@
 {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "positron.interpreters.automaticStartup": true,
+    "positron.interpreters.preferredRuntime": "Python"
 }

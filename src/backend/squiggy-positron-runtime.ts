@@ -335,9 +335,10 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
     }
 
     /**
-     * Generate a plot for read(s)
+     * Generate a plot for read(s) and route to Plots pane
      *
-     * Creates HTML in kernel and writes to temp file, returns file path
+     * Generates Bokeh plot which is automatically routed to Positron's Plots pane
+     * via webbrowser.open() interception
      */
     async generatePlot(
         readIds: string[],
@@ -351,143 +352,88 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
         enabledModTypes: string[] = [],
         downsample: number = 1,
         showSignalPoints: boolean = false
-    ): Promise<string> {
+    ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
-
         const enabledModTypesJson = JSON.stringify(enabledModTypes);
 
         const code = `
 import sys
 import squiggy
-import tempfile
-import json
 import traceback
 
 # Initialize error tracking
 _squiggy_plot_error = None
-_squiggy_plot_path = None
 
 try:
-    # Note: We don't reload the squiggy module here because it would reset global state
-    # (loaded POD5/BAM files). If you're developing and need to reload, restart the kernel.
-
-    # Generate plot HTML
+    # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
     ${
         readIds.length === 1
-            ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
-            : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
     }
-
-    # Write to temp file
-    _squiggy_temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
-    _squiggy_temp_file.write(html)
-    _squiggy_temp_file.close()
-
-    # Store path in kernel variable (NO print!)
-    _squiggy_plot_path = _squiggy_temp_file.name
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
-    # Also print to console for debugging
     print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
 `;
 
         try {
-            // Execute silently (won't throw even if Python code has errors)
+            // Execute silently - plot will appear in Plots pane automatically
             await this.executeSilent(code);
 
             // Check if there was an error during plot generation
-            // Note: Python None becomes null in JavaScript after JSON parsing
             const plotError = await this.getVariable('_squiggy_plot_error').catch(() => null);
             if (plotError !== null) {
                 throw new Error(`Plot generation failed:\n${plotError}`);
             }
 
-            // Read the plot file path
-            // Note: Python None becomes null in JavaScript after JSON parsing
-            const filePath = await this.getVariable('_squiggy_plot_path').catch(() => null);
-            if (filePath === null) {
-                // If no error was reported but also no path, something went wrong silently
-                throw new Error(
-                    'Plot generation failed - no file path returned. The plot generation code may have been interrupted or failed silently.'
-                );
-            }
-
-            // Clean up temporary variables (ignore errors if they don't exist)
+            // Clean up temporary variable
             await this.executeSilent(`
-if '_squiggy_plot_path' in globals():
-    del _squiggy_plot_path
 if '_squiggy_plot_error' in globals():
     del _squiggy_plot_error
-if '_squiggy_temp_file' in globals():
-    del _squiggy_temp_file
 `);
-
-            return filePath;
         } catch (error) {
-            // Clean up on error (ignore if variables don't exist)
+            // Clean up on error
             await this.executeSilent(
                 `
-if '_squiggy_plot_path' in globals():
-    del _squiggy_plot_path
 if '_squiggy_plot_error' in globals():
     del _squiggy_plot_error
-if '_squiggy_temp_file' in globals():
-    del _squiggy_temp_file
 `
-            ).catch(() => {}); // Ignore cleanup errors
-            throw error; // Re-throw the original error with full message
+            ).catch(() => {});
+            throw error;
         }
     }
 
     /**
-     * Generate an aggregate plot for a reference sequence
+     * Generate an aggregate plot for a reference sequence and route to Plots pane
      * @param referenceName - Name of reference sequence from BAM file
      * @param maxReads - Maximum number of reads to sample (default 100)
      * @param normalization - Normalization method (ZNORM, MAD, etc.)
      * @param theme - Color theme (LIGHT or DARK)
-     * @returns Path to temp file containing Bokeh HTML
      */
     async generateAggregatePlot(
         referenceName: string,
         maxReads: number = 100,
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT'
-    ): Promise<string> {
+    ): Promise<void> {
         // Escape single quotes in reference name for Python string
         const escapedRefName = referenceName.replace(/'/g, "\\'");
 
         const code = `
 import squiggy
-import tempfile
 
-# Generate aggregate plot HTML
-html = squiggy.plot_aggregate(
+# Generate aggregate plot - will be automatically routed to Plots pane
+squiggy.plot_aggregate(
     reference_name='${escapedRefName}',
     max_reads=${maxReads},
     normalization='${normalization}',
     theme='${theme}'
 )
-
-# Write to temp file
-_squiggy_temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
-_squiggy_temp_file.write(html)
-_squiggy_temp_file.close()
-
-# Store path in kernel variable (NO print!)
-_squiggy_plot_path = _squiggy_temp_file.name
 `;
 
         try {
-            // Execute silently
+            // Execute silently - plot will appear in Plots pane automatically
             await this.executeSilent(code);
-
-            // Read variable directly from kernel memory
-            const filePath = await this.getVariable('_squiggy_plot_path');
-
-            // Clean up temporary variables
-            await this.executeSilent('del _squiggy_plot_path, _squiggy_temp_file');
-
-            return filePath;
         } catch (error) {
             throw new Error(`Failed to generate aggregate plot: ${error}`);
         }
@@ -514,7 +460,7 @@ except ImportError:
             await this.executeSilent('del _squiggy_installed').catch(() => {});
             return result === true;
         } catch {
-            return false;
+            return false; // ImportError or other exception means not installed
         }
     }
 
