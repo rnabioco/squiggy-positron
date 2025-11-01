@@ -257,6 +257,39 @@ function registerCommands(
         )
     );
 
+    // Plot aggregate for reference
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotAggregate',
+            async (referenceItem?: ReadItem) => {
+                // Validate that both POD5 and BAM are loaded
+                if (!_currentPod5File) {
+                    vscode.window.showErrorMessage(
+                        'No POD5 file loaded. Use "Open POD5 File" first.'
+                    );
+                    return;
+                }
+                if (!_currentBamFile) {
+                    vscode.window.showErrorMessage(
+                        'Aggregate plots require a BAM file. Use "Open BAM File" first.'
+                    );
+                    return;
+                }
+
+                // Extract reference name from the ReadItem
+                let referenceName: string;
+                if (referenceItem && referenceItem.itemType === 'reference') {
+                    referenceName = referenceItem.label;
+                } else {
+                    vscode.window.showErrorMessage('Please select a reference from the read list');
+                    return;
+                }
+
+                await plotAggregate(referenceName, context);
+            }
+        )
+    );
+
     // Export plot
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.exportPlot', async () => {
@@ -540,6 +573,66 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
         );
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to generate plot: ${error}`);
+    }
+}
+
+/**
+ * Generate and display aggregate plot for a reference sequence
+ */
+async function plotAggregate(referenceName: string, context: vscode.ExtensionContext) {
+    try {
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Generating aggregate plot for ${referenceName}...`,
+                cancellable: false,
+            },
+            async () => {
+                // Get normalization from sidebar panel
+                const options = plotOptionsProvider.getOptions();
+                const normalization = options.normalization;
+
+                // Detect VS Code theme
+                const colorThemeKind = vscode.window.activeColorTheme.kind;
+                const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
+
+                // Get max reads from config
+                const config = vscode.workspace.getConfiguration('squiggy');
+                const maxReads = config.get<number>('aggregateSampleSize', 100);
+
+                let html: string;
+
+                if (usePositron) {
+                    // Use Positron kernel - generates plot and saves to temp file
+                    const tempFilePath = await positronRuntime.generateAggregatePlot(
+                        referenceName,
+                        maxReads,
+                        normalization,
+                        theme
+                    );
+
+                    // Read HTML from temp file
+                    html = await fs.readFile(tempFilePath, 'utf-8');
+
+                    // Clean up temp file
+                    await fs.unlink(tempFilePath).catch(() => {}); // Ignore errors
+                } else if (pythonBackend) {
+                    // Subprocess backend not yet implemented for aggregate
+                    throw new Error(
+                        'Aggregate plots are only available with Positron runtime. Please use Positron IDE.'
+                    );
+                } else {
+                    throw new Error('No backend available');
+                }
+
+                // Show plot in webview
+                const panel = SquigglePlotPanel.createOrShow(context.extensionUri);
+                // Pass reference name as a pseudo-read ID for title display
+                panel.setPlot(html, [`Aggregate: ${referenceName}`]);
+            }
+        );
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
     }
 }
 
