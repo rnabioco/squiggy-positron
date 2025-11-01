@@ -19,11 +19,14 @@ echo "Setting up test workspace at: $TEST_WORKSPACE"
 mkdir -p "$TEST_WORKSPACE/.vscode"
 mkdir -p "$TEST_WORKSPACE/sample-data"
 
-# Create .vscode/settings.json
-cat > "$TEST_WORKSPACE/.vscode/settings.json" <<'EOF'
+# Create .vscode/settings.json with absolute path to pixi Python
+PIXI_PYTHON="$PROJECT_ROOT/.pixi/envs/default/bin/python"
+cat > "$TEST_WORKSPACE/.vscode/settings.json" <<EOF
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/../.pixi/envs/default/bin/python",
-    "positron.interpreters.automaticStartup": true
+    "python.defaultInterpreterPath": "$PIXI_PYTHON",
+    "positron.interpreters.automaticStartup": true,
+    "positron.interpreters.preferredRuntime": "Python",
+    "positron.r.session.automaticStartup": false
 }
 EOF
 
