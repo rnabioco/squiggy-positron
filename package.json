@@ -47,12 +47,6 @@
         "icon": "$(graph-line)"
       },
       {
-        "command": "squiggy.exportPlot",
-        "title": "Export Plot",
-        "category": "Squiggy",
-        "icon": "$(save)"
-      },
-      {
         "command": "squiggy.refreshReads",
         "title": "Refresh Read List",
         "category": "Squiggy",

@@ -330,9 +330,15 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
                 const probSlider = document.getElementById('probSlider');
                 const probValue = document.getElementById('probValue');
 
+                // Update display live while dragging
                 probSlider.addEventListener('input', (e) => {
                     const value = parseInt(e.target.value) / 100;
                     probValue.textContent = value.toFixed(2);
+                });
+
+                // Only trigger plot update when slider is released
+                probSlider.addEventListener('change', (e) => {
+                    const value = parseInt(e.target.value) / 100;
                     vscode.postMessage({
                         type: 'probabilityChanged',
                         value: value
