@@ -327,6 +327,7 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
         hasModifications: boolean;
         modificationTypes: string[];
         hasProbabilities: boolean;
+        hasEventAlignment: boolean;
     }> {
         const escapedPath = filePath.replace(/'/g, "\\'");
 
@@ -348,12 +349,16 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
         const hasProbabilities = await this.getVariable(
             "_squiggy_bam_info.get('has_probabilities', False)"
         );
+        const hasEventAlignment = await this.getVariable(
+            "_squiggy_bam_info.get('has_event_alignment', False)"
+        );
 
         return {
             numReads: numReads as number,
             hasModifications: hasModifications as boolean,
             modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
             hasProbabilities: hasProbabilities as boolean,
+            hasEventAlignment: hasEventAlignment as boolean,
         };
     }
 

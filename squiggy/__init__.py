@@ -40,6 +40,7 @@ from .constants import (
 # I/O functions
 from .io import (
     close_pod5,
+    get_bam_event_alignment_status,
     get_bam_modification_info,
     get_current_files,
     get_read_ids,
@@ -367,6 +368,7 @@ __all__ = [
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
+    "get_bam_event_alignment_status",
     "get_read_to_reference_mapping",
     "close_pod5",
     # Data structures

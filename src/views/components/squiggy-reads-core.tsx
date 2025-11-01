@@ -14,16 +14,8 @@ import {
     CONSTANTS,
 } from '../../types/squiggy-reads-types';
 import { ReadsInstance } from './squiggy-reads-instance';
+import { vscode } from './vscode-api';
 import './squiggy-reads-core.css';
-
-// VSCode API (injected by webview)
-declare const acquireVsCodeApi: () => {
-    postMessage: (message: any) => void;
-    getState: () => any;
-    setState: (state: any) => void;
-};
-
-const vscode = acquireVsCodeApi();
 
 export const ReadsCore: React.FC = () => {
     // State

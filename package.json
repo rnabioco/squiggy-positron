@@ -35,6 +35,24 @@
         "icon": "$(file-code)"
       },
       {
+        "command": "squiggy.closePOD5",
+        "title": "Close POD5 File",
+        "category": "Squiggy",
+        "icon": "$(close)"
+      },
+      {
+        "command": "squiggy.closeBAM",
+        "title": "Close BAM File",
+        "category": "Squiggy",
+        "icon": "$(close)"
+      },
+      {
+        "command": "squiggy.loadTestData",
+        "title": "Load Test Data",
+        "category": "Squiggy",
+        "icon": "$(database)"
+      },
+      {
         "command": "squiggy.plotRead",
         "title": "Plot Selected Read(s)",
         "category": "Squiggy",
@@ -72,13 +90,14 @@
       "squiggy-sidebar": [
         {
           "id": "squiggyFilePanel",
-          "name": "Files",
+          "name": "File Explorer",
           "type": "webview"
         },
         {
           "id": "squiggyReadList",
           "name": "Read Explorer",
-          "type": "webview"
+          "type": "webview",
+          "visibility": "collapsed"
         },
         {
           "id": "squiggyPlotOptions",
