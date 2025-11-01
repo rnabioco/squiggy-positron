@@ -278,16 +278,25 @@ ${
 }
 
 # Write to temp file
-temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
-temp_file.write(html)
-temp_file.close()
+_squiggy_temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
+_squiggy_temp_file.write(html)
+_squiggy_temp_file.close()
 
-print(temp_file.name)
+# Store path in kernel variable (NO print!)
+_squiggy_plot_path = _squiggy_temp_file.name
 `;
 
         try {
-            const output = await this.executeWithOutput(code);
-            return output.trim();
+            // Execute silently
+            await this.executeSilent(code);
+
+            // Read variable directly from kernel memory
+            const filePath = await this.getVariable('_squiggy_plot_path');
+
+            // Clean up temporary variables
+            await this.executeSilent('del _squiggy_plot_path, _squiggy_temp_file');
+
+            return filePath;
         } catch (error) {
             throw new Error(`Failed to generate plot: ${error}`);
         }
