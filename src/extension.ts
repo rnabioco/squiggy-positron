@@ -147,6 +147,31 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Listen for Positron runtime session changes (kernel restarts)
+    if (usePositron) {
+        try {
+            const positron = require('positron');
+            context.subscriptions.push(
+                positron.runtime.onDidChangeForegroundSession((sessionId: string | undefined) => {
+                    // Session changed or cleared - reset extension state
+                    // This fires when kernel restarts or switches sessions
+                    _currentPod5File = undefined;
+                    _currentBamFile = undefined;
+                    currentPlotReadIds = undefined;
+
+                    // Clear UI panels
+                    readTreeProvider.setReads([]);
+                    filePanelProvider.setPOD5Info('', 0, '0 MB');
+                    filePanelProvider.setBAMInfo('', 0, '0 MB');
+
+                    console.log('Squiggy: Python session changed, state cleared');
+                })
+            );
+        } catch (error) {
+            // Positron API not available - not running in Positron
+        }
+    }
+
     // Register commands
     registerCommands(context, readTreeView);
 
@@ -333,6 +358,47 @@ function registerCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.refreshReads', () => {
             readTreeProvider.refresh();
+        })
+    );
+
+    // Clear state (useful after kernel restart)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.clearState', async () => {
+            // Clear extension state
+            _currentPod5File = undefined;
+            _currentBamFile = undefined;
+            currentPlotReadIds = undefined;
+
+            // Clear UI panels
+            readTreeProvider.setReads([]);
+            filePanelProvider.setPOD5Info('', 0, '0 MB');
+            filePanelProvider.setBAMInfo('', 0, '0 MB');
+
+            // Close any open plot panels
+            if (SquigglePlotPanel.currentPanel) {
+                SquigglePlotPanel.currentPanel.dispose();
+            }
+
+            // Clear Python kernel state if using Positron
+            if (usePositron) {
+                try {
+                    await positronRuntime.executeSilent(`
+import squiggy
+squiggy.close_pod5()
+# Clear global variables
+if '_squiggy_reader' in globals():
+    del _squiggy_reader
+if '_squiggy_read_ids' in globals():
+    del _squiggy_read_ids
+`);
+                } catch (error) {
+                    // Ignore errors if kernel is not running
+                }
+            }
+
+            vscode.window.showInformationMessage(
+                'Squiggy state cleared. Load new files to continue.'
+            );
         })
     );
 }

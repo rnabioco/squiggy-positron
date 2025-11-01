@@ -52,6 +52,18 @@ declare module 'positron' {
         is_truncated: boolean;
     }
 
+    export enum RuntimeState {
+        Uninitialized = 'uninitialized',
+        Initializing = 'initializing',
+        Starting = 'starting',
+        Ready = 'ready',
+        Idle = 'idle',
+        Busy = 'busy',
+        Restarting = 'restarting',
+        Offline = 'offline',
+        Exited = 'exited',
+    }
+
     export namespace runtime {
         export function executeCode(
             languageId: string,
@@ -69,6 +81,11 @@ declare module 'positron' {
             sessionId: string,
             accessKeys?: Array<Array<string>>
         ): Thenable<Array<Array<RuntimeVariable>>>;
+
+        /**
+         * Event that fires when the foreground session changes (including kernel restarts)
+         */
+        export const onDidChangeForegroundSession: import('vscode').Event<string | undefined>;
     }
 
     export interface LanguageRuntimeMetadata {
