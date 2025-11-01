@@ -230,11 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Register commands
     registerCommands(context, readTreeView);
 
-    // Show welcome message
-    const backendType = usePositron ? 'Positron kernel' : 'subprocess backend';
-    vscode.window.showInformationMessage(
-        `Squiggy extension loaded (using ${backendType})! Use "Open POD5 File" to get started.`
-    );
+    // Extension activated silently - no welcome message needed
 }
 
 /**
