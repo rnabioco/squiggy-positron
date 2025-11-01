@@ -10,6 +10,8 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { ReadsCore } from './squiggy-reads-core';
 import { FilesCore } from './squiggy-files-core';
+import { PlotOptionsCore } from './squiggy-plot-options-core';
+import { ModificationsCore } from './squiggy-modifications-core';
 
 // Log to help with debugging
 console.log('Webview entry point loaded, document title:', document.title);
@@ -26,6 +28,12 @@ if (root) {
     } else if (title.includes('Reads')) {
         console.log('Rendering ReadsCore component');
         ReactDOM.render(<ReadsCore />, root);
+    } else if (title.includes('Plot Options')) {
+        console.log('Rendering PlotOptionsCore component');
+        ReactDOM.render(<PlotOptionsCore />, root);
+    } else if (title.includes('Modifications')) {
+        console.log('Rendering ModificationsCore component');
+        ReactDOM.render(<ModificationsCore />, root);
     } else {
         // Default to reads panel for backward compatibility
         console.log('Rendering ReadsCore component (default)');

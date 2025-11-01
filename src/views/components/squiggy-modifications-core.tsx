@@ -1,0 +1,267 @@
+/**
+ * Modifications Panel Core Component
+ *
+ * React-based UI for base modification filtering
+ */
+
+import React, { useEffect, useState } from 'react';
+
+interface ModificationsState {
+    hasModifications: boolean;
+    modificationTypes: string[];
+    hasProbabilities: boolean;
+    minProbability: number;
+    enabledModTypes: Set<string>;
+}
+
+// Map common modification codes to names
+const modCodeToName: Record<string, string> = {
+    // Single-letter codes
+    m: '5-methylcytosine (5mC)',
+    h: '5-hydroxymethylcytosine (5hmC)',
+    a: '6-methyladenine (6mA)',
+    o: '8-oxoguanine (8-oxoG)',
+    // ChEBI codes (common RNA modifications)
+    '17596': 'Inosine (I)',
+    '28177': '1-methyladenosine (m1A)',
+    '21863': '1-methylguanosine (m1G)',
+    '28527': '7-methylguanosine (m7G)',
+    '17802': 'Pseudouridine (Ψ)',
+    '27301': '5-methyluridine (m5U)',
+    '18421': 'Dihydrouridine (D)',
+};
+
+// Modification colors matching base colors from eventalign view
+const modificationColors: Record<string, string> = {
+    // Cytosine modifications (yellow family)
+    m: '#F0E442',
+    h: '#E6D835',
+    f: '#DCC728',
+    c: '#FFF78A',
+    C: '#F0E442',
+    // Adenine modifications (green family)
+    a: '#009E73',
+    '17596': '#00C490',
+    A: '#009E73',
+    // Guanine modifications (blue family)
+    o: '#0072B2',
+    G: '#0072B2',
+    // Thymine/Uracil modifications (orange family)
+    g: '#D55E00',
+    e: '#FF7518',
+    b: '#B34C00',
+    '17802': '#FF9447',
+    T: '#D55E00',
+    // Default
+    default: '#999999',
+};
+
+export const ModificationsCore: React.FC = () => {
+    const [state, setState] = useState<ModificationsState>({
+        hasModifications: false,
+        modificationTypes: [],
+        hasProbabilities: false,
+        minProbability: 0.5,
+        enabledModTypes: new Set(),
+    });
+
+    // Listen for messages from extension
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            const message = event.data;
+            switch (message.type) {
+                case 'updateModInfo':
+                    setState({
+                        hasModifications: message.hasModifications,
+                        modificationTypes: message.modificationTypes,
+                        hasProbabilities: message.hasProbabilities,
+                        minProbability: 0.5,
+                        enabledModTypes: new Set(message.modificationTypes),
+                    });
+                    break;
+                case 'clearMods':
+                    setState({
+                        hasModifications: false,
+                        modificationTypes: [],
+                        hasProbabilities: false,
+                        minProbability: 0.5,
+                        enabledModTypes: new Set(),
+                    });
+                    break;
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        // Request initial state
+        (window as any).vscode.postMessage({ type: 'ready' });
+
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
+
+    const handleProbabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.target.value);
+        setState((prev) => ({ ...prev, minProbability: value }));
+        (window as any).vscode.postMessage({
+            type: 'filtersChanged',
+            minProbability: value,
+            enabledModTypes: Array.from(state.enabledModTypes),
+        });
+    };
+
+    const handleModTypeToggle = (modType: string) => {
+        setState((prev) => {
+            const newEnabled = new Set(prev.enabledModTypes);
+            if (newEnabled.has(modType)) {
+                newEnabled.delete(modType);
+            } else {
+                newEnabled.add(modType);
+            }
+
+            // Send update to extension
+            (window as any).vscode.postMessage({
+                type: 'filtersChanged',
+                minProbability: prev.minProbability,
+                enabledModTypes: Array.from(newEnabled),
+            });
+
+            return { ...prev, enabledModTypes: newEnabled };
+        });
+    };
+
+    const getModName = (code: string): string => {
+        return modCodeToName[code] || code;
+    };
+
+    const getModColor = (code: string): string => {
+        return modificationColors[code] || modificationColors.default;
+    };
+
+    if (!state.hasModifications) {
+        return (
+            <div
+                style={{
+                    padding: '10px',
+                    fontFamily: 'var(--vscode-font-family)',
+                    fontSize: 'var(--vscode-font-size)',
+                    color: 'var(--vscode-descriptionForeground)',
+                    fontStyle: 'italic',
+                }}
+            >
+                No modifications detected. Load a BAM file with MM/ML tags.
+            </div>
+        );
+    }
+
+    return (
+        <div
+            style={{
+                padding: '10px',
+                fontFamily: 'var(--vscode-font-family)',
+                fontSize: 'var(--vscode-font-size)',
+                color: 'var(--vscode-foreground)',
+            }}
+        >
+            {/* Probability Threshold */}
+            {state.hasProbabilities && (
+                <div style={{ marginBottom: '20px' }}>
+                    <div
+                        style={{
+                            fontWeight: 'bold',
+                            marginBottom: '8px',
+                            color: 'var(--vscode-foreground)',
+                        }}
+                    >
+                        Probability Threshold
+                    </div>
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            marginBottom: '4px',
+                            fontSize: '0.9em',
+                        }}
+                    >
+                        <span>Minimum probability:</span>
+                        <span
+                            style={{
+                                fontWeight: 'bold',
+                                color: 'var(--vscode-input-foreground)',
+                            }}
+                        >
+                            {state.minProbability.toFixed(2)}
+                        </span>
+                    </div>
+                    <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={state.minProbability}
+                        onChange={handleProbabilityChange}
+                        style={{ width: '100%', marginBottom: '4px' }}
+                    />
+                    <div
+                        style={{
+                            fontSize: '0.85em',
+                            color: 'var(--vscode-descriptionForeground)',
+                            fontStyle: 'italic',
+                        }}
+                    >
+                        Only show modifications with probability ≥ {state.minProbability.toFixed(2)}
+                    </div>
+                </div>
+            )}
+
+            {/* Modification Types */}
+            <div style={{ marginBottom: '20px' }}>
+                <div
+                    style={{
+                        fontWeight: 'bold',
+                        marginBottom: '8px',
+                        color: 'var(--vscode-foreground)',
+                    }}
+                >
+                    Modification Types
+                </div>
+                {state.modificationTypes.map((modType) => (
+                    <div
+                        key={modType}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '8px',
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            id={`mod-${modType}`}
+                            checked={state.enabledModTypes.has(modType)}
+                            onChange={() => handleModTypeToggle(modType)}
+                            style={{ marginRight: '6px' }}
+                        />
+                        <label
+                            htmlFor={`mod-${modType}`}
+                            style={{
+                                fontSize: '0.9em',
+                                display: 'flex',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <span
+                                style={{
+                                    display: 'inline-block',
+                                    width: '12px',
+                                    height: '12px',
+                                    backgroundColor: getModColor(modType),
+                                    marginRight: '6px',
+                                    border: '1px solid var(--vscode-input-border)',
+                                }}
+                            />
+                            {getModName(modType)}
+                        </label>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
