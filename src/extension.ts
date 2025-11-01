@@ -7,14 +7,14 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PositronRuntime } from './backend/squiggy-positronRuntime';
-import { PythonBackend } from './backend/squiggy-pythonBackend';
-import { ReadTreeProvider, ReadItem } from './views/squiggy-readExplorer';
-import { ReadSearchViewProvider } from './views/squiggy-readSearchView';
-import { PlotOptionsViewProvider } from './views/squiggy-plotOptionsView';
-import { FilePanelProvider } from './views/squiggy-filePanel';
-import { ModificationsPanelProvider } from './views/squiggy-modificationsPanel';
-import { SquigglePlotPanel } from './webview/squiggy-plotPanel';
+import { PositronRuntime } from './backend/squiggy-positron-runtime';
+import { PythonBackend } from './backend/squiggy-python-backend';
+import { ReadTreeProvider, ReadItem } from './views/squiggy-read-explorer';
+import { ReadSearchViewProvider } from './views/squiggy-read-search-view';
+import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
+import { FilePanelProvider } from './views/squiggy-file-panel';
+import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
+import { SquigglePlotPanel } from './webview/squiggy-plot-panel';
 
 let positronRuntime: PositronRuntime;
 let pythonBackend: PythonBackend | null = null;
@@ -34,14 +34,11 @@ let currentPlotReadIds: string[] | undefined;
  * Extension activation
  */
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('Squiggy extension activating...');
-
     // Try to use Positron runtime first
     positronRuntime = new PositronRuntime();
     usePositron = positronRuntime.isAvailable();
 
     if (usePositron) {
-        console.log('Using Positron runtime API');
 
         // Check if squiggy is installed (will check when kernel is available)
         // This check happens lazily when user first tries to use the extension
@@ -50,7 +47,6 @@ export async function activate(context: vscode.ExtensionContext) {
             if (!isInstalled) {
                 // In development mode, automatically add workspace to sys.path
                 const workspaceFolder = context.extensionPath;
-                console.log(`Squiggy not installed, adding ${workspaceFolder} to sys.path`);
 
                 await positronRuntime.executeWithOutput(
                     `import sys\nif '${workspaceFolder}' not in sys.path:\n    sys.path.insert(0, '${workspaceFolder}')`
@@ -69,14 +65,9 @@ export async function activate(context: vscode.ExtensionContext) {
                 }
             }
         } catch (error) {
-            // Kernel not available yet - will check later
-            console.log(
-                'Could not check squiggy installation (kernel may not be running yet):',
-                error
-            );
+            // Kernel not available yet - will check later silently
         }
     } else {
-        console.log('Positron runtime not available, using subprocess backend');
 
         // Fallback to subprocess JSON-RPC
         const pythonPath = getPythonPath();

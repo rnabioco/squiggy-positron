@@ -50,20 +50,15 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
                     this._onDidChangeOptions.fire();
                     break;
                 case 'dwellTimeChanged':
-                    console.log('dwellTimeChanged:', data.value);
                     this._showDwellTime = data.value;
                     // Mutually exclusive with scaleDwellTime
                     if (data.value) {
-                        console.log('Unchecking scaleDwellTime');
                         this._scaleDwellTime = false;
                         if (this._view) {
-                            console.log('Sending updateScaleDwellTime message');
                             this._view.webview.postMessage({
                                 type: 'updateScaleDwellTime',
                                 value: false,
                             });
-                        } else {
-                            console.log('Warning: _view is undefined');
                         }
                     }
                     this._onDidChangeOptions.fire();
@@ -73,20 +68,15 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
                     this._onDidChangeOptions.fire();
                     break;
                 case 'scaleDwellTimeChanged':
-                    console.log('scaleDwellTimeChanged:', data.value);
                     this._scaleDwellTime = data.value;
                     // Mutually exclusive with showDwellTime
                     if (data.value) {
-                        console.log('Unchecking showDwellTime');
                         this._showDwellTime = false;
                         if (this._view) {
-                            console.log('Sending updateShowDwellTime message');
                             this._view.webview.postMessage({
                                 type: 'updateShowDwellTime',
                                 value: false,
                             });
-                        } else {
-                            console.log('Warning: _view is undefined');
                         }
                     }
                     this._onDidChangeOptions.fire();
@@ -231,14 +221,11 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         // Listen for messages from extension (for mutual exclusion)
         window.addEventListener('message', event => {
             const message = event.data;
-            console.log('Received message:', message);
             switch (message.type) {
                 case 'updateShowDwellTime':
-                    console.log('Updating showDwellTime to:', message.value);
                     showDwellTimeEl.checked = message.value;
                     break;
                 case 'updateScaleDwellTime':
-                    console.log('Updating scaleDwellTime to:', message.value);
                     scaleDwellTimeEl.checked = message.value;
                     break;
             }

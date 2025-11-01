@@ -26,12 +26,14 @@ export class PositronRuntime {
      * @param code Python code to execute
      * @param focus Whether to focus the console
      * @param allowIncomplete Whether to allow incomplete statements
+     * @param mode Execution mode (silent by default to hide imports)
      * @param observer Optional observer for capturing output
      */
     async executeCode(
         code: string,
         focus: boolean = false,
         allowIncomplete: boolean = true,
+        mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent,
         observer?: positron.RuntimeCodeExecutionObserver
     ): Promise<void> {
         if (!this.isAvailable()) {
@@ -44,7 +46,7 @@ export class PositronRuntime {
                 code,
                 focus,
                 allowIncomplete,
-                undefined, // mode
+                mode,
                 undefined, // errorBehavior
                 observer
             );
@@ -64,21 +66,27 @@ export class PositronRuntime {
             let output = '';
             let errorOutput = '';
 
-            this.executeCode(code, false, true, {
-                onOutput: (message: string) => {
-                    output += message;
-                },
-                onError: (message: string) => {
-                    errorOutput += message;
-                },
-                onFinished: () => {
-                    if (errorOutput) {
-                        reject(new Error(errorOutput));
-                    } else {
-                        resolve(output);
-                    }
-                },
-            }).catch(reject);
+            this.executeCode(
+                code,
+                false,
+                true,
+                positron.RuntimeCodeExecutionMode.Silent,
+                {
+                    onOutput: (message: string) => {
+                        output += message;
+                    },
+                    onError: (message: string) => {
+                        errorOutput += message;
+                    },
+                    onFinished: () => {
+                        if (errorOutput) {
+                            reject(new Error(errorOutput));
+                        } else {
+                            resolve(output);
+                        }
+                    },
+                }
+            ).catch(reject);
         });
     }
 
@@ -97,28 +105,19 @@ export class PositronRuntime {
 import squiggy
 import json
 _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
-# Print structured output for extension to parse
-print('SQUIGGY_LOADED:' + json.dumps({
+print(json.dumps({
     'num_reads': len(_squiggy_read_ids),
-    'preview_ids': _squiggy_read_ids[:100]  # First 100 for tree view
+    'preview_ids': _squiggy_read_ids[:100]
 }))
 `;
 
         try {
             const output = await this.executeWithOutput(code);
-
-            // Parse output for structured data
-            const match = output.match(/SQUIGGY_LOADED:(\{.*\})/);
-            if (match) {
-                const data = JSON.parse(match[1]);
-                return {
-                    numReads: data.num_reads,
-                    readIds: data.preview_ids,
-                };
-            } else {
-                // Fallback: just show success message
-                return { numReads: 0 };
-            }
+            const data = JSON.parse(output.trim());
+            return {
+                numReads: data.num_reads,
+                readIds: data.preview_ids,
+            };
         } catch (error) {
             throw new Error(`Failed to load POD5 file: ${error}`);
         }
@@ -141,7 +140,7 @@ import squiggy
 import json
 _squiggy_bam_info = squiggy.load_bam('${escapedPath}')
 _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
-print('SQUIGGY_BAM_LOADED:' + json.dumps({
+print(json.dumps({
     'num_reads': _squiggy_bam_info['num_reads'],
     'reference_to_reads': _squiggy_ref_mapping,
     'has_modifications': _squiggy_bam_info.get('has_modifications', False),
@@ -152,26 +151,14 @@ print('SQUIGGY_BAM_LOADED:' + json.dumps({
 
         try {
             const output = await this.executeWithOutput(code);
-
-            const match = output.match(/SQUIGGY_BAM_LOADED:(\{.*\})/);
-            if (match) {
-                const data = JSON.parse(match[1]);
-                return {
-                    numReads: data.num_reads,
-                    referenceToReads: data.reference_to_reads || {},
-                    hasModifications: data.has_modifications || false,
-                    modificationTypes: data.modification_types || [],
-                    hasProbabilities: data.has_probabilities || false,
-                };
-            } else {
-                return {
-                    numReads: 0,
-                    referenceToReads: {},
-                    hasModifications: false,
-                    modificationTypes: [],
-                    hasProbabilities: false,
-                };
-            }
+            const data = JSON.parse(output.trim());
+            return {
+                numReads: data.num_reads,
+                referenceToReads: data.reference_to_reads || {},
+                hasModifications: data.has_modifications || false,
+                modificationTypes: data.modification_types || [],
+                hasProbabilities: data.has_probabilities || false,
+            };
         } catch (error) {
             throw new Error(`Failed to load BAM file: ${error}`);
         }
@@ -210,26 +197,16 @@ ${
 }
 
 # Write to temp file
-import os
 temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
 temp_file.write(html)
 temp_file.close()
 
-# Print file path for extension
-print('SQUIGGY_PLOT_FILE:' + temp_file.name)
+print(temp_file.name)
 `;
 
         try {
             const output = await this.executeWithOutput(code);
-
-            // Parse output for file path
-            const match = output.match(/SQUIGGY_PLOT_FILE:(.*)/);
-            if (match) {
-                const filePath = match[1].trim();
-                return filePath;
-            } else {
-                throw new Error('Failed to get plot file path from output');
-            }
+            return output.trim();
         } catch (error) {
             throw new Error(`Failed to generate plot: ${error}`);
         }
@@ -242,14 +219,14 @@ print('SQUIGGY_PLOT_FILE:' + temp_file.name)
         const code = `
 try:
     import squiggy
-    print('SQUIGGY_INSTALLED:True')
+    print('True')
 except ImportError:
-    print('SQUIGGY_INSTALLED:False')
+    print('False')
 `;
 
         try {
             const output = await this.executeWithOutput(code);
-            return output.includes('SQUIGGY_INSTALLED:True');
+            return output.trim() === 'True';
         } catch {
             return false;
         }
@@ -267,16 +244,14 @@ result = subprocess.run(
     capture_output=True,
     text=True
 )
-if result.returncode == 0:
-    print('SQUIGGY_INSTALL:SUCCESS')
-else:
-    print('SQUIGGY_INSTALL:FAILED')
-    print(result.stderr)
+if result.returncode != 0:
+    raise Exception(f'Installation failed: {result.stderr}')
+print('SUCCESS')
 `;
 
         try {
             const output = await this.executeWithOutput(code);
-            if (!output.includes('SQUIGGY_INSTALL:SUCCESS')) {
+            if (output.trim() !== 'SUCCESS') {
                 throw new Error(`Installation failed: ${output}`);
             }
         } catch (error) {
