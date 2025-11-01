@@ -1,0 +1,30 @@
+/**
+ * Styles for ColumnResizer component
+ */
+
+.column-resizer {
+    width: 4px;
+    cursor: col-resize;
+    background-color: transparent;
+    position: relative;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.column-resizer:hover {
+    background-color: var(--vscode-focusBorder);
+}
+
+.column-resizer.dragging {
+    background-color: var(--vscode-focusBorder);
+}
+
+/* Expand hit area for easier dragging */
+.column-resizer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -2px;
+    right: -2px;
+    bottom: 0;
+}

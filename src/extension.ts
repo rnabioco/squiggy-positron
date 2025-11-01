@@ -10,16 +10,15 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { PositronRuntime } from './backend/squiggy-positron-runtime';
 import { PythonBackend } from './backend/squiggy-python-backend';
-import { ReadTreeProvider, ReadItem } from './views/squiggy-read-explorer';
-import { ReadSearchViewProvider } from './views/squiggy-read-search-view';
+import { ReadsViewPane } from './views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
 import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
+import { ReadItem } from './types/squiggy-reads-types';
 
 let positronRuntime: PositronRuntime;
 let pythonBackend: PythonBackend | null = null;
-let readTreeProvider: ReadTreeProvider;
-let readSearchProvider: ReadSearchViewProvider;
+let readsViewPane: ReadsViewPane;
 let plotOptionsProvider: PlotOptionsViewProvider;
 let filePanelProvider: FilePanelProvider;
 let modificationsProvider: ModificationsPanelProvider;
@@ -71,28 +70,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider)
     );
 
-    // Create read tree provider
-    readTreeProvider = new ReadTreeProvider();
-    const readTreeView = vscode.window.createTreeView('squiggyReadList', {
-        treeDataProvider: readTreeProvider,
-        canSelectMany: true,
-    });
-    context.subscriptions.push(readTreeView);
-
-    // Create and register read search provider
-    readSearchProvider = new ReadSearchViewProvider(context.extensionUri);
+    // Create and register new React-based reads view pane
+    readsViewPane = new ReadsViewPane(context.extensionUri);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(
-            ReadSearchViewProvider.viewType,
-            readSearchProvider
-        )
-    );
-
-    // Connect search to tree provider
-    context.subscriptions.push(
-        readSearchProvider.onDidChangeSearchText((searchText) => {
-            readTreeProvider.filterReads(searchText);
-        })
+        vscode.window.registerWebviewViewProvider(ReadsViewPane.viewType, readsViewPane)
     );
 
     // Create and register plot options provider
@@ -163,7 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 squiggyInstallDeclined = false;
 
                 // Clear UI panels
-                readTreeProvider.setReads([]);
+                readsViewPane.setReads([]);
                 filePanelProvider.setPOD5Info('', 0, '0 MB');
                 filePanelProvider.setBAMInfo('', 0, '0 MB');
                 plotOptionsProvider.updateBamStatus(false);
@@ -222,7 +203,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     // Register commands
-    registerCommands(context, readTreeView);
+    registerCommands(context);
 
     // Extension activated silently - no welcome message needed
 }
@@ -239,10 +220,7 @@ export function deactivate() {
 /**
  * Register all extension commands
  */
-function registerCommands(
-    context: vscode.ExtensionContext,
-    readTreeView: vscode.TreeView<ReadItem>
-) {
+function registerCommands(context: vscode.ExtensionContext) {
     // Open POD5 file
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.openPOD5', async () => {
@@ -319,7 +297,7 @@ function registerCommands(
             async (readIdOrItem?: string | ReadItem) => {
                 let readIds: string[];
 
-                // If called with a readId string (from TreeView click)
+                // If called with a readId string (from React view)
                 if (typeof readIdOrItem === 'string') {
                     readIds = [readIdOrItem];
                 }
@@ -327,14 +305,12 @@ function registerCommands(
                 else if (readIdOrItem && 'readId' in readIdOrItem) {
                     readIds = [readIdOrItem.readId];
                 }
-                // Otherwise use current selection
+                // Otherwise, no selection available (React view handles selection internally)
                 else {
-                    const selection = readTreeView.selection;
-                    if (selection.length === 0) {
-                        vscode.window.showWarningMessage('Please select one or more reads to plot');
-                        return;
-                    }
-                    readIds = selection.map((item) => item.readId);
+                    vscode.window.showWarningMessage(
+                        'Please click the Plot button on a read in the Reads panel'
+                    );
+                    return;
                 }
 
                 await plotReads(readIds, context);
@@ -344,42 +320,35 @@ function registerCommands(
 
     // Plot aggregate for reference
     context.subscriptions.push(
-        vscode.commands.registerCommand(
-            'squiggy.plotAggregate',
-            async (referenceItem?: ReadItem) => {
-                // Validate that both POD5 and BAM are loaded
-                if (!_currentPod5File) {
-                    vscode.window.showErrorMessage(
-                        'No POD5 file loaded. Use "Open POD5 File" first.'
-                    );
-                    return;
-                }
-                if (!_currentBamFile) {
-                    vscode.window.showErrorMessage(
-                        'Aggregate plots require a BAM file. Use "Open BAM File" first.'
-                    );
-                    return;
-                }
-
-                // Extract reference name from the ReadItem
-                let referenceName: string;
-                if (referenceItem && referenceItem.itemType === 'reference') {
-                    // Use readId (clean reference name) not label (which has count appended)
-                    referenceName = referenceItem.readId;
-                } else {
-                    vscode.window.showErrorMessage('Please select a reference from the read list');
-                    return;
-                }
-
-                await plotAggregate(referenceName, context);
+        vscode.commands.registerCommand('squiggy.plotAggregate', async (referenceName?: string) => {
+            // Validate that both POD5 and BAM are loaded
+            if (!_currentPod5File) {
+                vscode.window.showErrorMessage('No POD5 file loaded. Use "Open POD5 File" first.');
+                return;
             }
-        )
+            if (!_currentBamFile) {
+                vscode.window.showErrorMessage(
+                    'Aggregate plots require a BAM file. Use "Open BAM File" first.'
+                );
+                return;
+            }
+
+            // Validate reference name was provided
+            if (!referenceName) {
+                vscode.window.showErrorMessage(
+                    'Please click the Aggregate button on a reference in the Read Explorer panel'
+                );
+                return;
+            }
+
+            await plotAggregate(referenceName, context);
+        })
     );
 
     // Refresh reads
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.refreshReads', () => {
-            readTreeProvider.refresh();
+            readsViewPane.refresh();
         })
     );
 
@@ -396,7 +365,7 @@ function registerCommands(
             squiggyInstallDeclined = false;
 
             // Clear UI panels
-            readTreeProvider.setReads([]);
+            readsViewPane.setReads([]);
             filePanelProvider.setPOD5Info('', 0, '0 MB');
             filePanelProvider.setBAMInfo('', 0, '0 MB');
             plotOptionsProvider.updateBamStatus(false);
@@ -668,9 +637,9 @@ async function openPOD5File(filePath: string) {
                     throw new Error('No backend available');
                 }
 
-                // Update read tree
+                // Update reads view
                 if (readIds.length > 0) {
-                    readTreeProvider.setReads(readIds);
+                    readsViewPane.setReads(readIds);
                 }
 
                 // Track file and update file panel display
@@ -771,10 +740,24 @@ async function openBAMFile(filePath: string) {
 
                 filePanelProvider.setBAMInfo(filePath, numReads, `${fileSizeMB} MB`);
 
-                // Update read tree to show reads grouped by reference
+                // Update reads view to show reads grouped by reference
                 if (Object.keys(referenceToReads).length > 0) {
                     const refMap = new Map<string, string[]>(Object.entries(referenceToReads));
-                    readTreeProvider.setReadsGrouped(refMap);
+
+                    // Convert to ReadItem[] with reference info
+                    const readItemsMap = new Map<string, any[]>();
+                    for (const [ref, reads] of refMap.entries()) {
+                        readItemsMap.set(
+                            ref,
+                            reads.map((readId) => ({
+                                type: 'read' as const,
+                                readId,
+                                referenceName: ref,
+                                indentLevel: 1,
+                            }))
+                        );
+                    }
+                    readsViewPane.setReadsGrouped(readItemsMap);
                 }
 
                 // Update modifications panel and context

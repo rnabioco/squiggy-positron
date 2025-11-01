@@ -36,6 +36,13 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+        // Handle visibility changes - restore state when view becomes visible
+        webviewView.onDidChangeVisibility(() => {
+            if (webviewView.visible && this._hasModifications) {
+                this._updateView();
+            }
+        });
+
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {

@@ -76,14 +76,9 @@
           "type": "webview"
         },
         {
-          "id": "squiggyReadSearch",
-          "name": "",
-          "type": "webview",
-          "visibility": "visible"
-        },
-        {
           "id": "squiggyReadList",
-          "name": "Reads"
+          "name": "Read Explorer",
+          "type": "webview"
         },
         {
           "id": "squiggyPlotOptions",
@@ -168,15 +163,15 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "webpack --mode production",
+    "watch": "webpack --mode development --watch",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src --ext ts",
-    "lint:fix": "eslint src --ext ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src --ext ts,tsx",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "package": "vsce package --out build/"
   },
   "devDependencies": {
@@ -184,19 +179,30 @@
     "@jest/globals": "^30.2.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
+    "@types/react": "18.3.1",
+    "@types/react-dom": "18.3.1",
+    "@types/react-window": "^1.8.5",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "@vscode/vsce": "^3.6.2",
+    "css-loader": "^6.9.1",
     "eslint": "^9.39.0",
     "globals": "^16.5.0",
     "jest": "^30.2.0",
     "ovsx": "^0.10.6",
     "prettier": "^3.6.2",
+    "style-loader": "^3.3.2",
     "ts-jest": "^29.4.5",
-    "typescript": "^5.3.3"
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "@posit-dev/positron": "^0.1.0"
+    "@posit-dev/positron": "^0.1.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-window": "^1.8.10"
   }
 }
