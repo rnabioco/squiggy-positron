@@ -303,7 +303,6 @@ class TestCLIExport:
     def test_export_plot_infer_format_from_extension(self, sample_pod5_file, tmp_path):
         """Test export format inference from file extension"""
         import pod5
-
         from squiggy.cli import export_plot
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -342,7 +341,6 @@ class TestCLIExport:
     def test_export_plot_multiple_reads(self, sample_pod5_file, tmp_path):
         """Test exporting plot with multiple reads"""
         import pod5
-
         from squiggy.cli import export_plot
 
         # Get first 3 read IDs
@@ -379,7 +377,6 @@ class TestCLIExport:
     def test_export_plot_with_bam(self, sample_pod5_file, sample_bam_file, tmp_path):
         """Test exporting plot with BAM file"""
         import pod5
-
         from squiggy.cli import export_plot
 
         with pod5.Reader(sample_pod5_file) as reader:
@@ -416,7 +413,6 @@ class TestCLIExport:
     def test_export_plot_all_normalization_methods(self, sample_pod5_file, tmp_path):
         """Test export with all normalization methods"""
         import pod5
-
         from squiggy.cli import export_plot
 
         with pod5.Reader(sample_pod5_file) as reader:

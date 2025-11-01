@@ -3,8 +3,6 @@
 import numpy as np
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.plotting import figure
-
-from squiggy.constants import NormalizationMethod, Theme
 from squiggy.plotting.base import (
     MULTI_READ_COLORS,
     add_hover_tool,
@@ -19,6 +17,8 @@ from squiggy.plotting.base import (
     normalize_signal,
     process_signal,
 )
+
+from squiggy.constants import NormalizationMethod, Theme
 
 
 class TestNormalization:

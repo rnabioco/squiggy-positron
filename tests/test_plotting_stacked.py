@@ -1,9 +1,9 @@
 """Tests for plotting/stacked.py - STACKED mode"""
 
 import numpy as np
+from squiggy.plotting.stacked import plot_stacked
 
 from squiggy.constants import NormalizationMethod, Theme
-from squiggy.plotting.stacked import plot_stacked
 
 
 class TestPlotStacked:

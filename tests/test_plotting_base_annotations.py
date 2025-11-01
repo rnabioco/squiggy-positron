@@ -3,9 +3,6 @@
 import numpy as np
 from bokeh.models import ColumnDataSource, LinearColorMapper
 from bokeh.plotting import figure
-
-from squiggy.alignment import BaseAnnotation
-from squiggy.constants import BASE_COLORS, Theme
 from squiggy.plotting.base_annotations import (
     add_base_labels_position_mode,
     add_base_labels_time_mode,
@@ -15,6 +12,9 @@ from squiggy.plotting.base_annotations import (
     calculate_base_regions_position_mode,
     calculate_base_regions_time_mode,
 )
+
+from squiggy.alignment import BaseAnnotation
+from squiggy.constants import BASE_COLORS, Theme
 
 
 class TestCalculateBaseRegionsTimeMode:
