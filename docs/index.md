@@ -1,50 +1,21 @@
-# Squiggy
+# Squiggy - Positron Extension
 
-Squiggy is a desktop GUI application for visualizing Oxford Nanopore sequencing data ("squiggle plots") from POD5 files.
+Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing data from POD5 files directly in your workspace.
 
-![Event-aligned nanopore signal visualization with base annotations](images/eventalign_mode.png)
+## Documentation
+
+- **[User Guide](USER_GUIDE.md)** - Complete guide to using the extension
+- **[Developer Guide](DEVELOPER.md)** - Setup and contribution guide
+- **[README](../README.md)** - Quick start and overview
 
 ## Features
 
-- 📂 Load and browse POD5 files containing Oxford Nanopore sequencing data
-- 🔍 Search and filter reads by ID
-- 📊 Generate high-quality squiggle plots showing raw signal data
-- 🎨 **Multiple visualization modes:**
-  - **Single read** - Traditional one-at-a-time view
-  - **Overlay** - Compare multiple reads on same axes
-  - **Stacked** - Squigualiser-style vertically offset reads
-  - **Event-aligned** - Base annotations with fixed-width bases
-  - **Aggregate** - Multi-read pileup with synchronized tracks
-- 📐 **Signal normalization** - Z-score, Median, MAD for cross-read comparison
-- 🧬 Optional base annotations from BAM files with color-coded bases
-- 💾 **Export plots** to HTML, PNG, or SVG (publication quality)
-- 🎯 Multi-read selection (Ctrl+Click, Shift+Click)
-- 🍎 macOS native application
-- 🚀 Standalone executable - no Python installation required
+- **Positron Integration**: Works with your active Python kernel
+- **Interactive Visualization**: Bokeh-powered plots with zoom, pan, and hover
+- **Base Annotations**: Overlay base calls on signal data (requires BAM file)
+- **Read Filtering**: Search by read ID, reference region, or sequence motif
+- **Modification Analysis**: Filter and visualize base modifications with probability thresholds
 
-## Quick Start
+## Installation
 
-1. Download the latest macOS release (.dmg)
-2. Install and launch the Squiggy application
-3. Click "Select POD5 File" to load your data
-4. Browse or search for reads in the list
-5. Click on a read to visualize its signal data
-
-## Architecture
-
-Squiggy is built with:
-
-- **PySide6** (Qt for Python) - Cross-platform desktop UI framework
-- **qasync** - Asynchronous programming support for non-blocking UI
-- **pod5** - Library for reading Oxford Nanopore POD5 files
-- **bokeh** - Interactive visualization library for generating squiggle plots
-- **pysam** (optional) - BAM file parsing for base annotations
-- **PyInstaller** - Packages the app into standalone executables
-
-## Source Code
-
-The source code is available on [GitHub](https://github.com/rnabioco/squiggy).
-
-## License
-
-See the repository for license information.
+Download the latest `.vsix` file from [GitHub Releases](https://github.com/rnabioco/squiggy/releases) and install in Positron via `Extensions` → `...` → `Install from VSIX...`

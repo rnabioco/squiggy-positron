@@ -22,20 +22,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
         with:
-          python-version-file: .python-version
+          pixi-version: latest
+          cache: true
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install MkDocs and dependencies
-        run: |
-          uv pip install --system mkdocs mkdocs-material
+      - name: Install dependencies
+        run: pixi install
 
       - name: Build documentation
-        run: mkdocs build
+        run: pixi run -e default mkdocs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

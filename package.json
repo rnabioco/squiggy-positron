@@ -1,0 +1,205 @@
+{
+  "name": "squiggy-positron",
+  "displayName": "Squiggy",
+  "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files",
+  "version": "0.1.0",
+  "publisher": "rnabioco",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rnabioco/squiggy.git"
+  },
+  "engines": {
+    "vscode": "^1.74.0",
+    "positron": "^2025.6.0"
+  },
+  "categories": [
+    "Data Science",
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./build/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "squiggy.openPOD5",
+        "title": "Open POD5 File",
+        "category": "Squiggy",
+        "icon": "$(file-binary)"
+      },
+      {
+        "command": "squiggy.openBAM",
+        "title": "Open BAM File",
+        "category": "Squiggy",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "squiggy.plotRead",
+        "title": "Plot Selected Read(s)",
+        "category": "Squiggy",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "squiggy.plotAggregate",
+        "title": "Plot Aggregate for Reference",
+        "category": "Squiggy",
+        "icon": "$(graph-line)"
+      },
+      {
+        "command": "squiggy.exportPlot",
+        "title": "Export Plot",
+        "category": "Squiggy",
+        "icon": "$(save)"
+      },
+      {
+        "command": "squiggy.refreshReads",
+        "title": "Refresh Read List",
+        "category": "Squiggy",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "squiggy.clearState",
+        "title": "Clear All State (After Kernel Restart)",
+        "category": "Squiggy",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "squiggy-sidebar",
+          "title": "Squiggy",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "squiggy-sidebar": [
+        {
+          "id": "squiggyFilePanel",
+          "name": "Files",
+          "type": "webview"
+        },
+        {
+          "id": "squiggyReadSearch",
+          "name": "",
+          "type": "webview",
+          "visibility": "visible"
+        },
+        {
+          "id": "squiggyReadList",
+          "name": "Reads"
+        },
+        {
+          "id": "squiggyPlotOptions",
+          "name": "Plot Options",
+          "type": "webview"
+        },
+        {
+          "id": "squiggyModificationsPanel",
+          "name": "Base Modifications",
+          "type": "webview",
+          "when": "squiggy.hasModifications"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "squiggy.refreshReads",
+          "when": "view == squiggyReadList",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "squiggy.plotRead",
+          "when": "view == squiggyReadList && viewItem == read",
+          "group": "inline"
+        },
+        {
+          "command": "squiggy.plotAggregate",
+          "when": "view == squiggyReadList && viewItem == reference",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Squiggy",
+      "properties": {
+        "squiggy.defaultPlotMode": {
+          "type": "string",
+          "enum": [
+            "SINGLE",
+            "EVENTALIGN"
+          ],
+          "default": "SINGLE",
+          "description": "Default plot mode for visualizations"
+        },
+        "squiggy.defaultNormalization": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "ZNORM",
+            "MEDIAN",
+            "MAD"
+          ],
+          "default": "ZNORM",
+          "description": "Default signal normalization method"
+        },
+        "squiggy.downsampleThreshold": {
+          "type": "number",
+          "default": 100000,
+          "description": "Downsample signals with more than this many samples"
+        },
+        "squiggy.theme": {
+          "type": "string",
+          "enum": [
+            "LIGHT",
+            "DARK"
+          ],
+          "default": "LIGHT",
+          "description": "Plot color theme"
+        },
+        "squiggy.aggregateSampleSize": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 10000,
+          "description": "Maximum number of reads to sample for aggregate plots"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext ts",
+    "lint:fix": "eslint src --ext ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^2.22.0",
+    "eslint": "^8.55.0",
+    "jest": "^30.2.0",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@posit-dev/positron": "^0.1.0"
+  }
+}
