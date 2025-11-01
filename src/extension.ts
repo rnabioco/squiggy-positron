@@ -226,6 +226,30 @@ function registerCommands(
         })
     );
 
+    // Load test data (yeast tRNA POD5 + BAM)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadTestData', async () => {
+            const pod5Path = path.join(
+                context.extensionPath,
+                'tests',
+                'data',
+                'yeast_trna_reads.pod5'
+            );
+            const bamPath = path.join(
+                context.extensionPath,
+                'tests',
+                'data',
+                'yeast_trna_mappings.bam'
+            );
+
+            // Load both files sequentially
+            await openPOD5File(pod5Path);
+            await openBAMFile(bamPath);
+
+            vscode.window.showInformationMessage('Test data loaded successfully!');
+        })
+    );
+
     // Plot selected reads
     context.subscriptions.push(
         vscode.commands.registerCommand(
