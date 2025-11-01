@@ -185,7 +185,10 @@ export async function activate(context: vscode.ExtensionContext) {
             const setupSessionListeners = async () => {
                 try {
                     const session = await positron.runtime.getForegroundSession();
-                    console.log('Squiggy: Setting up session listeners, session:', session?.metadata.sessionId);
+                    console.log(
+                        'Squiggy: Setting up session listeners, session:',
+                        session?.metadata.sessionId
+                    );
 
                     if (session && session.onDidChangeRuntimeState) {
                         context.subscriptions.push(
@@ -199,7 +202,9 @@ export async function activate(context: vscode.ExtensionContext) {
                         );
                         console.log('Squiggy: Successfully attached runtime state listener');
                     } else {
-                        console.log('Squiggy: No session or no onDidChangeRuntimeState event available');
+                        console.log(
+                            'Squiggy: No session or no onDidChangeRuntimeState event available'
+                        );
                     }
                 } catch (error) {
                     console.error('Squiggy: Error setting up session listeners:', error);
