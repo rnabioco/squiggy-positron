@@ -16,6 +16,7 @@ dev = "npm run watch"
 test = { depends-on = ["test-py", "test-ts"] }
 check = { depends-on = ["lint", "test"] }
 build = "npm run package"
+clean = "rm -rf build/ .pytest_cache/ .ruff_cache/ site/ squiggy.egg-info/ squiggy/__pycache__/ src/squiggy.egg-info/ src/squiggy/ test-workspace/ tests/__pycache__/ .DS_Store"
 docs = "mkdocs serve"
 
 # === Granular Tasks ===
