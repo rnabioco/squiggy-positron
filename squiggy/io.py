@@ -109,10 +109,10 @@ def get_bam_modification_info(file_path: str) -> dict:
                 # modified_bases returns dict with format:
                 # {(canonical_base, strand, mod_code): [(position, quality), ...]}
                 for (
-                    canonical_base,
-                    strand,
+                    _canonical_base,
+                    _strand,
                     mod_code,
-                ), mod_list in read.modified_bases.items():
+                ), _mod_list in read.modified_bases.items():
                     # mod_code can be str (e.g., 'm') or int (e.g., 17596)
                     # Store as-is to preserve type
                     modification_types.add(mod_code)
@@ -134,7 +134,7 @@ def get_bam_modification_info(file_path: str) -> dict:
 
     # Convert modification_types to list, handling mixed str/int types
     # Sort with custom key that converts to string for comparison
-    mod_types_list = sorted(list(modification_types), key=str)
+    mod_types_list = sorted(modification_types, key=str)
 
     return {
         "has_modifications": has_modifications,
