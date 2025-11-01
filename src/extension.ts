@@ -659,9 +659,9 @@ async function openPOD5File(filePath: string) {
                     readIds = await positronRuntime.getReadIds(0, 1000);
                 } else if (pythonBackend) {
                     // Use subprocess backend
-                    const backendResult = await pythonBackend.call('open_pod5', {
+                    const backendResult = (await pythonBackend.call('open_pod5', {
                         file_path: filePath,
-                    });
+                    })) as { num_reads: number; read_ids?: string[] };
                     numReads = backendResult.num_reads;
                     readIds = backendResult.read_ids || [];
                 } else {
@@ -743,9 +743,15 @@ async function openBAMFile(filePath: string) {
                     }
                 } else if (pythonBackend) {
                     // Use subprocess backend
-                    const backendResult = await pythonBackend.call('open_bam', {
+                    const backendResult = (await pythonBackend.call('open_bam', {
                         file_path: filePath,
-                    });
+                    })) as {
+                        num_reads: number;
+                        reference_to_reads?: Record<string, string[]>;
+                        has_modifications?: boolean;
+                        modification_types?: string[];
+                        has_probabilities?: boolean;
+                    };
                     numReads = backendResult.num_reads;
                     referenceToReads = backendResult.reference_to_reads || {};
                     hasModifications = backendResult.has_modifications || false;

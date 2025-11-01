@@ -47,8 +47,16 @@ def _route_to_plots_pane(fig) -> None:
     Args:
         fig: Bokeh figure object
     """
+    import os
+    import sys
+
+    # Skip if running in test environment (pytest)
+    if "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST"):
+        return
+
     try:
         from bokeh.io import show
+
         show(fig)  # Positron intercepts this and routes to Plots pane
     except Exception:
         # Silently fail if bokeh.io not available or not in Positron

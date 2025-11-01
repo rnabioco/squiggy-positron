@@ -254,7 +254,7 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
         // Get read count by reading variable directly (no print needed)
         const numReads = await this.getVariable('len(_squiggy_read_ids)');
 
-        return { numReads };
+        return { numReads: numReads as number };
     }
 
     /**
@@ -269,7 +269,7 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
         // Read variable slice directly (no print needed)
         const readIds = await this.getVariable(`_squiggy_read_ids${sliceStr}`);
 
-        return readIds;
+        return readIds as string[];
     }
 
     /**
@@ -306,10 +306,10 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
         );
 
         return {
-            numReads,
-            hasModifications,
-            modificationTypes: modificationTypes.map((x: unknown) => String(x)),
-            hasProbabilities,
+            numReads: numReads as number,
+            hasModifications: hasModifications as boolean,
+            modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
+            hasProbabilities: hasProbabilities as boolean,
         };
     }
 
@@ -319,7 +319,7 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
     async getReferences(): Promise<string[]> {
         // Read keys directly from variable (no print needed)
         const references = await this.getVariable('list(_squiggy_ref_mapping.keys())');
-        return references;
+        return references as string[];
     }
 
     /**
@@ -331,7 +331,7 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
         // Read directly from variable (no print needed)
         const readIds = await this.getVariable(`_squiggy_ref_mapping.get('${escapedRef}', [])`);
 
-        return readIds;
+        return readIds as string[];
     }
 
     /**
@@ -472,7 +472,7 @@ except ImportError:
             // Import squiggy first, then get version
             await this.executeSilent('import squiggy');
             const version = await this.getVariable('squiggy.__version__');
-            return version;
+            return version as string | null;
         } catch {
             // squiggy not installed or no __version__ attribute
             return null;
@@ -513,7 +513,7 @@ _squiggy_env_info = json.dumps(result)
             const result = await this.getVariable('_squiggy_env_info');
             await this.executeSilent('del _squiggy_env_info');
 
-            return JSON.parse(result);
+            return JSON.parse(result as string);
         } catch (error) {
             throw new Error(`Failed to detect environment type: ${error}`);
         }
