@@ -190,7 +190,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
                     if (session && session.onDidChangeRuntimeState) {
                         context.subscriptions.push(
-                            session.onDidChangeRuntimeState((state: any) => {
+                            session.onDidChangeRuntimeState((state: string) => {
                                 console.log('Squiggy: Runtime state changed to:', state);
                                 // Clear state when kernel is restarting or has exited
                                 if (state === 'restarting' || state === 'exited') {
