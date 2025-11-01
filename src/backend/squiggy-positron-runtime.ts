@@ -583,11 +583,7 @@ _squiggy_env_info = json.dumps(result)
         const envInfo = await this.detectEnvironmentType();
 
         // Refuse installation on externally-managed system Python
-        if (
-            envInfo.isExternallyManaged &&
-            !envInfo.isVirtualEnv &&
-            !envInfo.isConda
-        ) {
+        if (envInfo.isExternallyManaged && !envInfo.isVirtualEnv && !envInfo.isConda) {
             throw new Error(
                 'EXTERNALLY_MANAGED_ENVIRONMENT: Cannot install squiggy in externally-managed Python environment.\n\n' +
                     `Your Python installation (${envInfo.pythonPath}) is managed by your system package manager ` +
