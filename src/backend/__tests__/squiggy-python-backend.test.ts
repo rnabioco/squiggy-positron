@@ -52,8 +52,8 @@ describe('PythonBackend', () => {
     const mockServerScript = '/path/to/server.py';
 
     beforeEach(() => {
-        // Use fake timers to prevent leaks and speed up tests
-        jest.useFakeTimers();
+        // Use legacy fake timers to prevent leaks and speed up tests
+        jest.useFakeTimers({ legacyFakeTimers: true });
 
         // Silence console output during tests
         jest.spyOn(console, 'log').mockImplementation(() => {});

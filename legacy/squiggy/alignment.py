@@ -2,11 +2,15 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import pysam
 from rich.console import Console
+
+from squiggy.modifications import (
+    ModificationAnnotation,
+    extract_modifications_from_alignment,
+)
 
 # Create Rich console for styled output
 console = Console()
@@ -20,8 +24,8 @@ class BaseAnnotation:
     position: int  # Position in sequence (0-indexed)
     signal_start: int  # Signal sample start index
     signal_end: int  # Signal sample end index
-    genomic_pos: Optional[int] = None  # Genomic position (if aligned)
-    quality: Optional[int] = None  # Base quality score
+    genomic_pos: int | None = None  # Genomic position (if aligned)
+    quality: int | None = None  # Base quality score
 
 
 @dataclass
@@ -30,15 +34,16 @@ class AlignedRead:
 
     read_id: str
     sequence: str
-    bases: List[BaseAnnotation]
-    chromosome: Optional[str] = None
-    genomic_start: Optional[int] = None
-    genomic_end: Optional[int] = None
-    strand: Optional[str] = None  # '+' or '-'
+    bases: list[BaseAnnotation]
+    modifications: list[ModificationAnnotation] | None = None
+    chromosome: str | None = None
+    genomic_start: int | None = None
+    genomic_end: int | None = None
+    strand: str | None = None  # '+' or '-'
     is_reverse: bool = False
 
 
-def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[AlignedRead]:
+def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | None:
     """Extract alignment information for a read from BAM file
 
     Args:
@@ -61,7 +66,7 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[Aligned
     return None
 
 
-def _parse_alignment(alignment) -> Optional[AlignedRead]:
+def _parse_alignment(alignment) -> AlignedRead | None:
     """Parse a pysam AlignmentSegment into AlignedRead
 
     Args:
@@ -137,10 +142,14 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
     genomic_end = alignment.reference_end if not alignment.is_unmapped else None
     strand = "-" if alignment.is_reverse else "+"
 
+    # Extract modifications from MM/ML tags if present
+    modifications = extract_modifications_from_alignment(alignment, bases)
+
     return AlignedRead(
         read_id=alignment.query_name,
         sequence=sequence,
         bases=bases,
+        modifications=modifications if modifications else None,
         chromosome=chromosome,
         genomic_start=genomic_start,
         genomic_end=genomic_end,
@@ -149,7 +158,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
     )
 
 
-def get_base_to_signal_mapping(aligned_read: AlignedRead) -> Tuple[str, np.ndarray]:
+def get_base_to_signal_mapping(aligned_read: AlignedRead) -> tuple[str, np.ndarray]:
     """Extract sequence and signal mapping from AlignedRead
 
     Args:

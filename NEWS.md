@@ -1,29 +1,71 @@
-# Squiggy 0.1.0 (2025-10-28)
+# Squiggy Release Notes
 
-Initial release of Squiggy - a desktop GUI application for visualizing Oxford Nanopore sequencing data from POD5 files with optional base annotations from BAM files.
+## v0.1.0 (2025-10-31)
 
-## Features
-- Interactive squiggle plot visualization with four plot modes: SINGLE, OVERLAY, STACKED, and EVENTALIGN
-- Support for POD5 file format with VBZ compression
-- Base annotation overlay from BAM files with event-aligned data
-- Multiple signal normalization methods: Z-score, median-centered, and median absolute deviation (MAD)
-- Export plots to HTML, PNG, and SVG formats with zoom-level preservation
-- Three search modes: Read ID filtering, reference region queries, and sequence motif search
-- Dark mode UI support with qt-material theme
-- Sample data bundled with application for quick testing
-- Cross-platform support: Windows, macOS, and Linux standalone executables
+### 🎉 Initial Release
 
-## Improvements
-- Migrated from plotnine to Bokeh for better interactive plotting performance
-- Async I/O operations with qasync for non-blocking UI
-- Colorblind-friendly Okabe-Ito palette for base coloring
-- Signal downsampling using LTTB algorithm for large datasets
-- Collapsible UI sections for better space management
-- Reference browser dialog for exploring BAM reference sequences
+First production release of Squiggy as a Positron IDE extension for Oxford Nanopore signal visualization.
 
-## Internal
-- Automated GitHub Actions workflows for multi-platform builds
-- Comprehensive test suite with pytest
-- PyInstaller configuration for standalone executable packaging
-- MkDocs documentation website with Material theme
-- `/release` and `/worktree` slash commands for development workflow
+### ✨ Features
+
+- **Positron IDE Integration**: Works seamlessly with active Python kernel
+- **Interactive Visualizations**: Bokeh-powered plots with zoom, pan, and hover tooltips
+- **POD5 Support**: Load and visualize Oxford Nanopore signal data
+- **BAM Integration**: Overlay base annotations and modifications on signal plots
+- **Event-Aligned Plotting**: Base-level resolution with move table support
+- **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
+- **Advanced Filtering**: Search reads by ID, reference sequence, or modification type
+- **Plot Export**: Save visualizations as HTML (interactive), PNG, or SVG
+- **Test Data Bundled**: Includes yeast tRNA example data (~2MB) for quick experimentation
+
+### 🔧 Installation & Environment
+
+- **PEP 668 Compliance**: Automatically detects externally-managed Python environments (Homebrew, system Python)
+- **Virtual Environment Detection**: Identifies venv and conda environments
+- **Smart Installation**:
+  - Automatic installation in safe environments (venv/conda)
+  - Clear guidance for system Python users to create virtual environments
+  - Manual installation guide with copy-able commands
+- **Zero Console Pollution**: Silent environment checks using Positron's variable access API
+- **Environment Re-checking**: Detects manual installations between operations
+
+### 🐍 Python Package
+
+- **Dependencies**: Includes pod5, pysam, bokeh, numpy
+- **Python Version**: Requires 3.12+
+- **Signal Processing**:
+  - Normalization methods: Z-score, Median, MAD
+  - Smart downsampling for large signals (100k+ samples)
+  - Dwell time scaling options
+
+### 📚 Documentation
+
+- Comprehensive README with virtual environment setup instructions
+- User guide with detailed Python environment configuration
+- Developer guide for extension development
+- Clear PEP 668 error handling and guidance
+
+### 🔨 Technical Improvements
+
+- Proper error handling for BAM file loading
+- Fixed missing squiggy availability check in `openBAMFile()`
+- Improved installation check logic to detect manual installations
+- Enhanced error messages for PEP 668 scenarios
+- Test data properly bundled in packaged extension
+
+### ⚙️ Requirements
+
+- **Positron IDE**: 2025.6.0+
+- **Python**: 3.12+ in virtual environment (venv or conda recommended)
+- **squiggy package**: Installed automatically or manually via pip
+
+### ⚠️ Known Limitations
+
+- Requires active Python console in Positron
+- BAM files must be indexed (.bai file required)
+- Event-aligned plots require 'mv' tag in BAM (from dorado/guppy basecallers)
+
+### 👥 Contributors
+
+- Jay Hesselberth (@jayhesselberth)
+- With assistance from Claude Code

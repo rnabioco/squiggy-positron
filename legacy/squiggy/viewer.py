@@ -12,15 +12,14 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QDialog,
     QFileDialog,
-    QHBoxLayout,
+    QFrame,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
-    QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSplitter,
     QToolBar,
@@ -41,12 +40,14 @@ from .constants import (
     PlotMode,
     Theme,
 )
-from .dialogs import AboutDialog, ExportDialog, ReferenceBrowserDialog
-from .plotter import SquigglePlotter
+from .dialogs import AboutDialog, ReferenceBrowserDialog
+from .managers import ExportManager, ZoomManager
+from .plotting import SquigglePlotter
 from .search import SearchManager
-from .ui_components import (
+from .ui import (
     AdvancedOptionsPanel,
     FileInfoPanel,
+    ModificationsPanel,
     PlotOptionsPanel,
     SearchPanel,
 )
@@ -70,7 +71,7 @@ from .widgets import CollapsibleBox, ReadTreeWidget
 class SquiggleViewer(QMainWindow):
     """Main application window for nanopore squiggle visualization"""
 
-    def __init__(self):
+    def __init__(self, window_width=None, window_height=None):
         super().__init__()
         self.pod5_file = None
         self.bam_file = None
@@ -87,29 +88,46 @@ class SquiggleViewer(QMainWindow):
         self.current_plot_html = None  # Store current plot HTML for export
         self.current_plot_figure = None  # Store current plot figure for export
         self.search_mode = "read_id"  # "read_id" or "region"
-        self.saved_x_range = None  # Store current x-axis range for zoom preservation
-        self.saved_y_range = None  # Store current y-axis range for zoom preservation
         self.show_signal_points = False  # Show individual signal points on plot
         self.position_label_interval = 10  # Show position labels every N bases
         self.use_reference_positions = (
             False  # Use reference positions vs sequence positions
         )
+        # Modification visualization settings
+        self.show_modification_overlay = True  # Show modification overlays by default
+        self.modification_overlay_opacity = (
+            0.6  # Default opacity for modification overlays
+        )
+        self.modification_type_filter = "all"  # Filter for modification types
+        self.modification_threshold_enabled = True  # Threshold always enabled
+        self.modification_threshold = 0.5  # Default tau threshold
+        self.modification_classification_scope = "position"  # "position" or "any"
         self.current_theme = Theme.DARK  # Default to dark theme
         self.selected_reference = None  # Selected reference for aggregate mode
         self.max_aggregate_reads = (
             DEFAULT_AGGREGATE_SAMPLE_SIZE  # Max reads for aggregate
         )
 
-        # Initialize search manager
+        # Window dimensions (can be overridden from CLI)
+        self.window_width = window_width or DEFAULT_WINDOW_WIDTH
+        self.window_height = window_height or DEFAULT_WINDOW_HEIGHT
+
+        # Task tracking for debouncing plot updates
+        self._update_plot_task = None
+
+        # Initialize managers
         self.search_manager = SearchManager(self)
+        self.export_manager = ExportManager(self)
+        self.zoom_manager = ZoomManager(self)
 
         self.init_ui()
         self.apply_theme()  # Apply initial theme
+        self.showMaximized()  # Maximize window on startup
 
     def init_ui(self):
         """Initialize the user interface"""
         self.setWindowTitle(f"{APP_NAME} - {APP_DESCRIPTION}")
-        self.setGeometry(100, 100, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        self.setGeometry(100, 100, self.window_width, self.window_height)
 
         # Create menu bar
         self.create_menu_bar()
@@ -123,32 +141,17 @@ class SquiggleViewer(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
 
         # Create splitter for left panel, plot area, and read list
-        splitter = QSplitter(Qt.Horizontal)
+        self.splitter = QSplitter(Qt.Horizontal)
 
-        # Left panel - file browser and plot options
+        # Left panel - file browser and plot options (scrollable)
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        left_scroll.setFrameShape(QFrame.NoFrame)
+
         left_panel = QWidget()
         left_panel_layout = QVBoxLayout(left_panel)
-        left_panel_layout.setContentsMargins(0, 0, 0, 0)
-
-        # File selection section
-        file_layout = QHBoxLayout()
-        self.file_label = QLabel("No file selected")
-        self.file_button = QPushButton("Open POD5 File")
-        self.file_button.clicked.connect(self.open_pod5_file)
-        file_layout.addWidget(QLabel("POD5 File:"))
-        file_layout.addWidget(self.file_label, 1)
-        file_layout.addWidget(self.file_button)
-        left_panel_layout.addLayout(file_layout)
-
-        # BAM file selection section (optional)
-        bam_layout = QHBoxLayout()
-        self.bam_label = QLabel("No BAM file (optional)")
-        self.bam_button = QPushButton("Open BAM File")
-        self.bam_button.clicked.connect(self.open_bam_file)
-        bam_layout.addWidget(QLabel("BAM File:"))
-        bam_layout.addWidget(self.bam_label, 1)
-        bam_layout.addWidget(self.bam_button)
-        left_panel_layout.addLayout(bam_layout)
+        left_panel_layout.setContentsMargins(5, 5, 5, 5)
 
         # Create UI component panels
         self.plot_options_panel = PlotOptionsPanel()
@@ -175,19 +178,41 @@ class SquiggleViewer(QMainWindow):
         )
         left_panel_layout.addWidget(self.advanced_options_panel)
 
+        # Modifications panel (initially hidden until modifications are detected)
+        self.modifications_panel = ModificationsPanel()
+        self.modifications_panel.modification_overlay_toggled.connect(
+            self.toggle_modification_overlay
+        )
+        self.modifications_panel.overlay_opacity_changed.connect(
+            self.set_modification_overlay_opacity
+        )
+        self.modifications_panel.mod_type_filter_changed.connect(
+            self.set_modification_type_filter
+        )
+        self.modifications_panel.threshold_changed.connect(
+            self.on_modification_threshold_changed
+        )
+        self.modifications_panel.classification_scope_changed.connect(
+            self.on_modification_scope_changed
+        )
+        self.modifications_panel.hide()  # Initially hidden
+        left_panel_layout.addWidget(self.modifications_panel)
+
         self.file_info_panel = FileInfoPanel()
         left_panel_layout.addWidget(self.file_info_panel)
 
         # Add stretch to push everything to the top
         left_panel_layout.addStretch()
 
-        splitter.addWidget(left_panel)
+        # Add left panel to scroll area, then add scroll area to splitter
+        left_scroll.setWidget(left_panel)
+        self.splitter.addWidget(left_scroll)
 
         # Plot display area (using QWebEngineView for interactive bokeh plots)
         self.plot_view = QWebEngineView()
         self.plot_view.setMinimumSize(PLOT_MIN_WIDTH, PLOT_MIN_HEIGHT)
         # Will be set by apply_theme() which is called after init_ui()
-        splitter.addWidget(self.plot_view)
+        self.splitter.addWidget(self.plot_view)
 
         # Right panel - Container for read list and reference list
         right_panel = QWidget()
@@ -209,14 +234,19 @@ class SquiggleViewer(QMainWindow):
         self.reference_list.setVisible(False)  # Hidden by default
         right_panel_layout.addWidget(self.reference_list)
 
-        splitter.addWidget(right_panel)
+        self.splitter.addWidget(right_panel)
 
-        # Set splitter proportions (left panel, plot, right panel)
-        splitter.setStretchFactor(0, 1)  # Left panel - narrower
-        splitter.setStretchFactor(1, 3)  # Plot area - widest
-        splitter.setStretchFactor(2, 1)  # Right panel (read list) - narrower
+        # Set initial splitter sizes (window is maximized, so plenty of space)
+        # Left panel: 300px (for controls)
+        # Plot: rest of space
+        # Right panel: 0 (hidden initially)
+        self.splitter.setSizes([300, 1000, 0])
 
-        main_layout.addWidget(splitter, 1)
+        # Hide right panel initially - will be shown when data is loaded
+        right_panel.hide()
+        self.right_panel = right_panel  # Store reference for later
+
+        main_layout.addWidget(self.splitter, 1)
 
         # Bottom search panel
         self.search_panel = SearchPanel()
@@ -237,70 +267,25 @@ class SquiggleViewer(QMainWindow):
         self.sequence_results_box.setVisible(False)  # Hidden by default
         main_layout.addWidget(self.sequence_results_box)
 
-        # Status bar
+        # Status bar with permanent file labels on the right
         self.statusBar().showMessage("Ready")
+
+        # Create permanent labels for file status (right side of status bar)
+        self.pod5_status_label = QLabel("POD5: None")
+        self.pod5_status_label.setStyleSheet("margin-right: 10px;")
+        self.statusBar().addPermanentWidget(self.pod5_status_label)
+
+        self.bam_status_label = QLabel("BAM: None")
+        self.bam_status_label.setStyleSheet("margin-right: 10px;")
+        self.statusBar().addPermanentWidget(self.bam_status_label)
 
     def save_plot_ranges(self):
         """Extract and save current plot ranges via JavaScript"""
-        js_code = """
-        (function() {
-            try {
-                // Find the Bokeh plot object
-                const plots = Bokeh.documents[0].roots();
-                if (plots.length > 0) {
-                    // Get the first plot (main figure)
-                    let plot = plots[0];
-
-                    // If it's a layout, find the actual plot figure
-                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {
-                        for (let child of plot.children) {
-                            if (child.constructor.name === 'Figure') {
-                                plot = child;
-                                break;
-                            }
-                            // Check nested layouts
-                            if (child.children) {
-                                for (let nested of child.children) {
-                                    if (nested.constructor.name === 'Figure') {
-                                        plot = nested;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Return the ranges
-                    return JSON.stringify({
-                        x_start: plot.x_range.start,
-                        x_end: plot.x_range.end,
-                        y_start: plot.y_range.start,
-                        y_end: plot.y_range.end
-                    });
-                }
-            } catch (e) {
-                return null;
-            }
-            return null;
-        })();
-        """
-
-        # Execute JavaScript and get the result
-        self.plot_view.page().runJavaScript(js_code, self.on_ranges_extracted)
+        self.zoom_manager.save_plot_ranges()
 
     def on_ranges_extracted(self, result):
         """Callback when ranges are extracted from JavaScript"""
-        if result:
-            import json
-
-            try:
-                ranges = json.loads(result)
-                self.saved_x_range = (ranges["x_start"], ranges["x_end"])
-                self.saved_y_range = (ranges["y_start"], ranges["y_end"])
-            except (json.JSONDecodeError, KeyError, TypeError):
-                # If parsing fails, just use None (will reset zoom)
-                self.saved_x_range = None
-                self.saved_y_range = None
+        self.zoom_manager.on_ranges_extracted(result)
 
     @qasync.asyncSlot()
     async def set_downsample_factor(self, value):
@@ -325,59 +310,7 @@ class SquiggleViewer(QMainWindow):
 
     def restore_plot_ranges(self):
         """Restore saved plot ranges via JavaScript after plot is loaded"""
-        if self.saved_x_range is None or self.saved_y_range is None:
-            return
-
-        x_start, x_end = self.saved_x_range
-        y_start, y_end = self.saved_y_range
-
-        js_code = f"""
-        (function() {{
-            try {{
-                // Wait for Bokeh to be ready
-                if (typeof Bokeh === 'undefined') {{
-                    return;
-                }}
-
-                // Find the Bokeh plot object
-                const plots = Bokeh.documents[0].roots();
-                if (plots.length > 0) {{
-                    // Get the first plot (main figure)
-                    let plot = plots[0];
-
-                    // If it's a layout, find the actual plot figure
-                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
-                        for (let child of plot.children) {{
-                            if (child.constructor.name === 'Figure') {{
-                                plot = child;
-                                break;
-                            }}
-                            // Check nested layouts
-                            if (child.children) {{
-                                for (let nested of child.children) {{
-                                    if (nested.constructor.name === 'Figure') {{
-                                        plot = nested;
-                                        break;
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
-
-                    // Restore the ranges
-                    plot.x_range.start = {x_start};
-                    plot.x_range.end = {x_end};
-                    plot.y_range.start = {y_start};
-                    plot.y_range.end = {y_end};
-                }}
-            }} catch (e) {{
-                console.error('Error restoring plot ranges:', e);
-            }}
-        }})();
-        """
-
-        # Execute JavaScript with a delay to ensure plot is loaded
-        QTimer.singleShot(200, lambda: self.plot_view.page().runJavaScript(js_code))
+        self.zoom_manager.restore_plot_ranges()
 
     @qasync.asyncSlot()
     async def toggle_dwell_time(self, state):
@@ -443,6 +376,75 @@ class SquiggleViewer(QMainWindow):
             finally:
                 QApplication.restoreOverrideCursor()
 
+    # ==============================================================================
+    # Modification Handlers
+    # ==============================================================================
+
+    @qasync.asyncSlot(bool)
+    async def toggle_modification_overlay(self, state):
+        """Toggle modification overlay display"""
+        self.show_modification_overlay = state
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(float)
+    async def set_modification_overlay_opacity(self, opacity):
+        """Set modification overlay opacity"""
+        self.modification_overlay_opacity = opacity
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(str)
+    async def set_modification_type_filter(self, mod_type):
+        """Set modification type filter"""
+        self.modification_type_filter = mod_type
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(float)
+    async def on_modification_threshold_changed(self, tau):
+        """Handle modification threshold value change"""
+        self.modification_threshold = tau
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
+    @qasync.asyncSlot(str)
+    async def on_modification_scope_changed(self, scope):
+        """Handle modification classification scope change"""
+        self.modification_classification_scope = scope
+        # Refresh plot if reads are selected
+        if self.read_list.selectedItems():
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.statusBar().showMessage("Regenerating plot...")
+            try:
+                await self.update_plot_with_delay()
+            finally:
+                QApplication.restoreOverrideCursor()
+
     def set_plot_mode(self, mode):
         """Set the plot mode and refresh display"""
         # Validate that BAM file is loaded for modes that require it
@@ -464,7 +466,7 @@ class SquiggleViewer(QMainWindow):
         # Only update checkbox if it exists (may not exist during initialization)
         if hasattr(self, "advanced_options_panel"):
             self.advanced_options_panel.set_dwell_time_enabled(
-                mode == PlotMode.EVENTALIGN and self.bam_file
+                mode == PlotMode.EVENTALIGN and self.bam_file is not None
             )
 
         # Toggle between read list and reference list based on mode
@@ -514,11 +516,19 @@ class SquiggleViewer(QMainWindow):
         # File menu
         file_menu = menubar.addMenu("File")
 
-        # Open file action
+        # Open POD5 file action
         open_action = QAction("Open POD5 File...", self)
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.open_pod5_file)
         file_menu.addAction(open_action)
+
+        # Open BAM file action
+        open_bam_action = QAction("Open BAM File...", self)
+        open_bam_action.setShortcut("Ctrl+B")
+        open_bam_action.triggered.connect(self.open_bam_file)
+        file_menu.addAction(open_bam_action)
+
+        file_menu.addSeparator()
 
         # Open sample data action
         sample_action = QAction("Open Sample Data", self)
@@ -698,11 +708,12 @@ class SquiggleViewer(QMainWindow):
         self.apply_theme()
 
         # Regenerate plot if one is displayed
-        if self.read_list.selectedItems():
-            await self._regenerate_plot_async()
-        elif self.plot_mode == PlotMode.AGGREGATE and self.selected_reference:
+        # Check aggregate mode first to avoid triggering read selection warning
+        if self.plot_mode == PlotMode.AGGREGATE and self.selected_reference:
             # Regenerate aggregate plot if in aggregate mode with selected reference
             await self.display_aggregate()
+        elif self.read_list.selectedItems():
+            await self._regenerate_plot_async()
         else:
             self.statusBar().showMessage(
                 f"Theme changed to {self.current_theme.value} mode"
@@ -723,14 +734,14 @@ class SquiggleViewer(QMainWindow):
                 return
 
             self.pod5_file = sample_path
-            self.file_label.setText(f"{sample_path.name} (sample)")
+            self.pod5_status_label.setText(f"POD5: {sample_path.name} (sample)")
             await self.load_read_ids()
 
             # Also load the sample BAM file if available
             sample_bam = get_sample_bam_path()
             if sample_bam and sample_bam.exists():
                 self.bam_file = sample_bam
-                self.bam_label.setText(f"{sample_bam.name} (sample)")
+                self.bam_status_label.setText(f"BAM: {sample_bam.name} (sample)")
 
                 # Enable BAM-dependent features
                 self.plot_options_panel.set_bam_controls_enabled(True)
@@ -738,6 +749,9 @@ class SquiggleViewer(QMainWindow):
                 self.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
                 self.advanced_options_panel.set_dwell_time_enabled(True)
                 self.advanced_options_panel.set_position_type_enabled(True)
+
+                # Detect and show modifications if present
+                await self._detect_and_show_modifications(sample_bam)
 
                 # Reload read IDs to populate tree with reference grouping
                 await self.load_read_ids()
@@ -754,6 +768,55 @@ class SquiggleViewer(QMainWindow):
                 self, "Error", f"Failed to load sample data:\n{str(e)}"
             )
 
+    async def _detect_and_show_modifications(self, bam_path):
+        """Detect modifications in BAM file and show ModificationsPanel if present
+
+        Args:
+            bam_path: Path to BAM file
+        """
+        import pysam
+
+        from squiggy.alignment import extract_alignment_from_bam
+        from squiggy.modifications import detect_modification_provenance
+
+        # Always get provenance info (even if unknown)
+        provenance = await asyncio.to_thread(detect_modification_provenance, bam_path)
+
+        # Scan reads to detect modification types (regardless of provenance)
+        def scan_mods():
+            mods = set()
+            with pysam.AlignmentFile(bam_path, "rb", check_sq=False) as bam:
+                for i, read in enumerate(bam.fetch(until_eof=True)):
+                    if i >= 100:  # Sample first 100 reads
+                        break
+                    aligned_read = extract_alignment_from_bam(bam_path, read.query_name)
+                    if aligned_read and aligned_read.modifications:
+                        for mod in aligned_read.modifications:
+                            # Store (canonical_base, mod_code) tuple
+                            # Get canonical base from position in sequence
+                            if mod.position < len(aligned_read.sequence):
+                                canonical_base = aligned_read.sequence[mod.position]
+                                mods.add((canonical_base, mod.mod_code))
+            return mods
+
+        detected_mods = await asyncio.to_thread(scan_mods)
+
+        if detected_mods:
+            # BAM file has modifications - populate and show the ModificationsPanel
+            self.modifications_panel.set_provenance(provenance)
+            self.modifications_panel.set_detected_modifications(detected_mods)
+            self.modifications_panel.show()
+            self.modifications_panel.updateGeometry()
+
+            self.statusBar().showMessage(
+                f"Detected {len(detected_mods)} modification type(s) "
+                f"(basecaller: {provenance.get('basecaller', 'unknown')})",
+                5000,
+            )
+        else:
+            # No modifications detected - keep panel hidden
+            self.modifications_panel.hide()
+
     @qasync.asyncSlot()
     async def open_pod5_file(self):
         """Open and load a POD5 file (async)"""
@@ -765,13 +828,56 @@ class SquiggleViewer(QMainWindow):
             try:
                 # Convert to absolute path to avoid issues with CWD changes
                 self.pod5_file = Path(file_path).resolve()
-                self.file_label.setText(self.pod5_file.name)
+                self.pod5_status_label.setText(f"POD5: {self.pod5_file.name}")
                 await self.load_read_ids()
                 self.statusBar().showMessage(f"Loaded {len(self.read_dict)} reads")
             except Exception as e:
                 QMessageBox.critical(
                     self, "Error", f"Failed to load POD5 file:\n{str(e)}"
                 )
+
+    def _adjust_splitter_for_tree_content(self, reads_by_reference):
+        """Show the right panel and size it based on reference names
+
+        Args:
+            reads_by_reference: Dict mapping reference name -> list of read IDs
+        """
+        if not reads_by_reference:
+            return
+
+        # Show the right panel first
+        self.right_panel.show()
+
+        # Find the longest reference name
+        longest_ref_name = max(reads_by_reference.keys(), key=len)
+
+        # Calculate width needed for the longest reference name
+        # Use the tree widget's font metrics to measure text width
+        font_metrics = self.read_list.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(longest_ref_name)
+
+        # Add padding for tree widget decorations (expand arrow, margins, scrollbar)
+        padding = 100
+        needed_width = max(text_width + padding, 250)  # At least 250px
+
+        # Cap at 400px max
+        right_width = min(needed_width, 400)
+
+        # Use QTimer to set sizes after the panel is visible
+
+        def do_resize():
+            # Get current sizes
+            current_sizes = self.splitter.sizes()
+            left_width = current_sizes[0]
+            total_width = sum(current_sizes)
+
+            # Calculate plot width as remainder
+            plot_width = total_width - left_width - right_width
+
+            # Set the new sizes
+            self.splitter.setSizes([left_width, plot_width, right_width])
+
+        QTimer.singleShot(50, do_resize)
 
     def _load_read_ids_blocking(self):
         """Blocking function to load read IDs from POD5 file"""
@@ -824,10 +930,16 @@ class SquiggleViewer(QMainWindow):
                 # Populate tree widget with grouped reads
                 self.read_list.populate_with_reads(reads_by_reference)
 
+                # Adjust splitter to fit reference names
+                self._adjust_splitter_for_tree_content(reads_by_reference)
+
             else:
                 # No BAM file: Create a single "All Reads" group
                 all_reads = list(read_dict.keys())
                 self.read_list.populate_with_reads({"All Reads": all_reads})
+
+                # Show right panel with default sizing
+                self.right_panel.show()
 
             # Update file information panel
             await self.update_file_info()
@@ -973,7 +1085,7 @@ class SquiggleViewer(QMainWindow):
 
                 # Validation passed, load BAM file
                 self.bam_file = bam_path
-                self.bam_label.setText(bam_path.name)
+                self.bam_status_label.setText(f"BAM: {bam_path.name}")
                 self.plot_options_panel.set_bam_controls_enabled(True)
                 self.plot_options_panel.set_plot_mode(PlotMode.EVENTALIGN)
                 self.plot_mode = PlotMode.EVENTALIGN  # Explicitly sync internal state
@@ -983,6 +1095,9 @@ class SquiggleViewer(QMainWindow):
                 # Enable browse references button if in region search mode
                 if self.search_panel.get_search_mode() == "region":
                     self.search_panel.set_browse_enabled(True)
+
+                # Detect and show modifications if present
+                await self._detect_and_show_modifications(bam_path)
 
                 # Reload read IDs to populate tree with reference grouping
                 await self.load_read_ids()
@@ -1216,8 +1331,25 @@ class SquiggleViewer(QMainWindow):
 
     @qasync.asyncSlot()
     async def on_read_selection_changed(self):
-        """Handle read selection changes"""
-        await self.update_plot_from_selection()
+        """Handle read selection changes with debouncing to prevent race conditions"""
+        # Cancel any existing update task to prevent multiple concurrent updates
+        if self._update_plot_task and not self._update_plot_task.done():
+            self._update_plot_task.cancel()
+
+        # Create a new task for this selection change
+        self._update_plot_task = asyncio.create_task(self._debounced_update_plot())
+
+    async def _debounced_update_plot(self):
+        """Debounced plot update with cancellation handling"""
+        try:
+            # Wait for selection to stabilize (200ms debounce)
+            await asyncio.sleep(0.2)
+
+            # Update the plot with the current selection
+            await self.update_plot_from_selection()
+        except asyncio.CancelledError:
+            # Task was cancelled by a newer selection change - this is expected behavior
+            pass
 
     @qasync.asyncSlot()
     async def update_plot_from_selection(self):
@@ -1420,63 +1552,7 @@ class SquiggleViewer(QMainWindow):
 
     def zoom_to_sequence_match(self, item):
         """Zoom plot to show a sequence match"""
-        match = item.data(Qt.UserRole)
-        if not match:
-            return
-
-        # Extract base position range
-        base_start = match["base_start"]
-        base_end = match["base_end"]
-
-        # Add some padding (show 20 bases before and after)
-        padding = 20
-        zoom_start = max(0, base_start - padding)
-        zoom_end = base_end + padding
-
-        # JavaScript to zoom the plot
-        js_code = f"""
-        (function() {{
-            try {{
-                if (typeof Bokeh === 'undefined') {{
-                    return;
-                }}
-
-                const plots = Bokeh.documents[0].roots();
-                if (plots.length > 0) {{
-                    let plot = plots[0];
-
-                    // If it's a layout, find the actual plot figure
-                    if (plot.constructor.name === 'Column' || plot.constructor.name === 'Row') {{
-                        for (let child of plot.children) {{
-                            if (child.constructor.name === 'Figure') {{
-                                plot = child;
-                                break;
-                            }}
-                            if (child.children) {{
-                                for (let nested of child.children) {{
-                                    if (nested.constructor.name === 'Figure') {{
-                                        plot = nested;
-                                        break;
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
-
-                    // Zoom to the region
-                    plot.x_range.start = {zoom_start};
-                    plot.x_range.end = {zoom_end};
-                }}
-            }} catch (e) {{
-                console.error('Error zooming to sequence:', e);
-            }}
-        }})();
-        """
-
-        self.plot_view.page().runJavaScript(js_code)
-        self.statusBar().showMessage(
-            f"Zoomed to {match['strand']} match at position {match['base_start']}-{match['base_end']}"
-        )
+        self.zoom_manager.zoom_to_sequence_match(item)
 
     def _generate_plot_blocking(self, read_id):
         """Blocking function to generate bokeh plot HTML"""
@@ -1502,6 +1578,15 @@ class SquiggleViewer(QMainWindow):
         if self.show_bases and self.bam_file:
             sequence, seq_to_sig_map = get_basecall_data(self.bam_file, read_id)
 
+        # Get modifications if available
+        modifications = None
+        if self.bam_file:
+            from .alignment import extract_alignment_from_bam
+
+            aligned_read = extract_alignment_from_bam(self.bam_file, read_id)
+            if aligned_read and aligned_read.modifications:
+                modifications = aligned_read.modifications
+
         # Generate bokeh plot HTML
         html, figure = SquigglePlotter.plot_single_read(
             signal,
@@ -1517,6 +1602,12 @@ class SquiggleViewer(QMainWindow):
             position_label_interval=self.position_label_interval,
             use_reference_positions=self.use_reference_positions,
             theme=self.current_theme,
+            modifications=modifications,
+            show_modification_overlay=self.show_modification_overlay,
+            modification_overlay_opacity=self.modification_overlay_opacity,
+            modification_type_filter=self.modification_type_filter,
+            modification_threshold_enabled=self.modification_threshold_enabled,
+            modification_threshold=self.modification_threshold,
         )
 
         return html, figure, signal, sequence
@@ -1667,6 +1758,11 @@ class SquiggleViewer(QMainWindow):
             position_label_interval=self.position_label_interval,
             use_reference_positions=self.use_reference_positions,
             theme=self.current_theme,
+            show_modification_overlay=self.show_modification_overlay,
+            modification_overlay_opacity=self.modification_overlay_opacity,
+            modification_type_filter=self.modification_type_filter,
+            modification_threshold_enabled=self.modification_threshold_enabled,
+            modification_threshold=self.modification_threshold,
         )
 
         return html, figure, reads_data, aligned_reads
@@ -1706,327 +1802,6 @@ class SquiggleViewer(QMainWindow):
                 self, "Error", f"Failed to display event-aligned plot:\n{str(e)}"
             )
 
-    def _get_current_view_ranges(self):
-        """Get current x and y ranges from the displayed Bokeh plot
-
-        Returns:
-            tuple: ((x_start, x_end), (y_start, y_end)) or (None, None) if unavailable
-        """
-        # JavaScript to extract current range values from Bokeh plot
-        js_code = """
-        (function() {
-            try {
-                // Get the Bokeh document root
-                var root = Bokeh.documents[0].roots()[0];
-
-                // Get x and y ranges
-                var x_range = root.x_range;
-                var y_range = root.y_range;
-
-                return JSON.stringify({
-                    x_start: x_range.start,
-                    x_end: x_range.end,
-                    y_start: y_range.start,
-                    y_end: y_range.end
-                });
-            } catch(e) {
-                return null;
-            }
-        })();
-        """
-
-        # Execute JavaScript and get result synchronously
-        result = [None]  # Use list to store result in callback
-
-        def callback(js_result):
-            result[0] = js_result
-
-        self.plot_view.page().runJavaScript(js_code, callback)
-
-        # Process events to wait for JavaScript execution
-        # This is a simple approach - for production might need QEventLoop
-        from PySide6.QtWidgets import QApplication
-
-        QApplication.processEvents()
-
-        if result[0]:
-            try:
-                import json
-
-                ranges = json.loads(result[0])
-                x_range = (ranges["x_start"], ranges["x_end"])
-                y_range = (ranges["y_start"], ranges["y_end"])
-                return x_range, y_range
-            except Exception:
-                pass
-
-        return None, None
-
-    def _export_html(self, file_path):
-        """Export plot as HTML file
-
-        Args:
-            file_path: Path to save HTML file
-        """
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(self.current_plot_html)
-
-    def _export_png(self, file_path, width, height, x_range=None, y_range=None):
-        """Export plot as PNG image
-
-        Args:
-            file_path: Path to save PNG file
-            width: Image width in pixels
-            height: Image height in pixels
-            x_range: Optional tuple (x_start, x_end) to set x-axis range
-            y_range: Optional tuple (y_start, y_end) to set y-axis range
-
-        Raises:
-            ImportError: If selenium or pillow not installed
-        """
-        try:
-            from bokeh.io import export_png
-        except ImportError as e:
-            raise ImportError(
-                "PNG export requires additional dependencies. "
-                "Install with: uv pip install -e '.[export]'"
-            ) from e
-
-        # Store original dimensions, sizing mode, and ranges
-        original_width = self.current_plot_figure.width
-        original_height = self.current_plot_figure.height
-        original_sizing_mode = self.current_plot_figure.sizing_mode
-        original_x_range = None
-        original_y_range = None
-
-        try:
-            # Temporarily modify figure dimensions and sizing mode
-            # Setting sizing_mode to None allows explicit width/height to work properly
-            self.current_plot_figure.sizing_mode = None
-            self.current_plot_figure.width = width
-            self.current_plot_figure.height = height
-
-            # Apply custom ranges if provided
-            if x_range is not None:
-                original_x_range = (
-                    self.current_plot_figure.x_range.start,
-                    self.current_plot_figure.x_range.end,
-                )
-                self.current_plot_figure.x_range.start = x_range[0]
-                self.current_plot_figure.x_range.end = x_range[1]
-
-            if y_range is not None:
-                original_y_range = (
-                    self.current_plot_figure.y_range.start,
-                    self.current_plot_figure.y_range.end,
-                )
-                self.current_plot_figure.y_range.start = y_range[0]
-                self.current_plot_figure.y_range.end = y_range[1]
-
-            # Export to PNG
-            export_png(self.current_plot_figure, filename=str(file_path))
-        finally:
-            # Restore original dimensions and sizing mode
-            self.current_plot_figure.sizing_mode = original_sizing_mode
-            self.current_plot_figure.width = original_width
-            self.current_plot_figure.height = original_height
-
-            # Restore original ranges
-            if original_x_range is not None:
-                self.current_plot_figure.x_range.start = original_x_range[0]
-                self.current_plot_figure.x_range.end = original_x_range[1]
-
-            if original_y_range is not None:
-                self.current_plot_figure.y_range.start = original_y_range[0]
-                self.current_plot_figure.y_range.end = original_y_range[1]
-
-    def _export_svg(self, file_path, width, height, x_range=None, y_range=None):
-        """Export plot as SVG image
-
-        Args:
-            file_path: Path to save SVG file
-            width: Image width in pixels
-            height: Image height in pixels
-            x_range: Optional tuple (x_start, x_end) to set x-axis range
-            y_range: Optional tuple (y_start, y_end) to set y-axis range
-
-        Raises:
-            ImportError: If selenium not installed
-        """
-        try:
-            from bokeh.io import export_svgs
-        except ImportError as e:
-            raise ImportError(
-                "SVG export requires additional dependencies. "
-                "Install with: uv pip install -e '.[export]'"
-            ) from e
-
-        # Store original dimensions, backend, sizing mode, and ranges
-        original_width = self.current_plot_figure.width
-        original_height = self.current_plot_figure.height
-        original_backend = self.current_plot_figure.output_backend
-        original_sizing_mode = self.current_plot_figure.sizing_mode
-        original_x_range = None
-        original_y_range = None
-
-        try:
-            # Temporarily modify figure dimensions, backend, and sizing mode
-            # Setting sizing_mode to None allows explicit width/height to work properly
-            self.current_plot_figure.sizing_mode = None
-            self.current_plot_figure.width = width
-            self.current_plot_figure.height = height
-            self.current_plot_figure.output_backend = "svg"
-
-            # Apply custom ranges if provided
-            if x_range is not None:
-                original_x_range = (
-                    self.current_plot_figure.x_range.start,
-                    self.current_plot_figure.x_range.end,
-                )
-                self.current_plot_figure.x_range.start = x_range[0]
-                self.current_plot_figure.x_range.end = x_range[1]
-
-            if y_range is not None:
-                original_y_range = (
-                    self.current_plot_figure.y_range.start,
-                    self.current_plot_figure.y_range.end,
-                )
-                self.current_plot_figure.y_range.start = y_range[0]
-                self.current_plot_figure.y_range.end = y_range[1]
-
-            # Export to SVG
-            export_svgs(self.current_plot_figure, filename=str(file_path))
-        finally:
-            # Restore original dimensions, backend, and sizing mode
-            self.current_plot_figure.sizing_mode = original_sizing_mode
-            self.current_plot_figure.width = original_width
-            self.current_plot_figure.height = original_height
-            self.current_plot_figure.output_backend = original_backend
-
-            # Restore original ranges
-            if original_x_range is not None:
-                self.current_plot_figure.x_range.start = original_x_range[0]
-                self.current_plot_figure.x_range.end = original_x_range[1]
-
-            if original_y_range is not None:
-                self.current_plot_figure.y_range.start = original_y_range[0]
-                self.current_plot_figure.y_range.end = original_y_range[1]
-
     def export_plot(self):
         """Export the current plot with format and dimension options"""
-        if self.current_plot_html is None or self.current_plot_figure is None:
-            QMessageBox.warning(
-                self,
-                "No Plot",
-                "No plot to export. Please display a plot first.",
-            )
-            return
-
-        # Show export dialog
-        dialog = ExportDialog(self)
-        if dialog.exec() != QDialog.Accepted:
-            return  # User cancelled
-
-        # Get export settings
-        settings = dialog.get_export_settings()
-        export_format = settings["format"]
-        width = settings["width"]
-        height = settings["height"]
-        use_current_view = settings["use_current_view"]
-
-        # Get current view ranges if needed
-        x_range, y_range = None, None
-        if use_current_view:
-            x_range, y_range = self._get_current_view_ranges()
-            if x_range is None or y_range is None:
-                QMessageBox.warning(
-                    self,
-                    "Cannot Get View Range",
-                    "Unable to extract current zoom level. Exporting full plot instead.",
-                )
-                use_current_view = False
-
-        # Determine file extension and filter based on format
-        if export_format == "html":
-            filter_str = "HTML File (*.html);;All Files (*)"
-            default_ext = ".html"
-        elif export_format == "png":
-            filter_str = "PNG Image (*.png);;All Files (*)"
-            default_ext = ".png"
-        else:  # svg
-            filter_str = "SVG Image (*.svg);;All Files (*)"
-            default_ext = ".svg"
-
-        # Get file path from user
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Plot",
-            "",
-            filter_str,
-        )
-
-        if not file_path:
-            return  # User cancelled
-
-        try:
-            # Ensure correct extension
-            file_path = Path(file_path)
-            if not file_path.suffix:
-                file_path = file_path.with_suffix(default_ext)
-
-            # Show progress
-            QApplication.setOverrideCursor(Qt.WaitCursor)
-            self.statusBar().showMessage(
-                f"Exporting plot as {export_format.upper()}..."
-            )
-
-            try:
-                # Export based on format
-                if export_format == "html":
-                    self._export_html(file_path)
-                    view_info = " (current view)" if use_current_view else ""
-                    message = (
-                        f"Interactive plot successfully exported to:\n{file_path}\n\n"
-                        f"Open the file in a web browser to view the interactive plot."
-                    )
-                elif export_format == "png":
-                    self._export_png(file_path, width, height, x_range, y_range)
-                    view_info = " (current view)" if use_current_view else ""
-                    message = (
-                        f"PNG image successfully exported to:\n{file_path}\n\n"
-                        f"Dimensions: {width} × {height} pixels{view_info}"
-                    )
-                else:  # svg
-                    self._export_svg(file_path, width, height, x_range, y_range)
-                    view_info = " (current view)" if use_current_view else ""
-                    message = (
-                        f"SVG image successfully exported to:\n{file_path}\n\n"
-                        f"Dimensions: {width} × {height} pixels{view_info}\n"
-                        f"Edit in vector graphics software like Inkscape or Adobe Illustrator."
-                    )
-
-                self.statusBar().showMessage(f"Plot exported to {file_path.name}")
-                QMessageBox.information(self, "Export Successful", message)
-
-            finally:
-                QApplication.restoreOverrideCursor()
-
-        except ImportError as e:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.critical(
-                self,
-                "Missing Dependencies",
-                f"{str(e)}\n\n"
-                f"PNG and SVG export require additional dependencies:\n"
-                f"• selenium (for headless browser rendering)\n"
-                f"• pillow (for image handling)\n\n"
-                f"Install with:\n"
-                f"  uv pip install -e '.[export]'\n\n"
-                f"or:\n"
-                f"  pip install selenium pillow",
-            )
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.critical(
-                self, "Export Failed", f"Failed to export plot:\n{str(e)}"
-            )
+        self.export_manager.export_plot()

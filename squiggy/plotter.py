@@ -1,6 +1,5 @@
 """Plotting for nanopore squiggle visualization"""
 
-
 import numpy as np
 from bokeh.embed import file_html
 from bokeh.layouts import column, gridplot
@@ -1984,6 +1983,7 @@ class SquigglePlotter:
         # Adjust y-range for signal panel to accommodate confidence bands
         # Add padding so upper/lower bounds are fully visible
         import numpy as np
+
         y_margin = (np.max(upper) - np.min(lower)) * 0.1  # 10% padding
         p_signal.y_range.start = np.min(lower) - y_margin
         p_signal.y_range.end = np.max(upper) + y_margin

@@ -443,10 +443,22 @@ squiggy.plot_aggregate(
      * Check if squiggy package is installed in the kernel
      */
     async isSquiggyInstalled(): Promise<boolean> {
+        const code = `
+try:
+    import squiggy
+    # Verify package has expected functions
+    _squiggy_installed = (hasattr(squiggy, 'load_pod5') and
+                          hasattr(squiggy, 'load_bam') and
+                          hasattr(squiggy, 'plot_read'))
+except ImportError:
+    _squiggy_installed = False
+`;
+
         try {
-            // Try importing squiggy silently (no console output)
-            await this.executeSilent(`import squiggy`);
-            return true; // If no exception, squiggy is installed
+            await this.executeSilent(code);
+            const result = await this.getVariable('_squiggy_installed');
+            await this.executeSilent('del _squiggy_installed').catch(() => {});
+            return result === true;
         } catch {
             return false; // ImportError or other exception means not installed
         }
@@ -468,18 +480,75 @@ squiggy.plot_aggregate(
     }
 
     /**
+     * Detect Python environment type
+     *
+     * @returns Information about the Python environment
+     */
+    async detectEnvironmentType(): Promise<{
+        isVirtualEnv: boolean;
+        isConda: boolean;
+        isExternallyManaged: boolean;
+        pythonPath: string;
+        prefix: string;
+        basePrefix: string;
+    }> {
+        const code = `
+import sys
+import os
+import json
+
+result = {
+    'is_venv': hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix),
+    'is_conda': 'CONDA_PREFIX' in os.environ or 'CONDA_DEFAULT_ENV' in os.environ,
+    'is_externally_managed': os.path.exists(os.path.join(sys.prefix, 'EXTERNALLY-MANAGED')),
+    'python_path': sys.executable,
+    'prefix': sys.prefix,
+    'base_prefix': getattr(sys, 'base_prefix', sys.prefix)
+}
+_squiggy_env_info = json.dumps(result)
+`;
+
+        try {
+            await this.executeSilent(code);
+            const result = await this.getVariable('_squiggy_env_info');
+            await this.executeSilent('del _squiggy_env_info');
+
+            return JSON.parse(result);
+        } catch (error) {
+            throw new Error(`Failed to detect environment type: ${error}`);
+        }
+    }
+
+    /**
      * Install squiggy package to the kernel from extension directory
      *
      * @param extensionPath Path to the extension directory containing pyproject.toml
      */
     async installSquiggy(extensionPath: string): Promise<void> {
+        // Detect environment first
+        const envInfo = await this.detectEnvironmentType();
+
+        // Refuse installation on externally-managed system Python
+        if (envInfo.isExternallyManaged && !envInfo.isVirtualEnv && !envInfo.isConda) {
+            throw new Error(
+                'EXTERNALLY_MANAGED_ENVIRONMENT: Cannot install squiggy in externally-managed Python environment.\n\n' +
+                    `Your Python installation (${envInfo.pythonPath}) is managed by your system package manager ` +
+                    '(e.g., Homebrew, apt, dnf) and cannot be modified directly.\n\n' +
+                    'Please create a virtual environment first:\n' +
+                    '1. Run: python3 -m venv .venv\n' +
+                    '2. Select the new environment in Positron (Interpreter selector)\n' +
+                    '3. Restart the Python console\n' +
+                    '4. Try opening the POD5 file again\n\n' +
+                    `Or install squiggy manually: pip install -e ${extensionPath}`
+            );
+        }
+
         // Use JSON serialization for cross-platform path safety (Windows backslashes, etc.)
         const pathJson = JSON.stringify(extensionPath);
 
         const code = `
 import subprocess
 import sys
-import json
 
 # Check if pip is available
 pip_check = subprocess.run(
@@ -490,8 +559,8 @@ pip_check = subprocess.run(
 if pip_check.returncode != 0:
     raise Exception('pip is not available in this Python environment. Please install pip first.')
 
-# Deserialize path safely (handles Windows backslashes, spaces, etc.)
-extension_path = json.loads(${pathJson})
+# Path is already JSON-stringified by TypeScript, interpolate directly
+extension_path = ${pathJson}
 
 # Install with timeout (5 minutes)
 result = subprocess.run(

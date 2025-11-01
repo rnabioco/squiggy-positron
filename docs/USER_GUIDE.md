@@ -24,13 +24,50 @@ Complete guide to using the Squiggy Positron extension for nanopore signal visua
 
 ### Python Requirements
 
-Ensure your Python environment has the squiggy package:
+**Important**: Use a virtual environment for Python package management.
+
+#### Setting Up a Virtual Environment
+
+**Option 1: venv (Recommended)**
 
 ```bash
+# Create virtual environment in your project directory
+python3 -m venv .venv
+
+# Activate it
+source .venv/bin/activate  # macOS/Linux
+# OR
+.venv\Scripts\activate     # Windows
+
+# Install squiggy package
 pip install squiggy
 ```
 
-This installs dependencies: `pod5`, `pysam`, `bokeh`, `numpy`
+**Option 2: conda**
+
+```bash
+conda create -n squiggy python=3.12
+conda activate squiggy
+pip install squiggy
+```
+
+**Option 3: Automatic Installation via Extension**
+
+When you first open a POD5 file, Squiggy will:
+1. Check if the Python package is installed in your active kernel
+2. Detect your Python environment type (venv, conda, or system Python)
+3. Prompt you to install automatically (if safe) or show manual instructions
+
+> **Note**: If you're using Homebrew Python or system Python, the extension will refuse automatic installation and guide you to create a virtual environment first. This follows [PEP 668](https://peps.python.org/pep-0668/) guidelines for externally-managed Python environments.
+
+#### Python Environment in Positron
+
+After creating your virtual environment:
+1. Use Positron's **Interpreter selector** to choose your environment
+2. Start a new Python console (it will use the selected interpreter)
+3. The extension will work with this active kernel
+
+**Dependencies installed with squiggy**: `pod5`, `pysam`, `bokeh`, `numpy`
 
 ### Opening the Extension
 

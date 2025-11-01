@@ -1,6 +1,10 @@
 # Codecov Configuration for Squiggy
 # https://docs.codecov.com/docs/codecovyml-reference
 
+# Notification settings (disable emails)
+notify:
+  email: false
+
 # Coverage calculation settings
 coverage:
   precision: 2  # Decimal places for coverage percentage

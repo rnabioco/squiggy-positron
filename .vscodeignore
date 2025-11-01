@@ -1,0 +1,61 @@
+# Development files
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.gitattributes
+.eslintrc.json
+.prettierrc.json
+tsconfig.json
+jest.config.js
+
+# Python development files (exclude test code but include test data)
+tests/*.py
+tests/__pycache__/**
+.pytest_cache/**
+.ruff_cache/**
+__pycache__/**
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/**
+codecov.yml
+
+# Pixi environment (this is the key exclusion to fix the build error)
+.pixi/**
+pixi.toml
+pixi.lock
+
+# Git
+.git/**
+.github/**
+
+# Documentation and legacy (keep README and LICENSE)
+docs/**
+legacy/**
+site/**
+mkdocs.yml
+CLAUDE.md
+NEWS.md
+
+# Node modules
+node_modules/**
+package-lock.json
+
+# Build artifacts
+*.log
+*.vsix
+build/build/**
+build/dist/**
+
+# OS files
+.DS_Store
+*.swp
+*.tmp
+
+# Claude Code
+.claude/**
+
+# Scripts
+scripts/**

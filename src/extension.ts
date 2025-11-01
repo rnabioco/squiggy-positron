@@ -224,11 +224,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Register commands
     registerCommands(context, readTreeView);
 
-    // Show welcome message
-    const backendType = usePositron ? 'Positron kernel' : 'subprocess backend';
-    vscode.window.showInformationMessage(
-        `Squiggy extension loaded (using ${backendType})! Use "Open POD5 File" to get started.`
-    );
+    // Extension activated silently - no welcome message needed
 }
 
 /**
@@ -445,34 +441,30 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
         return true;
     }
 
-    // Only check once per session
-    if (squiggyInstallChecked) {
-        // If user previously declined, don't prompt again
-        if (squiggyInstallDeclined) {
-            return false;
-        }
-        // Otherwise check if it's installed now
-        const installed = await positronRuntime.isSquiggyInstalled();
-        filePanelProvider.setSquiggyStatus(installed);
-        return installed;
+    // Always check if squiggy is installed (user may have installed manually)
+    const installed = await positronRuntime.isSquiggyInstalled();
+
+    if (installed) {
+        // Package is installed - update status and return success
+        const version = await positronRuntime.getSquiggyVersion();
+        filePanelProvider.setSquiggyStatus(true, version || undefined);
+        squiggyInstallChecked = true;
+        squiggyInstallDeclined = false; // Reset declined flag since it's now installed
+        return true;
+    }
+
+    // Not installed - check if we should prompt
+    if (squiggyInstallChecked && squiggyInstallDeclined) {
+        // User already declined this session - don't prompt again
+        filePanelProvider.setSquiggyStatus(false);
+        return false;
     }
 
     try {
-        // Check if squiggy is installed
-        const installed = await positronRuntime.isSquiggyInstalled();
+        // Prompt user to install
+        const userChoice = await promptInstallSquiggy();
 
-        if (installed) {
-            // Get version and update status badge
-            const version = await positronRuntime.getSquiggyVersion();
-            filePanelProvider.setSquiggyStatus(true, version || undefined);
-            squiggyInstallChecked = true;
-            return true;
-        }
-
-        // Not installed - prompt user
-        const shouldInstall = await promptInstallSquiggy();
-
-        if (shouldInstall) {
+        if (userChoice === 'install') {
             // Install squiggy
             const success = await installSquiggyPackage();
             squiggyInstallChecked = true;
@@ -485,8 +477,15 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
                 filePanelProvider.setSquiggyStatus(false);
                 return false;
             }
+        } else if (userChoice === 'manual') {
+            // Show manual installation guide
+            await showManualInstallationGuide();
+            squiggyInstallDeclined = true;
+            squiggyInstallChecked = true;
+            filePanelProvider.setSquiggyStatus(false);
+            return false;
         } else {
-            // User declined installation
+            // User canceled installation
             squiggyInstallDeclined = true;
             squiggyInstallChecked = true;
             filePanelProvider.setSquiggyStatus(false);
@@ -504,35 +503,68 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
  * Prompt user to install squiggy package
  * @returns true if user wants to install, false otherwise
  */
-async function promptInstallSquiggy(): Promise<boolean> {
-    try {
-        // Try to use Positron's modal dialog first
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const positron = require('positron');
-
-        if (positron.window && positron.window.showSimpleModalDialogPrompt) {
-            const title = 'Install Squiggy Python Package?';
-            const message =
-                'To visualize POD5 files, Squiggy needs to install the <code>squiggy</code> Python package ' +
-                'in your active Python environment. This will install the package and its dependencies ' +
-                '(bokeh, numpy, pod5, pysam).';
-            const okButtonTitle = 'Install';
-
-            return await positron.window.showSimpleModalDialogPrompt(title, message, okButtonTitle);
-        }
-    } catch {
-        // Positron modal not available - fall through to VSCode dialog
-    }
-
-    // Fallback to VSCode information message with buttons
+async function promptInstallSquiggy(): Promise<'install' | 'manual' | 'cancel'> {
+    // Use VSCode information message with three options
     const choice = await vscode.window.showInformationMessage(
-        'Squiggy requires the Python package "squiggy" to be installed in your active Python environment. ' +
-            'Install now?',
-        'Install',
+        'Squiggy requires the Python package "squiggy" to be installed in your active Python environment.',
+        'Install Automatically',
+        'Manual Instructions',
         'Cancel'
     );
 
-    return choice === 'Install';
+    if (choice === 'Install Automatically') {
+        return 'install';
+    } else if (choice === 'Manual Instructions') {
+        return 'manual';
+    } else {
+        return 'cancel';
+    }
+}
+
+/**
+ * Show manual installation guide with copy-able commands
+ */
+async function showManualInstallationGuide(): Promise<void> {
+    const extensionPath =
+        vscode.extensions.getExtension('rnabioco.squiggy-positron')?.extensionPath || '';
+
+    const items = [
+        {
+            label: '1. Create Virtual Environment',
+            detail: 'python3 -m venv .venv',
+            description: 'Create a new virtual environment in your project',
+        },
+        {
+            label: '2. Activate Virtual Environment (macOS/Linux)',
+            detail: 'source .venv/bin/activate',
+            description: 'Activate the virtual environment',
+        },
+        {
+            label: '3. Activate Virtual Environment (Windows)',
+            detail: '.venv\\Scripts\\activate',
+            description: 'Activate the virtual environment on Windows',
+        },
+        {
+            label: '4. Install Squiggy Package',
+            detail: `pip install -e "${extensionPath}"`,
+            description: 'Install squiggy in editable mode',
+        },
+        {
+            label: '5. Select Environment in Positron',
+            detail: 'Use the Interpreter selector to choose your new .venv',
+            description: 'Switch to the new virtual environment',
+        },
+    ];
+
+    const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Select a command to copy to clipboard',
+        title: 'Manual Installation Steps',
+    });
+
+    if (selected && selected.detail) {
+        await vscode.env.clipboard.writeText(selected.detail);
+        vscode.window.showInformationMessage(`Copied to clipboard: ${selected.detail}`);
+    }
 }
 
 /**
@@ -558,9 +590,30 @@ async function installSquiggyPackage(): Promise<boolean> {
                     return true;
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : String(error);
-                    vscode.window.showErrorMessage(
-                        `Failed to install squiggy package: ${errorMessage}`
-                    );
+
+                    // Detect PEP 668 externally-managed environment errors
+                    if (
+                        errorMessage.includes('EXTERNALLY_MANAGED_ENVIRONMENT') ||
+                        errorMessage.includes('externally-managed-environment') ||
+                        errorMessage.includes('EXTERNALLY-MANAGED')
+                    ) {
+                        // Show detailed error with option to see manual instructions
+                        const choice = await vscode.window.showErrorMessage(
+                            'Cannot install squiggy: Python environment is externally managed by your ' +
+                                'system package manager. Please create a virtual environment first.',
+                            'Show Instructions',
+                            'Dismiss'
+                        );
+
+                        if (choice === 'Show Instructions') {
+                            await showManualInstallationGuide();
+                        }
+                    } else {
+                        // Generic installation error
+                        vscode.window.showErrorMessage(
+                            `Failed to install squiggy package: ${errorMessage}`
+                        );
+                    }
                     return false;
                 }
             }
@@ -648,6 +701,18 @@ async function openPOD5File(filePath: string) {
  * Open a BAM file
  */
 async function openBAMFile(filePath: string) {
+    // Ensure squiggy is available (check if installed, prompt if needed)
+    const squiggyAvailable = await ensureSquiggyAvailable();
+
+    if (!squiggyAvailable) {
+        // User declined installation or installation failed
+        vscode.window.showWarningMessage(
+            'Cannot open BAM file: squiggy Python package is not installed. ' +
+                'Please install it manually with: pip install -e <extension-path>'
+        );
+        return;
+    }
+
     try {
         await vscode.window.withProgress(
             {
