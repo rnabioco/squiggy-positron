@@ -68,6 +68,10 @@ If your BAM file contains base modifications:
 - Formats: HTML (interactive), PNG, SVG
 - Option to export at current zoom level
 
+## Python API for Notebooks
+
+Squiggy provides an object-oriented Python API for use in Jupyter notebooks and Python scripts. See [`examples/notebook_api_demo.ipynb`](examples/notebook_api_demo.ipynb) for a complete tutorial.
+
 ## Requirements
 
 - **Positron IDE** (version 2025.6.0+)

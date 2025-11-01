@@ -25,8 +25,10 @@ Example usage in Jupyter notebook:
 
 __version__ = "0.1.3"
 
+# Object-oriented API (NEW - notebook-friendly)
 # Core data structures and constants
 from .alignment import AlignedRead, BaseAnnotation, extract_alignment_from_bam
+from .api import BamFile, Pod5File, Read, figure_to_html
 from .constants import (
     BASE_COLORS,
     BASE_COLORS_DARK,
@@ -351,7 +353,12 @@ def plot_aggregate(
 __all__ = [
     # Version
     "__version__",
-    # Main functions
+    # Object-oriented API (NEW)
+    "Pod5File",
+    "Read",
+    "BamFile",
+    "figure_to_html",
+    # Main functions (legacy API - for Positron extension)
     "load_pod5",
     "load_bam",
     "plot_read",
