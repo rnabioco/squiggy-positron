@@ -145,8 +145,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
                 // Clear UI panels
                 readsViewPane.setReads([]);
-                filePanelProvider.setPOD5Info('', 0, '0 MB');
-                filePanelProvider.setBAMInfo('', 0, '0 MB');
+                filePanelProvider.clearPOD5();
+                filePanelProvider.clearBAM();
                 plotOptionsProvider.updateBamStatus(false);
 
                 console.log(`Squiggy: ${reason}, state cleared`);
@@ -247,6 +247,36 @@ function registerCommands(context: vscode.ExtensionContext) {
 
             if (fileUri && fileUri[0]) {
                 await openBAMFile(fileUri[0].fsPath);
+            }
+        })
+    );
+
+    // Close POD5 file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.closePOD5', async () => {
+            const confirm = await vscode.window.showWarningMessage(
+                'Close POD5 file?',
+                { modal: true },
+                'Close'
+            );
+
+            if (confirm === 'Close') {
+                await closePOD5File();
+            }
+        })
+    );
+
+    // Close BAM file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.closeBAM', async () => {
+            const confirm = await vscode.window.showWarningMessage(
+                'Close BAM file?',
+                { modal: true },
+                'Close'
+            );
+
+            if (confirm === 'Close') {
+                await closeBAMFile();
             }
         })
     );
@@ -366,8 +396,8 @@ function registerCommands(context: vscode.ExtensionContext) {
 
             // Clear UI panels
             readsViewPane.setReads([]);
-            filePanelProvider.setPOD5Info('', 0, '0 MB');
-            filePanelProvider.setBAMInfo('', 0, '0 MB');
+            filePanelProvider.clearPOD5();
+            filePanelProvider.clearBAM();
             plotOptionsProvider.updateBamStatus(false);
 
             // Clear Python kernel state if using Positron
@@ -414,9 +444,7 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
     const installed = await positronRuntime.isSquiggyInstalled();
 
     if (installed) {
-        // Package is installed - update status and return success
-        const version = await positronRuntime.getSquiggyVersion();
-        filePanelProvider.setSquiggyStatus(true, version || undefined);
+        // Package is installed - return success
         squiggyInstallChecked = true;
         squiggyInstallDeclined = false; // Reset declined flag since it's now installed
         return true;
@@ -425,7 +453,6 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
     // Not installed - check if we should prompt
     if (squiggyInstallChecked && squiggyInstallDeclined) {
         // User already declined this session - don't prompt again
-        filePanelProvider.setSquiggyStatus(false);
         return false;
     }
 
@@ -437,32 +464,21 @@ async function ensureSquiggyAvailable(): Promise<boolean> {
             // Install squiggy
             const success = await installSquiggyPackage();
             squiggyInstallChecked = true;
-
-            if (success) {
-                const version = await positronRuntime.getSquiggyVersion();
-                filePanelProvider.setSquiggyStatus(true, version || undefined);
-                return true;
-            } else {
-                filePanelProvider.setSquiggyStatus(false);
-                return false;
-            }
+            return success;
         } else if (userChoice === 'manual') {
             // Show manual installation guide
             await showManualInstallationGuide();
             squiggyInstallDeclined = true;
             squiggyInstallChecked = true;
-            filePanelProvider.setSquiggyStatus(false);
             return false;
         } else {
             // User canceled installation
             squiggyInstallDeclined = true;
             squiggyInstallChecked = true;
-            filePanelProvider.setSquiggyStatus(false);
             return false;
         }
     } catch (_error) {
         // Error during check - mark as unavailable
-        filePanelProvider.setSquiggyStatus(false);
         squiggyInstallChecked = true;
         return false;
     }
@@ -648,9 +664,12 @@ async function openPOD5File(filePath: string) {
                 // Get file size
                 // Using imported fs.promises
                 const stats = await fs.stat(filePath);
-                const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-                filePanelProvider.setPOD5Info(filePath, numReads, `${fileSizeMB} MB`);
+                filePanelProvider.setPOD5({
+                    path: filePath,
+                    numReads,
+                    size: stats.size,
+                });
             }
         );
     } catch (error) {
@@ -694,6 +713,7 @@ async function openBAMFile(filePath: string) {
                 let hasModifications: boolean;
                 let modificationTypes: string[];
                 let hasProbabilities: boolean;
+                let hasEventAlignment: boolean = false;
                 let referenceToReads: Record<string, string[]> = {};
 
                 if (usePositron) {
@@ -703,6 +723,7 @@ async function openBAMFile(filePath: string) {
                     hasModifications = result.hasModifications;
                     modificationTypes = result.modificationTypes;
                     hasProbabilities = result.hasProbabilities;
+                    hasEventAlignment = result.hasEventAlignment || false;
 
                     // Get references and build mapping (lazy loading)
                     const references = await positronRuntime.getReferences();
@@ -720,12 +741,14 @@ async function openBAMFile(filePath: string) {
                         has_modifications?: boolean;
                         modification_types?: string[];
                         has_probabilities?: boolean;
+                        has_event_alignment?: boolean;
                     };
                     numReads = backendResult.num_reads;
                     referenceToReads = backendResult.reference_to_reads || {};
                     hasModifications = backendResult.has_modifications || false;
                     modificationTypes = backendResult.modification_types || [];
                     hasProbabilities = backendResult.has_probabilities || false;
+                    hasEventAlignment = backendResult.has_event_alignment || false;
                 } else {
                     throw new Error('No backend available');
                 }
@@ -736,9 +759,15 @@ async function openBAMFile(filePath: string) {
                 // Get file size
                 // Using imported fs.promises
                 const stats = await fs.stat(filePath);
-                const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-                filePanelProvider.setBAMInfo(filePath, numReads, `${fileSizeMB} MB`);
+                filePanelProvider.setBAM({
+                    path: filePath,
+                    numReads,
+                    numRefs: Object.keys(referenceToReads).length,
+                    size: stats.size,
+                    hasMods: hasModifications,
+                    hasEvents: hasEventAlignment,
+                });
 
                 // Update reads view to show reads grouped by reference
                 if (Object.keys(referenceToReads).length > 0) {
@@ -779,6 +808,66 @@ async function openBAMFile(filePath: string) {
         );
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to open BAM file: ${error}`);
+    }
+}
+
+/**
+ * Close POD5 file
+ */
+async function closePOD5File() {
+    try {
+        // Clear Python state
+        if (usePositron) {
+            await positronRuntime.executeSilent(`
+import squiggy
+squiggy.close_pod5()
+`);
+        }
+
+        // Clear extension state
+        _currentPod5File = undefined;
+
+        // Clear UI
+        filePanelProvider.clearPOD5();
+        readsViewPane.setReads([]);
+
+        vscode.window.showInformationMessage('POD5 file closed');
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to close POD5 file: ${error}`);
+    }
+}
+
+/**
+ * Close BAM file
+ */
+async function closeBAMFile() {
+    try {
+        // Clear Python state
+        if (usePositron) {
+            await positronRuntime.executeSilent(`
+# Clear BAM file state
+_current_bam_path = None
+`);
+        }
+
+        // Clear extension state
+        _currentBamFile = undefined;
+
+        // Clear UI
+        filePanelProvider.clearBAM();
+        modificationsProvider.clear();
+        plotOptionsProvider.updateBamStatus(false);
+        vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+
+        // If POD5 is still loaded, revert to flat read list
+        if (_currentPod5File && usePositron) {
+            const readIds = await positronRuntime.getReadIds(0, 1000);
+            readsViewPane.setReads(readIds);
+        }
+
+        vscode.window.showInformationMessage('BAM file closed');
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to close BAM file: ${error}`);
     }
 }
 

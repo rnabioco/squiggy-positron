@@ -1,0 +1,47 @@
+/**
+ * FilesToolbar Component Styles
+ *
+ * Icon-only toolbar positioned in top-right
+ */
+
+.files-toolbar {
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+    justify-content: flex-end;
+    background: var(--vscode-editor-background);
+    border-bottom: 1px solid var(--vscode-panel-border);
+    flex-shrink: 0;
+}
+
+.files-toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.2s;
+}
+
+.files-toolbar-button:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.files-toolbar-button:active {
+    transform: scale(0.98);
+}
+
+.files-toolbar-label {
+    font-size: 0.85em;
+}
+
+/* Codicon support */
+.codicon {
+    font-family: codicon;
+    font-size: 14px;
+}
