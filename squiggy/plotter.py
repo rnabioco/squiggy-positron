@@ -1754,7 +1754,6 @@ class SquigglePlotter:
             source=signal_source,
             line_width=2,
             color=theme_colors["signal_line"],
-            legend_label="Mean signal",
         )
 
         # Add hover tool for signal
@@ -1841,7 +1840,6 @@ class SquigglePlotter:
                     width=bar_width,
                     color=base_colors[base],
                     alpha=0.8,
-                    legend_label=base,
                     source=pileup_source,
                 )
                 renderers.append(bar)
@@ -1860,7 +1858,6 @@ class SquigglePlotter:
             mode="vline",
         )
         p_pileup.add_tools(hover_pileup)
-        SquigglePlotter._configure_legend(p_pileup)
 
         # Add reference base labels above bars
         if reference_bases:
@@ -1932,7 +1929,6 @@ class SquigglePlotter:
             source=quality_source,
             line_width=2,
             color=quality_color,
-            legend_label="Mean quality",
         )
 
         # Add hover tool for quality
