@@ -381,7 +381,8 @@ except ImportError:
      */
     async getSquiggyVersion(): Promise<string | null> {
         try {
-            // Try to get version directly from variable
+            // Import squiggy first, then get version
+            await this.executeSilent('import squiggy');
             const version = await this.getVariable('squiggy.__version__');
             return version;
         } catch {
