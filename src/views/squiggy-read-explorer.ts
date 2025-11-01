@@ -15,7 +15,8 @@ export class ReadItem extends vscode.TreeItem {
         public readonly itemType: TreeItemType,
         public readonly readId: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly command?: vscode.Command
+        public readonly command?: vscode.Command,
+        public readonly readCount?: number
     ) {
         super(label, collapsibleState);
 
@@ -23,6 +24,10 @@ export class ReadItem extends vscode.TreeItem {
             this.tooltip = `Reference: ${label}`;
             this.contextValue = 'reference';
             this.iconPath = new vscode.ThemeIcon('symbol-namespace');
+            // Show read count in description field (appears on right side)
+            if (readCount !== undefined) {
+                this.description = `${readCount} reads`;
+            }
         } else {
             this.tooltip = `Read ID: ${readId}`;
             this.contextValue = 'read';
@@ -126,10 +131,12 @@ export class ReadTreeProvider implements vscode.TreeDataProvider<ReadItem> {
                 for (const [refName, readIds] of this.referenceToReads.entries()) {
                     references.push(
                         new ReadItem(
-                            `${refName} (${readIds.length})`,
+                            refName, // Clean reference name
                             'reference',
                             refName,
-                            vscode.TreeItemCollapsibleState.Collapsed
+                            vscode.TreeItemCollapsibleState.Collapsed,
+                            undefined, // No command for references
+                            readIds.length // Pass read count - shown in description
                         )
                     );
                 }
