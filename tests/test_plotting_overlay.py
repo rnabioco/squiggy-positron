@@ -1,9 +1,9 @@
 """Tests for plotting/overlay.py - OVERLAY mode"""
 
 import numpy as np
+from squiggy.plotting.overlay import plot_overlay
 
 from squiggy.constants import NormalizationMethod, Theme
-from squiggy.plotting.overlay import plot_overlay
 
 
 class TestPlotOverlay:

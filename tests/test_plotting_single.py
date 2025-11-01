@@ -1,9 +1,9 @@
 """Tests for plotting/single.py - SINGLE read mode"""
 
 import numpy as np
+from squiggy.plotting.single import add_base_annotations_single_read, plot_single_read
 
 from squiggy.constants import NormalizationMethod, Theme
-from squiggy.plotting.single import add_base_annotations_single_read, plot_single_read
 
 
 class TestPlotSingleRead:

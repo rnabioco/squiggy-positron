@@ -2,14 +2,14 @@
 
 import numpy as np
 import pytest
-
-from squiggy.alignment import AlignedRead, BaseAnnotation
-from squiggy.constants import NormalizationMethod, Theme
 from squiggy.plotting.eventalign import (
     add_base_annotations_eventalign,
     plot_eventalign,
     plot_eventalign_signals,
 )
+
+from squiggy.alignment import AlignedRead, BaseAnnotation
+from squiggy.constants import NormalizationMethod, Theme
 
 
 class TestPlotEventalign:

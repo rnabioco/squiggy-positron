@@ -1,15 +1,15 @@
 """Tests for modification filtering and visualization features"""
 
 import numpy as np
-
-from squiggy.alignment import AlignedRead, BaseAnnotation
-from squiggy.constants import NormalizationMethod, Theme
-from squiggy.modifications import ModificationAnnotation
 from squiggy.plotting.eventalign import (
     create_modification_track_eventalign,
     plot_eventalign,
 )
 from squiggy.plotting.single import create_modification_track_single, plot_single_read
+
+from squiggy.alignment import AlignedRead, BaseAnnotation
+from squiggy.constants import NormalizationMethod, Theme
+from squiggy.modifications import ModificationAnnotation
 
 
 class TestModificationTrackSingle:

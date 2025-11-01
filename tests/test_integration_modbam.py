@@ -12,6 +12,9 @@ from pathlib import Path
 
 import pod5
 import pytest
+from squiggy.plotting.aggregate import plot_aggregate
+from squiggy.plotting.eventalign import plot_eventalign
+from squiggy.plotting.single import plot_single_read
 
 from squiggy.alignment import extract_alignment_from_bam
 from squiggy.constants import NormalizationMethod
@@ -19,9 +22,6 @@ from squiggy.modifications import (
     calculate_modification_pileup,
     detect_modification_provenance,
 )
-from squiggy.plotting.aggregate import plot_aggregate
-from squiggy.plotting.eventalign import plot_eventalign
-from squiggy.plotting.single import plot_single_read
 from squiggy.utils import (
     calculate_aggregate_signal,
     calculate_base_pileup,
@@ -84,7 +84,7 @@ class TestModBAMLoading:
         assert len(aligned_read.modifications) > 0
 
         # Check that we have expected modification types
-        mod_types = set(mod.mod_code for mod in aligned_read.modifications)
+        mod_types = {mod.mod_code for mod in aligned_read.modifications}
         # Yeast tRNA data should have 5mC (m), 6mA (a), inosine (17596), pseudouridine (17802)
         assert len(mod_types) > 0
 
@@ -133,7 +133,7 @@ class TestModificationPileup:
         pileup = calculate_modification_pileup(aligned_reads, tau=None)
 
         assert len(pileup) > 0
-        for (pos, mod_type), stats in pileup.items():
+        for (_pos, _mod_type), stats in pileup.items():
             assert stats.coverage > 0
             assert 0.0 <= stats.mean_prob <= 1.0
             assert len(stats.probs) == stats.coverage
@@ -160,7 +160,7 @@ class TestModificationPileup:
         pileup = calculate_modification_pileup(aligned_reads, tau=tau, scope="position")
 
         assert len(pileup) > 0
-        for (pos, mod_type), stats in pileup.items():
+        for (_pos, _mod_type), stats in pileup.items():
             # Threshold-based stats should be populated
             assert stats.n_mod_tau is not None
             assert stats.n_unmod_tau is not None
@@ -416,7 +416,7 @@ class TestModificationFiltering:
         pileup = calculate_modification_pileup(aligned_reads, tau=tau, scope="any")
 
         # Check that read IDs are tracked
-        for (pos, mod_type), stats in pileup.items():
+        for (_pos, _mod_type), stats in pileup.items():
             if stats.read_ids_modified:
                 assert isinstance(stats.read_ids_modified, set)
                 assert len(stats.read_ids_modified) <= stats.coverage
