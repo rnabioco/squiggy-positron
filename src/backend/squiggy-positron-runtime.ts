@@ -529,14 +529,18 @@ except ImportError:
     }
 
     /**
-     * Install squiggy package to the kernel
+     * Install squiggy package to the kernel from extension directory
+     *
+     * @param extensionPath Path to the extension directory containing pyproject.toml
      */
-    async installSquiggy(): Promise<void> {
+    async installSquiggy(extensionPath: string): Promise<void> {
+        const escapedPath = extensionPath.replace(/'/g, "\\'");
+
         const code = `
 import subprocess
 import sys
 result = subprocess.run(
-    [sys.executable, '-m', 'pip', 'install', 'squiggy'],
+    [sys.executable, '-m', 'pip', 'install', '-e', '${escapedPath}'],
     capture_output=True,
     text=True
 )
@@ -547,7 +551,7 @@ print('SUCCESS')
 
         try {
             const output = await this.executeWithOutput(code);
-            if (output.trim() !== 'SUCCESS') {
+            if (!output.includes('SUCCESS')) {
                 throw new Error(`Installation failed: ${output}`);
             }
         } catch (error) {
