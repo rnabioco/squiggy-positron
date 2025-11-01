@@ -287,7 +287,8 @@ class SquigglePlotter:
             tools="xpan,xbox_zoom,box_zoom,wheel_zoom,reset,save",
             active_drag="xbox_zoom",
             active_scroll="wheel_zoom",
-            sizing_mode="stretch_both",
+            sizing_mode="stretch_width",
+            height=400,
             background_fill_color=theme_colors["plot_bg"],
             border_fill_color=theme_colors["plot_border"],
         )
@@ -1008,9 +1009,13 @@ class SquigglePlotter:
             layout = column(
                 p_mod,
                 p,
-                sizing_mode="stretch_both",  # Stretch both width and height
+                sizing_mode="stretch_width",  # Stretch width, fixed heights
                 spacing=0,  # No spacing between plots
             )
+            # Store reference to main plot for easy access (layout.children[1] is the main plot)
+            # This allows users to customize: fig.main_plot.title.text = "Custom"
+            # Use object.__setattr__ to bypass Bokeh's attribute validation
+            object.__setattr__(layout, 'main_plot', p)
             _route_to_plots_pane(layout)  # Route to Plots pane
             html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
             return html, layout
