@@ -29,5 +29,7 @@ module.exports = {
       }
     }]
   },
-  verbose: true
+  verbose: true,
+  // Silence console output globally during tests
+  silent: true
 };

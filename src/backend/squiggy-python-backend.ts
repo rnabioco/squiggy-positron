@@ -36,6 +36,8 @@ export class PythonBackend {
         }
     >();
     private lineReader: readline.Interface | null = null;
+    private startupTimer: NodeJS.Timeout | null = null;
+    private requestTimers = new Map<number, NodeJS.Timeout>();
 
     constructor(
         private pythonPath: string,
@@ -78,6 +80,12 @@ export class PythonBackend {
                 console.log(`Python backend exited with code ${code}`);
                 this.process = null;
 
+                // Clear all request timers
+                for (const timer of this.requestTimers.values()) {
+                    clearTimeout(timer);
+                }
+                this.requestTimers.clear();
+
                 // Reject all pending requests
                 for (const [_id, callbacks] of this.pendingRequests) {
                     callbacks.reject(new Error('Python backend process exited'));
@@ -92,7 +100,7 @@ export class PythonBackend {
             });
 
             // Give it a moment to start, then resolve
-            setTimeout(() => resolve(), 500);
+            this.startupTimer = setTimeout(() => resolve(), 500);
         });
     }
 
@@ -100,8 +108,22 @@ export class PythonBackend {
      * Stop the Python backend process
      */
     stop(): void {
+        // Clear startup timer if it exists
+        if (this.startupTimer) {
+            clearTimeout(this.startupTimer);
+            this.startupTimer = null;
+        }
+
+        // Clear all request timers
+        for (const timer of this.requestTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.requestTimers.clear();
+
         if (this.process) {
-            this.process.kill();
+            if (typeof this.process.kill === 'function') {
+                this.process.kill();
+            }
             this.process = null;
         }
         if (this.lineReader) {
@@ -134,13 +156,16 @@ export class PythonBackend {
             const requestJson = JSON.stringify(request) + '\n';
             this.process!.stdin!.write(requestJson);
 
-            // Set timeout
-            setTimeout(() => {
+            // Set timeout and track it
+            const timer = setTimeout(() => {
                 if (this.pendingRequests.has(id)) {
                     this.pendingRequests.delete(id);
+                    this.requestTimers.delete(id);
                     reject(new Error(`Request timeout for method: ${method}`));
                 }
             }, 30000); // 30 second timeout
+
+            this.requestTimers.set(id, timer);
         });
     }
 
@@ -158,6 +183,13 @@ export class PythonBackend {
             }
 
             this.pendingRequests.delete(response.id);
+
+            // Clear the timeout timer for this request
+            const timer = this.requestTimers.get(response.id);
+            if (timer) {
+                clearTimeout(timer);
+                this.requestTimers.delete(response.id);
+            }
 
             if (response.error) {
                 callbacks.reject(new Error(response.error.message));
