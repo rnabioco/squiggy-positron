@@ -283,7 +283,7 @@ def plot_aggregate(
     Raises:
         ValueError: If POD5 or BAM files not loaded
     """
-    from .io import _current_bam_path, _current_pod5_reader
+    from .io import _current_bam_path, _current_pod5_path, _current_pod5_reader
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,
@@ -303,10 +303,10 @@ def plot_aggregate(
     norm_method = NormalizationMethod[normalization.upper()]
     theme_enum = Theme[theme.upper()]
 
-    # Extract reads for this reference
+    # Extract reads for this reference (expects file paths, not reader objects)
     reads_data = extract_reads_for_reference(
-        pod5_reader=_current_pod5_reader,
-        bam_path=_current_bam_path,
+        pod5_file=_current_pod5_path,
+        bam_file=_current_bam_path,
         reference_name=reference_name,
         max_reads=max_reads,
     )
