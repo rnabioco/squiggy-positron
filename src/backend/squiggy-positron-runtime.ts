@@ -28,6 +28,7 @@ export class PositronRuntime {
      * @param allowIncomplete Whether to allow incomplete statements
      * @param mode Execution mode (silent by default to hide imports)
      * @param observer Optional observer for capturing output
+     * @returns Promise that resolves with the result object containing MIME type mappings
      */
     async executeCode(
         code: string,
@@ -35,13 +36,13 @@ export class PositronRuntime {
         allowIncomplete: boolean = true,
         mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent,
         observer?: positron.RuntimeCodeExecutionObserver
-    ): Promise<void> {
+    ): Promise<Record<string, any>> {
         if (!this.isAvailable()) {
             throw new Error('Positron runtime not available');
         }
 
         try {
-            await positron.runtime.executeCode(
+            return await positron.runtime.executeCode(
                 'python',
                 code,
                 focus,
@@ -56,34 +57,44 @@ export class PositronRuntime {
     }
 
     /**
-     * Execute code and capture output
+     * Execute code silently without console output
+     *
+     * @param code Python code to execute
+     * @returns Promise that resolves when execution completes
+     */
+    async executeSilent(code: string): Promise<void> {
+        await this.executeCode(
+            code,
+            false, // focus=false
+            true,
+            positron.RuntimeCodeExecutionMode.Silent
+        );
+    }
+
+    /**
+     * Execute code and capture printed output via observer
+     *
+     * NOTE: This will show output in console. Use only when absolutely necessary.
+     * Prefer getVariable() for reading data from Python memory.
      *
      * @param code Python code to execute
      * @returns Promise that resolves with captured output
      */
-    async executeWithOutput(code: string): Promise<string> {
+    private async executeWithOutput(code: string): Promise<string> {
         return new Promise((resolve, reject) => {
             let output = '';
-            let errorOutput = '';
 
             this.executeCode(
                 code,
                 false,
                 true,
-                positron.RuntimeCodeExecutionMode.Silent,
+                positron.RuntimeCodeExecutionMode.Silent, // Try Silent mode
                 {
                     onOutput: (message: string) => {
                         output += message;
                     },
-                    onError: (message: string) => {
-                        errorOutput += message;
-                    },
                     onFinished: () => {
-                        if (errorOutput) {
-                            reject(new Error(errorOutput));
-                        } else {
-                            resolve(output);
-                        }
+                        resolve(output);
                     },
                 }
             ).catch(reject);
@@ -91,77 +102,147 @@ export class PositronRuntime {
     }
 
     /**
+     * Get a Python variable value directly from the kernel
+     *
+     * @param varName Python variable name (can include indexing like 'var[0:10]')
+     * @returns Promise that resolves with the variable value
+     */
+    async getVariable(varName: string): Promise<any> {
+        const session = await positron.runtime.getForegroundSession();
+        if (!session || session.runtimeMetadata.languageId !== 'python') {
+            throw new Error('No active Python session');
+        }
+
+        // Convert the Python value to JSON in Python, then read that
+        const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
+
+        await this.executeSilent(`
+import json
+${tempVar} = json.dumps(${varName})
+`);
+
+        const [[variable]] = await positron.runtime.getSessionVariables(
+            session.metadata.sessionId,
+            [[tempVar]]
+        );
+
+        // Clean up temp variable
+        await this.executeSilent(`del ${tempVar}`);
+
+        if (!variable) {
+            throw new Error(`Variable ${varName} not found`);
+        }
+
+        // display_value contains the JSON string (as a Python string repr)
+        // We need to parse it: Python repr -> actual string -> JSON parse
+        // e.g., "'[1,2,3]'" -> "[1,2,3]" -> [1,2,3]
+        const jsonString = variable.display_value;
+
+        // Remove outer quotes if present (Python string repr)
+        const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
+
+        return JSON.parse(cleaned);
+    }
+
+    /**
      * Load a POD5 file
      *
      * Executes squiggy.load_pod5() in the kernel. The reader and read_ids
      * are stored in kernel variables accessible from console/notebooks.
+     *
+     * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
      */
-    async loadPOD5(filePath: string): Promise<{ numReads: number; readIds?: string[] }> {
+    async loadPOD5(filePath: string): Promise<{ numReads: number }> {
         // Escape single quotes in path
         const escapedPath = filePath.replace(/'/g, "\\'");
 
-        // Execute load command - this creates variables in the kernel
-        const code = `
+        // Load file silently (no console output)
+        await this.executeSilent(`
 import squiggy
-import json
 _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
-print(json.dumps({
-    'num_reads': len(_squiggy_read_ids),
-    'preview_ids': _squiggy_read_ids[:100]
-}))
-`;
+`);
 
-        try {
-            const output = await this.executeWithOutput(code);
-            const data = JSON.parse(output.trim());
-            return {
-                numReads: data.num_reads,
-                readIds: data.preview_ids,
-            };
-        } catch (error) {
-            throw new Error(`Failed to load POD5 file: ${error}`);
-        }
+        // Get read count by reading variable directly (no print needed)
+        const numReads = await this.getVariable('len(_squiggy_read_ids)');
+
+        return { numReads };
+    }
+
+    /**
+     * Get read IDs from loaded POD5 file
+     *
+     * @param offset Starting index (default 0)
+     * @param limit Maximum number of read IDs to return (default all)
+     */
+    async getReadIds(offset: number = 0, limit?: number): Promise<string[]> {
+        const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
+
+        // Read variable slice directly (no print needed)
+        const readIds = await this.getVariable(`_squiggy_read_ids${sliceStr}`);
+
+        return readIds;
     }
 
     /**
      * Load a BAM file
+     *
+     * Does NOT preload reference mapping - use getReferences() and getReadsForReference()
+     * to fetch data on-demand.
      */
     async loadBAM(filePath: string): Promise<{
         numReads: number;
-        referenceToReads: Record<string, string[]>;
         hasModifications: boolean;
         modificationTypes: string[];
         hasProbabilities: boolean;
     }> {
         const escapedPath = filePath.replace(/'/g, "\\'");
 
-        const code = `
+        // Load BAM silently (no console output)
+        await this.executeSilent(`
 import squiggy
-import json
 _squiggy_bam_info = squiggy.load_bam('${escapedPath}')
 _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
-print(json.dumps({
-    'num_reads': _squiggy_bam_info['num_reads'],
-    'reference_to_reads': _squiggy_ref_mapping,
-    'has_modifications': _squiggy_bam_info.get('has_modifications', False),
-    'modification_types': _squiggy_bam_info.get('modification_types', []),
-    'has_probabilities': _squiggy_bam_info.get('has_probabilities', False)
-}))
-`;
+`);
 
-        try {
-            const output = await this.executeWithOutput(code);
-            const data = JSON.parse(output.trim());
-            return {
-                numReads: data.num_reads,
-                referenceToReads: data.reference_to_reads || {},
-                hasModifications: data.has_modifications || false,
-                modificationTypes: data.modification_types || [],
-                hasProbabilities: data.has_probabilities || false,
-            };
-        } catch (error) {
-            throw new Error(`Failed to load BAM file: ${error}`);
-        }
+        // Read metadata directly from variables (no print needed)
+        const numReads = await this.getVariable("_squiggy_bam_info['num_reads']");
+        const hasModifications = await this.getVariable(
+            "_squiggy_bam_info.get('has_modifications', False)"
+        );
+        const modificationTypes = await this.getVariable(
+            "_squiggy_bam_info.get('modification_types', [])"
+        );
+        const hasProbabilities = await this.getVariable(
+            "_squiggy_bam_info.get('has_probabilities', False)"
+        );
+
+        return {
+            numReads,
+            hasModifications,
+            modificationTypes: modificationTypes.map((x: any) => String(x)),
+            hasProbabilities,
+        };
+    }
+
+    /**
+     * Get list of reference names from loaded BAM file
+     */
+    async getReferences(): Promise<string[]> {
+        // Read keys directly from variable (no print needed)
+        const references = await this.getVariable('list(_squiggy_ref_mapping.keys())');
+        return references;
+    }
+
+    /**
+     * Get read IDs mapping to a specific reference
+     */
+    async getReadsForReference(referenceName: string): Promise<string[]> {
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        // Read directly from variable (no print needed)
+        const readIds = await this.getVariable(`_squiggy_ref_mapping.get('${escapedRef}', [])`);
+
+        return readIds;
     }
 
     /**
@@ -236,19 +317,12 @@ except ImportError:
      * Get squiggy package version
      */
     async getSquiggyVersion(): Promise<string | null> {
-        const code = `
-try:
-    import squiggy
-    print(squiggy.__version__)
-except (ImportError, AttributeError):
-    print('unavailable')
-`;
-
         try {
-            const output = await this.executeWithOutput(code);
-            const version = output.trim();
-            return version === 'unavailable' ? null : version;
+            // Try to get version directly from variable
+            const version = await this.getVariable('squiggy.__version__');
+            return version;
         } catch {
+            // squiggy not installed or no __version__ attribute
             return null;
         }
     }

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { PythonBackend } from '../squiggy-pythonBackend';
+import { PythonBackend } from '../squiggy-python-backend';
 import { EventEmitter } from 'events';
 
 // Mock child_process

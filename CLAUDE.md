@@ -57,16 +57,16 @@ squiggy-positron-extension/
 ├── src/                               # TypeScript extension (frontend)
 │   ├── extension.ts                   # Entry point, command registration
 │   ├── backend/
-│   │   ├── squiggy-positronRuntime.ts # Positron kernel communication
-│   │   └── squiggy-pythonBackend.ts   # JSON-RPC subprocess fallback
+│   │   ├── squiggy-positron-runtime.ts # Positron kernel communication
+│   │   └── squiggy-python-backend.ts   # JSON-RPC subprocess fallback
 │   ├── views/
-│   │   ├── squiggy-filePanel.ts       # File info webview
-│   │   ├── squiggy-readExplorer.ts    # Read list TreeView
-│   │   ├── squiggy-readSearchView.ts  # Search panel webview
-│   │   ├── squiggy-plotOptionsView.ts # Plot options webview
-│   │   └── squiggy-modificationsPanel.ts # Modifications filter webview
+│   │   ├── squiggy-file-panel.ts       # File info webview
+│   │   ├── squiggy-read-explorer.ts    # Read list TreeView
+│   │   ├── squiggy-read-search-view.ts  # Search panel webview
+│   │   ├── squiggy-plot-options-view.ts # Plot options webview
+│   │   └── squiggy-modifications-panel.ts # Modifications filter webview
 │   ├── webview/
-│   │   └── squiggy-plotPanel.ts       # Bokeh plot display
+│   │   └── squiggy-plot-panel.ts       # Bokeh plot display
 │   ├── types/
 │   │   └── squiggy-positron.d.ts      # Positron API type definitions
 │   └── __mocks__/
@@ -109,15 +109,135 @@ Activates when Positron loads:
 
 ### Python Communication
 
-**PositronRuntime** (`src/backend/squiggy-positronRuntime.ts`):
+**PositronRuntime** (`src/backend/squiggy-positron-runtime.ts`):
 - Executes Python code in active Positron kernel
 - Primary communication method when running in Positron
 - Access to kernel state and variables
 
-**PythonBackend** (`src/backend/squiggy-pythonBackend.ts`):
+**PythonBackend** (`src/backend/squiggy-python-backend.ts`):
 - JSON-RPC subprocess communication
 - Fallback for non-Positron environments (e.g., VSCode)
 - Spawns Python process and manages request/response
+
+### 🚨 CRITICAL: Positron Extension Integration Patterns
+
+When building Positron extensions that need to access Python data, **NEVER use `print()` to get data from Python to TypeScript**. This pollutes the user's console and defeats the purpose of kernel integration.
+
+#### ✅ CORRECT Pattern: Use Positron's Variable Access API
+
+**For reading Python variables:**
+```typescript
+// Step 1: Execute code silently to create variables
+await positronRuntime.executeSilent(`
+import squiggy
+_squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('file.pod5')
+`);
+
+// Step 2: Read variables directly from kernel memory (NO PRINT!)
+const numReads = await positronRuntime.getVariable('len(_squiggy_read_ids)');
+const readIds = await positronRuntime.getVariable('_squiggy_read_ids[0:1000]');
+```
+
+**Implementation of `getVariable()`:**
+```typescript
+async getVariable(varName: string): Promise<any> {
+    const session = await positron.runtime.getForegroundSession();
+    const tempVar = '_temp_' + Math.random().toString(36).substr(2, 9);
+
+    // Convert Python value to JSON in Python
+    await this.executeSilent(`
+import json
+${tempVar} = json.dumps(${varName})
+`);
+
+    // Read the JSON string via getSessionVariables
+    const [[variable]] = await positron.runtime.getSessionVariables(
+        session.metadata.sessionId,
+        [[tempVar]]
+    );
+
+    await this.executeSilent(`del ${tempVar}`);
+
+    // Parse: Python string repr -> JSON string -> JavaScript value
+    const cleaned = variable.display_value.replace(/^['"]|['"]$/g, '');
+    return JSON.parse(cleaned);
+}
+```
+
+**Implementation of `executeSilent()`:**
+```typescript
+async executeSilent(code: string): Promise<void> {
+    await this.executeCode(
+        code,
+        false,  // focus=false
+        true,   // allowIncomplete
+        positron.RuntimeCodeExecutionMode.Silent  // ✅ NO console output!
+    );
+}
+```
+
+#### ❌ WRONG Pattern: Using print() (Causes Console Pollution)
+
+```typescript
+// DON'T DO THIS - pollutes user's console
+await executeCode(`
+import squiggy
+_squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('file.pod5')
+print(len(_squiggy_read_ids))  # ❌ Shows in console!
+`, RuntimeCodeExecutionMode.Interactive);
+```
+
+Even `Silent` mode with `print()` doesn't work - the output still appears.
+
+#### Key Positron APIs
+
+**`positron.runtime.getForegroundSession()`**:
+- Returns the active Python/R session
+- Needed to get `sessionId` for variable access
+
+**`positron.runtime.getSessionVariables(sessionId, accessKeys)`**:
+- Reads variable values directly from kernel memory
+- Returns `RuntimeVariable[]` with `display_value` field
+- Used by Variables pane - same pattern we follow
+
+**`positron.runtime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer)`**:
+- `mode=RuntimeCodeExecutionMode.Silent` - No code echo, no history
+- `mode=RuntimeCodeExecutionMode.Interactive` - Shows in console (avoid for data queries)
+- `focus=false` - Prevents console from getting focus
+
+#### Benefits of This Pattern
+
+✅ **Zero console pollution** - user's console stays clean for interactive work
+✅ **Direct memory access** - no serialization overhead from print()
+✅ **Kernel variables preserved** - variables like `_squiggy_read_ids` available in console
+✅ **Lazy loading** - scalable for millions of reads
+✅ **Follows Positron conventions** - same pattern used by Variables pane and Data Explorer
+
+#### Type Definitions Required
+
+Add to `src/types/squiggy-positron.d.ts`:
+```typescript
+export interface BaseLanguageRuntimeSession {
+    metadata: { sessionId: string; sessionName: string; sessionMode: string };
+    runtimeMetadata: { languageId: string; /* ... */ };
+}
+
+export interface RuntimeVariable {
+    display_value: string;  // Python repr of value
+    display_type: string;
+    /* ... */
+}
+
+export namespace runtime {
+    export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
+    export function getSessionVariables(
+        sessionId: string,
+        accessKeys?: Array<Array<string>>
+    ): Thenable<Array<Array<RuntimeVariable>>>;
+}
+```
+
+**Reference**: Positron's own extensions use this pattern. See `positron/extensions/positron-connections` and how the Variables pane queries kernel state.
 
 ### UI Panels
 
@@ -131,7 +251,7 @@ All webview panels use HTML/CSS/JavaScript for UI, communicate with extension vi
 
 ### Plot Display
 
-**PlotPanel** (`src/webview/squiggy-plotPanel.ts`):
+**PlotPanel** (`src/webview/squiggy-plot-panel.ts`):
 - Webview panel displaying Bokeh HTML plots
 - Receives HTML from Python backend via kernel execution
 - Handles export to HTML/PNG/SVG formats
