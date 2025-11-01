@@ -9,8 +9,9 @@ src/**
 tsconfig.json
 jest.config.js
 
-# Python development files (exclude tests and cache, keep the package)
-tests/**
+# Python development files (exclude test code but include test data)
+tests/*.py
+tests/__pycache__/**
 .pytest_cache/**
 .ruff_cache/**
 __pycache__/**

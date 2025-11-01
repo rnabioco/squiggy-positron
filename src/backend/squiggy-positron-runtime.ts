@@ -500,14 +500,19 @@ _squiggy_plot_path = _squiggy_temp_file.name
         const code = `
 try:
     import squiggy
-    print('True')
+    # Verify package has expected functions
+    _squiggy_installed = (hasattr(squiggy, 'load_pod5') and
+                          hasattr(squiggy, 'load_bam') and
+                          hasattr(squiggy, 'plot_read'))
 except ImportError:
-    print('False')
+    _squiggy_installed = False
 `;
 
         try {
-            const output = await this.executeWithOutput(code);
-            return output.trim() === 'True';
+            await this.executeSilent(code);
+            const result = await this.getVariable('_squiggy_installed');
+            await this.executeSilent('del _squiggy_installed').catch(() => {});
+            return result === true;
         } catch {
             return false;
         }
@@ -529,11 +534,73 @@ except ImportError:
     }
 
     /**
+     * Detect Python environment type
+     *
+     * @returns Information about the Python environment
+     */
+    async detectEnvironmentType(): Promise<{
+        isVirtualEnv: boolean;
+        isConda: boolean;
+        isExternallyManaged: boolean;
+        pythonPath: string;
+        prefix: string;
+        basePrefix: string;
+    }> {
+        const code = `
+import sys
+import os
+import json
+
+result = {
+    'is_venv': hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix),
+    'is_conda': 'CONDA_PREFIX' in os.environ or 'CONDA_DEFAULT_ENV' in os.environ,
+    'is_externally_managed': os.path.exists(os.path.join(sys.prefix, 'EXTERNALLY-MANAGED')),
+    'python_path': sys.executable,
+    'prefix': sys.prefix,
+    'base_prefix': getattr(sys, 'base_prefix', sys.prefix)
+}
+_squiggy_env_info = json.dumps(result)
+`;
+
+        try {
+            await this.executeSilent(code);
+            const result = await this.getVariable('_squiggy_env_info');
+            await this.executeSilent('del _squiggy_env_info');
+
+            return JSON.parse(result);
+        } catch (error) {
+            throw new Error(`Failed to detect environment type: ${error}`);
+        }
+    }
+
+    /**
      * Install squiggy package to the kernel from extension directory
      *
      * @param extensionPath Path to the extension directory containing pyproject.toml
      */
     async installSquiggy(extensionPath: string): Promise<void> {
+        // Detect environment first
+        const envInfo = await this.detectEnvironmentType();
+
+        // Refuse installation on externally-managed system Python
+        if (
+            envInfo.isExternallyManaged &&
+            !envInfo.isVirtualEnv &&
+            !envInfo.isConda
+        ) {
+            throw new Error(
+                'EXTERNALLY_MANAGED_ENVIRONMENT: Cannot install squiggy in externally-managed Python environment.\n\n' +
+                    `Your Python installation (${envInfo.pythonPath}) is managed by your system package manager ` +
+                    '(e.g., Homebrew, apt, dnf) and cannot be modified directly.\n\n' +
+                    'Please create a virtual environment first:\n' +
+                    '1. Run: python3 -m venv .venv\n' +
+                    '2. Select the new environment in Positron (Interpreter selector)\n' +
+                    '3. Restart the Python console\n' +
+                    '4. Try opening the POD5 file again\n\n' +
+                    `Or install squiggy manually: pip install -e ${extensionPath}`
+            );
+        }
+
         // Use JSON serialization for cross-platform path safety (Windows backslashes, etc.)
         const pathJson = JSON.stringify(extensionPath);
 
