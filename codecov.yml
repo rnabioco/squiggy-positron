@@ -44,6 +44,18 @@ ignore:
   - "setup.py"    # Don't measure setup script
   - "legacy/**/*"  # Don't measure archived Qt app code
 
+# Flag-based coverage (track Python and TypeScript separately)
+flags:
+  python:
+    paths:
+      - squiggy/
+    carryforward: true  # Use previous coverage if upload fails
+
+  typescript:
+    paths:
+      - src/
+    carryforward: true
+
 # Component-based coverage (optional - can expand later)
 component_management:
   default_rules:
@@ -60,3 +72,12 @@ component_management:
         - squiggy/normalization.py
         - squiggy/modifications.py
         - squiggy/utils.py
+
+    - component_id: frontend
+      name: "TypeScript Extension"
+      paths:
+        - src/backend/
+        - src/views/
+        - src/webview/
+        - src/extension.ts
+      flag: typescript
