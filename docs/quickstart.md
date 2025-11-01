@@ -20,14 +20,16 @@ The easiest way to get started is to download a pre-built executable for your pl
 **Development Builds:**
 For the latest development version (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggy/releases/tag/latest).
 
-### Option 2: Install from Source
+### Option 2: Install from Source (Development)
 
-If you prefer to run from source or need to build for Windows/Linux:
+**Note**: This quickstart is for the old standalone Qt application. For the **Positron extension** (recommended), see the main [README](../README.md#installation).
+
+If you prefer to run the legacy standalone app from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/rnabioco/squiggy.git
-cd squiggy
+git clone https://github.com/rnabioco/squiggy-positron.git
+cd squiggy-positron
 
 # Install git-lfs (if not already installed)
 # macOS: brew install git-lfs
@@ -35,17 +37,20 @@ cd squiggy
 git lfs install
 git lfs pull
 
-# Install uv (if not already installed)
-# macOS: brew install uv
-# Linux: curl -LsSf https://astral.sh/uv/install.sh | sh
-# Windows: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Option A: Using pixi (manages Python + Node.js)
+pixi install && pixi run setup
+pixi run build
 
-# Create virtual environment and install dependencies
+# Option B: Using uv (Python only, requires Node.js separately)
+# Install uv: https://github.com/astral-sh/uv
 uv venv
-uv pip install -e .
+source .venv/bin/activate  # macOS/Linux
+uv pip install -e ".[dev,export]"
+npm install
+npm run package
 
-# Launch the application
-squiggy
+# The extension is now in build/squiggy-positron-*.vsix
+# Install in Positron: Extensions → ... → Install from VSIX
 ```
 
 ## First Steps: Sample Data

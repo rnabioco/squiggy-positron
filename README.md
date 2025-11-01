@@ -90,7 +90,25 @@ If your BAM file contains base modifications:
 
 ### Python Environment Setup
 
-**Recommended**: Use a virtual environment to avoid conflicts with system Python packages:
+**Recommended**: Use `uv` for fast, reliable Python environment management:
+
+```bash
+# Install uv (if not already installed)
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Create virtual environment and install squiggy
+uv venv
+source .venv/bin/activate  # macOS/Linux
+# OR
+.venv\Scripts\activate     # Windows
+
+uv pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
+```
+
+**Alternative (using venv)**: Standard Python virtual environment:
 
 ```bash
 # Create virtual environment
@@ -102,7 +120,7 @@ source .venv/bin/activate  # macOS/Linux
 .venv\Scripts\activate     # Windows
 
 # Install squiggy (automatic via extension or manual)
-pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
+pip install squiggy
 ```
 
 > **Important**: If you're using Homebrew Python or system Python, you **must** use a virtual environment. Modern Python installations follow [PEP 668](https://peps.python.org/pep-0668/) and prevent direct package installation to system Python.
@@ -110,13 +128,16 @@ pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
 > When you first open a POD5 file, Squiggy will:
 > 1. Check if the Python package is installed
 > 2. Detect if you're using a virtual environment
-> 3. Prompt to install automatically (if in venv/conda) or show manual setup instructions (if system Python)
+> 3. Prompt to install automatically (if in venv/mamba) or show manual setup instructions (if system Python)
 
-**Alternative**: Use a conda environment:
+**Alternative (using mamba)**: If you need mamba environments:
 
 ```bash
-conda create -n squiggy python=3.12
-conda activate squiggy
+# Install mamba (much faster than conda)
+# See: https://mamba.readthedocs.io/en/latest/installation.html
+
+mamba create -n squiggy python=3.12
+mamba activate squiggy
 pip install squiggy
 ```
 

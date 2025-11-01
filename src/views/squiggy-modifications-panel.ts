@@ -132,30 +132,30 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
         // BASE_COLORS: C=#F0E442 (yellow), A=#009E73 (green), G=#0072B2 (blue), T/U=#D55E00 (orange)
         const modificationColors: Record<string, string> = {
             // Cytosine modifications (yellow family - C=#F0E442)
-            m: '#F0E442',       // 5mC - base yellow
-            h: '#E6D835',       // 5hmC - dark yellow
-            f: '#DCC728',       // 5fC - darker yellow
-            c: '#FFF78A',       // 5caC - light yellow
+            m: '#F0E442', // 5mC - base yellow
+            h: '#E6D835', // 5hmC - dark yellow
+            f: '#DCC728', // 5fC - darker yellow
+            c: '#FFF78A', // 5caC - light yellow
             '21839': '#FFFC9E', // 4mC - very light yellow
             '19228': '#D4BC1F', // Cm - deep yellow
-            C: '#F0E442',       // any C* - base yellow
+            C: '#F0E442', // any C* - base yellow
             // Adenine modifications (green family - A=#009E73)
-            a: '#009E73',       // 6mA - base green
+            a: '#009E73', // 6mA - base green
             '17596': '#00C490', // I - light green
             '69426': '#007A57', // Am - dark green
-            A: '#009E73',       // any A* - base green
+            A: '#009E73', // any A* - base green
             // Guanine modifications (blue family - G=#0072B2)
-            o: '#0072B2',       // 8oxoG - base blue
+            o: '#0072B2', // 8oxoG - base blue
             '19229': '#4DA6E0', // Gm - light blue
-            G: '#0072B2',       // any G* - base blue
+            G: '#0072B2', // any G* - base blue
             // Thymine/Uracil modifications (orange family - T/U=#D55E00)
-            g: '#D55E00',       // 5hmU - base orange
-            e: '#FF7518',       // 5fU - light orange
-            b: '#B34C00',       // 5caU - dark orange
+            g: '#D55E00', // 5hmU - base orange
+            e: '#FF7518', // 5fU - light orange
+            b: '#B34C00', // 5caU - dark orange
             '17802': '#FF9447', // Ψ - lighter orange
             '16450': '#8F3D00', // dU - deep orange
             '19227': '#FFB880', // Um - very light orange
-            T: '#D55E00',       // any T* - base orange
+            T: '#D55E00', // any T* - base orange
             // Default
             default: '#000000',
         };
