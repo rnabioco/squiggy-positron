@@ -1015,7 +1015,7 @@ class SquigglePlotter:
             # Store reference to main plot for easy access (layout.children[1] is the main plot)
             # This allows users to customize: fig.main_plot.title.text = "Custom"
             # Use object.__setattr__ to bypass Bokeh's attribute validation
-            object.__setattr__(layout, 'main_plot', p)
+            object.__setattr__(layout, "main_plot", p)
             _route_to_plots_pane(layout)  # Route to Plots pane
             html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
             return html, layout

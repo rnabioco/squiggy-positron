@@ -40,6 +40,42 @@ export default [
         },
     },
     {
+        files: ['src/**/*.tsx'],
+        languageOptions: {
+            parser: tsparser,
+            parserOptions: {
+                ecmaVersion: 2020,
+                sourceType: 'module',
+                project: './tsconfig.json',
+                ecmaFeatures: {
+                    jsx: true,
+                },
+            },
+            globals: {
+                ...globals.browser,
+            },
+        },
+        plugins: {
+            '@typescript-eslint': tseslint,
+        },
+        rules: {
+            ...tseslint.configs.recommended.rules,
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                {
+                    argsIgnorePattern: '^_',
+                    varsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                },
+            ],
+            '@typescript-eslint/no-explicit-any': 'warn',
+            '@typescript-eslint/explicit-module-boundary-types': 'off',
+            'no-console': 'off',
+            'no-undef': 'off', // TypeScript handles this
+            'no-unused-vars': 'off', // Use @typescript-eslint/no-unused-vars instead
+        },
+    },
+    {
         ignores: [
             'out/**',
             'dist/**',

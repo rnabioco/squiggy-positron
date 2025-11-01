@@ -39,6 +39,13 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+        // Handle visibility changes - restore state when view becomes visible
+        webviewView.onDidChangeVisibility(() => {
+            if (webviewView.visible) {
+                this._restoreState();
+            }
+        });
+
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
@@ -93,6 +100,31 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
                     this._onDidChangeOptions.fire();
                     break;
             }
+        });
+
+        // Send initial state
+        this._restoreState();
+    }
+
+    /**
+     * Restore state to webview (called when view becomes visible)
+     */
+    private _restoreState(): void {
+        if (!this._view) {
+            return;
+        }
+
+        // Send all current option values to the webview
+        this._view.webview.postMessage({
+            type: 'updateAllOptions',
+            plotMode: this._plotMode,
+            normalization: this._normalization,
+            showDwellTime: this._showDwellTime,
+            showBaseAnnotations: this._showBaseAnnotations,
+            scaleDwellTime: this._scaleDwellTime,
+            downsample: this._downsample,
+            showSignalPoints: this._showSignalPoints,
+            hasBam: this._hasBamFile,
         });
     }
 
@@ -301,6 +333,23 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         window.addEventListener('message', event => {
             const message = event.data;
             switch (message.type) {
+                case 'updateAllOptions':
+                    // Restore all option values (called when panel becomes visible)
+                    plotModeEl.value = message.plotMode;
+                    normalizationEl.value = message.normalization;
+                    showDwellTimeEl.checked = message.showDwellTime;
+                    showBaseAnnotationsEl.checked = message.showBaseAnnotations;
+                    scaleDwellTimeEl.checked = message.scaleDwellTime;
+                    downsampleEl.value = message.downsample;
+                    updateDownsampleDisplay(message.downsample);
+                    showSignalPointsEl.checked = message.showSignalPoints;
+                    // Update BAM status
+                    if (message.hasBam) {
+                        eventalignOptionEl.style.display = '';
+                    } else {
+                        eventalignOptionEl.style.display = 'none';
+                    }
+                    break;
                 case 'updateBamStatus':
                     // Show/hide EVENTALIGN option based on BAM status
                     if (message.hasBam) {
