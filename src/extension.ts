@@ -291,6 +291,7 @@ function registerCommands(
 
 /**
  * Ensure squiggy is available in the kernel (for development mode)
+ * Also updates the status badge with version info
  */
 let squiggyEnsured = false;
 async function ensureSquiggyAvailable() {
@@ -305,8 +306,13 @@ async function ensureSquiggyAvailable() {
             `import sys; sys.path.insert(0, '${workspaceFolder}') if '${workspaceFolder}' not in sys.path else None`
         );
         squiggyEnsured = true;
+
+        // Get version and update status badge
+        const version = await positronRuntime.getSquiggyVersion();
+        filePanelProvider.setSquiggyStatus(version !== null, version || undefined);
     } catch {
-        // Ignore errors - will fail later if squiggy truly unavailable
+        // Mark as unavailable
+        filePanelProvider.setSquiggyStatus(false);
     }
 }
 

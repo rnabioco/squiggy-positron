@@ -233,6 +233,27 @@ except ImportError:
     }
 
     /**
+     * Get squiggy package version
+     */
+    async getSquiggyVersion(): Promise<string | null> {
+        const code = `
+try:
+    import squiggy
+    print(squiggy.__version__)
+except (ImportError, AttributeError):
+    print('unavailable')
+`;
+
+        try {
+            const output = await this.executeWithOutput(code);
+            const version = output.trim();
+            return version === 'unavailable' ? null : version;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * Install squiggy package to the kernel
      */
     async installSquiggy(): Promise<void> {

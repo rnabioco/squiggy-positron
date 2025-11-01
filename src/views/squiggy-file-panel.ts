@@ -15,6 +15,7 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
     private _bamFile?: string;
     private _pod5Info?: { numReads: number; fileSize: string };
     private _bamInfo?: { numReads: number; fileSize: string };
+    private _squiggyStatus?: { available: boolean; version?: string };
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -66,6 +67,14 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
         this._updateView();
     }
 
+    /**
+     * Update Squiggy availability status
+     */
+    public setSquiggyStatus(available: boolean, version?: string) {
+        this._squiggyStatus = { available, version };
+        this._updateView();
+    }
+
     private _updateView() {
         if (this._view) {
             this._view.webview.postMessage({
@@ -74,6 +83,7 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
                 pod5Info: this._pod5Info,
                 bamFile: this._bamFile,
                 bamInfo: this._bamInfo,
+                squiggyStatus: this._squiggyStatus,
             });
         }
     }
@@ -121,6 +131,24 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
             width: 100%;
             margin-bottom: 12px;
         }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            margin-bottom: 12px;
+            font-size: 0.85em;
+            border-radius: 3px;
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+        }
+        .status-badge.unavailable {
+            background: var(--vscode-inputValidation-warningBackground);
+            color: var(--vscode-inputValidation-warningForeground);
+        }
+        .status-icon {
+            font-size: 1em;
+        }
         .file-section {
             margin-bottom: 16px;
             padding: 10px;
@@ -154,6 +182,12 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
     </style>
 </head>
 <body>
+    <!-- Status Badge -->
+    <div id="statusBadge" class="status-badge" style="display: none;">
+        <span class="status-icon">⚙️</span>
+        <span id="statusText">Checking squiggy...</span>
+    </div>
+
     <!-- Test Data Button -->
     <button id="loadTestData" class="secondary test-data-button">📊 Load Test Data</button>
 
@@ -181,6 +215,8 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
         const vscode = acquireVsCodeApi();
 
         // Get elements
+        const statusBadge = document.getElementById('statusBadge');
+        const statusText = document.getElementById('statusText');
         const loadTestDataBtn = document.getElementById('loadTestData');
         const openPOD5Btn = document.getElementById('openPOD5');
         const openBAMBtn = document.getElementById('openBAM');
@@ -209,6 +245,19 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
             const message = event.data;
             switch (message.type) {
                 case 'updateFileInfo':
+                    // Update squiggy status badge
+                    if (message.squiggyStatus) {
+                        statusBadge.style.display = 'inline-flex';
+                        if (message.squiggyStatus.available) {
+                            statusBadge.classList.remove('unavailable');
+                            const version = message.squiggyStatus.version || 'unknown';
+                            statusText.textContent = \`Squiggy v\${version}\`;
+                        } else {
+                            statusBadge.classList.add('unavailable');
+                            statusText.textContent = 'Squiggy unavailable';
+                        }
+                    }
+
                     // Update POD5 file info
                     if (message.pod5File) {
                         const fileName = message.pod5File.split('/').pop();
