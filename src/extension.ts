@@ -46,7 +46,6 @@ export async function activate(context: vscode.ExtensionContext) {
     if (usePositron) {
         // Installation check deferred until first use to avoid console clutter
     } else {
-
         // Fallback to subprocess JSON-RPC
         const pythonPath = getPythonPath();
         const serverPath = context.asAbsolutePath(path.join('src', 'python', 'server.py'));
