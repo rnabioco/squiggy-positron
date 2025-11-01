@@ -176,16 +176,26 @@ export async function activate(context: vscode.ExtensionContext) {
             // Also listen to runtime state changes on the current session
             // This catches kernel restarts within the same session
             const setupSessionListeners = async () => {
-                const session = await positron.runtime.getForegroundSession();
-                if (session && session.onDidChangeRuntimeState) {
-                    context.subscriptions.push(
-                        session.onDidChangeRuntimeState((state: any) => {
-                            // Clear state when kernel is restarting or has exited
-                            if (state === 'restarting' || state === 'exited') {
-                                clearExtensionState(`Kernel ${state}`);
-                            }
-                        })
-                    );
+                try {
+                    const session = await positron.runtime.getForegroundSession();
+                    console.log('Squiggy: Setting up session listeners, session:', session?.metadata.sessionId);
+
+                    if (session && session.onDidChangeRuntimeState) {
+                        context.subscriptions.push(
+                            session.onDidChangeRuntimeState((state: any) => {
+                                console.log('Squiggy: Runtime state changed to:', state);
+                                // Clear state when kernel is restarting or has exited
+                                if (state === 'restarting' || state === 'exited') {
+                                    clearExtensionState(`Kernel ${state}`);
+                                }
+                            })
+                        );
+                        console.log('Squiggy: Successfully attached runtime state listener');
+                    } else {
+                        console.log('Squiggy: No session or no onDidChangeRuntimeState event available');
+                    }
+                } catch (error) {
+                    console.error('Squiggy: Error setting up session listeners:', error);
                 }
             };
             setupSessionListeners();
