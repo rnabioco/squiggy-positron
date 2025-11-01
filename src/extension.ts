@@ -150,6 +150,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for Positron runtime session changes (kernel restarts)
     if (usePositron) {
         try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const positron = require('positron');
 
             // Helper function to clear extension state
@@ -174,7 +175,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Listen for session changes (kernel switches)
             context.subscriptions.push(
-                positron.runtime.onDidChangeForegroundSession((sessionId: string | undefined) => {
+                positron.runtime.onDidChangeForegroundSession((_sessionId: string | undefined) => {
                     clearExtensionState('Python session changed');
                 })
             );
