@@ -151,20 +151,49 @@ export async function activate(context: vscode.ExtensionContext) {
     if (usePositron) {
         try {
             const positron = require('positron');
+
+            // Helper function to clear extension state
+            const clearExtensionState = (reason: string) => {
+                _currentPod5File = undefined;
+                _currentBamFile = undefined;
+                currentPlotReadIds = undefined;
+
+                // Clear UI panels
+                readTreeProvider.setReads([]);
+                filePanelProvider.setPOD5Info('', 0, '0 MB');
+                filePanelProvider.setBAMInfo('', 0, '0 MB');
+
+                console.log(`Squiggy: ${reason}, state cleared`);
+            };
+
+            // Listen for session changes (kernel switches)
             context.subscriptions.push(
                 positron.runtime.onDidChangeForegroundSession((sessionId: string | undefined) => {
-                    // Session changed or cleared - reset extension state
-                    // This fires when kernel restarts or switches sessions
-                    _currentPod5File = undefined;
-                    _currentBamFile = undefined;
-                    currentPlotReadIds = undefined;
+                    clearExtensionState('Python session changed');
+                })
+            );
 
-                    // Clear UI panels
-                    readTreeProvider.setReads([]);
-                    filePanelProvider.setPOD5Info('', 0, '0 MB');
-                    filePanelProvider.setBAMInfo('', 0, '0 MB');
+            // Also listen to runtime state changes on the current session
+            // This catches kernel restarts within the same session
+            const setupSessionListeners = async () => {
+                const session = await positron.runtime.getForegroundSession();
+                if (session && session.onDidChangeRuntimeState) {
+                    context.subscriptions.push(
+                        session.onDidChangeRuntimeState((state: any) => {
+                            // Clear state when kernel is restarting or has exited
+                            if (state === 'restarting' || state === 'exited') {
+                                clearExtensionState(`Kernel ${state}`);
+                            }
+                        })
+                    );
+                }
+            };
+            setupSessionListeners();
 
-                    console.log('Squiggy: Python session changed, state cleared');
+            // Re-setup listeners when session changes
+            context.subscriptions.push(
+                positron.runtime.onDidChangeForegroundSession(async () => {
+                    await setupSessionListeners();
                 })
             );
         } catch (error) {
