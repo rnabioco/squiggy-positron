@@ -57,6 +57,12 @@
         "title": "Refresh Read List",
         "category": "Squiggy",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "squiggy.clearState",
+        "title": "Clear All State (After Kernel Restart)",
+        "category": "Squiggy",
+        "icon": "$(clear-all)"
       }
     ],
     "viewsContainers": {
