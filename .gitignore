@@ -13,7 +13,6 @@ dist/
 venv/
 ENV/
 .pixi/
-pixi.lock
 
 # IDEs
 .vscode/*
