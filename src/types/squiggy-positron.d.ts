@@ -64,6 +64,13 @@ declare module 'positron' {
         Exited = 'exited',
     }
 
+    export interface LanguageRuntimeSession {
+        metadata: { sessionId: string; sessionName: string; sessionMode: string };
+        runtimeMetadata: { languageId: string };
+        onDidChangeRuntimeState: import('vscode').Event<RuntimeState>;
+        onDidEndSession: import('vscode').Event<any>;
+    }
+
     export namespace runtime {
         export function executeCode(
             languageId: string,
@@ -75,7 +82,7 @@ declare module 'positron' {
             observer?: RuntimeCodeExecutionObserver
         ): Thenable<Record<string, any>>;
 
-        export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
+        export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
 
         export function getSessionVariables(
             sessionId: string,
