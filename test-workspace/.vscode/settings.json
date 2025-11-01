@@ -1,9 +1,0 @@
-{
-    "python.defaultInterpreterPath": "${workspaceFolder}/../.pixi/envs/default/bin/python",
-    "python.testing.pytestEnabled": false,
-    "files.exclude": {
-        "**/.git": true,
-        "**/__pycache__": true,
-        "**/*.pyc": true
-    }
-}

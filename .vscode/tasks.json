@@ -11,6 +11,23 @@
       "problemMatcher": "$tsc",
       "label": "npm: compile",
       "detail": "tsc -p ./"
+    },
+    {
+      "label": "setup-test-workspace",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/setup-test-workspace.sh",
+      "presentation": {
+        "reveal": "silent",
+        "close": true
+      }
+    },
+    {
+      "label": "prepare-extension",
+      "dependsOn": [
+        "setup-test-workspace",
+        "npm: compile"
+      ],
+      "dependsOrder": "sequence"
     }
   ]
 }

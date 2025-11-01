@@ -12,7 +12,7 @@
       "outFiles": [
         "${workspaceFolder}/build/**/*.js"
       ],
-      "preLaunchTask": "${defaultBuildTask}",
+      "preLaunchTask": "prepare-extension",
       "env": {
         "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}"
       }
