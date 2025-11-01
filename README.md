@@ -86,15 +86,43 @@ If your BAM file contains base modifications:
 
 - **Positron IDE** (version 2025.6.0+)
 - **Python 3.12+** with an active Python console
-- **squiggy Python package**: Installed automatically on first use, or install manually:
-  ```bash
-  pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
-  # OR for development: pixi install
-  ```
+- **squiggy Python package**: The extension will prompt to install automatically on first use
 
-  > **Note**: When you first open a POD5 file, Squiggy will check if the Python package is installed and prompt you to install it automatically if needed.
+### Python Environment Setup
 
-- **Optional**: BAM file with basecalls for advanced features
+**Recommended**: Use a virtual environment to avoid conflicts with system Python packages:
+
+```bash
+# Create virtual environment
+python3 -m venv .venv
+
+# Activate it
+source .venv/bin/activate  # macOS/Linux
+# OR
+.venv\Scripts\activate     # Windows
+
+# Install squiggy (automatic via extension or manual)
+pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
+```
+
+> **Important**: If you're using Homebrew Python or system Python, you **must** use a virtual environment. Modern Python installations follow [PEP 668](https://peps.python.org/pep-0668/) and prevent direct package installation to system Python.
+>
+> When you first open a POD5 file, Squiggy will:
+> 1. Check if the Python package is installed
+> 2. Detect if you're using a virtual environment
+> 3. Prompt to install automatically (if in venv/conda) or show manual setup instructions (if system Python)
+
+**Alternative**: Use a conda environment:
+
+```bash
+conda create -n squiggy python=3.12
+conda activate squiggy
+pip install squiggy
+```
+
+### Optional Requirements
+
+- **BAM file** with basecalls for advanced features (event-aligned plots, modifications)
 
 ## Extension Development
 
