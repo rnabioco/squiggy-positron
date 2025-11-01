@@ -91,6 +91,7 @@ class TestLoadBAM:
         assert "references" in bam_info
         assert "has_modifications" in bam_info
         assert "modification_types" in bam_info
+        assert "has_event_alignment" in bam_info
 
     def test_load_bam_stores_global_state(self, indexed_bam_file):
         """Test that load_bam stores global path"""
@@ -150,6 +151,25 @@ class TestGetBAMModificationInfo:
 
         with pytest.raises(FileNotFoundError):
             get_bam_modification_info("/nonexistent/path/file.bam")
+
+
+class TestGetBAMEventAlignmentStatus:
+    """Tests for get_bam_event_alignment_status function"""
+
+    def test_get_bam_event_alignment_status_returns_bool(self, indexed_bam_file):
+        """Test that function returns boolean"""
+        from squiggy.io import get_bam_event_alignment_status
+
+        has_events = get_bam_event_alignment_status(str(indexed_bam_file))
+
+        assert isinstance(has_events, bool)
+
+    def test_get_bam_event_alignment_status_nonexistent_file(self):
+        """Test that function raises error for nonexistent file"""
+        from squiggy.io import get_bam_event_alignment_status
+
+        with pytest.raises(FileNotFoundError):
+            get_bam_event_alignment_status("/nonexistent/path/file.bam")
 
 
 class TestGetReadToReferenceMapping:

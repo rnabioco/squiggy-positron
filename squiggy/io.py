@@ -64,6 +64,52 @@ def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
     return reader, read_ids
 
 
+def get_bam_event_alignment_status(file_path: str) -> bool:
+    """
+    Check if BAM file contains event alignment data (mv tag)
+
+    The mv tag contains the move table from basecalling, which maps
+    nanopore signal events to basecalled nucleotides. This is required
+    for event-aligned plotting mode.
+
+    Args:
+        file_path: Path to BAM file
+
+    Returns:
+        True if mv tag is found in sampled reads
+
+    Example:
+        >>> from squiggy import get_bam_event_alignment_status
+        >>> has_events = get_bam_event_alignment_status('alignments.bam')
+        >>> if has_events:
+        ...     print("BAM contains event alignment data")
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"BAM file not found: {file_path}")
+
+    max_reads_to_check = 100  # Sample first 100 reads
+
+    try:
+        bam = pysam.AlignmentFile(file_path, "rb", check_sq=False)
+
+        for i, read in enumerate(bam.fetch(until_eof=True)):
+            if i >= max_reads_to_check:
+                break
+
+            # Check for mv tag (move table)
+            if read.has_tag("mv"):
+                bam.close()
+                return True
+
+        bam.close()
+
+    except Exception as e:
+        print(f"Warning: Error checking BAM event alignment: {e}")
+        return False
+
+    return False
+
+
 def get_bam_modification_info(file_path: str) -> dict:
     """
     Check if BAM file contains base modification tags (MM/ML)
@@ -152,7 +198,7 @@ def load_bam(file_path: str) -> dict:
         file_path: Path to BAM file
 
     Returns:
-        Dict with file metadata including references and modifications
+        Dict with file metadata including references, modifications, and event alignment
 
     Example:
         >>> from squiggy import load_bam
@@ -160,6 +206,8 @@ def load_bam(file_path: str) -> dict:
         >>> print(bam_info['references'])
         >>> if bam_info['has_modifications']:
         ...     print(f"Modifications: {bam_info['modification_types']}")
+        >>> if bam_info['has_event_alignment']:
+        ...     print("Event alignment data available")
     """
     global _current_bam_path
 
@@ -175,6 +223,9 @@ def load_bam(file_path: str) -> dict:
     # Check for base modifications
     mod_info = get_bam_modification_info(abs_path)
 
+    # Check for event alignment data
+    has_event_alignment = get_bam_event_alignment_status(abs_path)
+
     # Store path
     _current_bam_path = abs_path
 
@@ -185,6 +236,7 @@ def load_bam(file_path: str) -> dict:
         "has_modifications": mod_info["has_modifications"],
         "modification_types": mod_info["modification_types"],
         "has_probabilities": mod_info["has_probabilities"],
+        "has_event_alignment": has_event_alignment,
     }
 
 
