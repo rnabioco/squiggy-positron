@@ -219,9 +219,24 @@ function registerCommands(
                 'yeast_trna_mappings.bam'
             );
 
-            // Load both files sequentially
-            await openPOD5File(pod5Path);
-            await openBAMFile(bamPath);
+            // Check if files are already loaded
+            const pod5AlreadyLoaded = _currentPod5File === pod5Path;
+            const bamAlreadyLoaded = _currentBamFile === bamPath;
+
+            if (pod5AlreadyLoaded && bamAlreadyLoaded) {
+                vscode.window.showInformationMessage(
+                    'Test data is already loaded. Use "Refresh Read List" to update the view.'
+                );
+                return;
+            }
+
+            // Load files sequentially (only if not already loaded)
+            if (!pod5AlreadyLoaded) {
+                await openPOD5File(pod5Path);
+            }
+            if (!bamAlreadyLoaded) {
+                await openBAMFile(bamPath);
+            }
 
             vscode.window.showInformationMessage('Test data loaded successfully!');
         })
