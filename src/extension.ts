@@ -659,7 +659,9 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
                         options.showBaseAnnotations,
                         options.scaleDwellTime,
                         modFilters.minProbability,
-                        modFilters.enabledModTypes
+                        modFilters.enabledModTypes,
+                        options.downsample,
+                        options.showSignalPoints
                     );
 
                     // Read HTML from temp file

@@ -116,32 +116,44 @@ export class PositronRuntime {
         // Convert the Python value to JSON in Python, then read that
         const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
 
-        await this.executeSilent(`
+        try {
+            await this.executeSilent(`
 import json
 ${tempVar} = json.dumps(${varName})
 `);
 
-        const [[variable]] = await positron.runtime.getSessionVariables(
-            session.metadata.sessionId,
-            [[tempVar]]
-        );
+            const [[variable]] = await positron.runtime.getSessionVariables(
+                session.metadata.sessionId,
+                [[tempVar]]
+            );
 
-        // Clean up temp variable
-        await this.executeSilent(`del ${tempVar}`);
+            // Clean up temp variable
+            await this.executeSilent(`
+if '${tempVar}' in globals():
+    del ${tempVar}
+`);
 
-        if (!variable) {
-            throw new Error(`Variable ${varName} not found`);
+            if (!variable) {
+                throw new Error(`Variable ${varName} not found`);
+            }
+
+            // display_value contains the JSON string (as a Python string repr)
+            // We need to parse it: Python repr -> actual string -> JSON parse
+            // e.g., "'[1,2,3]'" -> "[1,2,3]" -> [1,2,3]
+            const jsonString = variable.display_value;
+
+            // Remove outer quotes if present (Python string repr)
+            const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
+
+            return JSON.parse(cleaned);
+        } catch (error) {
+            // Clean up temp variable on error
+            await this.executeSilent(`
+if '${tempVar}' in globals():
+    del ${tempVar}
+`).catch(() => {}); // Ignore cleanup errors
+            throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
-
-        // display_value contains the JSON string (as a Python string repr)
-        // We need to parse it: Python repr -> actual string -> JSON parse
-        // e.g., "'[1,2,3]'" -> "[1,2,3]" -> [1,2,3]
-        const jsonString = variable.display_value;
-
-        // Remove outer quotes if present (Python string repr)
-        const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
-
-        return JSON.parse(cleaned);
     }
 
     /**
@@ -259,46 +271,90 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
         showBaseAnnotations: boolean = true,
         scaleDwellTime: boolean = false,
         minModProbability: number = 0.5,
-        enabledModTypes: string[] = []
+        enabledModTypes: string[] = [],
+        downsample: number = 1,
+        showSignalPoints: boolean = false
     ): Promise<string> {
         const readIdsJson = JSON.stringify(readIds);
 
         const enabledModTypesJson = JSON.stringify(enabledModTypes);
 
         const code = `
+import sys
 import squiggy
 import tempfile
 import json
+import traceback
 
-# Generate plot HTML
-${
-    readIds.length === 1
-        ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
-        : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
-}
+# Initialize error tracking
+_squiggy_plot_error = None
+_squiggy_plot_path = None
 
-# Write to temp file
-_squiggy_temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
-_squiggy_temp_file.write(html)
-_squiggy_temp_file.close()
+try:
+    # Note: We don't reload the squiggy module here because it would reset global state
+    # (loaded POD5/BAM files). If you're developing and need to reload, restart the kernel.
 
-# Store path in kernel variable (NO print!)
-_squiggy_plot_path = _squiggy_temp_file.name
+    # Generate plot HTML
+    ${
+        readIds.length === 1
+            ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+    }
+
+    # Write to temp file
+    _squiggy_temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False)
+    _squiggy_temp_file.write(html)
+    _squiggy_temp_file.close()
+
+    # Store path in kernel variable (NO print!)
+    _squiggy_plot_path = _squiggy_temp_file.name
+except Exception as e:
+    _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
+    # Also print to console for debugging
+    print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
 `;
 
         try {
-            // Execute silently
+            // Execute silently (won't throw even if Python code has errors)
             await this.executeSilent(code);
 
-            // Read variable directly from kernel memory
-            const filePath = await this.getVariable('_squiggy_plot_path');
+            // Check if there was an error during plot generation
+            // Note: Python None becomes null in JavaScript after JSON parsing
+            const plotError = await this.getVariable('_squiggy_plot_error').catch(() => null);
+            if (plotError !== null) {
+                throw new Error(`Plot generation failed:\n${plotError}`);
+            }
 
-            // Clean up temporary variables
-            await this.executeSilent('del _squiggy_plot_path, _squiggy_temp_file');
+            // Read the plot file path
+            // Note: Python None becomes null in JavaScript after JSON parsing
+            const filePath = await this.getVariable('_squiggy_plot_path').catch(() => null);
+            if (filePath === null) {
+                // If no error was reported but also no path, something went wrong silently
+                throw new Error('Plot generation failed - no file path returned. The plot generation code may have been interrupted or failed silently.');
+            }
+
+            // Clean up temporary variables (ignore errors if they don't exist)
+            await this.executeSilent(`
+if '_squiggy_plot_path' in globals():
+    del _squiggy_plot_path
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+if '_squiggy_temp_file' in globals():
+    del _squiggy_temp_file
+`);
 
             return filePath;
         } catch (error) {
-            throw new Error(`Failed to generate plot: ${error}`);
+            // Clean up on error (ignore if variables don't exist)
+            await this.executeSilent(`
+if '_squiggy_plot_path' in globals():
+    del _squiggy_plot_path
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+if '_squiggy_temp_file' in globals():
+    del _squiggy_temp_file
+`).catch(() => {}); // Ignore cleanup errors
+            throw error; // Re-throw the original error with full message
         }
     }
 
