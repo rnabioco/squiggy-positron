@@ -534,15 +534,32 @@ except ImportError:
      * @param extensionPath Path to the extension directory containing pyproject.toml
      */
     async installSquiggy(extensionPath: string): Promise<void> {
-        const escapedPath = extensionPath.replace(/'/g, "\\'");
+        // Use JSON serialization for cross-platform path safety (Windows backslashes, etc.)
+        const pathJson = JSON.stringify(extensionPath);
 
         const code = `
 import subprocess
 import sys
-result = subprocess.run(
-    [sys.executable, '-m', 'pip', 'install', '-e', '${escapedPath}'],
+import json
+
+# Check if pip is available
+pip_check = subprocess.run(
+    [sys.executable, '-m', 'pip', '--version'],
     capture_output=True,
     text=True
+)
+if pip_check.returncode != 0:
+    raise Exception('pip is not available in this Python environment. Please install pip first.')
+
+# Deserialize path safely (handles Windows backslashes, spaces, etc.)
+extension_path = json.loads(${pathJson})
+
+# Install with timeout (5 minutes)
+result = subprocess.run(
+    [sys.executable, '-m', 'pip', 'install', '-e', extension_path],
+    capture_output=True,
+    text=True,
+    timeout=300
 )
 if result.returncode != 0:
     raise Exception(f'Installation failed: {result.stderr}')
