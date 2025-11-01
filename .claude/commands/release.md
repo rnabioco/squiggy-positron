@@ -15,6 +15,14 @@ Parse the version argument provided by the user. The version can be specified in
 - `minor`: Increment minor version (0.1.0 → 0.2.0)
 - `patch`: Increment patch version (0.1.0 → 0.1.1)
 
+**IMPORTANT - Pre-release Suffix Handling:**
+If the current version has a pre-release suffix (e.g., `-alpha`, `-beta`, `-rc.1`), **preserve it** in the bumped version:
+- Current: `0.1.3-alpha` + `patch` → `0.1.4-alpha`
+- Current: `0.1.3-alpha` + `minor` → `0.2.0-alpha`
+- Current: `0.1.3-alpha` + `major` → `1.0.0-alpha`
+
+This allows continuous development in alpha/beta without manual suffix management.
+
 **Option 3: No argument provided**
 - Use the AskUserQuestion tool to prompt the user to select release type:
   - Question: "What type of release is this?"
@@ -30,11 +38,14 @@ After determining the version:
 
 ## Step 2: Get Current Version
 
-Read the current version from:
-- `src/squiggy/__init__.py` (look for `__version__ = "..."`)
-- `pyproject.toml` (look for `version = "..."`)
+Read the current version from `package.json` (look for `"version": "..."`).
 
-Verify both files have the same version. If they don't match, alert the user.
+**Note:** `package.json` is the single source of truth for version numbers. The `scripts/sync-version.js` script automatically syncs the version to:
+- `squiggy/__init__.py` (__version__)
+- `pyproject.toml` (version)
+- `package.json` viewsContainers title (sidebar display)
+
+The sync script runs automatically during build, but you should run it manually after updating the version: `npm run sync`
 
 ## Step 3: Collect Changes Since Last Release
 
@@ -79,15 +90,20 @@ Use today's date in YYYY-MM-DD format.
 
 ## Step 5: Update Version Numbers
 
-Update the version in these files:
-1. `src/squiggy/__init__.py`: Update `__version__ = "NEW_VERSION"`
-2. `pyproject.toml`: Update `version = "NEW_VERSION"`
+Update the version in `package.json`:
+1. Edit `package.json`: Update `"version": "NEW_VERSION"`
+2. Run the sync script: `npm run sync`
+
+This will automatically update:
+- `squiggy/__init__.py` (__version__)
+- `pyproject.toml` (version)
+- `package.json` viewsContainers title (sidebar)
 
 ## Step 6: Stage Changes
 
 Stage all modified files with git:
 ```bash
-git add src/squiggy/__init__.py pyproject.toml NEWS.md
+git add package.json squiggy/__init__.py pyproject.toml NEWS.md
 ```
 
 ## Step 7: Show Summary
@@ -95,8 +111,9 @@ git add src/squiggy/__init__.py pyproject.toml NEWS.md
 Display a summary showing:
 - Old version → New version
 - Files updated:
-  - `src/squiggy/__init__.py`
-  - `pyproject.toml`
+  - `package.json` (version and sidebar title)
+  - `squiggy/__init__.py` (__version__)
+  - `pyproject.toml` (version)
   - `NEWS.md`
 - Changes staged with git
 
@@ -194,14 +211,18 @@ If any step fails:
 ## Usage Examples
 
 ```bash
-# Automatic version bump by type
+# Automatic version bump by type (preserves pre-release suffix)
+/release patch        # 0.1.3-alpha → 0.1.4-alpha
+/release minor        # 0.1.3-alpha → 0.2.0-alpha
+/release major        # 0.1.3-alpha → 1.0.0-alpha
+
+# Without suffix
 /release patch        # 0.1.0 → 0.1.1
-/release minor        # 0.1.0 → 0.2.0
-/release major        # 0.1.0 → 1.0.0
 
 # Explicit version number
 /release 0.2.0        # Set to exactly 0.2.0
 /release 1.0.0-beta   # Pre-release version
+/release 0.2.0-alpha  # Continue alpha development
 
 # Interactive prompt
 /release              # Ask user to select release type

@@ -11,6 +11,9 @@ platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 # Note: Run 'npm install' manually after 'pixi install' or use task below
 setup = "npm install"
 
+# === Version Management ===
+sync = "node scripts/sync-version.js"
+
 # === Main Development Workflow ===
 dev = "npm run watch"
 test = { depends-on = ["test-py", "test-ts"] }
