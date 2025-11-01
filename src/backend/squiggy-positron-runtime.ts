@@ -555,10 +555,20 @@ _squiggy_env_info = json.dumps(result)
 
         try {
             await this.executeSilent(code);
-            const result = await this.getVariable('_squiggy_env_info');
+            const envInfo = await this.getVariable('_squiggy_env_info');
             await this.executeSilent('del _squiggy_env_info');
 
-            return JSON.parse(result as string);
+            // getVariable() already parses JSON, so envInfo is already a JS object
+            // Python returns snake_case keys, convert to camelCase for TypeScript
+            const result = envInfo as any;
+            return {
+                isVirtualEnv: result.is_venv,
+                isConda: result.is_conda,
+                isExternallyManaged: result.is_externally_managed,
+                pythonPath: result.python_path,
+                prefix: result.prefix,
+                basePrefix: result.base_prefix,
+            };
         } catch (error) {
             throw new Error(`Failed to detect environment type: ${error}`);
         }
