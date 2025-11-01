@@ -15,6 +15,8 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
     private _showDwellTime: boolean = false;
     private _showBaseAnnotations: boolean = true;
     private _scaleDwellTime: boolean = false;
+    private _downsample: number = 1;
+    private _showSignalPoints: boolean = false;
 
     // Event emitter for when options change that should trigger refresh
     private _onDidChangeOptions = new vscode.EventEmitter<void>();
@@ -81,6 +83,14 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
                     }
                     this._onDidChangeOptions.fire();
                     break;
+                case 'downsampleChanged':
+                    this._downsample = data.value;
+                    this._onDidChangeOptions.fire();
+                    break;
+                case 'showSignalPointsChanged':
+                    this._showSignalPoints = data.value;
+                    this._onDidChangeOptions.fire();
+                    break;
             }
         });
     }
@@ -95,6 +105,8 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
             showDwellTime: this._showDwellTime,
             showBaseAnnotations: this._showBaseAnnotations,
             scaleDwellTime: this._scaleDwellTime,
+            downsample: this._downsample,
+            showSignalPoints: this._showSignalPoints,
         };
     }
 
@@ -163,6 +175,23 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
             margin-top: -6px;
             margin-bottom: 10px;
         }
+        .slider-container {
+            margin-bottom: 8px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.9em;
+        }
+        .slider-value {
+            font-weight: bold;
+            color: var(--vscode-input-foreground);
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -206,6 +235,21 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
             <label for="scaleDwellTime">Scale x-axis by dwell time</label>
         </div>
         <div class="info-text">X-axis shows cumulative dwell time instead of base positions</div>
+
+        <div class="slider-container">
+            <div class="slider-label">
+                <span>Downsample signal:</span>
+                <span class="slider-value" id="downsampleValue">1x (no downsampling)</span>
+            </div>
+            <input type="range" id="downsample" min="1" max="40" value="1" step="1">
+            <div class="info-text">Reduce signal points for faster rendering (1 = all points)</div>
+        </div>
+
+        <div class="checkbox-label">
+            <input type="checkbox" id="showSignalPoints">
+            <label for="showSignalPoints">Show individual signal points</label>
+        </div>
+        <div class="info-text">Display circles at each signal sample point</div>
     </div>
 
     <script>
@@ -217,6 +261,9 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         const showDwellTimeEl = document.getElementById('showDwellTime');
         const showBaseAnnotationsEl = document.getElementById('showBaseAnnotations');
         const scaleDwellTimeEl = document.getElementById('scaleDwellTime');
+        const downsampleEl = document.getElementById('downsample');
+        const downsampleValueEl = document.getElementById('downsampleValue');
+        const showSignalPointsEl = document.getElementById('showSignalPoints');
 
         // Listen for messages from extension (for mutual exclusion)
         window.addEventListener('message', event => {
@@ -263,6 +310,31 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         scaleDwellTimeEl.addEventListener('change', (e) => {
             vscode.postMessage({
                 type: 'scaleDwellTimeChanged',
+                value: e.target.checked
+            });
+        });
+
+        // Update downsample value display and send message
+        function updateDownsampleDisplay(value) {
+            if (value == 1) {
+                downsampleValueEl.textContent = '1x (no downsampling)';
+            } else {
+                downsampleValueEl.textContent = '1/' + value + 'x';
+            }
+        }
+
+        downsampleEl.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            updateDownsampleDisplay(value);
+            vscode.postMessage({
+                type: 'downsampleChanged',
+                value: value
+            });
+        });
+
+        showSignalPointsEl.addEventListener('change', (e) => {
+            vscode.postMessage({
+                type: 'showSignalPointsChanged',
                 value: e.target.checked
             });
         });
