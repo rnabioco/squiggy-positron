@@ -5,8 +5,19 @@ This guide covers setting up the development environment, understanding the arch
 ## Prerequisites
 
 - **Positron IDE** (version 2025.6.0+) - Download from [Positron releases](https://github.com/posit-dev/positron/releases)
-- **pixi** (Manages Python + Node.js environment) - `brew install pixi` or see [pixi installation](https://pixi.sh)
 - **Git** with Git LFS enabled
+
+**Choose ONE environment manager:**
+
+- **pixi** (recommended for complete environment) - `brew install pixi` or see [pixi installation](https://pixi.sh)
+  - Manages both Python + Node.js in one tool
+  - Reproducible via `pixi.lock`
+
+- **uv** (recommended for Python-only) - Fast, modern Python package manager
+  - Install: `curl -LsSf https://astral.sh/uv/install.sh | sh` (macOS/Linux)
+  - Or: `brew install uv` (macOS)
+  - See [uv installation](https://github.com/astral-sh/uv)
+  - You'll still need to install Node.js separately (via Homebrew, nvm, etc.)
 
 ## Initial Setup
 
@@ -23,17 +34,37 @@ git lfs pull
 
 ### 2. Install All Dependencies
 
+**Option A: Using pixi (recommended for complete environment)**
+
 ```bash
 # Install Python + Node.js environments, then npm packages
 pixi install && pixi run setup
 ```
 
 This installs:
-- **pixi install**: Python 3.12, Node.js 20+, conda packages (numpy, pytest, ruff, mkdocs), PyPI packages (pod5, pysam, bokeh, selenium)
+- **pixi install**: Python 3.12, Node.js 20+, packages from conda-forge (numpy, pytest, ruff, mkdocs), and PyPI packages (pod5, pysam, bokeh, selenium)
 - **pixi run setup**: npm packages (TypeScript, Jest, ESLint, Prettier) via `npm install`
 - All dependencies locked via `pixi.lock` and `package-lock.json`
 
-> **Why two steps?** pixi manages Python/conda packages, npm manages JavaScript packages. They use separate lockfiles.
+**Option B: Using uv (recommended for Python-only, faster)**
+
+```bash
+# Create virtual environment and install Python dependencies
+uv venv
+source .venv/bin/activate  # macOS/Linux
+# OR
+.venv\Scripts\activate     # Windows
+
+# Install Python package in editable mode with dev dependencies
+uv pip install -e ".[dev,export]"
+
+# Install Node.js packages (requires Node.js installed separately)
+npm install
+```
+
+> **Why uv?** It's significantly faster than pip and has built-in lockfile support via `uv.lock`
+>
+> **Why pixi?** It manages both Python AND Node.js in one tool, ensuring version consistency
 
 ### 3. Build Extension
 
@@ -60,9 +91,9 @@ Once the extension is running, open the Command Palette (`Ctrl+Shift+P` / `Cmd+S
 - `Squiggy: Plot Selected Read(s)`
 - `Squiggy: Export Plot`
 
-### Pixi Development Commands
+### Development Commands
 
-**Main Commands (4 to remember):**
+**With pixi (4 main commands to remember):**
 ```bash
 pixi run dev      # Watch mode (auto-recompile TypeScript on save)
 pixi run test     # Run ALL tests (Python + TypeScript)
@@ -70,32 +101,50 @@ pixi run build    # Build .vsix extension package
 pixi run docs     # Serve documentation locally (http://127.0.0.1:8000)
 ```
 
-**Granular Commands:**
+**With uv + npm:**
 ```bash
-# TypeScript only
-pixi run compile    # Compile TypeScript once
-pixi run test-ts    # Run TypeScript tests only
-pixi run lint-ts    # Lint TypeScript
-pixi run format-ts  # Format TypeScript
+# First time: activate virtual environment
+source .venv/bin/activate  # macOS/Linux
 
-# Python only
-pixi run test-py    # Run Python tests only
-pixi run lint-py    # Lint Python
-pixi run format-py  # Format Python
-
-# Combined
-pixi run lint       # Lint Python + TypeScript
-pixi run format     # Format Python + TypeScript
+npm run watch     # Watch mode (auto-recompile TypeScript on save)
+npm test && pytest tests/ -v  # Run ALL tests
+npm run package   # Build .vsix extension package
+mkdocs serve      # Serve documentation locally
 ```
 
-**Direct npm/pytest (if needed):**
+**Granular Commands (work with both pixi and uv):**
 ```bash
-npm run test:watch      # TypeScript tests in watch mode
-npm run test:coverage   # TypeScript coverage report
-pytest tests/ --cov=squiggy --cov-report=html  # Python coverage
+# TypeScript only
+npm run compile         # Compile TypeScript once
+npm test                # Run TypeScript tests only
+npm run lint            # Lint TypeScript
+npm run format          # Format TypeScript
 
-# Run specific test file
-pytest tests/test_io.py -v
+# Python only (with uv or pixi)
+pytest tests/ -v        # Run Python tests only
+ruff check squiggy/ tests/    # Lint Python
+ruff format squiggy/ tests/   # Format Python
+
+# TypeScript development
+npm run test:watch                         # TypeScript tests in watch mode
+npm run test:coverage                      # TypeScript coverage report
+
+# Python development
+pytest tests/ --cov=squiggy --cov-report=html  # Python coverage
+pytest tests/test_io.py -v                     # Run specific test file
+```
+
+**Pixi-specific granular commands:**
+```bash
+pixi run compile    # Compile TypeScript once
+pixi run test-ts    # Run TypeScript tests only
+pixi run test-py    # Run Python tests only
+pixi run lint-ts    # Lint TypeScript
+pixi run lint-py    # Lint Python
+pixi run lint       # Lint Python + TypeScript
+pixi run format-ts  # Format TypeScript
+pixi run format-py  # Format Python
+pixi run format     # Format Python + TypeScript
 ```
 
 ### Quality Checks
@@ -395,9 +444,12 @@ GitHub Actions runs on every push/PR:
 
 ### Can't import squiggy in kernel
 
-- Verify package is installed: `pip show squiggy`
-- Check Python path in kernel matches your pixi environment
-- Try reinstalling: `pixi install` then restart kernel
+- Verify package is installed: `pip show squiggy` or `uv pip show squiggy`
+- Check Python path in kernel matches your environment (pixi, uv, or venv)
+- Try reinstalling:
+  - With pixi: `pixi install` then restart kernel
+  - With uv: `uv pip install -e .` then restart kernel
+  - With pip: `pip install -e .` then restart kernel
 
 ## Getting Help
 
