@@ -104,4 +104,19 @@ declare module 'positron' {
         languageName: string;
         languageVersion: string;
     }
+
+    export namespace window {
+        /**
+         * Show a simple modal dialog with a custom prompt and action button
+         * @param title Dialog title
+         * @param message Dialog message (supports HTML)
+         * @param okButtonTitle Text for the OK/action button
+         * @returns Promise<boolean> true if user clicked OK, false if cancelled
+         */
+        export function showSimpleModalDialogPrompt(
+            title: string,
+            message: string,
+            okButtonTitle: string
+        ): Thenable<boolean>;
+    }
 }

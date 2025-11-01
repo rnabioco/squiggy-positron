@@ -159,6 +159,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 _currentBamFile = undefined;
                 currentPlotReadIds = undefined;
 
+                // Reset installation check flags (new kernel won't have package installed)
+                squiggyInstallChecked = false;
+                squiggyInstallDeclined = false;
+
                 // Clear UI panels
                 readTreeProvider.setReads([]);
                 filePanelProvider.setPOD5Info('', 0, '0 MB');
@@ -421,6 +425,10 @@ function registerCommands(
             _currentBamFile = undefined;
             currentPlotReadIds = undefined;
 
+            // Reset installation check flags (allow re-prompting)
+            squiggyInstallChecked = false;
+            squiggyInstallDeclined = false;
+
             // Clear UI panels
             readTreeProvider.setReads([]);
             filePanelProvider.setPOD5Info('', 0, '0 MB');
@@ -457,29 +465,143 @@ if '_squiggy_read_ids' in globals():
 }
 
 /**
- * Ensure squiggy is available in the kernel (for development mode)
- * Also updates the status badge with version info
+ * State tracking for squiggy installation check
  */
-let squiggyEnsured = false;
-async function ensureSquiggyAvailable() {
-    if (!usePositron || squiggyEnsured) {
-        return;
+let squiggyInstallChecked = false;
+let squiggyInstallDeclined = false;
+
+/**
+ * Check if squiggy package is installed and prompt user to install if not
+ * @returns true if squiggy is available, false otherwise
+ */
+async function ensureSquiggyAvailable(): Promise<boolean> {
+    if (!usePositron) {
+        // Non-Positron mode - assume squiggy is available via subprocess backend
+        return true;
+    }
+
+    // Only check once per session
+    if (squiggyInstallChecked) {
+        // If user previously declined, don't prompt again
+        if (squiggyInstallDeclined) {
+            return false;
+        }
+        // Otherwise check if it's installed now
+        const installed = await positronRuntime.isSquiggyInstalled();
+        filePanelProvider.setSquiggyStatus(installed);
+        return installed;
     }
 
     try {
-        // Silently add workspace to sys.path if needed (for development)
-        const workspaceFolder = extensionContext.extensionPath;
-        await positronRuntime.executeSilent(
-            `import sys; sys.path.insert(0, '${workspaceFolder}') if '${workspaceFolder}' not in sys.path else None`
-        );
-        squiggyEnsured = true;
+        // Check if squiggy is installed
+        const installed = await positronRuntime.isSquiggyInstalled();
 
-        // Get version and update status badge
-        const version = await positronRuntime.getSquiggyVersion();
-        filePanelProvider.setSquiggyStatus(version !== null, version || undefined);
-    } catch {
-        // Mark as unavailable
+        if (installed) {
+            // Get version and update status badge
+            const version = await positronRuntime.getSquiggyVersion();
+            filePanelProvider.setSquiggyStatus(true, version || undefined);
+            squiggyInstallChecked = true;
+            return true;
+        }
+
+        // Not installed - prompt user
+        const shouldInstall = await promptInstallSquiggy();
+
+        if (shouldInstall) {
+            // Install squiggy
+            const success = await installSquiggyPackage();
+            squiggyInstallChecked = true;
+
+            if (success) {
+                const version = await positronRuntime.getSquiggyVersion();
+                filePanelProvider.setSquiggyStatus(true, version || undefined);
+                return true;
+            } else {
+                filePanelProvider.setSquiggyStatus(false);
+                return false;
+            }
+        } else {
+            // User declined installation
+            squiggyInstallDeclined = true;
+            squiggyInstallChecked = true;
+            filePanelProvider.setSquiggyStatus(false);
+            return false;
+        }
+    } catch (error) {
+        // Error during check - mark as unavailable
         filePanelProvider.setSquiggyStatus(false);
+        squiggyInstallChecked = true;
+        return false;
+    }
+}
+
+/**
+ * Prompt user to install squiggy package
+ * @returns true if user wants to install, false otherwise
+ */
+async function promptInstallSquiggy(): Promise<boolean> {
+    try {
+        // Try to use Positron's modal dialog first
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const positron = require('positron');
+
+        if (positron.window && positron.window.showSimpleModalDialogPrompt) {
+            const title = 'Install Squiggy Python Package?';
+            const message =
+                'To visualize POD5 files, Squiggy needs to install the <code>squiggy</code> Python package ' +
+                'in your active Python environment. This will install the package and its dependencies ' +
+                '(bokeh, numpy, pod5, pysam).';
+            const okButtonTitle = 'Install';
+
+            return await positron.window.showSimpleModalDialogPrompt(title, message, okButtonTitle);
+        }
+    } catch {
+        // Positron modal not available - fall through to VSCode dialog
+    }
+
+    // Fallback to VSCode information message with buttons
+    const choice = await vscode.window.showInformationMessage(
+        'Squiggy requires the Python package "squiggy" to be installed in your active Python environment. ' +
+            'Install now?',
+        'Install',
+        'Cancel'
+    );
+
+    return choice === 'Install';
+}
+
+/**
+ * Install squiggy package via pip
+ * @returns true if installation succeeded, false otherwise
+ */
+async function installSquiggyPackage(): Promise<boolean> {
+    try {
+        return await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Installing squiggy Python package...',
+                cancellable: false,
+            },
+            async () => {
+                try {
+                    // Install from extension directory (editable install for development)
+                    await positronRuntime.installSquiggy(extensionContext.extensionPath);
+
+                    vscode.window.showInformationMessage(
+                        'Successfully installed squiggy Python package!'
+                    );
+                    return true;
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    vscode.window.showErrorMessage(
+                        `Failed to install squiggy package: ${errorMessage}`
+                    );
+                    return false;
+                }
+            }
+        );
+    } catch {
+        return false;
     }
 }
 
@@ -487,8 +609,17 @@ async function ensureSquiggyAvailable() {
  * Open a POD5 file
  */
 async function openPOD5File(filePath: string) {
-    // Ensure squiggy is available (adds to sys.path if needed)
-    await ensureSquiggyAvailable();
+    // Ensure squiggy is available (check if installed, prompt if needed)
+    const squiggyAvailable = await ensureSquiggyAvailable();
+
+    if (!squiggyAvailable) {
+        // User declined installation or installation failed
+        vscode.window.showWarningMessage(
+            'Cannot open POD5 file: squiggy Python package is not installed. ' +
+                'Please install it manually with: pip install -e <extension-path>'
+        );
+        return;
+    }
 
     try {
         await vscode.window.withProgress(
