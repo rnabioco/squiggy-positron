@@ -1946,14 +1946,21 @@ class SquigglePlotter:
         p_pileup.x_range = p_signal.x_range
         p_quality.x_range = p_signal.x_range
 
-        # Set explicit heights and change sizing mode for each track
+        # Adjust y-range for signal panel to accommodate confidence bands
+        # Add padding so upper/lower bounds are fully visible
+        import numpy as np
+        y_margin = (np.max(upper) - np.min(lower)) * 0.1  # 10% padding
+        p_signal.y_range.start = np.min(lower) - y_margin
+        p_signal.y_range.end = np.max(upper) + y_margin
+
+        # Set explicit heights for balanced layout (30% / 40% / 30%)
         # Override the default "stretch_both" from _create_figure
         p_signal.sizing_mode = "stretch_width"
-        p_signal.height = 300
+        p_signal.height = 250  # 30%
         p_pileup.sizing_mode = "stretch_width"
-        p_pileup.height = 200
+        p_pileup.height = 350  # 40%
         p_quality.sizing_mode = "stretch_width"
-        p_quality.height = 200
+        p_quality.height = 250  # 30%
 
         # Hide x-axis labels and tick labels on top and middle panels
         # (keep ticks, just hide the labels for cleaner stacked layout)
