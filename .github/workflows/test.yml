@@ -45,11 +45,11 @@ jobs:
             - name: Run TypeScript formatting check
               run: npm run format:check
 
-            - name: Run Python tests
-              run: pixi run test-py --cov-report=xml --cov-report=term
+            - name: Run Python tests with coverage
+              run: pixi run pytest tests/ --cov=squiggy --cov-report=xml --cov-report=term
 
-            - name: Run TypeScript tests
-              run: pixi run test-ts --coverage
+            - name: Run TypeScript tests with coverage
+              run: npm run test:coverage
 
             - name: Upload Python coverage to Codecov
               if: matrix.os == 'ubuntu-latest'
