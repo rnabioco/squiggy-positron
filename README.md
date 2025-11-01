@@ -1,108 +1,145 @@
-# Squiggy
+# Squiggy - Positron Extension
 
 🚧 **squiggy is under active development.** *Caveat emptor*. 🚧
 
-A desktop application for visualizing Oxford Nanopore sequencing data from POD5 files.
+A Positron IDE extension for visualizing Oxford Nanopore sequencing data from POD5 files directly in your workspace.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 [![codecov](https://codecov.io/gh/rnabioco/squiggy/branch/main/graph/badge.svg)](https://codecov.io/gh/rnabioco/squiggy)
 
 ## Overview
 
-Squiggy is a cross-platform GUI application that allows you to visualize raw nanopore signal data (squiggle plots) from POD5 files. It provides an intuitive interface for browsing reads, searching by read ID, and displaying time-series plots of the electrical current signal.
+Squiggy is a Positron extension that integrates nanopore signal visualization into your data science workflow. Work with POD5 and BAM files directly in Positron, leveraging the active Python kernel for seamless data exploration.
 
-## Features
+**Key Features:**
+- **Positron Integration**: Works with your active Python kernel - no separate environment needed
+- **Interactive Visualization**: Bokeh-powered plots with zoom, pan, and hover tooltips
+- **Base Annotations**: Overlay base calls and modifications on signal data when using BAM files
+- **Read Filtering**: Search by read ID, reference region, or sequence motif
+- **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
 
-- **POD5 File Support**: Native support for Oxford Nanopore's POD5 file format
-- **Bundled Sample Data**: Get started immediately with included example POD5 files
-- **Interactive Read Browser**: Browse and search through all reads in a POD5 file
-- **High-Quality Plots**: Generate publication-ready squiggle plots with customizable styling
-- **macOS Native**: Available as a standalone macOS application
-- **Fast Performance**: Efficient handling of large POD5 files with thousands of reads
+## Screenshots
+
+*Coming soon*
 
 ## Installation
 
-### Option 1: Download Pre-built Executables (Recommended)
+### From VSIX (Recommended)
 
-Download the latest release for your platform:
+1. Download the latest `.vsix` file from [Releases](https://github.com/rnabioco/squiggy/releases)
+2. In Positron: `Extensions` → `...` → `Install from VSIX...`
+3. Select the downloaded `.vsix` file
 
-- **macOS**: [Squiggy-macos.dmg](https://github.com/rnabioco/squiggy/releases/latest)
-
-For the latest development build (macOS only), download from the ["latest" release](https://github.com/rnabioco/squiggy/releases/tag/latest).
-
-### Option 2: Install from Source
+### From Source (Development)
 
 ```bash
 git clone https://github.com/rnabioco/squiggy.git
 cd squiggy
 
-# brew install git-lfs
-# git lfs install
-git lfs pull
+# Install dependencies (Python + Node.js + npm packages)
+pixi install && pixi run setup
 
-# brew install uv
-uv pip install -e .
-
-# Run the application
-squiggy
+# Build extension
+pixi run build
 ```
 
-## Usage
+## Quick Start
 
-### Quick Start with Sample Data
+### 1. Load Data Files
 
-Squiggy comes with bundled sample data (yeast [aa-tRNA-seq](https://pubmed.ncbi.nlm.nih.gov/40835813/)) to help you get started:
+Open the Squiggy sidebar (click the Squiggy icon in the activity bar):
 
-1. **Launch Squiggy**: Open the application
-2. **Open Sample Data**: Go to **File → Open Sample Data** (or press `Ctrl+Shift+O` / `Cmd+Shift+O`)
-3. **Explore**: Browse the sample reads and click any read to view its squiggle plot
+- **Open POD5 File**: Load your nanopore signal data
+- **Open BAM File** (optional): Add alignments for base annotations and advanced filtering
 
-### Working with Your Own Data
+### 2. Browse Reads
 
-**For the best experience, load both POD5 and BAM files together** to enable base annotations, genomic region filtering, and sequence search:
+The **Reads** panel shows all reads in the POD5 file:
+- Grouped by reference if BAM file is loaded
+- Use the search bar to filter by read ID or reference name
+- Click any read to visualize
 
-1. **Launch Squiggy with both files** (recommended):
-   ```bash
-   squiggy --pod5 data.pod5 --bam alignments.bam
-   # Or use short form
-   squiggy -p data.pod5 -b alignments.bam
-   ```
+### 3. Customize Plots
 
-2. **Alternatively, load files via GUI**:
-   - Open the application
-   - Go to **File → Open POD5 File...** (`Ctrl+O` / `Cmd+O`)
-   - Go to **File → Open BAM File...** to add alignments
-   - Browse reads and click any read to view its squiggle plot with base annotations
+Use the **Plot Options** panel to configure:
+- **Plot mode**: Raw signal vs event-aligned with bases
+- **Normalization**: None, Z-score, Median, or MAD
+- **X-axis scaling**: Base positions vs cumulative dwell time
+- **Downsample threshold**: For large signals (default: 100,000 samples)
 
-**Why load both files?** Loading only the POD5 file shows raw signal without sequence context. Adding the BAM file enables:
-- Event-aligned visualization with base annotations overlaid on signal
-- Genomic region-based read filtering (e.g., chr1:1000-2000)
-- DNA sequence motif search within reads
+### 4. Explore Modifications (BAM with MM/ML tags)
 
-### Command Line Options
+If your BAM file contains base modifications:
+- The **Base Modifications** panel appears automatically
+- Filter by modification type (5mC, 6mA, etc.)
+- Set probability threshold to focus on high-confidence calls
+- Toggle coloring by dwell time vs modification probability
+
+### 5. Export Plots
+
+- **File → Export Plot** (Ctrl/Cmd+E)
+- Formats: HTML (interactive), PNG, SVG
+- Option to export at current zoom level
+
+## Requirements
+
+- **Positron IDE** (version 2025.6.0+)
+- **Python 3.12+** with the `squiggy` package:
+  ```bash
+  pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
+  # OR for development: pixi install
+  ```
+- **Optional**: BAM file with basecalls for advanced features
+
+## Extension Development
+
+See [DEVELOPER.md](docs/DEVELOPER.md) for detailed development setup and contribution guidelines.
+
+### Quick Development Setup
 
 ```bash
-# Launch with both POD5 and BAM files (recommended)
-squiggy --pod5 data.pod5 --bam alignments.bam
-squiggy -p data.pod5 -b alignments.bam
+# Install dependencies
+pixi install
 
-# Launch with just POD5 file (limited functionality)
-squiggy --pod5 data.pod5
-squiggy -p data.pod5
+# Main development commands
+pixi run dev      # Watch mode (auto-compile TypeScript)
+pixi run test     # Run all tests (Python + TypeScript)
+pixi run build    # Build extension (.vsix)
+pixi run docs     # Serve documentation locally
 
-# Launch GUI without pre-loading files
-squiggy
-
-# Run from source with both files
-python -m squiggy.main --pod5 data.pod5 --bam alignments.bam
+# Code quality
+pixi run lint     # Lint Python + TypeScript
+pixi run format   # Format Python + TypeScript
 ```
+
+## Architecture
+
+The extension has two main components:
+
+1. **TypeScript Extension** (`src/`): Positron IDE integration
+   - Communicates with Python via Positron's runtime API
+   - Manages UI panels (file info, read list, plot options, modifications)
+   - Displays Bokeh plots in webview panels
+
+2. **Python Package** (`squiggy/`): Signal processing and plotting
+   - Reads POD5 and BAM files
+   - Generates interactive Bokeh visualizations
+   - Handles signal normalization and downsampling
+
+## Documentation
+
+- [User Guide](docs/USER_GUIDE.md) - Complete usage guide
+- [Developer Guide](docs/DEVELOPER.md) - Extension development setup
+- [Online Docs](https://rnabioco.github.io/squiggy/) - MkDocs documentation site
 
 ## Contributing
 
-Contributions are welcome! For development setup, workflow, and contribution guidelines, please see:
-
-- [Development & Contributing Guide](https://rnabioco.github.io/squiggy/development/) - Complete guide for contributors
+Contributions are welcome! Please see [DEVELOPER.md](docs/DEVELOPER.md) for:
+- Development setup
+- Coding standards
+- Testing guidelines
+- Pull request process
 
 ## License
 
@@ -110,10 +147,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Oxford Nanopore Technologies for the POD5 file format and libraries
-- The Python scientific computing community (NumPy, Pandas, Matplotlib ecosystems)
-- **[Remora](https://github.com/nanoporetech/remora)** - Oxford Nanopore's modified base calling and visualization toolkit
-- **[Squigualiser](https://github.com/hiruna72/squigualiser)** - Efficient nanopore signal visualization tool by Hiruna Samarakoon
+- **Positron Team** at Posit for the excellent IDE and extension API
+- **Oxford Nanopore Technologies** for POD5 format and libraries
+- **[Remora](https://github.com/nanoporetech/remora)** - Modified base calling toolkit
+- **[Squigualiser](https://github.com/hiruna72/squigualiser)** - Signal visualization inspiration
 
 ## Citation
 

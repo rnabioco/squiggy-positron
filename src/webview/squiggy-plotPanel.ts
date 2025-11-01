@@ -21,7 +21,7 @@ export class SquigglePlotPanel {
 
         // Handle messages from the webview (if needed)
         this._panel.webview.onDidReceiveMessage(
-            message => {
+            (message) => {
                 switch (message.command) {
                     case 'alert':
                         vscode.window.showInformationMessage(message.text);
@@ -55,7 +55,7 @@ export class SquigglePlotPanel {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [extensionUri]
+                localResourceRoots: [extensionUri],
             }
         );
 
@@ -71,9 +71,10 @@ export class SquigglePlotPanel {
         this._currentReadIds = readIds;
 
         // Update panel title
-        const title = readIds.length === 1
-            ? `Squiggle Plot: ${readIds[0]}`
-            : `Squiggle Plot: ${readIds.length} reads`;
+        const title =
+            readIds.length === 1
+                ? `Squiggle Plot: ${readIds[0]}`
+                : `Squiggle Plot: ${readIds.length} reads`;
         this._panel.title = title;
 
         // Show loading state first to make the update visible

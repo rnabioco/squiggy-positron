@@ -31,13 +31,13 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [this._extensionUri]
+            localResourceRoots: [this._extensionUri],
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(data => {
+        webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
                 case 'probabilityChanged':
                     this._minProbability = data.value;
@@ -63,7 +63,11 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
     /**
      * Update modification info display
      */
-    public setModificationInfo(hasModifications: boolean, modificationTypes: string[], hasProbabilities: boolean) {
+    public setModificationInfo(
+        hasModifications: boolean,
+        modificationTypes: string[],
+        hasProbabilities: boolean
+    ) {
         this._hasModifications = hasModifications;
         this._modificationTypes = modificationTypes;
         this._hasProbabilities = hasProbabilities;
@@ -80,7 +84,7 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
     public getFilters() {
         return {
             minProbability: this._minProbability,
-            enabledModTypes: Array.from(this._enabledModTypes)
+            enabledModTypes: Array.from(this._enabledModTypes),
         };
     }
 
@@ -100,7 +104,7 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
                 type: 'updateModificationInfo',
                 hasModifications: this._hasModifications,
                 modificationTypes: this._modificationTypes,
-                hasProbabilities: this._hasProbabilities
+                hasProbabilities: this._hasProbabilities,
             });
         }
     }
@@ -109,10 +113,10 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
         // Map common modification codes to names
         const modCodeToName: Record<string, string> = {
             // Single-letter codes
-            'm': '5-methylcytosine (5mC)',
-            'h': '5-hydroxymethylcytosine (5hmC)',
-            'a': '6-methyladenine (6mA)',
-            'o': '8-oxoguanine (8-oxoG)',
+            m: '5-methylcytosine (5mC)',
+            h: '5-hydroxymethylcytosine (5hmC)',
+            a: '6-methyladenine (6mA)',
+            o: '8-oxoguanine (8-oxoG)',
             // ChEBI codes (common RNA modifications)
             '17596': 'Pseudouridine (Ψ)',
             '28177': '1-methyladenosine (m1A)',
@@ -120,7 +124,7 @@ export class ModificationsPanelProvider implements vscode.WebviewViewProvider {
             '28527': '7-methylguanosine (m7G)',
             '17802': 'Inosine (I)',
             '27301': '5-methyluridine (m5U)',
-            '18421': 'Dihydrouridine (D)'
+            '18421': 'Dihydrouridine (D)',
         };
 
         return `<!DOCTYPE html>

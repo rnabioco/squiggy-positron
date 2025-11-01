@@ -89,7 +89,7 @@ export class ReadTreeProvider implements vscode.TreeDataProvider<ReadItem> {
             const refMatches = refName.toLowerCase().includes(searchLower);
 
             // Check which read IDs match
-            const matchingReads = readIds.filter(readId =>
+            const matchingReads = readIds.filter((readId) =>
                 readId.toLowerCase().includes(searchLower)
             );
 
@@ -138,18 +138,19 @@ export class ReadTreeProvider implements vscode.TreeDataProvider<ReadItem> {
                 // Flat list of reads (no BAM loaded)
                 const readIds = this.referenceToReads.get('_ungrouped') || [];
                 return Promise.resolve(
-                    readIds.map(readId =>
-                        new ReadItem(
-                            readId,
-                            'read',
-                            readId,
-                            vscode.TreeItemCollapsibleState.None,
-                            {
-                                command: 'squiggy.plotRead',
-                                title: 'Plot Read',
-                                arguments: [readId]
-                            }
-                        )
+                    readIds.map(
+                        (readId) =>
+                            new ReadItem(
+                                readId,
+                                'read',
+                                readId,
+                                vscode.TreeItemCollapsibleState.None,
+                                {
+                                    command: 'squiggy.plotRead',
+                                    title: 'Plot Read',
+                                    arguments: [readId],
+                                }
+                            )
                     )
                 );
             }
@@ -159,18 +160,13 @@ export class ReadTreeProvider implements vscode.TreeDataProvider<ReadItem> {
         if (element.itemType === 'reference') {
             const readIds = this.referenceToReads.get(element.readId) || [];
             return Promise.resolve(
-                readIds.map(readId =>
-                    new ReadItem(
-                        readId,
-                        'read',
-                        readId,
-                        vscode.TreeItemCollapsibleState.None,
-                        {
+                readIds.map(
+                    (readId) =>
+                        new ReadItem(readId, 'read', readId, vscode.TreeItemCollapsibleState.None, {
                             command: 'squiggy.plotRead',
                             title: 'Plot Read',
-                            arguments: [readId]
-                        }
-                    )
+                            arguments: [readId],
+                        })
                 )
             );
         }

@@ -77,7 +77,7 @@ export class PositronRuntime {
                     } else {
                         resolve(output);
                     }
-                }
+                },
             }).catch(reject);
         });
     }
@@ -88,7 +88,7 @@ export class PositronRuntime {
      * Executes squiggy.load_pod5() in the kernel. The reader and read_ids
      * are stored in kernel variables accessible from console/notebooks.
      */
-    async loadPOD5(filePath: string): Promise<{ numReads: number, readIds?: string[] }> {
+    async loadPOD5(filePath: string): Promise<{ numReads: number; readIds?: string[] }> {
         // Escape single quotes in path
         const escapedPath = filePath.replace(/'/g, "\\'");
 
@@ -113,7 +113,7 @@ print('SQUIGGY_LOADED:' + json.dumps({
                 const data = JSON.parse(match[1]);
                 return {
                     numReads: data.num_reads,
-                    readIds: data.preview_ids
+                    readIds: data.preview_ids,
                 };
             } else {
                 // Fallback: just show success message
@@ -161,7 +161,7 @@ print('SQUIGGY_BAM_LOADED:' + json.dumps({
                     referenceToReads: data.reference_to_reads || {},
                     hasModifications: data.has_modifications || false,
                     modificationTypes: data.modification_types || [],
-                    hasProbabilities: data.has_probabilities || false
+                    hasProbabilities: data.has_probabilities || false,
                 };
             } else {
                 return {
@@ -169,7 +169,7 @@ print('SQUIGGY_BAM_LOADED:' + json.dumps({
                     referenceToReads: {},
                     hasModifications: false,
                     modificationTypes: [],
-                    hasProbabilities: false
+                    hasProbabilities: false,
                 };
             }
         } catch (error) {
@@ -203,9 +203,10 @@ import tempfile
 import json
 
 # Generate plot HTML
-${readIds.length === 1
-    ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
-    : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
+${
+    readIds.length === 1
+        ? `html = squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
+        : `html = squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson})`
 }
 
 # Write to temp file

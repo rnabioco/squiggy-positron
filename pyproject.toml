@@ -84,7 +84,7 @@ indent-style = "space"
 [tool.setuptools]
 packages = ["squiggy"]
 # Using root squiggy/ package (extension version without Qt)
-# Old Qt-based app is in src/squiggy/
+# Old Qt-based app is archived in legacy/squiggy/
 
 [tool.setuptools.package-data]
 squiggy = [

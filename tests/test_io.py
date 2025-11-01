@@ -1,0 +1,268 @@
+"""Tests for I/O functions (load_pod5, load_bam, etc.)"""
+
+from pathlib import Path
+
+import pytest
+
+
+class TestLoadPOD5:
+    """Tests for load_pod5 function"""
+
+    def test_load_pod5_returns_reader_and_ids(self, sample_pod5_file):
+        """Test that load_pod5 returns reader and read IDs"""
+        from squiggy import load_pod5
+
+        reader, read_ids = load_pod5(str(sample_pod5_file))
+
+        assert reader is not None
+        assert isinstance(read_ids, list)
+        assert len(read_ids) > 0
+        assert all(isinstance(rid, str) for rid in read_ids)
+
+    def test_load_pod5_stores_global_state(self, sample_pod5_file):
+        """Test that load_pod5 stores global state"""
+        from squiggy import get_current_files, get_read_ids, load_pod5
+
+        load_pod5(str(sample_pod5_file))
+
+        # Check current files
+        current_files = get_current_files()
+        assert current_files["pod5_path"] is not None
+        assert str(sample_pod5_file) in current_files["pod5_path"]
+
+        # Check read IDs are accessible
+        read_ids = get_read_ids()
+        assert len(read_ids) > 0
+
+    def test_load_pod5_converts_to_absolute_path(self, sample_pod5_file):
+        """Test that load_pod5 converts relative paths to absolute"""
+        import os
+
+        from squiggy import get_current_files, load_pod5
+
+        # Get relative path
+        original_dir = os.getcwd()
+        try:
+            os.chdir(sample_pod5_file.parent)
+            rel_path = sample_pod5_file.name
+
+            load_pod5(rel_path)
+
+            current_files = get_current_files()
+            # Should be absolute path
+            assert Path(current_files["pod5_path"]).is_absolute()
+        finally:
+            os.chdir(original_dir)
+
+    def test_load_pod5_nonexistent_file(self):
+        """Test that load_pod5 raises error for nonexistent file"""
+        from squiggy import load_pod5
+
+        with pytest.raises(FileNotFoundError):
+            load_pod5("/nonexistent/path/file.pod5")
+
+    def test_load_pod5_closes_previous_reader(self, sample_pod5_file):
+        """Test that loading a new file closes the previous reader"""
+        from squiggy import load_pod5
+
+        # Load first time
+        reader1, ids1 = load_pod5(str(sample_pod5_file))
+
+        # Load second time
+        reader2, ids2 = load_pod5(str(sample_pod5_file))
+
+        # Should return new reader
+        assert reader2 is not None
+        # Previous reader should be closed (we can't easily test this, but no errors should occur)
+
+
+class TestLoadBAM:
+    """Tests for load_bam function"""
+
+    def test_load_bam_returns_metadata(self, indexed_bam_file):
+        """Test that load_bam returns metadata dict"""
+        from squiggy import load_bam
+
+        bam_info = load_bam(str(indexed_bam_file))
+
+        assert isinstance(bam_info, dict)
+        assert "file_path" in bam_info
+        assert "num_reads" in bam_info
+        assert "references" in bam_info
+        assert "has_modifications" in bam_info
+        assert "modification_types" in bam_info
+
+    def test_load_bam_stores_global_state(self, indexed_bam_file):
+        """Test that load_bam stores global path"""
+        from squiggy import get_current_files, load_bam
+
+        load_bam(str(indexed_bam_file))
+
+        current_files = get_current_files()
+        assert current_files["bam_path"] is not None
+        assert str(indexed_bam_file) in current_files["bam_path"]
+
+    def test_load_bam_nonexistent_file(self):
+        """Test that load_bam raises error for nonexistent file"""
+        from squiggy import load_bam
+
+        with pytest.raises(FileNotFoundError):
+            load_bam("/nonexistent/path/file.bam")
+
+    def test_load_bam_references_structure(self, indexed_bam_file):
+        """Test that references have expected structure"""
+        from squiggy import load_bam
+
+        bam_info = load_bam(str(indexed_bam_file))
+        references = bam_info["references"]
+
+        assert isinstance(references, list)
+        if len(references) > 0:
+            ref = references[0]
+            assert "name" in ref
+            assert "length" in ref
+            assert "read_count" in ref
+
+
+class TestGetBAMModificationInfo:
+    """Tests for get_bam_modification_info function"""
+
+    def test_get_bam_modification_info_returns_dict(self, indexed_bam_file):
+        """Test that function returns properly structured dict"""
+        from squiggy.io import get_bam_modification_info
+
+        mod_info = get_bam_modification_info(str(indexed_bam_file))
+
+        assert isinstance(mod_info, dict)
+        assert "has_modifications" in mod_info
+        assert "modification_types" in mod_info
+        assert "sample_count" in mod_info
+        assert "has_probabilities" in mod_info
+
+        assert isinstance(mod_info["has_modifications"], bool)
+        assert isinstance(mod_info["modification_types"], list)
+        assert isinstance(mod_info["sample_count"], int)
+        assert isinstance(mod_info["has_probabilities"], bool)
+
+    def test_get_bam_modification_info_nonexistent_file(self):
+        """Test that function raises error for nonexistent file"""
+        from squiggy.io import get_bam_modification_info
+
+        with pytest.raises(FileNotFoundError):
+            get_bam_modification_info("/nonexistent/path/file.bam")
+
+
+class TestGetReadToReferenceMapping:
+    """Tests for get_read_to_reference_mapping function"""
+
+    def test_get_mapping_requires_loaded_bam(self, sample_pod5_file):
+        """Test that function requires BAM to be loaded"""
+        from squiggy import close_pod5, load_pod5
+        from squiggy.io import get_read_to_reference_mapping
+
+        # Close any existing files
+        close_pod5()
+
+        # Load only POD5
+        load_pod5(str(sample_pod5_file))
+
+        # Should raise error since no BAM loaded
+        with pytest.raises(RuntimeError, match="No BAM file"):
+            get_read_to_reference_mapping()
+
+    def test_get_mapping_returns_dict(self, sample_pod5_file, indexed_bam_file):
+        """Test that function returns reference to read mapping"""
+        from squiggy import load_bam, load_pod5
+        from squiggy.io import get_read_to_reference_mapping
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        mapping = get_read_to_reference_mapping()
+
+        assert isinstance(mapping, dict)
+        # Keys should be reference names (strings)
+        for ref_name, read_ids in mapping.items():
+            assert isinstance(ref_name, str)
+            assert isinstance(read_ids, list)
+            assert all(isinstance(rid, str) for rid in read_ids)
+
+
+class TestGetCurrentFiles:
+    """Tests for get_current_files function"""
+
+    def test_get_current_files_initially_none(self):
+        """Test that get_current_files returns None when nothing loaded"""
+        from squiggy import close_pod5, get_current_files
+
+        close_pod5()
+
+        current = get_current_files()
+        assert current["pod5_path"] is None
+        assert current["bam_path"] is None
+
+    def test_get_current_files_after_loading(self, sample_pod5_file, indexed_bam_file):
+        """Test that get_current_files returns paths after loading"""
+        from squiggy import get_current_files, load_bam, load_pod5
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        current = get_current_files()
+        assert current["pod5_path"] is not None
+        assert current["bam_path"] is not None
+        assert str(sample_pod5_file) in current["pod5_path"]
+        assert str(indexed_bam_file) in current["bam_path"]
+
+
+class TestGetReadIDs:
+    """Tests for get_read_ids function"""
+
+    def test_get_read_ids_requires_loaded_pod5(self):
+        """Test that function requires POD5 to be loaded"""
+        from squiggy import close_pod5, get_read_ids
+
+        close_pod5()
+
+        with pytest.raises(ValueError, match="No POD5 file"):
+            get_read_ids()
+
+    def test_get_read_ids_returns_list(self, sample_pod5_file):
+        """Test that function returns list of read IDs"""
+        from squiggy import get_read_ids, load_pod5
+
+        load_pod5(str(sample_pod5_file))
+
+        read_ids = get_read_ids()
+        assert isinstance(read_ids, list)
+        assert len(read_ids) > 0
+        assert all(isinstance(rid, str) for rid in read_ids)
+
+
+class TestClosePOD5:
+    """Tests for close_pod5 function"""
+
+    def test_close_pod5_clears_state(self, sample_pod5_file):
+        """Test that close_pod5 clears global state"""
+        from squiggy import close_pod5, get_current_files, load_pod5
+
+        # Load file
+        load_pod5(str(sample_pod5_file))
+
+        # Verify it's loaded
+        current = get_current_files()
+        assert current["pod5_path"] is not None
+
+        # Close
+        close_pod5()
+
+        # Verify it's cleared
+        current = get_current_files()
+        assert current["pod5_path"] is None
+
+    def test_close_pod5_when_none_loaded(self):
+        """Test that close_pod5 handles case when nothing is loaded"""
+        from squiggy import close_pod5
+
+        # Should not raise error
+        close_pod5()

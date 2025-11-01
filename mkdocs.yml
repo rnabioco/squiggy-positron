@@ -1,5 +1,5 @@
 site_name: Squiggy
-site_description: A desktop GUI application for visualizing Oxford Nanopore sequencing data
+site_description: A Positron IDE extension for visualizing Oxford Nanopore sequencing data
 site_author: rnabioco
 repo_url: https://github.com/rnabioco/squiggy
 repo_name: rnabioco/squiggy
@@ -36,6 +36,3 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Installation: installation.md
-  - Usage: usage.md
-  - Development: development.md

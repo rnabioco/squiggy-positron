@@ -27,13 +27,13 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [this._extensionUri]
+            localResourceRoots: [this._extensionUri],
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(data => {
+        webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
                 case 'openPOD5':
                     vscode.commands.executeCommand('squiggy.openPOD5');
@@ -70,7 +70,7 @@ export class FilePanelProvider implements vscode.WebviewViewProvider {
                 pod5File: this._pod5File,
                 pod5Info: this._pod5Info,
                 bamFile: this._bamFile,
-                bamInfo: this._bamInfo
+                bamInfo: this._bamInfo,
             });
         }
     }

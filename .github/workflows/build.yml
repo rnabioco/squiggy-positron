@@ -1,129 +1,42 @@
-name: Build and Release
+name: Build Extension
 
 on:
     push:
+        branches:
+            - main
         tags:
             - "v*"
+    pull_request:
         branches:
             - main
     workflow_dispatch:
 
-env:
-    VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
-
 jobs:
     build:
-        name: Build macOS
-        runs-on: macos-latest
+        name: Build .vsix
+        runs-on: ubuntu-latest
 
         steps:
             - uses: actions/checkout@v4
-              with:
-                  lfs: true
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
+            - name: Setup pixi
+              uses: prefix-dev/setup-pixi@v0.8.1
               with:
-                  python-version-file: .python-version
-
-            - name: Install uv
-              uses: astral-sh/setup-uv@v5
+                  pixi-version: latest
+                  cache: true
 
             - name: Install dependencies
-              run: uv pip install --system -e ".[dev]"
+              run: pixi install
 
-            - name: Build with PyInstaller
-              run: pyinstaller build/squiggy.spec
+            - name: Install npm dependencies
+              run: npm ci
 
-            - name: Package
-              run: |
-                  brew install create-dmg
-                  create-dmg \
-                    --volname "Squiggy Installer" \
-                    --window-pos 200 120 \
-                    --window-size 800 400 \
-                    --icon-size 100 \
-                    --app-drop-link 600 185 \
-                    "Squiggy-${{ env.VERSION }}-macos.dmg" \
-                    "dist/Squiggy.app"
+            - name: Build extension
+              run: pixi run build
 
-            - name: Upload artifact
+            - name: Upload .vsix artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: squiggy-macos
-                  path: Squiggy-*.dmg
-
-    release:
-        needs: [build]
-        runs-on: ubuntu-latest
-        if: startsWith(github.ref, 'refs/tags/')
-        permissions:
-            contents: write
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-
-            - name: Download all artifacts
-              uses: actions/download-artifact@v4
-
-            - name: Extract release notes
-              run: |
-                  # Extract content for current version only (between this version heading and next version heading)
-                  sed -n '/^# Squiggy '"${VERSION#v}"'/,/^# Squiggy [0-9]/p' NEWS.md | sed '$d' > release_body.md
-                  # If no next version found, just get everything from current version to end
-                  if [ ! -s release_body.md ]; then
-                      sed -n '/^# Squiggy '"${VERSION#v}"'/,$p' NEWS.md > release_body.md
-                  fi
-
-            - name: Create Release
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  gh release create ${{ env.VERSION }} \
-                    --title "Squiggy ${{ env.VERSION }}" \
-                    --notes-file release_body.md \
-                    squiggy-macos/Squiggy-*-macos.dmg
-
-    release-latest:
-        needs: [build]
-        runs-on: ubuntu-latest
-        if: github.ref == 'refs/heads/main'
-        permissions:
-            contents: write
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-
-            - name: Download macOS artifact
-              uses: actions/download-artifact@v4
-              with:
-                  name: squiggy-macos
-
-            - name: Delete old latest release and tag
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  gh release delete latest --yes || true
-                  git push origin :refs/tags/latest || true
-
-            - name: Create new latest tag
-              run: |
-                  git tag -f latest
-                  git push -f origin latest
-
-            - name: Create latest release
-              uses: softprops/action-gh-release@v1
-              with:
-                  tag_name: latest
-                  name: Latest Development Build
-                  body: |
-                      Latest build from the main branch.
-
-                      **Note:** This is a development build and may be unstable.
-
-                      Built from commit: ${{ github.sha }}
-                  files: Squiggy-latest-macos.dmg
-                  prerelease: true
-                  draft: false
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  name: squiggy-positron-extension
+                  path: "*.vsix"
+                  retention-days: 30

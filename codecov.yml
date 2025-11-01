@@ -38,6 +38,7 @@ ignore:
   - "docs/**/*"   # Don't measure documentation
   - "**/conftest.py"  # Don't measure pytest fixtures
   - "setup.py"    # Don't measure setup script
+  - "legacy/**/*"  # Don't measure archived Qt app code
 
 # Component-based coverage (optional - can expand later)
 component_management:
@@ -46,18 +47,12 @@ component_management:
       - type: project
         target: auto
   individual_components:
-    - component_id: core
-      name: "Core Logic"
+    - component_id: backend
+      name: "Python Backend"
       paths:
-        - src/squiggy/utils.py
-        - src/squiggy/alignment.py
-        - src/squiggy/normalization.py
-    - component_id: plotting
-      name: "Plotting"
-      paths:
-        - src/squiggy/plotter_bokeh.py
-    - component_id: gui
-      name: "GUI"
-      paths:
-        - src/squiggy/viewer.py
-        - src/squiggy/dialogs.py
+        - squiggy/io.py
+        - squiggy/plotter.py
+        - squiggy/alignment.py
+        - squiggy/normalization.py
+        - squiggy/modifications.py
+        - squiggy/utils.py

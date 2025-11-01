@@ -12,11 +12,8 @@ dist/
 .venv/
 venv/
 ENV/
-
-# PyInstaller build artifacts
-build/build/
-build/dist/
-build/*.spec.log
+.pixi/
+pixi.lock
 
 # IDEs
 .vscode/*
@@ -45,7 +42,7 @@ site/
 
 # TypeScript/Node.js
 node_modules/
-out/
+build/
 *.vsix
 
 # Claude planning files
