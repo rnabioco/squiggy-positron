@@ -41,28 +41,13 @@ jobs:
               id: get_version
               run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-            - name: Extract release notes
-              id: release_notes
-              run: |
-                  VERSION="${{ steps.get_version.outputs.VERSION }}"
-                  # Extract content for current version only (between this version heading and next version heading)
-                  sed -n '/^# Squiggy '"${VERSION#v}"'/,/^# Squiggy [0-9]/p' NEWS.md | sed '$d' > release_body.md
-                  # If no next version found, just get everything from current version to end
-                  if [ ! -s release_body.md ]; then
-                      sed -n '/^# Squiggy '"${VERSION#v}"'/,$p' NEWS.md > release_body.md
-                  fi
-                  # Fallback if NEWS.md doesn't exist or version not found
-                  if [ ! -s release_body.md ]; then
-                      echo "Release $VERSION" > release_body.md
-                  fi
-
             - name: Create GitHub Release
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   gh release create ${{ steps.get_version.outputs.VERSION }} \
                     --title "Squiggy ${{ steps.get_version.outputs.VERSION }}" \
-                    --notes-file release_body.md \
+                    --generate-notes \
                     build/*.vsix
 
             - name: Publish to VS Code Marketplace
