@@ -24,6 +24,7 @@ let plotOptionsProvider: PlotOptionsViewProvider;
 let filePanelProvider: FilePanelProvider;
 let modificationsProvider: ModificationsPanelProvider;
 let usePositron = false;
+let extensionContext: vscode.ExtensionContext;
 
 // Track loaded files and current plot
 let currentPod5File: string | undefined;
@@ -34,39 +35,15 @@ let currentPlotReadIds: string[] | undefined;
  * Extension activation
  */
 export async function activate(context: vscode.ExtensionContext) {
+    // Store context for helper functions
+    extensionContext = context;
+
     // Try to use Positron runtime first
     positronRuntime = new PositronRuntime();
     usePositron = positronRuntime.isAvailable();
 
     if (usePositron) {
-
-        // Check if squiggy is installed (will check when kernel is available)
-        // This check happens lazily when user first tries to use the extension
-        try {
-            const isInstalled = await positronRuntime.isSquiggyInstalled();
-            if (!isInstalled) {
-                // In development mode, automatically add workspace to sys.path
-                const workspaceFolder = context.extensionPath;
-
-                await positronRuntime.executeWithOutput(
-                    `import sys\nif '${workspaceFolder}' not in sys.path:\n    sys.path.insert(0, '${workspaceFolder}')`
-                );
-
-                // Check again
-                const nowInstalled = await positronRuntime.isSquiggyInstalled();
-                if (nowInstalled) {
-                    vscode.window.showInformationMessage(
-                        'Squiggy package loaded from development workspace'
-                    );
-                } else {
-                    vscode.window.showWarningMessage(
-                        'Could not load Squiggy package. Extension may not work correctly.'
-                    );
-                }
-            }
-        } catch (error) {
-            // Kernel not available yet - will check later silently
-        }
+        // Installation check deferred until first use to avoid console clutter
     } else {
 
         // Fallback to subprocess JSON-RPC
@@ -313,9 +290,33 @@ function registerCommands(
 }
 
 /**
+ * Ensure squiggy is available in the kernel (for development mode)
+ */
+let squiggyEnsured = false;
+async function ensureSquiggyAvailable() {
+    if (!usePositron || squiggyEnsured) {
+        return;
+    }
+
+    try {
+        // Silently add workspace to sys.path if needed (for development)
+        const workspaceFolder = extensionContext.extensionPath;
+        await positronRuntime.executeWithOutput(
+            `import sys; sys.path.insert(0, '${workspaceFolder}') if '${workspaceFolder}' not in sys.path else None`
+        );
+        squiggyEnsured = true;
+    } catch {
+        // Ignore errors - will fail later if squiggy truly unavailable
+    }
+}
+
+/**
  * Open a POD5 file
  */
 async function openPOD5File(filePath: string) {
+    // Ensure squiggy is available (adds to sys.path if needed)
+    await ensureSquiggyAvailable();
+
     try {
         await vscode.window.withProgress(
             {
