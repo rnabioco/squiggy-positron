@@ -148,24 +148,22 @@ Use the AskUserQuestion tool to ask the user:
    git tag -a v[VERSION] -m "Release v[VERSION]"
    ```
 
-3. Create GitHub release using `gh`:
-   - Extract the new release section from `NEWS.md` (from the top through the new version section)
-   - Use `gh release create` to create the release:
-   ```bash
-   gh release create v[VERSION] --title "Squiggy v[VERSION]" --notes "[RELEASE_NOTES_FROM_NEWS_MD]"
+3. Show success message with next steps:
    ```
-   - The release notes should include everything from the new section in NEWS.md (the summary and all Features/Fixes/Improvements sections)
-   - Format the notes properly for GitHub (markdown format)
-
-4. Show success message with next steps:
-   ```
-   ✅ Release v[VERSION] committed, tagged, and published to GitHub!
+   ✅ Release v[VERSION] committed and tagged!
 
    Next steps:
-   # Push to remote:
-   git push origin main --tags
+   # Push to remote (this will trigger GitHub Actions):
+   git push origin main v[VERSION]
 
-   # View the release on GitHub:
+   The GitHub Actions workflow (.github/workflows/release.yml) will automatically:
+   - Run tests
+   - Build the .vsix extension
+   - Create GitHub release with auto-generated notes
+   - Mark as pre-release if version contains -alpha, -beta, or -rc
+   - Upload the .vsix artifact to the release
+
+   # View the release after CI completes:
    gh release view v[VERSION] --web
    ```
 
@@ -182,11 +180,14 @@ git commit -m "Release v[VERSION]"
 # Create a git tag:
 git tag -a v[VERSION] -m "Release v[VERSION]"
 
-# Create GitHub release (extract release notes from NEWS.md):
-gh release create v[VERSION] --title "Squiggy v[VERSION]" --notes-file <(sed -n '/^# Squiggy [VERSION]/,/^# Squiggy/p' NEWS.md | head -n -1)
+# Push to remote (this triggers GitHub Actions to create the release):
+git push origin main v[VERSION]
 
-# Push to remote:
-git push origin main --tags
+# GitHub Actions will automatically:
+# - Run tests
+# - Build the .vsix extension
+# - Create GitHub release with auto-generated notes
+# - Upload the .vsix artifact
 ```
 
 ## Important Notes
@@ -194,6 +195,7 @@ git push origin main --tags
 - Always show the staged diff before prompting to commit
 - Only create commit and tag if the user explicitly chooses "Yes" in the prompt
 - Do NOT push to remote - always leave that to the user
+- Do NOT create GitHub release manually - GitHub Actions (.github/workflows/release.yml) handles this automatically when tags are pushed
 - Be concise in the changelog - focus on user-facing changes
 - Skip internal/testing changes in the changelog unless they're significant
 - Preserve existing NEWS.md content below the new release section
