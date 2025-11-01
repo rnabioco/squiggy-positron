@@ -35,6 +35,27 @@ from .constants import (
 )
 
 
+def _route_to_plots_pane(fig) -> None:
+    """
+    Route Bokeh figure to Positron Plots pane via bokeh.io.show()
+
+    Positron intercepts bokeh.io.show() calls and routes them to Plots pane
+    by inspecting the call stack for bokeh.io.showing.show function.
+
+    This ensures plots appear in the Plots pane (with history and navigation)
+    rather than the Viewer pane.
+
+    Args:
+        fig: Bokeh figure object
+    """
+    try:
+        from bokeh.io import show
+        show(fig)  # Positron intercepts this and routes to Plots pane
+    except Exception:
+        # Silently fail if bokeh.io not available or not in Positron
+        pass
+
+
 class SquigglePlotter:
     """Interactive plotter for nanopore squiggle visualization"""
 
@@ -67,7 +88,7 @@ class SquigglePlotter:
 
     def figure_to_html(self, fig) -> str:
         """
-        Convert a Bokeh figure to HTML string
+        Convert a Bokeh figure to HTML string and route to Plots pane if in Positron
 
         Args:
             fig: Bokeh figure object
@@ -75,7 +96,9 @@ class SquigglePlotter:
         Returns:
             HTML string with embedded Bokeh plot
         """
-        return file_html(fig, CDN, "Squiggy Plot")
+        _route_to_plots_pane(fig)  # Route figure to Plots pane (Positron only)
+        html = file_html(fig, CDN, "Squiggy Plot")  # Generate HTML for fallback
+        return html
 
     @staticmethod
     def normalize_signal(signal: np.ndarray, method: NormalizationMethod) -> np.ndarray:
@@ -981,10 +1004,12 @@ class SquigglePlotter:
                 sizing_mode="stretch_both",  # Stretch both width and height
                 spacing=0,  # No spacing between plots
             )
+            _route_to_plots_pane(layout)  # Route to Plots pane
             html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
             return html, layout
         else:
             # No modifications - return single plot
+            _route_to_plots_pane(p)  # Route to Plots pane
             html = file_html(p, CDN, title=f"Squiggy: {read_id}")
             return html, p
 
@@ -1356,6 +1381,7 @@ class SquigglePlotter:
 
         # Generate HTML
         html_title = SquigglePlotter._format_html_title("Overlay", reads_data)
+        _route_to_plots_pane(p)  # Route to Plots pane
         html = file_html(p, CDN, title=html_title)
         return html, p
 
@@ -1417,6 +1443,7 @@ class SquigglePlotter:
 
         # Generate HTML
         html_title = SquigglePlotter._format_html_title("Stacked", reads_data)
+        _route_to_plots_pane(p)  # Route to Plots pane
         html = file_html(p, CDN, title=html_title)
         return html, p
 
@@ -1492,6 +1519,7 @@ class SquigglePlotter:
 
         # Generate HTML
         html_title = SquigglePlotter._format_html_title("Event-Aligned", reads_data)
+        _route_to_plots_pane(p)  # Route to Plots pane
         html = file_html(p, CDN, title=html_title)
         return html, p
 
@@ -1985,6 +2013,7 @@ class SquigglePlotter:
 
         # Generate HTML
         html_title = f"Aggregate View - {reference_name} ({num_reads} reads)"
+        _route_to_plots_pane(grid)  # Route to Plots pane
         html = file_html(grid, CDN, title=html_title)
 
         return html, grid

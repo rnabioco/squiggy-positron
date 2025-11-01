@@ -15,7 +15,6 @@ import { ReadSearchViewProvider } from './views/squiggy-read-search-view';
 import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
 import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
-import { SquigglePlotPanel } from './webview/squiggy-plot-panel';
 
 let positronRuntime: PositronRuntime;
 let pythonBackend: PythonBackend | null = null;
@@ -168,11 +167,6 @@ export async function activate(context: vscode.ExtensionContext) {
                 filePanelProvider.setPOD5Info('', 0, '0 MB');
                 filePanelProvider.setBAMInfo('', 0, '0 MB');
                 plotOptionsProvider.updateBamStatus(false);
-
-                // Close any open plot panels (stale data from previous kernel)
-                if (SquigglePlotPanel.currentPanel) {
-                    SquigglePlotPanel.currentPanel.dispose();
-                }
 
                 console.log(`Squiggy: ${reason}, state cleared`);
             };
@@ -386,30 +380,6 @@ function registerCommands(
         )
     );
 
-    // Export plot
-    context.subscriptions.push(
-        vscode.commands.registerCommand('squiggy.exportPlot', async () => {
-            const panel = SquigglePlotPanel.currentPanel;
-            if (!panel) {
-                vscode.window.showWarningMessage('No plot is currently open');
-                return;
-            }
-
-            const fileUri = await vscode.window.showSaveDialog({
-                filters: {
-                    HTML: ['html'],
-                    PNG: ['png'],
-                    SVG: ['svg'],
-                },
-                title: 'Export Plot',
-            });
-
-            if (fileUri) {
-                await panel.exportPlot(fileUri.fsPath);
-            }
-        })
-    );
-
     // Refresh reads
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.refreshReads', () => {
@@ -434,11 +404,6 @@ function registerCommands(
             filePanelProvider.setPOD5Info('', 0, '0 MB');
             filePanelProvider.setBAMInfo('', 0, '0 MB');
             plotOptionsProvider.updateBamStatus(false);
-
-            // Close any open plot panels
-            if (SquigglePlotPanel.currentPanel) {
-                SquigglePlotPanel.currentPanel.dispose();
-            }
 
             // Clear Python kernel state if using Positron
             if (usePositron) {
@@ -790,14 +755,9 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
                 const colorThemeKind = vscode.window.activeColorTheme.kind;
                 const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
-                // Get config for other settings
-                const config = vscode.workspace.getConfiguration('squiggy');
-
-                let html: string;
-
                 if (usePositron) {
-                    // Use Positron kernel - generates plot and saves to temp file
-                    const tempFilePath = await positronRuntime.generatePlot(
+                    // Use Positron kernel - plot appears in Plots pane automatically
+                    await positronRuntime.generatePlot(
                         readIds,
                         mode,
                         normalization,
@@ -810,35 +770,15 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
                         options.downsample,
                         options.showSignalPoints
                     );
-
-                    // Read HTML from temp file
-                    // Using imported fs.promises
-                    html = await fs.readFile(tempFilePath, 'utf-8');
-
-                    // Clean up temp file
-                    await fs.unlink(tempFilePath).catch(() => {}); // Ignore errors
                 } else if (pythonBackend) {
-                    // Use subprocess backend
-                    const result = await pythonBackend.call('generate_plot', {
-                        read_ids: readIds,
-                        mode: mode,
-                        normalization: normalization,
-                        options: {
-                            theme: theme,
-                            downsample: true,
-                            downsample_threshold: config.get<number>('downsampleThreshold', 100000),
-                            show_dwell_time: options.showDwellTime,
-                            show_base_annotations: options.showBaseAnnotations,
-                        },
-                    });
-                    html = result.html;
+                    // Use subprocess backend - still need webview fallback
+                    // TODO: subprocess backend doesn't have Plots pane integration
+                    vscode.window.showWarningMessage(
+                        'Plot display in Plots pane requires Positron runtime. Subplot backend not yet supported.'
+                    );
                 } else {
                     throw new Error('No backend available');
                 }
-
-                // Show plot in webview
-                const panel = SquigglePlotPanel.createOrShow(context.extensionUri);
-                panel.setPlot(html, readIds);
             }
         );
     } catch (error) {
@@ -870,22 +810,14 @@ async function plotAggregate(referenceName: string, context: vscode.ExtensionCon
                 const config = vscode.workspace.getConfiguration('squiggy');
                 const maxReads = config.get<number>('aggregateSampleSize', 100);
 
-                let html: string;
-
                 if (usePositron) {
-                    // Use Positron kernel - generates plot and saves to temp file
-                    const tempFilePath = await positronRuntime.generateAggregatePlot(
+                    // Use Positron kernel - plot appears in Plots pane automatically
+                    await positronRuntime.generateAggregatePlot(
                         referenceName,
                         maxReads,
                         normalization,
                         theme
                     );
-
-                    // Read HTML from temp file
-                    html = await fs.readFile(tempFilePath, 'utf-8');
-
-                    // Clean up temp file
-                    await fs.unlink(tempFilePath).catch(() => {}); // Ignore errors
                 } else if (pythonBackend) {
                     // Subprocess backend not yet implemented for aggregate
                     throw new Error(
@@ -894,11 +826,6 @@ async function plotAggregate(referenceName: string, context: vscode.ExtensionCon
                 } else {
                     throw new Error('No backend available');
                 }
-
-                // Show plot in webview
-                const panel = SquigglePlotPanel.createOrShow(context.extensionUri);
-                // Pass reference name as a pseudo-read ID for title display
-                panel.setPlot(html, [`Aggregate: ${referenceName}`]);
             }
         );
     } catch (error) {

@@ -47,12 +47,6 @@
         "icon": "$(graph-line)"
       },
       {
-        "command": "squiggy.exportPlot",
-        "title": "Export Plot",
-        "category": "Squiggy",
-        "icon": "$(save)"
-      },
-      {
         "command": "squiggy.refreshReads",
         "title": "Refresh Read List",
         "category": "Squiggy",
@@ -183,7 +177,7 @@
     "lint:fix": "eslint src --ext ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "package": "vsce package"
+    "package": "mkdir -p build && vsce package -o build/"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
