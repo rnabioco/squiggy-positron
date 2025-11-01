@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - feature/*
     pull_request:
         branches:
             - main
@@ -11,6 +12,7 @@ on:
 
 jobs:
     test:
+        name: Tests (${{ matrix.os }})
         runs-on: ${{ matrix.os }}
         strategy:
             fail-fast: false
@@ -22,41 +24,49 @@ jobs:
               with:
                   lfs: true
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
+            - name: Setup pixi
+              uses: prefix-dev/setup-pixi@v0.8.1
               with:
-                  python-version-file: .python-version
+                  pixi-version: latest
+                  cache: true
 
-            - name: Install uv
-              uses: astral-sh/setup-uv@v5
+            - name: Install dependencies
+              run: pixi install
 
-            - name: Install system dependencies (Linux)
-              if: runner.os == 'Linux'
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libxcb-shape0 x11-utils
-                  # Set up virtual display for GUI tests
-                  sudo apt-get install -y xvfb
-                  export DISPLAY=:99
-                  Xvfb :99 -screen 0 1024x768x24 &
-                  sleep 3
+            - name: Install npm dependencies
+              run: npm ci
 
-            - name: Install Python dependencies
-              run: |
-                  uv pip install --system -e ".[dev]"
+            - name: Run Python linting
+              run: pixi run lint-py
 
-            - name: Run tests with pytest
-              env:
-                  QT_QPA_PLATFORM: offscreen
-              run: |
-                  pytest tests/ -v --tb=short --cov=squiggy --cov-report=xml --cov-report=term
+            - name: Run TypeScript linting
+              run: pixi run lint-ts
 
-            - name: Upload coverage to Codecov
+            - name: Run TypeScript formatting check
+              run: npm run format:check
+
+            - name: Run Python tests
+              run: pixi run test-py --cov-report=xml --cov-report=term
+
+            - name: Run TypeScript tests
+              run: pixi run test-ts --coverage
+
+            - name: Upload Python coverage to Codecov
               if: matrix.os == 'ubuntu-latest'
               uses: codecov/codecov-action@v5
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}
                   files: ./coverage.xml
-                  flags: unittests
-                  name: codecov-umbrella
+                  flags: python
+                  name: python-coverage
+                  fail_ci_if_error: false
+
+            - name: Upload TypeScript coverage to Codecov
+              if: matrix.os == 'ubuntu-latest'
+              uses: codecov/codecov-action@v5
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  files: ./coverage/lcov.info
+                  flags: typescript
+                  name: typescript-coverage
                   fail_ci_if_error: false

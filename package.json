@@ -4,6 +4,10 @@
   "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files",
   "version": "0.1.0",
   "publisher": "rnabioco",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rnabioco/squiggy.git"
+  },
   "engines": {
     "vscode": "^1.74.0",
     "positron": "^2025.6.0"
@@ -15,7 +19,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./build/extension.js",
   "contributes": {
     "commands": [
       {
@@ -109,13 +113,21 @@
       "properties": {
         "squiggy.defaultPlotMode": {
           "type": "string",
-          "enum": ["SINGLE", "EVENTALIGN"],
+          "enum": [
+            "SINGLE",
+            "EVENTALIGN"
+          ],
           "default": "SINGLE",
           "description": "Default plot mode for visualizations"
         },
         "squiggy.defaultNormalization": {
           "type": "string",
-          "enum": ["NONE", "ZNORM", "MEDIAN", "MAD"],
+          "enum": [
+            "NONE",
+            "ZNORM",
+            "MEDIAN",
+            "MAD"
+          ],
           "default": "ZNORM",
           "description": "Default signal normalization method"
         },
@@ -126,7 +138,10 @@
         },
         "squiggy.theme": {
           "type": "string",
-          "enum": ["LIGHT", "DARK"],
+          "enum": [
+            "LIGHT",
+            "DARK"
+          ],
           "default": "LIGHT",
           "description": "Plot color theme"
         }
@@ -137,17 +152,27 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "lint": "eslint src --ext ts",
+    "lint:fix": "eslint src --ext ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
     "package": "vsce package"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^18.19.0",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "@vscode/vsce": "^2.22.0",
     "eslint": "^8.55.0",
+    "jest": "^30.2.0",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.3.3"
   },
   "dependencies": {

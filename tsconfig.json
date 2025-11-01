@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2020",
-    "outDir": "out",
+    "outDir": "build",
     "lib": ["ES2020"],
     "sourceMap": true,
     "rootDir": "src",
@@ -13,5 +13,5 @@
     "resolveJsonModule": true,
     "types": ["node", "vscode"]
   },
-  "exclude": ["node_modules", ".vscode-test", "positron"]
+  "exclude": ["node_modules", ".vscode-test", "positron", "**/__tests__/**", "**/*.test.ts", "**/*.spec.ts"]
 }

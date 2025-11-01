@@ -31,13 +31,13 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [this._extensionUri]
+            localResourceRoots: [this._extensionUri],
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(data => {
+        webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
                 case 'plotModeChanged':
                     this._plotMode = data.value;
@@ -58,7 +58,10 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
                         this._scaleDwellTime = false;
                         if (this._view) {
                             console.log('Sending updateScaleDwellTime message');
-                            this._view.webview.postMessage({ type: 'updateScaleDwellTime', value: false });
+                            this._view.webview.postMessage({
+                                type: 'updateScaleDwellTime',
+                                value: false,
+                            });
                         } else {
                             console.log('Warning: _view is undefined');
                         }
@@ -78,7 +81,10 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
                         this._showDwellTime = false;
                         if (this._view) {
                             console.log('Sending updateShowDwellTime message');
-                            this._view.webview.postMessage({ type: 'updateShowDwellTime', value: false });
+                            this._view.webview.postMessage({
+                                type: 'updateShowDwellTime',
+                                value: false,
+                            });
                         } else {
                             console.log('Warning: _view is undefined');
                         }
@@ -98,7 +104,7 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
             normalization: this._normalization,
             showDwellTime: this._showDwellTime,
             showBaseAnnotations: this._showBaseAnnotations,
-            scaleDwellTime: this._scaleDwellTime
+            scaleDwellTime: this._scaleDwellTime,
         };
     }
 

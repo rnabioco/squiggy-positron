@@ -16,7 +16,7 @@ References:
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 import pysam
 
@@ -26,7 +26,7 @@ class ModificationAnnotation:
     """Single base modification annotation with probability and signal alignment"""
 
     position: int  # Position in read sequence (0-indexed)
-    genomic_pos: Optional[int]  # Genomic position (if aligned)
+    genomic_pos: int | None  # Genomic position (if aligned)
     mod_code: str | int  # Modification code: str (e.g., 'm') or int (ChEBI code)
     canonical_base: str  # The unmodified base (C, A, T, G, U)
     probability: float  # Modification probability from ML tag (0-1)
@@ -36,7 +36,7 @@ class ModificationAnnotation:
 
 def extract_modifications_from_alignment(
     alignment, bases: list
-) -> List[ModificationAnnotation]:
+) -> list[ModificationAnnotation]:
     """Extract modification annotations from a BAM alignment
 
     Parses MM/ML tags via pysam's modified_bases property and maps modifications
@@ -120,7 +120,7 @@ def extract_modifications_from_alignment(
     return modifications
 
 
-def detect_modification_provenance(bam_file: Path) -> Dict[str, Any]:
+def detect_modification_provenance(bam_file: Path) -> dict[str, Any]:
     """Detect modification calling provenance from BAM header
 
     Parses @PG (program) header lines to extract basecaller information, version,

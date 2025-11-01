@@ -70,7 +70,10 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         } catch (error) {
             // Kernel not available yet - will check later
-            console.log('Could not check squiggy installation (kernel may not be running yet):', error);
+            console.log(
+                'Could not check squiggy installation (kernel may not be running yet):',
+                error
+            );
         }
     } else {
         console.log('Positron runtime not available, using subprocess backend');
@@ -85,12 +88,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Register cleanup on deactivation
             context.subscriptions.push({
-                dispose: () => pythonBackend?.stop()
+                dispose: () => pythonBackend?.stop(),
             });
         } catch (error) {
             vscode.window.showErrorMessage(
                 `Failed to start Python backend: ${error}. ` +
-                `Please ensure Python is installed and the squiggy package is available.`
+                    `Please ensure Python is installed and the squiggy package is available.`
             );
         }
     }
@@ -98,17 +101,14 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create and register file panel provider
     filePanelProvider = new FilePanelProvider(context.extensionUri);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(
-            FilePanelProvider.viewType,
-            filePanelProvider
-        )
+        vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider)
     );
 
     // Create read tree provider
     readTreeProvider = new ReadTreeProvider();
     const readTreeView = vscode.window.createTreeView('squiggyReadList', {
         treeDataProvider: readTreeProvider,
-        canSelectMany: true
+        canSelectMany: true,
     });
     context.subscriptions.push(readTreeView);
 
@@ -201,14 +201,17 @@ export function deactivate() {
 /**
  * Register all extension commands
  */
-function registerCommands(context: vscode.ExtensionContext, readTreeView: vscode.TreeView<ReadItem>) {
+function registerCommands(
+    context: vscode.ExtensionContext,
+    readTreeView: vscode.TreeView<ReadItem>
+) {
     // Open POD5 file
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.openPOD5', async () => {
             const fileUri = await vscode.window.showOpenDialog({
                 canSelectMany: false,
                 filters: { 'POD5 Files': ['pod5'] },
-                title: 'Open POD5 File'
+                title: 'Open POD5 File',
             });
 
             if (fileUri && fileUri[0]) {
@@ -223,7 +226,7 @@ function registerCommands(context: vscode.ExtensionContext, readTreeView: vscode
             const fileUri = await vscode.window.showOpenDialog({
                 canSelectMany: false,
                 filters: { 'BAM Files': ['bam'] },
-                title: 'Open BAM File'
+                title: 'Open BAM File',
             });
 
             if (fileUri && fileUri[0]) {
@@ -234,29 +237,32 @@ function registerCommands(context: vscode.ExtensionContext, readTreeView: vscode
 
     // Plot selected reads
     context.subscriptions.push(
-        vscode.commands.registerCommand('squiggy.plotRead', async (readIdOrItem?: string | ReadItem) => {
-            let readIds: string[];
+        vscode.commands.registerCommand(
+            'squiggy.plotRead',
+            async (readIdOrItem?: string | ReadItem) => {
+                let readIds: string[];
 
-            // If called with a readId string (from TreeView click)
-            if (typeof readIdOrItem === 'string') {
-                readIds = [readIdOrItem];
-            }
-            // If called with a ReadItem (from command palette or context menu)
-            else if (readIdOrItem && 'readId' in readIdOrItem) {
-                readIds = [readIdOrItem.readId];
-            }
-            // Otherwise use current selection
-            else {
-                const selection = readTreeView.selection;
-                if (selection.length === 0) {
-                    vscode.window.showWarningMessage('Please select one or more reads to plot');
-                    return;
+                // If called with a readId string (from TreeView click)
+                if (typeof readIdOrItem === 'string') {
+                    readIds = [readIdOrItem];
                 }
-                readIds = selection.map(item => item.readId);
-            }
+                // If called with a ReadItem (from command palette or context menu)
+                else if (readIdOrItem && 'readId' in readIdOrItem) {
+                    readIds = [readIdOrItem.readId];
+                }
+                // Otherwise use current selection
+                else {
+                    const selection = readTreeView.selection;
+                    if (selection.length === 0) {
+                        vscode.window.showWarningMessage('Please select one or more reads to plot');
+                        return;
+                    }
+                    readIds = selection.map((item) => item.readId);
+                }
 
-            await plotReads(readIds, context);
-        })
+                await plotReads(readIds, context);
+            }
+        )
     );
 
     // Export plot
@@ -270,11 +276,11 @@ function registerCommands(context: vscode.ExtensionContext, readTreeView: vscode
 
             const fileUri = await vscode.window.showSaveDialog({
                 filters: {
-                    'HTML': ['html'],
-                    'PNG': ['png'],
-                    'SVG': ['svg']
+                    HTML: ['html'],
+                    PNG: ['png'],
+                    SVG: ['svg'],
                 },
-                title: 'Export Plot'
+                title: 'Export Plot',
             });
 
             if (fileUri) {
@@ -296,56 +302,61 @@ function registerCommands(context: vscode.ExtensionContext, readTreeView: vscode
  */
 async function openPOD5File(filePath: string) {
     try {
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Opening POD5 file...',
-            cancellable: false
-        }, async () => {
-            let result: { readIds?: string[], numReads: number };
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Opening POD5 file...',
+                cancellable: false,
+            },
+            async () => {
+                let result: { readIds?: string[]; numReads: number };
 
-            if (usePositron) {
-                // Use Positron kernel
-                result = await positronRuntime.loadPOD5(filePath);
-            } else if (pythonBackend) {
-                // Use subprocess backend
-                const backendResult = await pythonBackend.call('open_pod5', { file_path: filePath });
-                result = {
-                    readIds: backendResult.read_ids,
-                    numReads: backendResult.num_reads
-                };
-            } else {
-                throw new Error('No backend available');
+                if (usePositron) {
+                    // Use Positron kernel
+                    result = await positronRuntime.loadPOD5(filePath);
+                } else if (pythonBackend) {
+                    // Use subprocess backend
+                    const backendResult = await pythonBackend.call('open_pod5', {
+                        file_path: filePath,
+                    });
+                    result = {
+                        readIds: backendResult.read_ids,
+                        numReads: backendResult.num_reads,
+                    };
+                } else {
+                    throw new Error('No backend available');
+                }
+
+                // Update read tree if we got read IDs
+                if (result.readIds && result.readIds.length > 0) {
+                    readTreeProvider.setReads(result.readIds);
+                    vscode.window.showInformationMessage(
+                        `Loaded ${result.numReads} reads (showing first ${result.readIds.length}) from ${path.basename(filePath)}`
+                    );
+                } else {
+                    vscode.window.showInformationMessage(
+                        `Loaded ${result.numReads} reads from ${path.basename(filePath)}. ` +
+                            `Read IDs are available in the '_squiggy_read_ids' variable in the console.`
+                    );
+                }
+
+                // Track file and update file panel display
+                currentPod5File = filePath;
+
+                // Get file size
+                const fs = require('fs').promises;
+                const stats = await fs.stat(filePath);
+                const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+                filePanelProvider.setPOD5Info(filePath, result.numReads, `${fileSizeMB} MB`);
             }
-
-            // Update read tree if we got read IDs
-            if (result.readIds && result.readIds.length > 0) {
-                readTreeProvider.setReads(result.readIds);
-                vscode.window.showInformationMessage(
-                    `Loaded ${result.numReads} reads (showing first ${result.readIds.length}) from ${path.basename(filePath)}`
-                );
-            } else {
-                vscode.window.showInformationMessage(
-                    `Loaded ${result.numReads} reads from ${path.basename(filePath)}. ` +
-                    `Read IDs are available in the '_squiggy_read_ids' variable in the console.`
-                );
-            }
-
-            // Track file and update file panel display
-            currentPod5File = filePath;
-
-            // Get file size
-            const fs = require('fs').promises;
-            const stats = await fs.stat(filePath);
-            const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-
-            filePanelProvider.setPOD5Info(filePath, result.numReads, `${fileSizeMB} MB`);
-        });
+        );
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (errorMessage.includes('No backend available') || errorMessage.includes('kernel')) {
             vscode.window.showErrorMessage(
                 'Failed to open POD5 file: No Python kernel is running. ' +
-                'Please start a Python console first (use the Console pane or create a .py file).'
+                    'Please start a Python console first (use the Console pane or create a .py file).'
             );
         } else {
             vscode.window.showErrorMessage(`Failed to open POD5 file: ${error}`);
@@ -358,69 +369,80 @@ async function openPOD5File(filePath: string) {
  */
 async function openBAMFile(filePath: string) {
     try {
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Opening BAM file...',
-            cancellable: false
-        }, async () => {
-            let result: {
-                numReads: number;
-                referenceToReads?: Record<string, string[]>;
-                hasModifications?: boolean;
-                modificationTypes?: string[];
-                hasProbabilities?: boolean;
-            };
-
-            if (usePositron) {
-                // Use Positron kernel
-                result = await positronRuntime.loadBAM(filePath);
-            } else if (pythonBackend) {
-                // Use subprocess backend
-                const backendResult = await pythonBackend.call('open_bam', { file_path: filePath });
-                result = {
-                    numReads: backendResult.num_reads,
-                    referenceToReads: backendResult.reference_to_reads,
-                    hasModifications: backendResult.has_modifications,
-                    modificationTypes: backendResult.modification_types,
-                    hasProbabilities: backendResult.has_probabilities
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Opening BAM file...',
+                cancellable: false,
+            },
+            async () => {
+                let result: {
+                    numReads: number;
+                    referenceToReads?: Record<string, string[]>;
+                    hasModifications?: boolean;
+                    modificationTypes?: string[];
+                    hasProbabilities?: boolean;
                 };
-            } else {
-                throw new Error('No backend available');
+
+                if (usePositron) {
+                    // Use Positron kernel
+                    result = await positronRuntime.loadBAM(filePath);
+                } else if (pythonBackend) {
+                    // Use subprocess backend
+                    const backendResult = await pythonBackend.call('open_bam', {
+                        file_path: filePath,
+                    });
+                    result = {
+                        numReads: backendResult.num_reads,
+                        referenceToReads: backendResult.reference_to_reads,
+                        hasModifications: backendResult.has_modifications,
+                        modificationTypes: backendResult.modification_types,
+                        hasProbabilities: backendResult.has_probabilities,
+                    };
+                } else {
+                    throw new Error('No backend available');
+                }
+
+                // Track file and update file panel display
+                currentBamFile = filePath;
+
+                // Get file size
+                const fs = require('fs').promises;
+                const stats = await fs.stat(filePath);
+                const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+                filePanelProvider.setBAMInfo(filePath, result.numReads, `${fileSizeMB} MB`);
+
+                // Update read tree to show reads grouped by reference
+                if (result.referenceToReads && Object.keys(result.referenceToReads).length > 0) {
+                    const refMap = new Map<string, string[]>(
+                        Object.entries(result.referenceToReads)
+                    );
+                    readTreeProvider.setReadsGrouped(refMap);
+                }
+
+                // Update modifications panel and context
+                const hasModifications = result.hasModifications || false;
+                const modificationTypes = result.modificationTypes || [];
+                const hasProbabilities = result.hasProbabilities || false;
+
+                if (hasModifications) {
+                    modificationsProvider.setModificationInfo(
+                        hasModifications,
+                        modificationTypes,
+                        hasProbabilities
+                    );
+                    vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', true);
+                } else {
+                    modificationsProvider.clear();
+                    vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+                }
+
+                vscode.window.showInformationMessage(
+                    `Loaded BAM file with ${result.numReads} reads${hasModifications ? ' (contains base modifications)' : ''}`
+                );
             }
-
-            // Track file and update file panel display
-            currentBamFile = filePath;
-
-            // Get file size
-            const fs = require('fs').promises;
-            const stats = await fs.stat(filePath);
-            const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-
-            filePanelProvider.setBAMInfo(filePath, result.numReads, `${fileSizeMB} MB`);
-
-            // Update read tree to show reads grouped by reference
-            if (result.referenceToReads && Object.keys(result.referenceToReads).length > 0) {
-                const refMap = new Map<string, string[]>(Object.entries(result.referenceToReads));
-                readTreeProvider.setReadsGrouped(refMap);
-            }
-
-            // Update modifications panel and context
-            const hasModifications = result.hasModifications || false;
-            const modificationTypes = result.modificationTypes || [];
-            const hasProbabilities = result.hasProbabilities || false;
-
-            if (hasModifications) {
-                modificationsProvider.setModificationInfo(hasModifications, modificationTypes, hasProbabilities);
-                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', true);
-            } else {
-                modificationsProvider.clear();
-                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
-            }
-
-            vscode.window.showInformationMessage(
-                `Loaded BAM file with ${result.numReads} reads${hasModifications ? ' (contains base modifications)' : ''}`
-            );
-        });
+        );
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to open BAM file: ${error}`);
     }
@@ -434,71 +456,74 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
         // Track current plot for refresh
         currentPlotReadIds = readIds;
 
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Generating plot for ${readIds.length} read(s)...`,
-            cancellable: false
-        }, async () => {
-            // Get options from sidebar panel
-            const options = plotOptionsProvider.getOptions();
-            const mode = options.mode;
-            const normalization = options.normalization;
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Generating plot for ${readIds.length} read(s)...`,
+                cancellable: false,
+            },
+            async () => {
+                // Get options from sidebar panel
+                const options = plotOptionsProvider.getOptions();
+                const mode = options.mode;
+                const normalization = options.normalization;
 
-            // Get modification filters
-            const modFilters = modificationsProvider.getFilters();
+                // Get modification filters
+                const modFilters = modificationsProvider.getFilters();
 
-            // Detect VS Code theme
-            const colorThemeKind = vscode.window.activeColorTheme.kind;
-            const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
+                // Detect VS Code theme
+                const colorThemeKind = vscode.window.activeColorTheme.kind;
+                const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
-            // Get config for other settings
-            const config = vscode.workspace.getConfiguration('squiggy');
+                // Get config for other settings
+                const config = vscode.workspace.getConfiguration('squiggy');
 
-            let html: string;
+                let html: string;
 
-            if (usePositron) {
-                // Use Positron kernel - generates plot and saves to temp file
-                const tempFilePath = await positronRuntime.generatePlot(
-                    readIds,
-                    mode,
-                    normalization,
-                    theme,
-                    options.showDwellTime,
-                    options.showBaseAnnotations,
-                    options.scaleDwellTime,
-                    modFilters.minProbability,
-                    modFilters.enabledModTypes
-                );
+                if (usePositron) {
+                    // Use Positron kernel - generates plot and saves to temp file
+                    const tempFilePath = await positronRuntime.generatePlot(
+                        readIds,
+                        mode,
+                        normalization,
+                        theme,
+                        options.showDwellTime,
+                        options.showBaseAnnotations,
+                        options.scaleDwellTime,
+                        modFilters.minProbability,
+                        modFilters.enabledModTypes
+                    );
 
-                // Read HTML from temp file
-                const fs = require('fs').promises;
-                html = await fs.readFile(tempFilePath, 'utf-8');
+                    // Read HTML from temp file
+                    const fs = require('fs').promises;
+                    html = await fs.readFile(tempFilePath, 'utf-8');
 
-                // Clean up temp file
-                await fs.unlink(tempFilePath).catch(() => { }); // Ignore errors
-            } else if (pythonBackend) {
-                // Use subprocess backend
-                const result = await pythonBackend.call('generate_plot', {
-                    read_ids: readIds,
-                    mode: mode,
-                    normalization: normalization,
-                    options: {
-                        theme: theme,
-                        downsample: true,
-                        downsample_threshold: config.get<number>('downsampleThreshold', 100000),
-                        show_dwell_time: options.showDwellTime,
-                        show_base_annotations: options.showBaseAnnotations
-                    }
-                });
-                html = result.html;
-            } else {
-                throw new Error('No backend available');
+                    // Clean up temp file
+                    await fs.unlink(tempFilePath).catch(() => {}); // Ignore errors
+                } else if (pythonBackend) {
+                    // Use subprocess backend
+                    const result = await pythonBackend.call('generate_plot', {
+                        read_ids: readIds,
+                        mode: mode,
+                        normalization: normalization,
+                        options: {
+                            theme: theme,
+                            downsample: true,
+                            downsample_threshold: config.get<number>('downsampleThreshold', 100000),
+                            show_dwell_time: options.showDwellTime,
+                            show_base_annotations: options.showBaseAnnotations,
+                        },
+                    });
+                    html = result.html;
+                } else {
+                    throw new Error('No backend available');
+                }
+
+                // Show plot in webview
+                const panel = SquigglePlotPanel.createOrShow(context.extensionUri);
+                panel.setPlot(html, readIds);
             }
-
-            // Show plot in webview
-            const panel = SquigglePlotPanel.createOrShow(context.extensionUri);
-            panel.setPlot(html, readIds);
-        });
+        );
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to generate plot: ${error}`);
     }

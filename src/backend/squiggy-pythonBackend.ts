@@ -28,10 +28,13 @@ interface JSONRPCResponse {
 export class PythonBackend {
     private process: ChildProcess | null = null;
     private requestId = 0;
-    private pendingRequests = new Map<number, {
-        resolve: (result: any) => void;
-        reject: (error: Error) => void;
-    }>();
+    private pendingRequests = new Map<
+        number,
+        {
+            resolve: (result: any) => void;
+            reject: (error: Error) => void;
+        }
+    >();
     private lineReader: readline.Interface | null = null;
 
     constructor(
@@ -47,7 +50,7 @@ export class PythonBackend {
             console.log(`Starting Python backend: ${this.pythonPath} ${this.serverScriptPath}`);
 
             this.process = spawn(this.pythonPath, [this.serverScriptPath], {
-                stdio: ['pipe', 'pipe', 'pipe']
+                stdio: ['pipe', 'pipe', 'pipe'],
             });
 
             if (!this.process.stdin || !this.process.stdout || !this.process.stderr) {
@@ -58,7 +61,7 @@ export class PythonBackend {
             // Setup line reader for stdout
             this.lineReader = readline.createInterface({
                 input: this.process.stdout,
-                crlfDelay: Infinity
+                crlfDelay: Infinity,
             });
 
             this.lineReader.on('line', (line) => {
@@ -120,7 +123,7 @@ export class PythonBackend {
             jsonrpc: '2.0',
             method,
             params,
-            id
+            id,
         };
 
         return new Promise((resolve, reject) => {

@@ -618,7 +618,7 @@ def get_bam_references(bam_file):
     try:
         with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
             # Get reference names and lengths from header
-            for ref_name, ref_length in zip(bam.references, bam.lengths):
+            for ref_name, ref_length in zip(bam.references, bam.lengths, strict=False):
                 ref_info = {
                     "name": ref_name,
                     "length": ref_length,

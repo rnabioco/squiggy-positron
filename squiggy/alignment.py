@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import pysam
@@ -16,8 +15,8 @@ class BaseAnnotation:
     position: int  # Position in sequence (0-indexed)
     signal_start: int  # Signal sample start index
     signal_end: int  # Signal sample end index
-    genomic_pos: Optional[int] = None  # Genomic position (if aligned)
-    quality: Optional[int] = None  # Base quality score
+    genomic_pos: int | None = None  # Genomic position (if aligned)
+    quality: int | None = None  # Base quality score
 
 
 @dataclass
@@ -26,16 +25,18 @@ class AlignedRead:
 
     read_id: str
     sequence: str
-    bases: List[BaseAnnotation]
-    chromosome: Optional[str] = None
-    genomic_start: Optional[int] = None
-    genomic_end: Optional[int] = None
-    strand: Optional[str] = None  # '+' or '-'
+    bases: list[BaseAnnotation]
+    chromosome: str | None = None
+    genomic_start: int | None = None
+    genomic_end: int | None = None
+    strand: str | None = None  # '+' or '-'
     is_reverse: bool = False
-    modifications: List = field(default_factory=list)  # List of ModificationAnnotation objects
+    modifications: list = field(
+        default_factory=list
+    )  # List of ModificationAnnotation objects
 
 
-def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[AlignedRead]:
+def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | None:
     """Extract alignment information for a read from BAM file
 
     Args:
@@ -56,7 +57,7 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> Optional[Aligned
     return None
 
 
-def _parse_alignment(alignment) -> Optional[AlignedRead]:
+def _parse_alignment(alignment) -> AlignedRead | None:
     """Parse a pysam AlignmentSegment into AlignedRead
 
     Args:
@@ -136,6 +137,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
     modifications = []
     try:
         from .modifications import extract_modifications_from_alignment
+
         modifications = extract_modifications_from_alignment(alignment, bases)
     except Exception as e:
         # Modifications are optional, don't fail if extraction fails
@@ -154,7 +156,7 @@ def _parse_alignment(alignment) -> Optional[AlignedRead]:
     )
 
 
-def get_base_to_signal_mapping(aligned_read: AlignedRead) -> Tuple[str, np.ndarray]:
+def get_base_to_signal_mapping(aligned_read: AlignedRead) -> tuple[str, np.ndarray]:
     """Extract sequence and signal mapping from AlignedRead
 
     Args:

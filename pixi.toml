@@ -1,4 +1,4 @@
-[project]
+[workspace]
 name = "squiggy-positron"
 version = "0.1.0"
 description = "Positron extension for visualizing Oxford Nanopore sequencing data"
@@ -7,29 +7,48 @@ channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 
 [tasks]
-# Python backend development tasks
-server = "python src/python/server.py"
-test-backend = "pytest tests/python/"
-lint = "ruff check src/python/"
-format = "ruff format src/python/"
+# === Setup ===
+# Note: Run 'npm install' manually after 'pixi install' or use task below
+setup = "npm install"
+
+# === Main Development Workflow ===
+dev = "npm run watch"
+test = { cmd = "pytest tests/ -v && npm test" }
+build = "npm run package"
+docs = "mkdocs serve"
+
+# === Granular Tasks ===
+# TypeScript
+compile = "npm run compile"
+test-ts = "npm test"
+lint-ts = "npm run lint"
+format-ts = "npm run format"
+
+# Python
+test-py = "pytest tests/ -v"
+lint-py = "ruff check squiggy/ tests/"
+format-py = "ruff format squiggy/ tests/"
+
+# Combined
+lint = { depends-on = ["lint-py", "lint-ts"] }
+format = { depends-on = ["format-py", "format-ts"] }
 
 [dependencies]
 python = "3.12.*"
-# Core data processing libraries (NO UI dependencies)
-pod5 = ">=0.3.0"
-pysam = ">=0.22.0"
+nodejs = ">=20"
+
+# Conda packages
 numpy = ">=1.24.0"
-bokeh = ">=3.0.0"
-# Export dependencies (for PNG/SVG export)
-selenium = ">=4.6.0"
 pillow = ">=10.0.0"
-# JSON-RPC for TypeScript communication
-python-jsonrpc = "*"
+pytest = ">=7.0.0"
+pytest-cov = ">=4.0.0"
+ruff = ">=0.1.0"
+mkdocs = ">=1.5.0"
+mkdocs-material = ">=9.0.0"
 
 [pypi-dependencies]
-# Extension-specific Python packages not in conda-forge
-
-[feature.dev.dependencies]
-pytest = ">=7.0.0"
-pytest-asyncio = ">=0.21.0"
-ruff = ">=0.1.0"
+# PyPI-only packages
+pod5 = ">=0.3.0"
+pysam = ">=0.22.0"
+bokeh = ">=3.0.0"
+selenium = ">=4.6.0"

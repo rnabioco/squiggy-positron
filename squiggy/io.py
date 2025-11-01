@@ -5,20 +5,20 @@ These functions are called from the Positron extension via the Jupyter kernel.
 """
 
 import os
-from typing import Dict, List, Tuple, Optional
+
 import pod5
 import pysam
+
 from .utils import get_bam_references
 
-
 # Global state for currently loaded files
-_current_pod5_reader: Optional[pod5.Reader] = None
-_current_pod5_path: Optional[str] = None
-_current_bam_path: Optional[str] = None
-_current_read_ids: List[str] = []
+_current_pod5_reader: pod5.Reader | None = None
+_current_pod5_path: str | None = None
+_current_bam_path: str | None = None
+_current_read_ids: list[str] = []
 
 
-def load_pod5(file_path: str) -> Tuple[pod5.Reader, List[str]]:
+def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
     """
     Load a POD5 file and return reader and list of read IDs
 
@@ -64,7 +64,7 @@ def load_pod5(file_path: str) -> Tuple[pod5.Reader, List[str]]:
     return reader, read_ids
 
 
-def get_bam_modification_info(file_path: str) -> Dict:
+def get_bam_modification_info(file_path: str) -> dict:
     """
     Check if BAM file contains base modification tags (MM/ML)
 
@@ -93,7 +93,7 @@ def get_bam_modification_info(file_path: str) -> Dict:
     max_reads_to_check = 100  # Sample first 100 reads
 
     try:
-        bam = pysam.AlignmentFile(file_path, 'rb', check_sq=False)
+        bam = pysam.AlignmentFile(file_path, "rb", check_sq=False)
 
         for read in bam.fetch(until_eof=True):
             if reads_checked >= max_reads_to_check:
@@ -103,18 +103,22 @@ def get_bam_modification_info(file_path: str) -> Dict:
 
             # Check for modifications using pysam's modified_bases property
             # This is cleaner and more reliable than parsing MM tags manually
-            if hasattr(read, 'modified_bases') and read.modified_bases:
+            if hasattr(read, "modified_bases") and read.modified_bases:
                 has_modifications = True
 
                 # modified_bases returns dict with format:
                 # {(canonical_base, strand, mod_code): [(position, quality), ...]}
-                for (canonical_base, strand, mod_code), mod_list in read.modified_bases.items():
+                for (
+                    canonical_base,
+                    strand,
+                    mod_code,
+                ), mod_list in read.modified_bases.items():
                     # mod_code can be str (e.g., 'm') or int (e.g., 17596)
                     # Store as-is to preserve type
                     modification_types.add(mod_code)
 
             # Check for ML tag (modification probabilities)
-            if read.has_tag('ML'):
+            if read.has_tag("ML"):
                 has_ml = True
 
         bam.close()
@@ -122,10 +126,10 @@ def get_bam_modification_info(file_path: str) -> Dict:
     except Exception as e:
         print(f"Warning: Error checking BAM modifications: {e}")
         return {
-            'has_modifications': False,
-            'modification_types': [],
-            'sample_count': 0,
-            'has_probabilities': False
+            "has_modifications": False,
+            "modification_types": [],
+            "sample_count": 0,
+            "has_probabilities": False,
         }
 
     # Convert modification_types to list, handling mixed str/int types
@@ -133,14 +137,14 @@ def get_bam_modification_info(file_path: str) -> Dict:
     mod_types_list = sorted(list(modification_types), key=str)
 
     return {
-        'has_modifications': has_modifications,
-        'modification_types': mod_types_list,
-        'sample_count': reads_checked,
-        'has_probabilities': has_ml
+        "has_modifications": has_modifications,
+        "modification_types": mod_types_list,
+        "sample_count": reads_checked,
+        "has_probabilities": has_ml,
     }
 
 
-def load_bam(file_path: str) -> Dict:
+def load_bam(file_path: str) -> dict:
     """
     Load a BAM file and return metadata
 
@@ -175,16 +179,16 @@ def load_bam(file_path: str) -> Dict:
     _current_bam_path = abs_path
 
     return {
-        'file_path': abs_path,
-        'num_reads': sum(ref['read_count'] for ref in references),
-        'references': references,
-        'has_modifications': mod_info['has_modifications'],
-        'modification_types': mod_info['modification_types'],
-        'has_probabilities': mod_info['has_probabilities']
+        "file_path": abs_path,
+        "num_reads": sum(ref["read_count"] for ref in references),
+        "references": references,
+        "has_modifications": mod_info["has_modifications"],
+        "modification_types": mod_info["modification_types"],
+        "has_probabilities": mod_info["has_probabilities"],
     }
 
 
-def get_read_to_reference_mapping() -> Dict[str, List[str]]:
+def get_read_to_reference_mapping() -> dict[str, list[str]]:
     """
     Get mapping of reference names to read IDs from currently loaded BAM
 
@@ -207,10 +211,10 @@ def get_read_to_reference_mapping() -> Dict[str, List[str]]:
         raise FileNotFoundError(f"BAM file not found: {_current_bam_path}")
 
     # Open BAM file
-    bam = pysam.AlignmentFile(_current_bam_path, 'rb', check_sq=False)
+    bam = pysam.AlignmentFile(_current_bam_path, "rb", check_sq=False)
 
     # Map reference to read IDs
-    ref_to_reads: Dict[str, List[str]] = {}
+    ref_to_reads: dict[str, list[str]] = {}
 
     try:
         for read in bam.fetch(until_eof=True):
@@ -231,20 +235,17 @@ def get_read_to_reference_mapping() -> Dict[str, List[str]]:
     return ref_to_reads
 
 
-def get_current_files() -> Dict[str, Optional[str]]:
+def get_current_files() -> dict[str, str | None]:
     """
     Get paths of currently loaded files
 
     Returns:
         Dict with pod5_path and bam_path (may be None)
     """
-    return {
-        'pod5_path': _current_pod5_path,
-        'bam_path': _current_bam_path
-    }
+    return {"pod5_path": _current_pod5_path, "bam_path": _current_bam_path}
 
 
-def get_read_ids() -> List[str]:
+def get_read_ids() -> list[str]:
     """
     Get list of read IDs from currently loaded POD5 file
 

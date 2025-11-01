@@ -28,34 +28,34 @@ __version__ = "0.1.0"
 # Core data structures and constants
 from .alignment import AlignedRead, BaseAnnotation, extract_alignment_from_bam
 from .constants import (
+    BASE_COLORS,
+    BASE_COLORS_DARK,
     NormalizationMethod,
     PlotMode,
     Theme,
-    BASE_COLORS,
-    BASE_COLORS_DARK,
 )
-from .normalization import normalize_signal
-from .plotter import SquigglePlotter
 
 # I/O functions
 from .io import (
-    load_pod5,
-    load_bam,
+    close_pod5,
     get_bam_modification_info,
     get_current_files,
     get_read_ids,
     get_read_to_reference_mapping,
-    close_pod5,
+    load_bam,
+    load_pod5,
 )
+from .normalization import normalize_signal
+from .plotter import SquigglePlotter
 
 # Utility functions
 from .utils import (
+    downsample_signal,
     get_bam_references,
     get_reads_in_region,
     get_reference_sequence_for_read,
     parse_region,
     reverse_complement,
-    downsample_signal,
 )
 
 # Import pod5 for user convenience
@@ -110,7 +110,7 @@ def plot_read(
         >>> with open('plot.html', 'w') as f:
         >>>     f.write(html)
     """
-    from .io import _current_pod5_reader, _current_bam_path
+    from .io import _current_bam_path, _current_pod5_reader
 
     if _current_pod5_reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
@@ -134,6 +134,7 @@ def plot_read(
     aligned_read = None
     if _current_bam_path and mode.upper() == "EVENTALIGN":
         from .alignment import extract_alignment_from_bam
+
         aligned_read = extract_alignment_from_bam(_current_bam_path, read_id)
 
     # Create plotter
@@ -153,13 +154,15 @@ def plot_read(
         if aligned_read.bases:
             seq_to_sig_map = [ann.signal_start for ann in aligned_read.bases]
         # Extract modifications
-        if hasattr(aligned_read, 'modifications') and aligned_read.modifications:
+        if hasattr(aligned_read, "modifications") and aligned_read.modifications:
             modifications = aligned_read.modifications
 
     # Generate plot (returns HTML and figure)
     if plot_mode in (PlotMode.SINGLE, PlotMode.EVENTALIGN):
         if plot_mode == PlotMode.EVENTALIGN and aligned_read is None:
-            raise ValueError("EVENTALIGN mode requires a BAM file. Call load_bam() first.")
+            raise ValueError(
+                "EVENTALIGN mode requires a BAM file. Call load_bam() first."
+            )
 
         html, figure = SquigglePlotter.plot_single_read(
             signal=signal,
@@ -177,7 +180,9 @@ def plot_read(
         )
         return html
     else:
-        raise ValueError(f"Plot mode {plot_mode} not yet supported in extension. Use SINGLE or EVENTALIGN.")
+        raise ValueError(
+            f"Plot mode {plot_mode} not yet supported in extension. Use SINGLE or EVENTALIGN."
+        )
 
 
 def plot_reads(
@@ -203,7 +208,7 @@ def plot_reads(
     Example:
         >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY')
     """
-    from .io import _current_pod5_reader, _current_bam_path
+    from .io import _current_bam_path, _current_pod5_reader
 
     if _current_pod5_reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
@@ -233,12 +238,16 @@ def plot_reads(
     # Generate figure
     if plot_mode == PlotMode.OVERLAY:
         figures = [
-            plotter.plot_single(rd, norm_method, aligned_read=aligned_reads.get(rd["read_id"]))
+            plotter.plot_single(
+                rd, norm_method, aligned_read=aligned_reads.get(rd["read_id"])
+            )
             for rd in read_data_list
         ]
         figure = plotter.plot_overlay(figures)
     elif plot_mode == PlotMode.STACKED:
-        figure = plotter.plot_stacked(read_data_list, norm_method, aligned_reads_dict=aligned_reads)
+        figure = plotter.plot_stacked(
+            read_data_list, norm_method, aligned_reads_dict=aligned_reads
+        )
     else:
         raise ValueError(f"Mode {mode} not supported for multiple reads")
 

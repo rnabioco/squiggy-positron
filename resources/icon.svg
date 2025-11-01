@@ -1,5 +1,12 @@
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M2 12 Q 4 8, 6 12 T 10 12 Q 12 16, 14 12 T 18 12 Q 20 8, 22 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <circle cx="6" cy="12" r="1.5" fill="currentColor"/>
-  <circle cx="14" cy="12" r="1.5" fill="currentColor"/>
+  <!-- Black circle background -->
+  <circle cx="12" cy="12" r="11" fill="#000000"/>
+
+  <!-- EKG-style squiggle with sharp transitions -->
+  <path d="M 3 12 L 5 12 L 6 8 L 7 16 L 8 12 L 10 12 L 11 14 L 12 10 L 13 14 L 14 12 L 16 12 L 17 9 L 18 15 L 19 12 L 21 12"
+        stroke="#FFFFFF"
+        stroke-width="1.5"
+        fill="none"
+        stroke-linecap="square"
+        stroke-linejoin="miter"/>
 </svg>
