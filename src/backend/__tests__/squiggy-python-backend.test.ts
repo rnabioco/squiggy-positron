@@ -52,6 +52,14 @@ describe('PythonBackend', () => {
     const mockServerScript = '/path/to/server.py';
 
     beforeEach(() => {
+        // Use fake timers to prevent leaks and speed up tests
+        jest.useFakeTimers();
+
+        // Silence console output during tests
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'warn').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+
         const { spawn } = require('child_process');
         backend = new PythonBackend(mockPythonPath, mockServerScript);
 
@@ -75,6 +83,16 @@ describe('PythonBackend', () => {
     });
 
     afterEach(() => {
+        // Clean up backend to clear any pending timers
+        backend.stop();
+
+        // Run only pending timers to avoid hanging
+        jest.runOnlyPendingTimers();
+
+        // Restore real timers
+        jest.useRealTimers();
+
+        // Clear all mocks
         jest.clearAllMocks();
     });
 
@@ -87,6 +105,9 @@ describe('PythonBackend', () => {
             expect(spawn).toHaveBeenCalledWith(mockPythonPath, [mockServerScript], {
                 stdio: ['pipe', 'pipe', 'pipe'],
             });
+
+            // Fast-forward the 500ms startup timer
+            jest.advanceTimersByTime(500);
 
             await startPromise;
         });
@@ -105,7 +126,10 @@ describe('PythonBackend', () => {
 
     describe('stop', () => {
         it('should kill the process and close readline', async () => {
-            await backend.start();
+            const startPromise = backend.start();
+            jest.advanceTimersByTime(500);
+            await startPromise;
+
             backend.stop();
 
             expect(mockChildProcess.kill).toHaveBeenCalled();
@@ -118,28 +142,26 @@ describe('PythonBackend', () => {
 
     describe('call', () => {
         beforeEach(async () => {
-            await backend.start();
-        });
-
-        afterEach(() => {
-            backend.stop();
+            const startPromise = backend.start();
+            jest.advanceTimersByTime(500);
+            await startPromise;
         });
 
         it('should send JSON-RPC request and return result', async () => {
             const method = 'test_method';
             const params = { arg1: 'value1' };
 
-            // Mock the response
-            setTimeout(() => {
-                const response = {
-                    jsonrpc: '2.0',
-                    result: { success: true },
-                    id: 1,
-                };
-                mockChildProcess.stdout.emit('data', Buffer.from(JSON.stringify(response) + '\n'));
-            }, 10);
+            const callPromise = backend.call(method, params);
 
-            const result = await backend.call(method, params);
+            // Immediately emit the response (no need to wait with fake timers)
+            const response = {
+                jsonrpc: '2.0',
+                result: { success: true },
+                id: 1,
+            };
+            mockChildProcess.stdout.emit('data', Buffer.from(JSON.stringify(response) + '\n'));
+
+            const result = await callPromise;
 
             expect(result).toEqual({ success: true });
             expect(mockChildProcess.stdin.write).toHaveBeenCalledWith(
@@ -153,45 +175,37 @@ describe('PythonBackend', () => {
         it('should reject on JSON-RPC error response', async () => {
             const method = 'failing_method';
 
-            setTimeout(() => {
-                const response = {
-                    jsonrpc: '2.0',
-                    error: {
-                        code: -32600,
-                        message: 'Invalid Request',
-                    },
-                    id: 1,
-                };
-                mockChildProcess.stdout.emit('data', Buffer.from(JSON.stringify(response) + '\n'));
-            }, 10);
+            const callPromise = backend.call(method);
 
-            await expect(backend.call(method)).rejects.toThrow('Invalid Request');
+            // Immediately emit the error response
+            const response = {
+                jsonrpc: '2.0',
+                error: {
+                    code: -32600,
+                    message: 'Invalid Request',
+                },
+                id: 1,
+            };
+            mockChildProcess.stdout.emit('data', Buffer.from(JSON.stringify(response) + '\n'));
+
+            await expect(callPromise).rejects.toThrow('Invalid Request');
         });
 
         it('should reject on timeout', async () => {
             const method = 'slow_method';
 
             // Don't send any response - let it timeout
-            // Note: In a real test environment, you'd want to mock timers
-            // For now, we'll just check that the method is called correctly
             const promise = backend.call(method);
 
             expect(mockChildProcess.stdin.write).toHaveBeenCalledWith(
                 expect.stringContaining('"method":"slow_method"')
             );
 
-            // Clean up - send response to prevent hanging
-            setTimeout(() => {
-                const response = {
-                    jsonrpc: '2.0',
-                    result: null,
-                    id: 1,
-                };
-                mockChildProcess.stdout.emit('data', Buffer.from(JSON.stringify(response) + '\n'));
-            }, 10);
+            // Fast-forward past the 30 second timeout
+            jest.advanceTimersByTime(30000);
 
-            await promise;
-        }, 10000);
+            await expect(promise).rejects.toThrow('Request timeout for method: slow_method');
+        });
 
         it('should throw error when backend is not running', async () => {
             backend.stop();
@@ -205,41 +219,39 @@ describe('PythonBackend', () => {
             const promise2 = backend.call('method2');
             const promise3 = backend.call('method3');
 
-            // Send responses in different order
-            setTimeout(() => {
-                mockChildProcess.stdout.emit(
-                    'data',
-                    Buffer.from(
-                        JSON.stringify({
-                            jsonrpc: '2.0',
-                            result: { value: 2 },
-                            id: 2,
-                        }) + '\n'
-                    )
-                );
+            // Send responses in different order (immediately with fake timers)
+            mockChildProcess.stdout.emit(
+                'data',
+                Buffer.from(
+                    JSON.stringify({
+                        jsonrpc: '2.0',
+                        result: { value: 2 },
+                        id: 2,
+                    }) + '\n'
+                )
+            );
 
-                mockChildProcess.stdout.emit(
-                    'data',
-                    Buffer.from(
-                        JSON.stringify({
-                            jsonrpc: '2.0',
-                            result: { value: 1 },
-                            id: 1,
-                        }) + '\n'
-                    )
-                );
+            mockChildProcess.stdout.emit(
+                'data',
+                Buffer.from(
+                    JSON.stringify({
+                        jsonrpc: '2.0',
+                        result: { value: 1 },
+                        id: 1,
+                    }) + '\n'
+                )
+            );
 
-                mockChildProcess.stdout.emit(
-                    'data',
-                    Buffer.from(
-                        JSON.stringify({
-                            jsonrpc: '2.0',
-                            result: { value: 3 },
-                            id: 3,
-                        }) + '\n'
-                    )
-                );
-            }, 10);
+            mockChildProcess.stdout.emit(
+                'data',
+                Buffer.from(
+                    JSON.stringify({
+                        jsonrpc: '2.0',
+                        result: { value: 3 },
+                        id: 3,
+                    }) + '\n'
+                )
+            );
 
             const [result1, result2, result3] = await Promise.all([promise1, promise2, promise3]);
 
@@ -251,7 +263,9 @@ describe('PythonBackend', () => {
 
     describe('process exit handling', () => {
         it('should reject pending requests when process exits', async () => {
-            await backend.start();
+            const startPromise = backend.start();
+            jest.advanceTimersByTime(500);
+            await startPromise;
 
             const promise = backend.call('test_method');
 
