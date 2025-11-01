@@ -17,6 +17,7 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
     private _scaleDwellTime: boolean = false;
     private _downsample: number = 1;
     private _showSignalPoints: boolean = false;
+    private _hasBamFile: boolean = false;
 
     // Event emitter for when options change that should trigger refresh
     private _onDidChangeOptions = new vscode.EventEmitter<void>();
@@ -110,6 +111,33 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         };
     }
 
+    /**
+     * Update BAM file status and available plot modes
+     */
+    public updateBamStatus(hasBam: boolean) {
+        this._hasBamFile = hasBam;
+
+        // If BAM loaded, default to EVENTALIGN
+        if (hasBam && this._plotMode === 'SINGLE') {
+            this._plotMode = 'EVENTALIGN';
+            this._updateConfig('defaultPlotMode', 'EVENTALIGN');
+        }
+        // If BAM unloaded and currently in EVENTALIGN mode, switch to SINGLE
+        else if (!hasBam && this._plotMode === 'EVENTALIGN') {
+            this._plotMode = 'SINGLE';
+            this._updateConfig('defaultPlotMode', 'SINGLE');
+        }
+
+        // Update webview if available
+        if (this._view) {
+            this._view.webview.postMessage({
+                type: 'updateBamStatus',
+                hasBam: hasBam,
+                plotMode: this._plotMode,
+            });
+        }
+    }
+
     private _updateConfig(key: string, value: any) {
         const config = vscode.workspace.getConfiguration('squiggy');
         config.update(key, value, vscode.ConfigurationTarget.Global);
@@ -197,16 +225,16 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
 <body>
     <!-- Plot Mode Section -->
     <div class="section">
-        <label for="plotMode">Plot mode:</label>
+        <div class="section-title">Plot Mode</div>
         <select id="plotMode">
             <option value="SINGLE">Single Read</option>
-            <option value="EVENTALIGN">Event-Aligned (requires BAM)</option>
+            <option value="EVENTALIGN" id="eventalignOption">Event-Aligned</option>
         </select>
     </div>
 
     <!-- Normalization Section -->
     <div class="section">
-        <label for="normalization">Normalization method:</label>
+        <div class="section-title">Normalization</div>
         <select id="normalization">
             <option value="NONE">None (raw signal)</option>
             <option value="ZNORM" selected>Z-score</option>
@@ -257,6 +285,7 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
 
         // Get elements
         const plotModeEl = document.getElementById('plotMode');
+        const eventalignOptionEl = document.getElementById('eventalignOption');
         const normalizationEl = document.getElementById('normalization');
         const showDwellTimeEl = document.getElementById('showDwellTime');
         const showBaseAnnotationsEl = document.getElementById('showBaseAnnotations');
@@ -265,10 +294,27 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         const downsampleValueEl = document.getElementById('downsampleValue');
         const showSignalPointsEl = document.getElementById('showSignalPoints');
 
-        // Listen for messages from extension (for mutual exclusion)
+        // Initialize: hide EVENTALIGN option by default
+        eventalignOptionEl.style.display = 'none';
+
+        // Listen for messages from extension
         window.addEventListener('message', event => {
             const message = event.data;
             switch (message.type) {
+                case 'updateBamStatus':
+                    // Show/hide EVENTALIGN option based on BAM status
+                    if (message.hasBam) {
+                        eventalignOptionEl.style.display = '';
+                        // Set plot mode to the value sent by extension
+                        plotModeEl.value = message.plotMode;
+                    } else {
+                        eventalignOptionEl.style.display = 'none';
+                        // Force to SINGLE if currently EVENTALIGN
+                        if (plotModeEl.value === 'EVENTALIGN') {
+                            plotModeEl.value = 'SINGLE';
+                        }
+                    }
+                    break;
                 case 'updateShowDwellTime':
                     showDwellTimeEl.checked = message.value;
                     break;
