@@ -79,7 +79,7 @@ export class PythonBackend {
                 this.process = null;
 
                 // Reject all pending requests
-                for (const [id, callbacks] of this.pendingRequests) {
+                for (const [_id, callbacks] of this.pendingRequests) {
                     callbacks.reject(new Error('Python backend process exited'));
                 }
                 this.pendingRequests.clear();

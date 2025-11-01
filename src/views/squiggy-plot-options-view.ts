@@ -24,7 +24,7 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
-        context: vscode.WebviewViewResolveContext,
+        _context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken
     ) {
         this._view = webviewView;
@@ -103,7 +103,7 @@ export class PlotOptionsViewProvider implements vscode.WebviewViewProvider {
         config.update(key, value, vscode.ConfigurationTarget.Global);
     }
 
-    private _getHtmlForWebview(webview: vscode.Webview) {
+    private _getHtmlForWebview(_webview: vscode.Webview) {
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
