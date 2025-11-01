@@ -54,19 +54,31 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
+                  VERSION="${{ steps.get_version.outputs.VERSION }}"
                   PRERELEASE_FLAG=""
                   if [ "${{ steps.get_version.outputs.IS_PRERELEASE }}" = "true" ]; then
                     PRERELEASE_FLAG="--prerelease"
                   fi
 
-                  gh release create ${{ steps.get_version.outputs.VERSION }} \
-                    --title "Squiggy ${{ steps.get_version.outputs.VERSION }}" \
-                    --generate-notes \
-                    $PRERELEASE_FLAG \
-                    build/*.vsix
+                  # Check if release already exists
+                  if gh release view "$VERSION" &>/dev/null; then
+                    echo "ℹ️  Release $VERSION already exists"
+                    echo "📦 Uploading assets to existing release..."
+                    gh release upload "$VERSION" build/*.vsix --clobber
+                    echo "✅ Assets uploaded successfully"
+                  else
+                    echo "🆕 Creating new release $VERSION..."
+                    gh release create "$VERSION" \
+                      --title "Squiggy $VERSION" \
+                      --generate-notes \
+                      $PRERELEASE_FLAG \
+                      build/*.vsix
+                    echo "✅ Release created successfully"
+                  fi
 
             - name: Publish to Open VSX Registry
               if: success() && startsWith(github.ref, 'refs/tags/v')
+              continue-on-error: true
               env:
                   OVSX_PAT: ${{ secrets.OVSX_PAT }}
               run: |
@@ -75,16 +87,24 @@ jobs:
                     echo "To publish to Open VSX:"
                     echo "1. Create token at https://open-vsx.org/"
                     echo "2. Add as OVSX_PAT secret in GitHub repository settings"
+                    echo "3. Create namespace: npx ovsx create-namespace rnabioco -p YOUR_TOKEN"
                     exit 0
                   fi
 
                   echo "📦 Publishing to Open VSX Registry..."
-                  npx ovsx publish build/*.vsix -p $OVSX_PAT
-
-                  if [ "${{ steps.get_version.outputs.IS_PRERELEASE }}" = "true" ]; then
-                    echo "✅ Pre-release published to Open VSX"
+                  if npx ovsx publish build/*.vsix -p $OVSX_PAT; then
+                    if [ "${{ steps.get_version.outputs.IS_PRERELEASE }}" = "true" ]; then
+                      echo "✅ Pre-release published to Open VSX"
+                    else
+                      echo "✅ Stable release published to Open VSX"
+                    fi
                   else
-                    echo "✅ Stable release published to Open VSX"
+                    echo "⚠️  Open VSX publish failed - this may be because:"
+                    echo "   - Version already published"
+                    echo "   - Namespace 'rnabioco' doesn't exist (create with: npx ovsx create-namespace rnabioco -p YOUR_TOKEN)"
+                    echo "   - Token permissions insufficient"
+                    echo "This is non-fatal - GitHub release was created successfully"
+                    exit 0
                   fi
 
             - name: Publish to VS Code Marketplace
