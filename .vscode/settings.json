@@ -15,5 +15,6 @@
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "positron.interpreters.automaticStartup": true,
-    "positron.interpreters.preferredRuntime": "Python"
+    "positron.interpreters.preferredRuntime": "Python",
+    "positron.r.session.automaticStartup": false
 }
