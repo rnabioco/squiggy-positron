@@ -393,10 +393,12 @@ if '_squiggy_plot_error' in globals():
 `);
         } catch (error) {
             // Clean up on error
-            await this.executeSilent(`
+            await this.executeSilent(
+                `
 if '_squiggy_plot_error' in globals():
     del _squiggy_plot_error
-`).catch(() => {});
+`
+            ).catch(() => {});
             throw error;
         }
     }
