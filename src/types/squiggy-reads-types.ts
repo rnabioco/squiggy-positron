@@ -94,7 +94,6 @@ export interface ReadsInstanceProps extends ReadsViewProps {
     focusedIndex: number | null;
     nameColumnWidth: number;
     detailsColumnWidth: number;
-    onUpdateColumnWidths: (nameWidth: number, detailsWidth: number) => void;
 }
 
 export interface ReadItemProps {

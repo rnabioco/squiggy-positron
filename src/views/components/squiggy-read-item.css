@@ -38,6 +38,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    border-right: 2px solid var(--vscode-widget-border);
+}
+
+.read-item-column:last-child {
+    border-right: none;
 }
 
 /* Name column */
@@ -79,12 +84,6 @@
     border-radius: 3px;
     font-size: 10px;
     font-weight: 600;
-}
-
-/* Column divider */
-.read-item-divider {
-    width: 4px;
-    flex-shrink: 0;
 }
 
 /* Actions column */

@@ -157,16 +157,6 @@ export const ReadsCore: React.FC = () => {
         });
     };
 
-    const handleUpdateColumnWidths = (nameWidth: number, detailsWidth: number) => {
-        setState((prev) => ({
-            ...prev,
-            nameColumnWidth: nameWidth,
-            detailsColumnWidth: detailsWidth,
-        }));
-
-        vscode.postMessage({ type: 'updateColumnWidths', nameWidth, detailsWidth });
-    };
-
     const handleLoadMore = () => {
         vscode.postMessage({ type: 'loadMore' });
     };
@@ -217,7 +207,6 @@ export const ReadsCore: React.FC = () => {
                 onToggleReference={handleToggleReference}
                 onSearch={handleSearch}
                 onLoadMore={handleLoadMore}
-                onUpdateColumnWidths={handleUpdateColumnWidths}
             />
         </div>
     );

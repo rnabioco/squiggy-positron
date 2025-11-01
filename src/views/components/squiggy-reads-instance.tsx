@@ -10,7 +10,6 @@ import { FixedSizeList as List } from 'react-window';
 import { ReadsInstanceProps, CONSTANTS } from '../../types/squiggy-reads-types';
 import { ReadItemComponent } from './squiggy-read-item';
 import { ReferenceGroupComponent } from './squiggy-reference-group';
-import { ColumnResizer } from './column-resizer';
 import './squiggy-reads-instance.css';
 
 export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
@@ -23,32 +22,68 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     onPlotAggregate,
     onSelectRead,
     onToggleReference,
-    onUpdateColumnWidths,
 }) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const listRef = React.useRef<any>(null);
     const [containerHeight, setContainerHeight] = React.useState(400);
+    const [containerWidth, setContainerWidth] = React.useState(0);
     const [localFocusedIndex, setLocalFocusedIndex] = React.useState<number | null>(focusedIndex);
 
-    // Measure container height
-    React.useEffect(() => {
-        const updateHeight = () => {
-            if (containerRef.current) {
-                setContainerHeight(containerRef.current.clientHeight);
-            }
-        };
+    // Store the ratio between name and details columns when user resizes
+    const columnRatioRef = React.useRef<number>(nameColumnWidth / (nameColumnWidth + detailsColumnWidth));
 
-        updateHeight();
-        window.addEventListener('resize', updateHeight);
-        return () => window.removeEventListener('resize', updateHeight);
+    // Update ratio when columns are resized by user
+    React.useEffect(() => {
+        columnRatioRef.current = nameColumnWidth / (nameColumnWidth + detailsColumnWidth);
+    }, [nameColumnWidth, detailsColumnWidth]);
+
+    // Measure container dimensions with ResizeObserver
+    React.useEffect(() => {
+        if (!containerRef.current) {
+            return;
+        }
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                setContainerHeight(height);
+                setContainerWidth(width);
+            }
+        });
+
+        resizeObserver.observe(containerRef.current);
+        return () => resizeObserver.disconnect();
     }, []);
 
-    // Handle column resizing
-    const handleColumnResize = (deltaX: number) => {
-        const newNameWidth = Math.max(CONSTANTS.MIN_COLUMN_WIDTH, nameColumnWidth + deltaX);
-        const newDetailsWidth = Math.max(CONSTANTS.MIN_COLUMN_WIDTH, detailsColumnWidth - deltaX);
-        onUpdateColumnWidths(newNameWidth, newDetailsWidth);
+    // Calculate constrained column widths based on container size
+    const getConstrainedColumnWidths = (): { name: number; details: number } => {
+        if (!containerWidth) {
+            return { name: nameColumnWidth, details: detailsColumnWidth };
+        }
+
+        // Available width = container - actions column (80px) - padding (16px) - margins
+        const actionsWidth = 80;
+        const padding = 16;
+        const margins = 8;
+        const maxAvailable = containerWidth - actionsWidth - padding - margins;
+
+        // Current total width
+        const currentTotal = nameColumnWidth + detailsColumnWidth;
+
+        // If current total fits, use it; otherwise scale down proportionally
+        if (currentTotal <= maxAvailable) {
+            return { name: nameColumnWidth, details: detailsColumnWidth };
+        }
+
+        // Scale down proportionally using the saved ratio
+        const ratio = columnRatioRef.current;
+        const newNameWidth = Math.max(CONSTANTS.MIN_COLUMN_WIDTH, maxAvailable * ratio);
+        const newDetailsWidth = Math.max(CONSTANTS.MIN_COLUMN_WIDTH, maxAvailable * (1 - ratio));
+
+        return { name: newNameWidth, details: newDetailsWidth };
     };
+
+    const constrainedWidths = getConstrainedColumnWidths();
 
     // Handle keyboard navigation
     React.useEffect(() => {
@@ -148,8 +183,8 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     <ReferenceGroupComponent
                         item={item}
                         isEvenRow={index % 2 === 0}
-                        nameColumnWidth={nameColumnWidth}
-                        detailsColumnWidth={detailsColumnWidth}
+                        nameColumnWidth={constrainedWidths.name}
+                        detailsColumnWidth={constrainedWidths.details}
                         onToggle={onToggleReference}
                         onPlotAggregate={onPlotAggregate}
                     />
@@ -163,8 +198,8 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                         isSelected={selectedReadIds.has(item.readId)}
                         isFocused={isFocused}
                         isEvenRow={index % 2 === 0}
-                        nameColumnWidth={nameColumnWidth}
-                        detailsColumnWidth={detailsColumnWidth}
+                        nameColumnWidth={constrainedWidths.name}
+                        detailsColumnWidth={constrainedWidths.details}
                         onPlotRead={onPlotRead}
                         onClick={onSelectRead}
                     />
@@ -177,11 +212,10 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
         <div className="reads-instance-container" ref={containerRef}>
             {/* Column headers */}
             <div className="reads-header">
-                <div className="reads-header-column" style={{ width: `${nameColumnWidth}px` }}>
+                <div className="reads-header-column" style={{ width: `${constrainedWidths.name}px` }}>
                     Name
                 </div>
-                <ColumnResizer onResize={handleColumnResize} />
-                <div className="reads-header-column" style={{ width: `${detailsColumnWidth}px` }}>
+                <div className="reads-header-column" style={{ width: `${constrainedWidths.details}px` }}>
                     Details
                 </div>
                 <div className="reads-header-column reads-header-actions">Actions</div>
