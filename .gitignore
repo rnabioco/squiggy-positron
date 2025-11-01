@@ -44,6 +44,11 @@ node_modules/
 build/
 *.vsix
 
+# Test workspace - ignore data but track config
+test-workspace/sample-data/*
+!test-workspace/sample-data/.gitkeep
+test-workspace/.vscode/.ropeproject/
+
 # Claude planning files
 .claude-*.md
 *-planning.md
