@@ -81,7 +81,7 @@
       "activitybar": [
         {
           "id": "squiggy-sidebar",
-          "title": "Squiggy",
+          "title": "Squiggy v0.1.3-alpha",
           "icon": "resources/icon.svg"
         }
       ]
@@ -181,8 +181,9 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "webpack --mode production",
+    "sync": "node scripts/sync-version.js",
+    "vscode:prepublish": "npm run sync && npm run compile",
+    "compile": "npm run sync && webpack --mode production",
     "watch": "webpack --mode development --watch",
     "test": "jest",
     "test:watch": "jest --watch",
