@@ -319,7 +319,8 @@ function registerCommands(
                 // Extract reference name from the ReadItem
                 let referenceName: string;
                 if (referenceItem && referenceItem.itemType === 'reference') {
-                    referenceName = referenceItem.label;
+                    // Use readId (clean reference name) not label (which has count appended)
+                    referenceName = referenceItem.readId;
                 } else {
                     vscode.window.showErrorMessage('Please select a reference from the read list');
                     return;
