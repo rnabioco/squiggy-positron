@@ -168,12 +168,11 @@ class Read:
             pod5_read: pod5.Read object
             parent_file: Parent Pod5File object
         """
-        self._pod5_read = pod5_read
         self._parent = parent_file
 
-        # Cache commonly accessed properties
+        # Cache all properties immediately (pod5 read handle is temporary)
         self._read_id = str(pod5_read.read_id)
-        self._signal = None
+        self._signal = pod5_read.signal  # Must cache now, handle closes later
         self._sample_rate = pod5_read.run_info.sample_rate
 
     @property
@@ -184,8 +183,6 @@ class Read:
     @property
     def signal(self) -> np.ndarray:
         """Raw signal data as numpy array"""
-        if self._signal is None:
-            self._signal = self._pod5_read.signal
         return self._signal
 
     @property
