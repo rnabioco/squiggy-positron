@@ -1,5 +1,18 @@
 # Squiggy Release Notes
 
+## v0.1.4-alpha (2025-11-01)
+
+Maintenance release with version management improvements and UI enhancements.
+
+### Improvements
+
+- **Automated Version Synchronization**: Added sync script to maintain version consistency across package.json, Python package, and sidebar title. Version in package.json is now single source of truth.
+- **Files Panel Upgrade**: Migrated to React webview with sortable table layout for better performance and user experience
+
+### Documentation
+
+- Updated initialization files to reflect recent structural changes
+
 ## v0.1.0 (2025-10-31)
 
 ### 🎉 Initial Release
