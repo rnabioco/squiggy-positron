@@ -6,7 +6,7 @@
     display: flex;
     align-items: center;
     height: 26px;
-    padding: 0 8px;
+    padding: 0;
     cursor: pointer;
     border-bottom: 1px solid var(--vscode-panel-border);
     background-color: var(--vscode-sideBar-background);
@@ -31,6 +31,7 @@
     align-items: center;
     gap: 8px;
     border-right: 2px solid var(--vscode-widget-border);
+    box-sizing: border-box;
 }
 
 .reference-group-column:last-child {

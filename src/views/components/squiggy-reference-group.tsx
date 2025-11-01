@@ -28,6 +28,15 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
         }
     };
 
+    const formatCount = (count: number): string => {
+        if (count >= 1000000) {
+            return `${(count / 1000000).toFixed(1)}M`;
+        } else if (count >= 1000) {
+            return `${(count / 1000).toFixed(1)}K`;
+        }
+        return count.toString();
+    };
+
     return (
         <div
             className={`reference-group ${isEvenRow ? 'even-row' : 'odd-row'}`}
@@ -51,9 +60,7 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
                 className="reference-group-column reference-group-details"
                 style={{ width: `${detailsColumnWidth}px` }}
             >
-                <span className="reference-group-count">
-                    {item.readCount} read{item.readCount !== 1 ? 's' : ''}
-                </span>
+                <span className="reference-group-count">{formatCount(item.readCount)}</span>
             </div>
 
             {/* Actions column - Aggregate plot button */}

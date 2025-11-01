@@ -20,7 +20,7 @@
     font-size: 11px;
     text-transform: uppercase;
     color: var(--vscode-descriptionForeground);
-    padding: 0 8px;
+    padding: 0;
 }
 
 .reads-header-column {
@@ -30,6 +30,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     border-right: 2px solid var(--vscode-widget-border);
+    box-sizing: border-box;
 }
 
 .reads-header-column:last-child {
