@@ -28,9 +28,7 @@ export class PositronRuntime {
         const session = await positron.runtime.getForegroundSession();
 
         if (!session) {
-            throw new Error(
-                'No Python kernel is running. Please start a Python console first.'
-            );
+            throw new Error('No Python kernel is running. Please start a Python console first.');
         }
 
         // Check if session has runtimeMetadata to determine state
@@ -225,10 +223,12 @@ if '${tempVar}' in globals():
             return JSON.parse(cleaned);
         } catch (error) {
             // Clean up temp variable on error
-            await this.executeSilent(`
+            await this.executeSilent(
+                `
 if '${tempVar}' in globals():
     del ${tempVar}
-`).catch(() => {}); // Ignore cleanup errors
+`
+            ).catch(() => {}); // Ignore cleanup errors
             throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }
@@ -407,7 +407,9 @@ except Exception as e:
             const filePath = await this.getVariable('_squiggy_plot_path').catch(() => null);
             if (filePath === null) {
                 // If no error was reported but also no path, something went wrong silently
-                throw new Error('Plot generation failed - no file path returned. The plot generation code may have been interrupted or failed silently.');
+                throw new Error(
+                    'Plot generation failed - no file path returned. The plot generation code may have been interrupted or failed silently.'
+                );
             }
 
             // Clean up temporary variables (ignore errors if they don't exist)
@@ -423,14 +425,16 @@ if '_squiggy_temp_file' in globals():
             return filePath;
         } catch (error) {
             // Clean up on error (ignore if variables don't exist)
-            await this.executeSilent(`
+            await this.executeSilent(
+                `
 if '_squiggy_plot_path' in globals():
     del _squiggy_plot_path
 if '_squiggy_plot_error' in globals():
     del _squiggy_plot_error
 if '_squiggy_temp_file' in globals():
     del _squiggy_temp_file
-`).catch(() => {}); // Ignore cleanup errors
+`
+            ).catch(() => {}); // Ignore cleanup errors
             throw error; // Re-throw the original error with full message
         }
     }
