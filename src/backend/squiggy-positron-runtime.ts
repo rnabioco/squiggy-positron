@@ -540,7 +540,6 @@ except ImportError:
         const code = `
 import subprocess
 import sys
-import json
 
 # Check if pip is available
 pip_check = subprocess.run(
@@ -551,8 +550,8 @@ pip_check = subprocess.run(
 if pip_check.returncode != 0:
     raise Exception('pip is not available in this Python environment. Please install pip first.')
 
-# Deserialize path safely (handles Windows backslashes, spaces, etc.)
-extension_path = json.loads(${pathJson})
+# Path is already JSON-stringified by TypeScript, interpolate directly
+extension_path = ${pathJson}
 
 # Install with timeout (5 minutes)
 result = subprocess.run(

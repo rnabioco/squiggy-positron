@@ -183,7 +183,7 @@
     "lint:fix": "eslint src --ext ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "package": "vsce package"
+    "package": "vsce package --out build/"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
