@@ -14,13 +14,14 @@ tests/*.py
 tests/__pycache__/**
 .pytest_cache/**
 .ruff_cache/**
-__pycache__/**
+**/__pycache__/**
 *.pyc
 *.pyo
 *.pyd
 .Python
 .venv/**
 codecov.yml
+*.egg-info/**
 
 # Pixi environment (this is the key exclusion to fix the build error)
 .pixi/**
@@ -39,6 +40,10 @@ mkdocs.yml
 CLAUDE.md
 NEWS.md
 
+# Positron source code (development only)
+positron/**
+test-workspace/**
+
 # Node modules
 node_modules/**
 package-lock.json
@@ -48,6 +53,7 @@ package-lock.json
 *.vsix
 build/build/**
 build/dist/**
+build/__mocks__/**
 
 # OS files
 .DS_Store
