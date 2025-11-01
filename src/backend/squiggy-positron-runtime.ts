@@ -32,8 +32,7 @@ export class PositronRuntime {
         }
 
         // Check if session has onDidChangeRuntimeState event (may not exist in all Positron versions)
-        const hasStateEvent =
-            typeof (session as any).onDidChangeRuntimeState === 'function';
+        const hasStateEvent = typeof (session as any).onDidChangeRuntimeState === 'function';
 
         if (hasStateEvent) {
             // Use event-based approach if available
@@ -127,7 +126,7 @@ export class PositronRuntime {
                 // Success - kernel is ready
                 console.log('Squiggy: Kernel is ready (polling check)');
                 return;
-            } catch (error) {
+            } catch (_error) {
                 // Kernel not ready yet, wait and retry
                 await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
             }
