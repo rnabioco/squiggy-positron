@@ -29,6 +29,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     flex-shrink: 0;
+    border-right: 2px solid var(--vscode-widget-border);
+}
+
+.reads-header-column:last-child {
+    border-right: none;
 }
 
 .reads-header-actions {

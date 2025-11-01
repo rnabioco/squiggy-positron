@@ -31,6 +31,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    border-right: 2px solid var(--vscode-widget-border);
+}
+
+.file-cell:last-child {
+    border-right: none;
 }
 
 .file-cell.file-col-filename {

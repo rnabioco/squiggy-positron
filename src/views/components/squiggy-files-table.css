@@ -30,6 +30,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    border-right: 2px solid var(--vscode-widget-border);
+}
+
+.files-header-cell:last-child {
+    border-right: none;
 }
 
 .files-header-cell:hover {

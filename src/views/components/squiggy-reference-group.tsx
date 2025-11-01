@@ -46,9 +46,6 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
                 <span className="reference-group-label">{item.referenceName}</span>
             </div>
 
-            {/* Column divider */}
-            <div className="reference-group-divider" />
-
             {/* Details column - Read count */}
             <div
                 className="reference-group-column reference-group-details"

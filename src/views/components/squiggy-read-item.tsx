@@ -48,9 +48,6 @@ export const ReadItemComponent: React.FC<ReadItemProps> = ({
                 <span className="read-item-id">{item.readId}</span>
             </div>
 
-            {/* Column divider */}
-            <div className="read-item-divider" />
-
             {/* Details column - Genomic position or reference */}
             <div
                 className="read-item-column read-item-details"
