@@ -21,6 +21,80 @@ export class PositronRuntime {
     }
 
     /**
+     * Ensure the Python kernel is ready to execute code
+     * Waits up to 10 seconds for kernel to be ready after restart
+     */
+    private async ensureKernelReady(): Promise<void> {
+        const session = await positron.runtime.getForegroundSession();
+
+        if (!session) {
+            throw new Error(
+                'No Python kernel is running. Please start a Python console first.'
+            );
+        }
+
+        // Check if session has runtimeMetadata to determine state
+        // Note: We need to check the actual current state
+        return new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Timeout waiting for Python kernel to be ready'));
+            }, 10000); // 10 second timeout
+
+            // Function to check if current state is ready
+            const checkState = (state: string) => {
+                console.log(`Squiggy: Kernel state is ${state}`);
+
+                // Ready states - can execute code
+                if (state === 'ready' || state === 'idle' || state === 'busy') {
+                    clearTimeout(timeout);
+                    resolve();
+                    return true;
+                }
+
+                // Failed states - cannot execute code
+                if (state === 'offline' || state === 'exited') {
+                    clearTimeout(timeout);
+                    reject(new Error(`Python kernel is ${state}. Please start a Python console.`));
+                    return true;
+                }
+
+                // Transitioning states - wait
+                // uninitialized, initializing, starting, restarting
+                return false;
+            };
+
+            // Listen for state changes
+            const disposable = session.onDidChangeRuntimeState((state: any) => {
+                if (checkState(state)) {
+                    disposable.dispose();
+                }
+            });
+
+            // Also check current state immediately (in case already ready)
+            // We'll try to execute a simple test to see if kernel responds
+            Promise.resolve(
+                positron.runtime.executeCode(
+                    'python',
+                    '1+1',
+                    false,
+                    true,
+                    positron.RuntimeCodeExecutionMode.Silent
+                )
+            )
+                .then(() => {
+                    // Kernel responded - it's ready
+                    clearTimeout(timeout);
+                    disposable.dispose();
+                    resolve();
+                })
+                .catch(() => {
+                    // Kernel didn't respond - wait for state change
+                    // The onDidChangeRuntimeState listener will handle it
+                });
+        });
+    }
+
+    /**
      * Execute Python code in the active kernel
      *
      * @param code Python code to execute
@@ -40,6 +114,9 @@ export class PositronRuntime {
         if (!this.isAvailable()) {
             throw new Error('Positron runtime not available');
         }
+
+        // Ensure kernel is ready before executing code
+        await this.ensureKernelReady();
 
         try {
             return await positron.runtime.executeCode(

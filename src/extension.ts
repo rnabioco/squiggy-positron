@@ -162,6 +162,12 @@ export async function activate(context: vscode.ExtensionContext) {
                 readTreeProvider.setReads([]);
                 filePanelProvider.setPOD5Info('', 0, '0 MB');
                 filePanelProvider.setBAMInfo('', 0, '0 MB');
+                plotOptionsProvider.updateBamStatus(false);
+
+                // Close any open plot panels (stale data from previous kernel)
+                if (SquigglePlotPanel.currentPanel) {
+                    SquigglePlotPanel.currentPanel.dispose();
+                }
 
                 console.log(`Squiggy: ${reason}, state cleared`);
             };
@@ -413,6 +419,7 @@ function registerCommands(
             readTreeProvider.setReads([]);
             filePanelProvider.setPOD5Info('', 0, '0 MB');
             filePanelProvider.setBAMInfo('', 0, '0 MB');
+            plotOptionsProvider.updateBamStatus(false);
 
             // Close any open plot panels
             if (SquigglePlotPanel.currentPanel) {
@@ -609,6 +616,9 @@ async function openBAMFile(filePath: string) {
                     modificationsProvider.clear();
                     vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
                 }
+
+                // Update plot options to show EVENTALIGN mode and set as default
+                plotOptionsProvider.updateBamStatus(true);
             }
         );
     } catch (error) {
