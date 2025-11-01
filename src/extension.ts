@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import { PositronRuntime } from './backend/squiggy-positron-runtime';
 import { PythonBackend } from './backend/squiggy-python-backend';
@@ -27,8 +28,8 @@ let usePositron = false;
 let extensionContext: vscode.ExtensionContext;
 
 // Track loaded files and current plot
-let currentPod5File: string | undefined;
-let currentBamFile: string | undefined;
+let _currentPod5File: string | undefined;
+let _currentBamFile: string | undefined;
 let currentPlotReadIds: string[] | undefined;
 
 /**
@@ -358,10 +359,10 @@ async function openPOD5File(filePath: string) {
                 }
 
                 // Track file and update file panel display
-                currentPod5File = filePath;
+                _currentPod5File = filePath;
 
                 // Get file size
-                const fs = require('fs').promises;
+                // Using imported fs.promises
                 const stats = await fs.stat(filePath);
                 const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
@@ -428,10 +429,10 @@ async function openBAMFile(filePath: string) {
                 }
 
                 // Track file and update file panel display
-                currentBamFile = filePath;
+                _currentBamFile = filePath;
 
                 // Get file size
-                const fs = require('fs').promises;
+                // Using imported fs.promises
                 const stats = await fs.stat(filePath);
                 const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
@@ -509,7 +510,7 @@ async function plotReads(readIds: string[], context: vscode.ExtensionContext) {
                     );
 
                     // Read HTML from temp file
-                    const fs = require('fs').promises;
+                    // Using imported fs.promises
                     html = await fs.readFile(tempFilePath, 'utf-8');
 
                     // Clean up temp file

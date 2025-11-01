@@ -5,6 +5,7 @@
  */
 
 import * as vscode from 'vscode';
+import { promises as fs } from 'fs';
 
 export class SquigglePlotPanel {
     public static currentPanel: SquigglePlotPanel | undefined;
@@ -13,7 +14,7 @@ export class SquigglePlotPanel {
     private _currentHtml: string = '';
     private _currentReadIds: string[] = [];
 
-    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    private constructor(panel: vscode.WebviewPanel, _extensionUri: vscode.Uri) {
         this._panel = panel;
 
         // Set up event listeners
@@ -93,7 +94,7 @@ export class SquigglePlotPanel {
     public async exportPlot(outputPath: string): Promise<void> {
         // For HTML export, just write the current HTML
         if (outputPath.endsWith('.html')) {
-            const fs = require('fs').promises;
+            // Using imported fs.promises
             await fs.writeFile(outputPath, this._currentHtml, 'utf-8');
             vscode.window.showInformationMessage(`Plot exported to ${outputPath}`);
         } else {
