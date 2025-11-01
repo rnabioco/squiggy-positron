@@ -80,7 +80,7 @@ def extract_modifications_from_alignment(
     base_lookup = {base.position: base for base in bases}
 
     # Iterate over all modification types in the alignment
-    for (canonical_base, strand, mod_code), mod_list in modified_bases_dict.items():
+    for (canonical_base, _strand, mod_code), mod_list in modified_bases_dict.items():
         # Process each modified position
         for position, quality in mod_list:
             # Convert quality to probability

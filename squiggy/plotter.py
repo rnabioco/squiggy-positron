@@ -1121,7 +1121,7 @@ class SquigglePlotter:
         }
 
         # Create mapping from sequence position to signal indices for quick lookup
-        pos_to_signal = {i: sig_idx for i, sig_idx in enumerate(seq_to_sig_map)}
+        pos_to_signal = dict(enumerate(seq_to_sig_map))
 
         for mod in modifications:
             # Filter by probability threshold

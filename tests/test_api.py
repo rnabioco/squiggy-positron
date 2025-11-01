@@ -343,7 +343,7 @@ class TestAPIIntegration:
 
         # Load files
         reader, read_ids = load_pod5(str(sample_pod5_file))
-        bam_info = load_bam(str(indexed_bam_file))
+        load_bam(str(indexed_bam_file))
 
         # Find aligned read with move table
         with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
