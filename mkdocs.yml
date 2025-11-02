@@ -72,12 +72,4 @@ nav:
   - Home: index.md
   - User Guide: USER_GUIDE.md
   - Developer Guide: DEVELOPER.md
-  - API Reference:
-      - Overview: api/index.md
-      - Core Functions: api/core.md
-      - Object-Oriented API: api/api.md
-      - Plotting: api/plotting.md
-      - Alignment: api/alignment.md
-      - Modifications: api/modifications.md
-      - Normalization: api/normalization.md
-      - Utilities: api/utils.md
+  - API Reference: api.md
