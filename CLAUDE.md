@@ -282,11 +282,16 @@ All webview panels communicate with extension via `postMessage`. The Reads panel
 
 **Public API** (`squiggy/__init__.py`):
 ```python
-from squiggy import load_pod5, load_bam, plot_read, plot_reads
+from squiggy import load_pod5, load_bam, plot_read, plot_reads, close_pod5, close_bam
+from squiggy.io import _squiggy_session
 
-# Load files into kernel state
+# Load files into kernel state (populates _squiggy_session)
 load_pod5("data.pod5")
 load_bam("alignments.bam")
+
+# Check session state
+print(_squiggy_session)
+# <SquiggySession: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
 
 # Generate Bokeh plot HTML
 html = plot_read(
@@ -297,12 +302,19 @@ html = plot_read(
     show_mods=True,
     mod_filter={"5mC": 0.8}
 )
+
+# Cleanup
+close_pod5()  # Close POD5 reader
+close_bam()   # Clear BAM state
+_squiggy_session.close_all()  # Or close everything via session
 ```
 
 **State Management** (`squiggy/io.py`):
-- Maintains global state: `_pod5_reader`, `_bam_file`, `_read_to_reference`
+- **NEW**: Consolidated `SquiggySession` object (`_squiggy_session`) - single variable in Variables pane
+- **Legacy**: Individual globals: `_current_pod5_reader`, `_current_bam_path`, `_current_read_ids`
 - Lazy loading of POD5 reads
 - BAM indexing and reference extraction
+- New cleanup functions: `close_bam()` for BAM state cleanup
 
 **Plotting** (`squiggy/plotter.py`):
 - Generates Bokeh figures with interactive tools
@@ -444,18 +456,63 @@ panel.webview.onDidReceiveMessage((message) => {
 
 ### State Management
 
-Python state persists in kernel:
+**Session-Based State** (Recommended):
+
+Python state is consolidated in a `SquiggySession` object for cleaner UX:
 
 ```python
-# Global state in squiggy/io.py
-_pod5_reader = None
-_bam_file = None
-_read_to_reference = {}
+# Global session instance in squiggy/io.py
+from squiggy.io import _squiggy_session
+
+# Load files - automatically populates session
+import squiggy
+squiggy.load_pod5('data.pod5')
+squiggy.load_bam('alignments.bam')
+
+# Session is visible in Variables pane as single object
+print(_squiggy_session)
+# <SquiggySession: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
+
+# Access session attributes
+_squiggy_session.reader      # POD5 reader
+_squiggy_session.read_ids    # List of read IDs
+_squiggy_session.bam_path    # BAM file path
+_squiggy_session.bam_info    # BAM metadata dict
+_squiggy_session.ref_mapping # Reference to read IDs mapping
+
+# Cleanup
+_squiggy_session.close_pod5()  # Close POD5 only
+_squiggy_session.close_bam()   # Clear BAM only
+_squiggy_session.close_all()   # Close everything
+```
+
+**Legacy Global State** (Deprecated but still supported):
+
+For backward compatibility, individual global variables are still maintained:
+
+```python
+# Legacy globals in squiggy/io.py
+_current_pod5_reader = None
+_current_bam_path = None
+_current_read_ids = []
 
 def load_pod5(file_path):
-    global _pod5_reader
-    _pod5_reader = pod5.Reader(file_path)
+    global _current_pod5_reader
+    _current_pod5_reader = pod5.Reader(file_path)
     # State persists across function calls
+```
+
+**Extension Usage**:
+
+The TypeScript extension uses the session object for cleaner kernel state:
+
+```typescript
+// Load POD5 - populates _squiggy_session in kernel
+await squiggyAPI.loadPOD5(filePath);
+
+// Access data via session
+const readIds = await client.getVariable('_squiggy_session.read_ids[:100]');
+const bamInfo = await client.getVariable('_squiggy_session.bam_info');
 ```
 
 ## Testing Strategy

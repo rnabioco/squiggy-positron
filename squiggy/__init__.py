@@ -39,6 +39,8 @@ from .constants import (
 
 # I/O functions
 from .io import (
+    SquiggySession,
+    close_bam,
     close_pod5,
     get_bam_event_alignment_status,
     get_bam_modification_info,
@@ -371,6 +373,9 @@ __all__ = [
     "get_bam_event_alignment_status",
     "get_read_to_reference_mapping",
     "close_pod5",
+    "close_bam",
+    # Session management
+    "SquiggySession",
     # Data structures
     "AlignedRead",
     "BaseAnnotation",
