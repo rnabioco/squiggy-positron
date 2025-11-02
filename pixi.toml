@@ -9,7 +9,9 @@ platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 [tasks]
 # === Setup ===
 # Note: Run 'npm install' manually after 'pixi install' or use task below
-setup = "npm install"
+setup = { depends-on = ["setup-npm", "setup-python"] }
+setup-npm = "npm install"
+setup-python = "uv pip install --system -e ."
 
 # === Version Management ===
 sync = "node scripts/sync-version.js"
@@ -20,7 +22,8 @@ test = { depends-on = ["test-py", "test-ts"] }
 check = { depends-on = ["lint", "test"] }
 build = "npm run package"
 clean = "rm -rf build/ .pytest_cache/ .ruff_cache/ site/ squiggy.egg-info/ squiggy/__pycache__/ src/squiggy.egg-info/ src/squiggy/ test-*/ tests/__pycache__/ .DS_Store"
-docs = "mkdocs serve"
+render-notebooks = "jupyter nbconvert --to notebook --execute --inplace examples/*.ipynb"
+docs = { depends-on = ["render-notebooks"], cmd = "mkdocs serve" }
 
 # === Granular Tasks ===
 # TypeScript
@@ -59,3 +62,5 @@ bokeh = ">=3.0.0"
 selenium = ">=4.6.0"
 mkdocstrings = { version = ">=0.24.0", extras = ["python"] }
 mike = ">=2.0.0"
+nbconvert = ">=7.0.0"
+ipykernel = ">=6.0.0"

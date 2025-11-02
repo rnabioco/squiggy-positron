@@ -38,6 +38,8 @@ dev = [
   "mkdocs>=1.5.0",
   "mkdocs-material>=9.0.0",
   "jupyter>=1.0.0",  # For testing in notebooks
+  "nbconvert>=7.0.0",  # For rendering notebooks with outputs
+  "ipykernel>=6.0.0",  # IPython kernel for executing notebooks
 ]
 export = [
   "selenium>=4.6",  # Selenium Manager (auto-downloads geckodriver) requires 4.6+
