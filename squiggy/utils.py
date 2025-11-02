@@ -402,7 +402,7 @@ def validate_bam_reads_in_pod5(bam_file, pod5_file):
     }
 
 
-def downsample_signal(signal, downsample_factor=1):
+def downsample_signal(signal: np.ndarray, downsample_factor: int = 1) -> np.ndarray:
     """Downsample signal array by taking every Nth point
 
     Reduces the number of data points for faster plotting while preserving
@@ -413,7 +413,7 @@ def downsample_signal(signal, downsample_factor=1):
         downsample_factor: Factor by which to downsample (1 = no downsampling)
 
     Returns:
-        numpy array: Downsampled signal array
+        Downsampled signal array
     """
     if downsample_factor <= 1:
         return signal
@@ -422,7 +422,9 @@ def downsample_signal(signal, downsample_factor=1):
     return signal[::downsample_factor]
 
 
-def get_basecall_data(bam_file, read_id):
+def get_basecall_data(
+    bam_file: Path, read_id: str
+) -> tuple[str | None, np.ndarray | None]:
     """Extract basecall sequence and signal mapping from BAM file
 
     Args:
@@ -430,7 +432,7 @@ def get_basecall_data(bam_file, read_id):
         read_id: Read identifier to search for
 
     Returns:
-        tuple: (sequence, seq_to_sig_map) or (None, None) if not available
+        (sequence, seq_to_sig_map) or (None, None) if not available
     """
     if not bam_file:
         return None, None
@@ -473,7 +475,7 @@ def get_basecall_data(bam_file, read_id):
     return None, None
 
 
-def parse_region(region_str):
+def parse_region(region_str: str) -> tuple[str | None, int | None, int | None]:
     """Parse a genomic region string into components
 
     Supports formats:
@@ -486,7 +488,7 @@ def parse_region(region_str):
         region_str: Region string to parse
 
     Returns:
-        tuple: (chromosome, start, end) where start/end are None if not specified
+        (chromosome, start, end) where start/end are None if not specified.
         Returns (None, None, None) if parsing fails
 
     Examples:
@@ -553,14 +555,14 @@ def index_bam_file(bam_file):
         raise Exception(f"Failed to index BAM file: {str(e)}") from e
 
 
-def get_bam_references(bam_file):
+def get_bam_references(bam_file: Path) -> list[dict]:
     """Get list of reference sequences from BAM file with read counts
 
     Args:
         bam_file: Path to BAM file
 
     Returns:
-        list: List of dicts with keys:
+        List of dicts with keys:
             - name: Reference name
             - length: Reference sequence length
             - read_count: Number of aligned reads (requires index)
@@ -651,7 +653,9 @@ def get_read_to_reference_mapping(bam_file, pod5_read_ids):
     return read_to_ref
 
 
-def get_reads_in_region(bam_file, chromosome, start=None, end=None):
+def get_reads_in_region(
+    bam_file: Path, chromosome: str, start: int | None = None, end: int | None = None
+) -> dict:
     """Query BAM file for reads aligning to a specific region
 
     Requires BAM file to be indexed (.bai file must exist).
@@ -663,7 +667,7 @@ def get_reads_in_region(bam_file, chromosome, start=None, end=None):
         end: End position (0-based, exclusive) or None for entire chromosome
 
     Returns:
-        dict: Dictionary mapping read_id -> alignment_info with keys:
+        Dictionary mapping read_id -> alignment_info with keys:
             - read_id: Read identifier
             - chromosome: Reference name
             - start: Alignment start position
@@ -726,7 +730,7 @@ def get_reads_in_region(bam_file, chromosome, start=None, end=None):
     return reads_dict
 
 
-def reverse_complement(seq):
+def reverse_complement(seq: str) -> str:
     """
     Return the reverse complement of a DNA sequence.
 
