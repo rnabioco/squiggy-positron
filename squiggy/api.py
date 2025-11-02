@@ -59,7 +59,7 @@ class Pod5File:
     Args:
         path: Path to POD5 file
 
-    Example:
+    Examples:
         >>> with Pod5File('data.pod5') as pod5:
         ...     for read in pod5.iter_reads(limit=5):
         ...         print(read.read_id)
@@ -118,7 +118,7 @@ class Pod5File:
         Yields:
             Read objects
 
-        Example:
+        Examples:
             >>> for read in pod5.iter_reads(limit=100):
             ...     print(f"{read.read_id}: {len(read.signal)} samples")
         """
@@ -200,7 +200,7 @@ class Read:
         Returns:
             Normalized signal as numpy array
 
-        Example:
+        Examples:
             >>> read = pod5.get_read('read_001')
             >>> znorm_signal = read.get_normalized('ZNORM')
             >>> mad_signal = read.get_normalized('MAD')
@@ -223,7 +223,7 @@ class Read:
         Returns:
             AlignedRead object or None if not found or no move table
 
-        Example:
+        Examples:
             >>> bam = BamFile('alignments.bam')
             >>> alignment = read.get_alignment(bam)
             >>> if alignment:
@@ -270,7 +270,7 @@ class Read:
         Returns:
             Bokeh Figure object (can be customized before display)
 
-        Example:
+        Examples:
             >>> fig = read.plot(mode='EVENTALIGN', bam_file=bam)
             >>> fig.title.text = "My Custom Title"
             >>> from bokeh.plotting import show
@@ -338,7 +338,7 @@ class BamFile:
     Args:
         path: Path to BAM file (must be indexed with .bai)
 
-    Example:
+    Examples:
         >>> with BamFile('alignments.bam') as bam:
         ...     alignment = bam.get_alignment('read_001')
         ...     print(alignment.sequence)
@@ -385,7 +385,7 @@ class BamFile:
         Returns:
             AlignedRead object or None if not found or no move table
 
-        Example:
+        Examples:
             >>> alignment = bam.get_alignment('read_001')
             >>> if alignment:
             ...     for base in alignment.bases:
@@ -407,7 +407,7 @@ class BamFile:
         Yields:
             AlignedRead objects that have move tables
 
-        Example:
+        Examples:
             >>> for alignment in bam.iter_region('chr1', 1000, 2000):
             ...     print(f"{alignment.read_id} at {alignment.genomic_start}")
         """
@@ -429,7 +429,7 @@ class BamFile:
                 - sample_count: number of reads checked
                 - has_probabilities: bool (ML tag present)
 
-        Example:
+        Examples:
             >>> mod_info = bam.get_modifications_info()
             >>> if mod_info['has_modifications']:
             ...     print(f"Found modifications: {mod_info['modification_types']}")
@@ -477,7 +477,7 @@ def figure_to_html(fig: BokehFigure, title: str = "Squiggy Plot") -> str:
     Returns:
         HTML string with embedded Bokeh plot
 
-    Example:
+    Examples:
         >>> fig = read.plot()
         >>> html = figure_to_html(fig)
         >>> with open('plot.html', 'w') as f:
