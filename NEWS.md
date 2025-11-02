@@ -1,5 +1,17 @@
 # Squiggy Release Notes
 
+## v0.1.5-alpha (2025-11-01)
+
+Maintenance release focused on code quality and internal architecture improvements.
+
+### Improvements
+
+- **Modularized Extension Architecture**: Major refactoring of TypeScript codebase reducing main extension.ts by 88% (993 → 116 lines). Logic now organized into specialized modules for better maintainability and type safety.
+
+### Internal
+
+- Fixed /release command to avoid pushing all tags
+
 ## v0.1.4-alpha (2025-11-01)
 
 Maintenance release with version management improvements and UI enhancements.
