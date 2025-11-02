@@ -38,7 +38,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(async (message) => {
             switch (message.type) {
                 case 'searchMotif':
-                    await this.searchMotif(message.motif);
+                    await this.searchMotif(message.motif, message.strand || 'both');
                     break;
                 case 'plotMotif':
                     await this.plotMotif(message.motif, message.matchIndex, message.window);
@@ -127,6 +127,11 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         <label>Motif Pattern (IUPAC):</label><br/>
         <input type="text" id="motifInput" value="DRACH" placeholder="e.g., DRACH, YGCY"/>
         <button onclick="searchMotif()">Search</button>
+        <br/>
+        <label style="margin-top: 8px; display: inline-block;">
+            <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin-right: 5px;"/>
+            + strand only
+        </label>
     </div>
 
     <div id="status" class="status"></div>
@@ -142,8 +147,10 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                 document.getElementById('status').textContent = 'Please enter a motif pattern';
                 return;
             }
+            const plusStrandOnly = document.getElementById('plusStrandOnly').checked;
+            const strand = plusStrandOnly ? '+' : 'both';
             document.getElementById('status').textContent = 'Searching...';
-            vscode.postMessage({ type: 'searchMotif', motif: motif });
+            vscode.postMessage({ type: 'searchMotif', motif: motif, strand: strand });
         }
 
         function plotMotif(motif, matchIndex) {
@@ -213,7 +220,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
     /**
      * Search for motif matches
      */
-    private async searchMotif(motif: string): Promise<void> {
+    private async searchMotif(motif: string, strand: string = 'both'): Promise<void> {
         if (!this.state.currentFastaFile) {
             vscode.window.showErrorMessage('No FASTA file loaded. Use "Open FASTA File" first.');
             return;
@@ -227,7 +234,9 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             if (this.state.usePositron && this.state.squiggyAPI) {
                 const matches = await this.state.squiggyAPI.searchMotif(
                     this.state.currentFastaFile,
-                    motif
+                    motif,
+                    undefined, // region
+                    strand
                 );
                 this._matches = matches;
             } else {
