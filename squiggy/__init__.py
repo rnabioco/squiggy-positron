@@ -28,13 +28,20 @@ __version__ = "0.1.5"
 # Object-oriented API (NEW - notebook-friendly)
 # Core data structures and constants
 from .alignment import AlignedRead, BaseAnnotation, extract_alignment_from_bam
-from .api import BamFile, Pod5File, Read, figure_to_html
+from .api import BamFile, FastaFile, Pod5File, Read, figure_to_html
 from .constants import (
     BASE_COLORS,
     BASE_COLORS_DARK,
     NormalizationMethod,
     PlotMode,
     Theme,
+)
+from .motif import (
+    IUPAC_CODES,
+    MotifMatch,
+    count_motifs,
+    iupac_to_regex,
+    search_motif,
 )
 
 # I/O functions
@@ -428,6 +435,7 @@ __all__ = [
     "Pod5File",
     "Read",
     "BamFile",
+    "FastaFile",
     "figure_to_html",
     # Main functions (legacy API - for Positron extension)
     "load_pod5",
@@ -447,12 +455,14 @@ __all__ = [
     # Data structures
     "AlignedRead",
     "BaseAnnotation",
+    "MotifMatch",
     # Constants
     "NormalizationMethod",
     "PlotMode",
     "Theme",
     "BASE_COLORS",
     "BASE_COLORS_DARK",
+    "IUPAC_CODES",
     # Functions
     "extract_alignment_from_bam",
     "normalize_signal",
@@ -463,6 +473,9 @@ __all__ = [
     "reverse_complement",
     "downsample_signal",
     "create_plot_strategy",
+    "iupac_to_regex",
+    "search_motif",
+    "count_motifs",
     # Classes
     "SquigglePlotter",
 ]

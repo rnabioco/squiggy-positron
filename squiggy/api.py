@@ -45,6 +45,7 @@ from bokeh.plotting import figure as BokehFigure
 
 from .alignment import AlignedRead, extract_alignment_from_bam
 from .constants import NormalizationMethod, PlotMode, Theme
+from .motif import MotifMatch, search_motif
 from .normalization import normalize_signal
 from .plotter import SquigglePlotter
 
@@ -443,6 +444,67 @@ class BamFile:
         self._mod_info = get_bam_modification_info(str(self.path))
         return self._mod_info
 
+    def get_reads_overlapping_motif(
+        self,
+        fasta_file: "FastaFile | str | Path",
+        motif: str,
+        region: str | None = None,
+        strand: str = "both",
+    ) -> dict[str, list[AlignedRead]]:
+        """
+        Find reads overlapping motif positions
+
+        Args:
+            fasta_file: FastaFile object or path to indexed FASTA file
+            motif: IUPAC nucleotide pattern (e.g., "DRACH")
+            region: Optional region filter ("chrom:start-end")
+            strand: Motif search strand ('+', '-', or 'both')
+
+        Returns:
+            Dict mapping motif position keys to lists of AlignedRead objects
+            Position key format: "chrom:position:strand"
+
+        Example:
+            >>> bam = BamFile('alignments.bam')
+            >>> fasta = FastaFile('genome.fa')
+            >>> overlaps = bam.get_reads_overlapping_motif(fasta, 'DRACH', region='chr1:1000-2000')
+            >>> for position, reads in overlaps.items():
+            ...     print(f"{position}: {len(reads)} reads")
+            ...     for read in reads:
+            ...         print(f"  {read.read_id}")
+        """
+        from .alignment import _parse_alignment
+
+        # Handle fasta_file parameter
+        if isinstance(fasta_file, FastaFile):
+            fasta_path = fasta_file.path
+        else:
+            fasta_path = Path(fasta_file).resolve()
+
+        # Search for motif matches
+        matches = list(search_motif(fasta_path, motif, region, strand))
+
+        # Build dict of motif position -> overlapping reads
+        overlaps: dict[str, list[AlignedRead]] = {}
+
+        for match in matches:
+            # Create position key
+            position_key = f"{match.chrom}:{match.position}:{match.strand}"
+
+            # Find reads overlapping this position
+            reads_at_position = []
+
+            # Query BAM for reads overlapping motif region
+            for pysam_read in self._bam.fetch(match.chrom, match.position, match.end):
+                aligned_read = _parse_alignment(pysam_read)
+                if aligned_read is not None:  # Only include if has move table
+                    reads_at_position.append(aligned_read)
+
+            if reads_at_position:
+                overlaps[position_key] = reads_at_position
+
+        return overlaps
+
     def close(self):
         """Close the BAM file"""
         if self._bam is not None:
@@ -461,6 +523,142 @@ class BamFile:
     def __repr__(self) -> str:
         num_refs = len(self.references)
         return f"BamFile(path='{self.path}', num_references={num_refs})"
+
+
+class FastaFile:
+    """
+    FASTA reference file reader with motif search capabilities
+
+    Provides access to reference sequences and motif searching.
+    Requires indexed FASTA file (.fai).
+
+    Args:
+        path: Path to FASTA file (must be indexed with .fai)
+
+    Example:
+        >>> with FastaFile('genome.fa') as fasta:
+        ...     # Search for DRACH motif
+        ...     for match in fasta.search_motif('DRACH', region='chr1:1000-2000'):
+        ...         print(f"{match.chrom}:{match.position} {match.sequence}")
+    """
+
+    def __init__(self, path: str | Path):
+        """Open FASTA file for reading"""
+        self.path = Path(path).resolve()
+
+        if not self.path.exists():
+            raise FileNotFoundError(f"FASTA file not found: {self.path}")
+
+        # Check for index
+        fai_path = Path(str(self.path) + ".fai")
+        if not fai_path.exists():
+            raise FileNotFoundError(
+                f"FASTA index not found: {fai_path}. "
+                f"Create with: samtools faidx {self.path}"
+            )
+
+        # Open FASTA file
+        self._fasta = pysam.FastaFile(str(self.path))
+
+        # Cache references
+        self._references: list[str] | None = None
+
+    @property
+    def references(self) -> list[str]:
+        """Get list of reference sequence names"""
+        if self._references is None:
+            self._references = list(self._fasta.references)
+        return self._references
+
+    def fetch(
+        self, chrom: str, start: int | None = None, end: int | None = None
+    ) -> str:
+        """
+        Fetch sequence from reference
+
+        Args:
+            chrom: Chromosome/reference name
+            start: Start position (0-based, inclusive)
+            end: End position (0-based, exclusive)
+
+        Returns:
+            DNA sequence string
+
+        Example:
+            >>> fasta = FastaFile('genome.fa')
+            >>> seq = fasta.fetch('chr1', 1000, 1100)
+            >>> print(seq)  # 100 bp sequence
+        """
+        return self._fasta.fetch(chrom, start, end)
+
+    def search_motif(
+        self,
+        motif: str,
+        region: str | None = None,
+        strand: str = "both",
+    ) -> Iterator[MotifMatch]:
+        """
+        Search for motif matches in FASTA file
+
+        Args:
+            motif: IUPAC nucleotide pattern (e.g., "DRACH", "YGCY")
+            region: Optional region filter ("chrom", "chrom:start", "chrom:start-end")
+                    Positions are 1-based in input
+            strand: Search strand ('+', '-', or 'both')
+
+        Yields:
+            MotifMatch objects for each match found
+
+        Example:
+            >>> fasta = FastaFile('genome.fa')
+            >>> matches = list(fasta.search_motif('DRACH', region='chr1:1000-2000'))
+            >>> for match in matches:
+            ...     print(f"{match.chrom}:{match.position+1} {match.sequence} ({match.strand})")
+        """
+        return search_motif(self.path, motif, region, strand)
+
+    def count_motifs(
+        self,
+        motif: str,
+        region: str | None = None,
+        strand: str = "both",
+    ) -> int:
+        """
+        Count total motif matches
+
+        Args:
+            motif: IUPAC nucleotide pattern
+            region: Optional region filter
+            strand: Search strand ('+', '-', or 'both')
+
+        Returns:
+            Total number of matches
+
+        Example:
+            >>> fasta = FastaFile('genome.fa')
+            >>> count = fasta.count_motifs('DRACH', region='chr1')
+            >>> print(f"Found {count} DRACH motifs")
+        """
+        return sum(1 for _ in self.search_motif(motif, region, strand))
+
+    def close(self):
+        """Close the FASTA file"""
+        if self._fasta is not None:
+            self._fasta.close()
+            self._fasta = None
+
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit"""
+        self.close()
+        return False
+
+    def __repr__(self) -> str:
+        num_refs = len(self.references)
+        return f"FastaFile(path='{self.path}', num_references={num_refs})"
 
 
 def figure_to_html(fig: BokehFigure, title: str = "Squiggy Plot") -> str:
@@ -493,5 +691,6 @@ __all__ = [
     "Pod5File",
     "Read",
     "BamFile",
+    "FastaFile",
     "figure_to_html",
 ]
