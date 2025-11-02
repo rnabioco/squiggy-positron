@@ -90,38 +90,30 @@ class SquiggySession:
         self.close_bam()
 
 
-# Global session instance
+# Global session instance (single source of truth for kernel state)
 _squiggy_session = SquiggySession()
 
-# Legacy global state (maintained for backward compatibility)
-_current_pod5_reader: pod5.Reader | None = None
-_current_pod5_path: str | None = None
-_current_bam_path: str | None = None
-_current_read_ids: list[str] = []
 
-
-def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
+def load_pod5(file_path: str) -> SquiggySession:
     """
-    Load a POD5 file and return reader and list of read IDs
+    Load a POD5 file into the kernel session
 
     This function is called from the Positron extension and makes
-    the reader available in the kernel for user inspection.
+    the POD5 data available in the kernel via the _squiggy_session object.
 
     Args:
         file_path: Path to POD5 file
 
     Returns:
-        Tuple of (reader, read_ids)
+        SquiggySession object with loaded POD5 data
 
     Examples:
         >>> from squiggy import load_pod5
-        >>> reader, read_ids = load_pod5('data.pod5')
-        >>> print(f"Loaded {len(read_ids)} reads")
-        >>> # Reader is now available for inspection
-        >>> first_read = next(reader.reads())
+        >>> session = load_pod5('data.pod5')
+        >>> print(f"Loaded {len(session.read_ids)} reads")
+        >>> # Session is available as _squiggy_session in kernel
+        >>> first_read = next(session.reader.reads())
     """
-    global _current_pod5_reader, _current_pod5_path, _current_read_ids, _squiggy_session
-
     # Convert to absolute path
     abs_path = os.path.abspath(file_path)
 
@@ -129,12 +121,7 @@ def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
         raise FileNotFoundError(f"Failed to open pod5 file at: {abs_path}")
 
     # Close previous reader if exists
-    if _current_pod5_reader is not None:
-        _current_pod5_reader.close()
-
-    # Close previous session POD5 if exists
-    if _squiggy_session.reader is not None:
-        _squiggy_session.reader.close()
+    _squiggy_session.close_pod5()
 
     # Open new reader (no need for writable_working_directory in extension context)
     reader = pod5.Reader(abs_path)
@@ -142,17 +129,12 @@ def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
     # Extract read IDs
     read_ids = [str(read.read_id) for read in reader.reads()]
 
-    # Store state in legacy globals
-    _current_pod5_reader = reader
-    _current_pod5_path = abs_path
-    _current_read_ids = read_ids
-
-    # Store state in session
+    # Store state in session (no global keyword needed - just mutating object!)
     _squiggy_session.reader = reader
     _squiggy_session.pod5_path = abs_path
     _squiggy_session.read_ids = read_ids
 
-    return reader, read_ids
+    return _squiggy_session
 
 
 def get_bam_event_alignment_status(file_path: str) -> bool:
@@ -281,27 +263,25 @@ def get_bam_modification_info(file_path: str) -> dict:
     }
 
 
-def load_bam(file_path: str) -> dict:
+def load_bam(file_path: str) -> SquiggySession:
     """
-    Load a BAM file and return metadata
+    Load a BAM file into the kernel session
 
     Args:
         file_path: Path to BAM file
 
     Returns:
-        Dict with file metadata including references, modifications, and event alignment
+        SquiggySession object with loaded BAM data
 
     Examples:
         >>> from squiggy import load_bam
-        >>> bam_info = load_bam('alignments.bam')
-        >>> print(bam_info['references'])
-        >>> if bam_info['has_modifications']:
-        ...     print(f"Modifications: {bam_info['modification_types']}")
-        >>> if bam_info['has_event_alignment']:
+        >>> session = load_bam('alignments.bam')
+        >>> print(session.bam_info['references'])
+        >>> if session.bam_info['has_modifications']:
+        ...     print(f"Modifications: {session.bam_info['modification_types']}")
+        >>> if session.bam_info['has_event_alignment']:
         ...     print("Event alignment data available")
     """
-    global _current_bam_path, _squiggy_session
-
     # Convert to absolute path
     abs_path = os.path.abspath(file_path)
 
@@ -328,14 +308,11 @@ def load_bam(file_path: str) -> dict:
         "has_event_alignment": has_event_alignment,
     }
 
-    # Store path in legacy global
-    _current_bam_path = abs_path
-
-    # Store state in session
+    # Store state in session (no global keyword needed - just mutating object!)
     _squiggy_session.bam_path = abs_path
     _squiggy_session.bam_info = bam_info
 
-    return bam_info
+    return _squiggy_session
 
 
 def get_read_to_reference_mapping() -> dict[str, list[str]]:
@@ -354,16 +331,14 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
         >>> mapping = get_read_to_reference_mapping()
         >>> print(f"References: {list(mapping.keys())}")
     """
-    global _squiggy_session
-
-    if _current_bam_path is None:
+    if _squiggy_session.bam_path is None:
         raise RuntimeError("No BAM file is currently loaded")
 
-    if not os.path.exists(_current_bam_path):
-        raise FileNotFoundError(f"BAM file not found: {_current_bam_path}")
+    if not os.path.exists(_squiggy_session.bam_path):
+        raise FileNotFoundError(f"BAM file not found: {_squiggy_session.bam_path}")
 
     # Open BAM file
-    bam = pysam.AlignmentFile(_current_bam_path, "rb", check_sq=False)
+    bam = pysam.AlignmentFile(_squiggy_session.bam_path, "rb", check_sq=False)
 
     # Map reference to read IDs
     ref_to_reads: dict[str, list[str]] = {}
@@ -384,7 +359,7 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
     finally:
         bam.close()
 
-    # Store in session
+    # Store in session (no global keyword needed!)
     _squiggy_session.ref_mapping = ref_to_reads
 
     return ref_to_reads
@@ -397,7 +372,7 @@ def get_current_files() -> dict[str, str | None]:
     Returns:
         Dict with pod5_path and bam_path (may be None)
     """
-    return {"pod5_path": _current_pod5_path, "bam_path": _current_bam_path}
+    return {"pod5_path": _squiggy_session.pod5_path, "bam_path": _squiggy_session.bam_path}
 
 
 def get_read_ids() -> list[str]:
@@ -407,10 +382,10 @@ def get_read_ids() -> list[str]:
     Returns:
         List of read ID strings
     """
-    if not _current_read_ids:
+    if not _squiggy_session.read_ids:
         raise ValueError("No POD5 file is currently loaded")
 
-    return _current_read_ids
+    return _squiggy_session.read_ids
 
 
 def close_pod5():
@@ -425,15 +400,7 @@ def close_pod5():
         >>> # ... work with data ...
         >>> close_pod5()
     """
-    global _current_pod5_reader, _current_pod5_path, _current_read_ids, _squiggy_session
-
-    if _current_pod5_reader is not None:
-        _current_pod5_reader.close()
-        _current_pod5_reader = None
-        _current_pod5_path = None
-        _current_read_ids = []
-
-    # Also clear session
+    # Clear session (no global keyword needed!)
     _squiggy_session.close_pod5()
 
 
@@ -451,9 +418,5 @@ def close_bam():
         >>> # ... work with alignments ...
         >>> close_bam()
     """
-    global _current_bam_path, _squiggy_session
-
-    _current_bam_path = None
-
-    # Also clear session
+    # Clear session (no global keyword needed!)
     _squiggy_session.close_bam()
