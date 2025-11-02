@@ -1157,7 +1157,9 @@ def extract_reads_for_motif(
 
     try:
         with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
-            for read in bam.fetch(motif_match.chrom, region_start, region_end):
+            # BAM fetch requires non-negative coordinates - clamp region_start to 0
+            fetch_start = max(0, region_start)
+            for read in bam.fetch(motif_match.chrom, fetch_start, region_end):
                 if read.is_unmapped:
                     continue
 
