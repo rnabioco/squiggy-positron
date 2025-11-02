@@ -57,3 +57,5 @@ pod5 = ">=0.3.0"
 pysam = ">=0.22.0"
 bokeh = ">=3.0.0"
 selenium = ">=4.6.0"
+mkdocstrings = { version = ">=0.24.0", extras = ["python"] }
+mike = ">=2.0.0"

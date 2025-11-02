@@ -160,12 +160,12 @@ class Read:
         sample_rate: Sampling rate in Hz
     """
 
-    def __init__(self, pod5_read, parent_file: Pod5File):
+    def __init__(self, pod5_read: pod5.ReadRecord, parent_file: Pod5File):
         """
         Initialize Read from pod5.Read object
 
         Args:
-            pod5_read: pod5.Read object
+            pod5_read: pod5.ReadRecord object
             parent_file: Parent Pod5File object
         """
         self._parent = parent_file

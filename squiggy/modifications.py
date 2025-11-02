@@ -35,7 +35,7 @@ class ModificationAnnotation:
 
 
 def extract_modifications_from_alignment(
-    alignment, bases: list
+    alignment: pysam.AlignedSegment, bases: list
 ) -> list[ModificationAnnotation]:
     """Extract modification annotations from a BAM alignment
 
