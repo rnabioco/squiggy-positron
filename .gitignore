@@ -51,4 +51,10 @@ test-workspace/
 .claude-*.md
 *-planning.md
 
+# Build artifacts
+htmlcov/
+
+# Dev dependencies
 positron/
+remora/
+squigualiser/
