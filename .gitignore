@@ -45,7 +45,7 @@ build/
 *.vsix
 
 # Test workspace - created on the fly during development
-test-workspace/
+test-*/
 
 # Claude planning files
 .claude-*.md
