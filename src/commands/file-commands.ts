@@ -123,12 +123,7 @@ export function registerFileCommands(
                 'data',
                 'yeast_trna_mappings.bam'
             );
-            const fastaPath = path.join(
-                context.extensionPath,
-                'tests',
-                'data',
-                'yeast_trna.fa'
-            );
+            const fastaPath = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna.fa');
 
             // Check if files are already loaded
             const pod5AlreadyLoaded = state.currentPod5File === pod5Path;

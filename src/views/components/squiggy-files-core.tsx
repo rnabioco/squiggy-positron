@@ -75,7 +75,7 @@ export const FilesCore: React.FC = () => {
         });
     };
 
-    const handleCloseFile = (fileType: 'POD5' | 'BAM') => {
+    const handleCloseFile = (fileType: 'POD5' | 'BAM' | 'FASTA') => {
         vscode.postMessage({ type: 'closeFile', fileType });
     };
 
@@ -87,10 +87,18 @@ export const FilesCore: React.FC = () => {
         vscode.postMessage({ type: 'openFile', fileType: 'BAM' });
     };
 
+    const handleOpenFASTA = () => {
+        vscode.postMessage({ type: 'openFile', fileType: 'FASTA' });
+    };
+
     return (
         <div className="files-core-container">
-            {/* Toolbar with Open POD5/BAM buttons - Always visible */}
-            <FilesToolbar onOpenPOD5={handleOpenPOD5} onOpenBAM={handleOpenBAM} />
+            {/* Toolbar with Open POD5/BAM/FASTA buttons - Always visible */}
+            <FilesToolbar
+                onOpenPOD5={handleOpenPOD5}
+                onOpenBAM={handleOpenBAM}
+                onOpenFASTA={handleOpenFASTA}
+            />
 
             {/* Files table or empty state */}
             {state.files.length > 0 ? (
@@ -135,7 +143,7 @@ function sortFiles(files: FileItem[], column: SortColumn, direction: SortDirecti
                 comparison = a.size - b.size;
                 break;
             case 'reads':
-                comparison = a.numReads - b.numReads;
+                comparison = (a.numReads ?? 0) - (b.numReads ?? 0);
                 break;
             case 'refs': {
                 // Handle undefined for POD5 files (treat as -1 for sorting)

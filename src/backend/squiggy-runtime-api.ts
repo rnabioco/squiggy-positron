@@ -311,7 +311,7 @@ _squiggy_motif_matches_json = [
         try {
             await this.client.executeSilent(searchCode);
             const matches = await this.client.getVariable('_squiggy_motif_matches_json');
-            return matches || [];
+            return (matches as any[]) || [];
         } catch (error) {
             throw new Error(`Failed to search motif: ${error}`);
         }

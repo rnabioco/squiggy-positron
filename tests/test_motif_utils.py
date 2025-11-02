@@ -242,9 +242,7 @@ class TestAlignReadsToMotifCenter:
 
     def test_negative_positions(self):
         """Test reads with positions before motif center"""
-        reads = [
-            {"read_id": "read1", "reference_start": 50, "reference_end": 100}
-        ]
+        reads = [{"read_id": "read1", "reference_start": 50, "reference_end": 100}]
 
         motif_center = 200
 
@@ -256,9 +254,7 @@ class TestAlignReadsToMotifCenter:
 
     def test_positive_positions(self):
         """Test reads with positions after motif center"""
-        reads = [
-            {"read_id": "read1", "reference_start": 300, "reference_end": 350}
-        ]
+        reads = [{"read_id": "read1", "reference_start": 300, "reference_end": 350}]
 
         motif_center = 200
 
@@ -271,7 +267,11 @@ class TestAlignReadsToMotifCenter:
     def test_multiple_reads(self):
         """Test alignment with multiple reads"""
         reads = [
-            {"read_id": f"read{i}", "reference_start": i * 10, "reference_end": i * 10 + 50}
+            {
+                "read_id": f"read{i}",
+                "reference_start": i * 10,
+                "reference_end": i * 10 + 50,
+            }
             for i in range(100, 110)
         ]
 
@@ -291,9 +291,7 @@ class TestAlignReadsToMotifCenter:
 
     def test_motif_center_zero(self):
         """Test with motif center at position 0"""
-        reads = [
-            {"read_id": "read1", "reference_start": 10, "reference_end": 20}
-        ]
+        reads = [{"read_id": "read1", "reference_start": 10, "reference_end": 20}]
 
         aligned = align_reads_to_motif_center(reads, motif_center=0)
 
@@ -303,9 +301,7 @@ class TestAlignReadsToMotifCenter:
 
     def test_does_not_modify_original(self):
         """Test that original reads list is not modified"""
-        reads = [
-            {"read_id": "read1", "reference_start": 100, "reference_end": 200}
-        ]
+        reads = [{"read_id": "read1", "reference_start": 100, "reference_end": 200}]
 
         original_start = reads[0]["reference_start"]
         original_end = reads[0]["reference_end"]

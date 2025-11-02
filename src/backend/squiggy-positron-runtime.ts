@@ -711,7 +711,7 @@ _squiggy_motif_matches_json = [
         // Retrieve matches using getVariable
         const matches = await this.getVariable('_squiggy_motif_matches_json');
 
-        return matches || [];
+        return (matches as any[]) || [];
     }
 
     /**
@@ -746,12 +746,6 @@ html = squiggy.plot_motif_aggregate(
 squiggy.io._route_to_plots_pane(html)
 `;
 
-        await this.executeCode(
-            code,
-            false,
-            true,
-            positron.RuntimeCodeExecutionMode.Silent,
-            positron.RuntimeErrorBehavior.Stop
-        );
+        await this.executeCode(code, false, true, positron.RuntimeCodeExecutionMode.Silent);
     }
 }
