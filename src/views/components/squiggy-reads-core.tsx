@@ -41,6 +41,29 @@ export const ReadsCore: React.FC = () => {
             const message = event.data;
 
             switch (message.type) {
+                case 'updateReads':
+                    // Handle unified message from backend
+                    if (message.groupedByReference) {
+                        // For grouped reads, message.reads contains reference headers
+                        // We need to reconstruct the referenceToReads map
+                        // (This is sent when webview becomes visible)
+                        setState((prev) => ({
+                            ...prev,
+                            items: message.reads,
+                            hasReferences: true,
+                            filteredItems: message.reads,
+                        }));
+                    } else {
+                        // Flat list of reads
+                        setState((prev) => ({
+                            ...prev,
+                            items: message.reads,
+                            hasReferences: false,
+                            totalReadCount: message.reads.length,
+                            filteredItems: message.reads,
+                        }));
+                    }
+                    break;
                 case 'setReads':
                     handleSetReads(message.items);
                     break;
@@ -58,6 +81,10 @@ export const ReadsCore: React.FC = () => {
         };
 
         window.addEventListener('message', messageHandler);
+
+        // Send ready message to request initial data
+        vscode.postMessage({ type: 'ready' });
+
         return () => window.removeEventListener('message', messageHandler);
     }, []);
 

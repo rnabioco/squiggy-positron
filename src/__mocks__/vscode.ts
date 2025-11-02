@@ -46,3 +46,88 @@ export interface Command {
     title: string;
     arguments?: unknown[];
 }
+
+export class Uri {
+    scheme: string;
+    authority: string;
+    path: string;
+    query: string;
+    fragment: string;
+    fsPath: string;
+
+    private constructor(
+        scheme: string,
+        authority: string,
+        path: string,
+        query: string,
+        fragment: string
+    ) {
+        this.scheme = scheme;
+        this.authority = authority;
+        this.path = path;
+        this.query = query;
+        this.fragment = fragment;
+        this.fsPath = path;
+    }
+
+    static file(path: string): Uri {
+        return new Uri('file', '', path, '', '');
+    }
+
+    static parse(value: string): Uri {
+        const match = value.match(/^(\w+):\/\/([^/]*)(.*)$/);
+        if (match) {
+            return new Uri(match[1], match[2], match[3], '', '');
+        }
+        return new Uri('file', '', value, '', '');
+    }
+
+    static joinPath(uri: Uri, ...pathSegments: string[]): Uri {
+        const newPath = [uri.path, ...pathSegments].join('/').replace(/\/+/g, '/');
+        return new Uri(uri.scheme, uri.authority, newPath, uri.query, uri.fragment);
+    }
+
+    with(change: {
+        scheme?: string;
+        authority?: string;
+        path?: string;
+        query?: string;
+        fragment?: string;
+    }): Uri {
+        return new Uri(
+            change.scheme ?? this.scheme,
+            change.authority ?? this.authority,
+            change.path ?? this.path,
+            change.query ?? this.query,
+            change.fragment ?? this.fragment
+        );
+    }
+
+    toString(): string {
+        return `${this.scheme}://${this.authority}${this.path}`;
+    }
+}
+
+export interface WebviewOptions {
+    enableScripts?: boolean;
+    localResourceRoots?: Uri[];
+}
+
+export interface Webview {
+    options: WebviewOptions;
+    html: string;
+    asWebviewUri(uri: Uri): Uri;
+    postMessage(message: any): Thenable<boolean>;
+    onDidReceiveMessage: any;
+    cspSource: string;
+}
+
+export interface WebviewView {
+    webview: Webview;
+    visible: boolean;
+    onDidChangeVisibility: any;
+}
+
+export interface WebviewViewProvider {
+    resolveWebviewView(webviewView: WebviewView, context: any, token: any): void | Thenable<void>;
+}

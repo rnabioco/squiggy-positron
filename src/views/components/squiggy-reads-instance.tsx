@@ -25,23 +25,43 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     onToggleReference,
     onUpdateColumnWidths,
 }) => {
+    console.log('ReadsInstance render, items:', items.length, 'first item:', items[0]);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const listRef = React.useRef<any>(null);
-    const [containerHeight, setContainerHeight] = React.useState(400);
+    const [containerHeight, setContainerHeight] = React.useState(600);
     const [localFocusedIndex, setLocalFocusedIndex] = React.useState<number | null>(focusedIndex);
 
     // Measure container height
     React.useEffect(() => {
         const updateHeight = () => {
             if (containerRef.current) {
-                setContainerHeight(containerRef.current.clientHeight);
+                const height = containerRef.current.clientHeight;
+                console.log('Container height:', height);
+                if (height > 100) {
+                    // Only update if we got a reasonable height
+                    setContainerHeight(height);
+                }
             }
         };
 
-        updateHeight();
+        // Try multiple times to get the height (handles async layout)
+        const rafId = requestAnimationFrame(() => {
+            updateHeight();
+            // Try again after a short delay if height is still small
+            setTimeout(() => {
+                updateHeight();
+            }, 100);
+        });
+
         window.addEventListener('resize', updateHeight);
-        return () => window.removeEventListener('resize', updateHeight);
+        return () => {
+            cancelAnimationFrame(rafId);
+            window.removeEventListener('resize', updateHeight);
+        };
     }, []);
+
+    // Items change triggers automatic re-render (no manual reset needed for FixedSizeList)
+    // resetAfterIndex is only for VariableSizeList
 
     // Handle column resizing
     const handleColumnResize = (deltaX: number) => {
@@ -141,6 +161,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
         const item = items[index];
         const isFocused = index === localFocusedIndex;
+        console.log('Rendering row', index, 'item:', item);
 
         if (item.type === 'reference') {
             return (
@@ -189,10 +210,10 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
 
             {/* Virtualized list */}
             {items.length > 0 ? (
-                <div tabIndex={0} style={{ outline: 'none' }}>
+                <div tabIndex={0} style={{ outline: 'none', flex: 1 }}>
                     <List
                         ref={listRef}
-                        height={containerHeight - 32} // Subtract header height
+                        height={Math.max(100, containerHeight - 32)} // Subtract header height
                         itemCount={items.length}
                         itemSize={CONSTANTS.ROW_HEIGHT}
                         width="100%"
