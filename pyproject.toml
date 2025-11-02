@@ -39,10 +39,6 @@ dev = [
   "mkdocs-material>=9.0.0",
   "jupyter>=1.0.0",  # For testing in notebooks
 ]
-export = [
-  "selenium>=4.6",  # Selenium Manager (auto-downloads geckodriver) requires 4.6+
-  "pillow>=9.0",
-]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

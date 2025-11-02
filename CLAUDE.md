@@ -275,8 +275,8 @@ All webview panels communicate with extension via `postMessage`. The Reads panel
 **PlotPanel** (`src/webview/squiggy-plot-panel.ts`):
 - Webview panel displaying Bokeh HTML plots
 - Receives HTML from Python backend via kernel execution
-- Handles export to HTML/PNG/SVG formats
-- Supports zoom-level export (captures current view)
+- Handles export to HTML format (interactive plots)
+- PNG/SVG export delegated to Positron's built-in plot export functionality
 
 ### Python API
 
@@ -321,8 +321,11 @@ git clone https://github.com/rnabioco/squiggy-positron.git
 cd squiggy-positron
 git lfs install && git lfs pull
 
-# Install all dependencies
+# Install dependencies (default environment: runtime + dev tools)
 pixi install && pixi run setup  # Python + Node.js + npm packages
+
+# Optional: Install docs environment (for building documentation)
+pixi install --environment docs
 
 # Build extension
 pixi run build
@@ -342,7 +345,7 @@ pixi run build
 pixi run dev       # Watch mode (auto-compile on save)
 pixi run test      # Run ALL tests (Python + TypeScript)
 pixi run build     # Build extension (.vsix)
-pixi run docs      # Serve documentation
+pixi run --environment docs docs  # Serve documentation (requires docs env)
 ```
 
 **Granular Testing**:

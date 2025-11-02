@@ -40,7 +40,7 @@ First production release of Squiggy as a Positron IDE extension for Oxford Nanop
 - **Event-Aligned Plotting**: Base-level resolution with move table support
 - **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
 - **Advanced Filtering**: Search reads by ID, reference sequence, or modification type
-- **Plot Export**: Save visualizations as HTML (interactive), PNG, or SVG
+- **Plot Export**: Save visualizations as HTML (interactive); PNG/SVG export via Positron's built-in functionality
 - **Test Data Bundled**: Includes yeast tRNA example data (~2MB) for quick experimentation
 
 ### 🔧 Installation & Environment
