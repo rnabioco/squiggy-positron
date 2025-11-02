@@ -1,0 +1,246 @@
+/**
+ * Squiggy-specific Runtime API
+ *
+ * High-level API for squiggy operations: loading POD5/BAM files,
+ * generating plots, and reading squiggy-specific kernel state.
+ *
+ * Built on top of PositronRuntimeClient for low-level kernel communication.
+ */
+
+import { PositronRuntimeClient } from './positron-runtime-client';
+
+/**
+ * Result from loading a POD5 file
+ */
+export interface POD5LoadResult {
+    numReads: number;
+}
+
+/**
+ * Result from loading a BAM file
+ */
+export interface BAMLoadResult {
+    numReads: number;
+    hasModifications: boolean;
+    modificationTypes: string[];
+    hasProbabilities: boolean;
+    hasEventAlignment: boolean;
+}
+
+/**
+ * High-level API for squiggy operations in the Python kernel
+ */
+export class SquiggyRuntimeAPI {
+    constructor(private readonly client: PositronRuntimeClient) {}
+
+    /**
+     * Load a POD5 file
+     *
+     * Executes squiggy.load_pod5() in the kernel. The reader and read_ids
+     * are stored in kernel variables accessible from console/notebooks.
+     *
+     * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
+     */
+    async loadPOD5(filePath: string): Promise<POD5LoadResult> {
+        // Escape single quotes in path
+        const escapedPath = filePath.replace(/'/g, "\\'");
+
+        // Load file silently (no console output)
+        await this.client.executeSilent(`
+import squiggy
+_squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
+`);
+
+        // Get read count by reading variable directly (no print needed)
+        const numReads = await this.client.getVariable('len(_squiggy_read_ids)');
+
+        return { numReads: numReads as number };
+    }
+
+    /**
+     * Get read IDs from loaded POD5 file
+     *
+     * @param offset Starting index (default 0)
+     * @param limit Maximum number of read IDs to return (default all)
+     */
+    async getReadIds(offset: number = 0, limit?: number): Promise<string[]> {
+        const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
+
+        // Read variable slice directly (no print needed)
+        const readIds = await this.client.getVariable(`_squiggy_read_ids${sliceStr}`);
+
+        return readIds as string[];
+    }
+
+    /**
+     * Load a BAM file
+     *
+     * Does NOT preload reference mapping - use getReferences() and getReadsForReference()
+     * to fetch data on-demand.
+     */
+    async loadBAM(filePath: string): Promise<BAMLoadResult> {
+        const escapedPath = filePath.replace(/'/g, "\\'");
+
+        // Load BAM silently (no console output)
+        await this.client.executeSilent(`
+import squiggy
+_squiggy_bam_info = squiggy.load_bam('${escapedPath}')
+_squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
+`);
+
+        // Read metadata directly from variables (no print needed)
+        const numReads = await this.client.getVariable("_squiggy_bam_info['num_reads']");
+        const hasModifications = await this.client.getVariable(
+            "_squiggy_bam_info.get('has_modifications', False)"
+        );
+        const modificationTypes = await this.client.getVariable(
+            "_squiggy_bam_info.get('modification_types', [])"
+        );
+        const hasProbabilities = await this.client.getVariable(
+            "_squiggy_bam_info.get('has_probabilities', False)"
+        );
+        const hasEventAlignment = await this.client.getVariable(
+            "_squiggy_bam_info.get('has_event_alignment', False)"
+        );
+
+        return {
+            numReads: numReads as number,
+            hasModifications: hasModifications as boolean,
+            modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
+            hasProbabilities: hasProbabilities as boolean,
+            hasEventAlignment: hasEventAlignment as boolean,
+        };
+    }
+
+    /**
+     * Get list of reference names from loaded BAM file
+     */
+    async getReferences(): Promise<string[]> {
+        // Read keys directly from variable (no print needed)
+        const references = await this.client.getVariable('list(_squiggy_ref_mapping.keys())');
+        return references as string[];
+    }
+
+    /**
+     * Get read IDs mapping to a specific reference
+     */
+    async getReadsForReference(referenceName: string): Promise<string[]> {
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        // Read directly from variable (no print needed)
+        const readIds = await this.client.getVariable(
+            `_squiggy_ref_mapping.get('${escapedRef}', [])`
+        );
+
+        return readIds as string[];
+    }
+
+    /**
+     * Generate a plot for read(s) and route to Plots pane
+     *
+     * Generates Bokeh plot which is automatically routed to Positron's Plots pane
+     * via webbrowser.open() interception
+     */
+    async generatePlot(
+        readIds: string[],
+        mode: string = 'SINGLE',
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        showDwellTime: boolean = false,
+        showBaseAnnotations: boolean = true,
+        scaleDwellTime: boolean = false,
+        minModProbability: number = 0.5,
+        enabledModTypes: string[] = [],
+        downsample: number = 1,
+        showSignalPoints: boolean = false
+    ): Promise<void> {
+        const readIdsJson = JSON.stringify(readIds);
+        const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+        const code = `
+import sys
+import squiggy
+import traceback
+
+# Initialize error tracking
+_squiggy_plot_error = None
+
+try:
+    # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
+    ${
+        readIds.length === 1
+            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+    }
+except Exception as e:
+    _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
+    print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this.client.executeSilent(code);
+
+            // Check if there was an error during plot generation
+            const plotError = await this.client
+                .getVariable('_squiggy_plot_error')
+                .catch(() => null);
+            if (plotError !== null) {
+                throw new Error(`Plot generation failed:\n${plotError}`);
+            }
+
+            // Clean up temporary variable
+            await this.client.executeSilent(`
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`);
+        } catch (error) {
+            // Clean up on error
+            await this.client
+                .executeSilent(
+                    `
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`
+                )
+                .catch(() => {});
+            throw error;
+        }
+    }
+
+    /**
+     * Generate an aggregate plot for a reference sequence and route to Plots pane
+     * @param referenceName - Name of reference sequence from BAM file
+     * @param maxReads - Maximum number of reads to sample (default 100)
+     * @param normalization - Normalization method (ZNORM, MAD, etc.)
+     * @param theme - Color theme (LIGHT or DARK)
+     */
+    async generateAggregatePlot(
+        referenceName: string,
+        maxReads: number = 100,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<void> {
+        // Escape single quotes in reference name for Python string
+        const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+
+# Generate aggregate plot - will be automatically routed to Plots pane
+squiggy.plot_aggregate(
+    reference_name='${escapedRefName}',
+    max_reads=${maxReads},
+    normalization='${normalization}',
+    theme='${theme}'
+)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to generate aggregate plot: ${error}`);
+        }
+    }
+}
