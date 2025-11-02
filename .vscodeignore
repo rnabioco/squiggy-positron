@@ -8,6 +8,13 @@ src/**
 .prettierrc.json
 tsconfig.json
 jest.config.js
+htmlcov/**
+
+# Tests data live in tests/data
+# tests/**
+
+# images
+resources/screenshot.png
 
 # Python development files (exclude test code but include test data)
 tests/*.py
