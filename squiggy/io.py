@@ -31,7 +31,7 @@ def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
     Returns:
         Tuple of (reader, read_ids)
 
-    Example:
+    Examples:
         >>> from squiggy import load_pod5
         >>> reader, read_ids = load_pod5('data.pod5')
         >>> print(f"Loaded {len(read_ids)} reads")
@@ -78,7 +78,7 @@ def get_bam_event_alignment_status(file_path: str) -> bool:
     Returns:
         True if mv tag is found in sampled reads
 
-    Example:
+    Examples:
         >>> from squiggy import get_bam_event_alignment_status
         >>> has_events = get_bam_event_alignment_status('alignments.bam')
         >>> if has_events:
@@ -123,7 +123,7 @@ def get_bam_modification_info(file_path: str) -> dict:
             - modification_types: list of modification codes (e.g., ['m', 'h'])
             - sample_count: number of reads checked
 
-    Example:
+    Examples:
         >>> from squiggy import get_bam_modification_info
         >>> mod_info = get_bam_modification_info('alignments.bam')
         >>> if mod_info['has_modifications']:
@@ -200,7 +200,7 @@ def load_bam(file_path: str) -> dict:
     Returns:
         Dict with file metadata including references, modifications, and event alignment
 
-    Example:
+    Examples:
         >>> from squiggy import load_bam
         >>> bam_info = load_bam('alignments.bam')
         >>> print(bam_info['references'])
@@ -250,7 +250,7 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
     Raises:
         RuntimeError: If no BAM file is loaded
 
-    Example:
+    Examples:
         >>> from squiggy import load_bam, get_read_to_reference_mapping
         >>> load_bam('alignments.bam')
         >>> mapping = get_read_to_reference_mapping()

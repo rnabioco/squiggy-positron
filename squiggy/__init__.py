@@ -108,7 +108,7 @@ def plot_read(
     Returns:
         Bokeh HTML string
 
-    Example:
+    Examples:
         >>> html = plot_read('read_001', mode='EVENTALIGN')
         >>> # Extension displays this automatically
         >>> # Or save to file:
@@ -223,7 +223,7 @@ def plot_reads(
     Returns:
         Bokeh HTML string
 
-    Example:
+    Examples:
         >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY')
     """
     from .io import _current_pod5_reader
@@ -285,7 +285,7 @@ def plot_aggregate(
     Returns:
         Bokeh HTML string with three synchronized tracks
 
-    Example:
+    Examples:
         >>> import squiggy
         >>> squiggy.load_pod5('data.pod5')
         >>> squiggy.load_bam('alignments.bam')

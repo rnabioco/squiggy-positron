@@ -59,7 +59,7 @@ def extract_modifications_from_alignment(
         - position: int (base position in read, 0-indexed)
         - quality: int (encoded as 256*probability, or -1 if unknown)
 
-    Example:
+    Examples:
         >>> from squiggy.alignment import extract_alignment_from_bam
         >>> aligned_read = extract_alignment_from_bam(bam_path, read_id)
         >>> mods = extract_modifications_from_alignment(alignment, aligned_read.bases)
@@ -138,7 +138,7 @@ def detect_modification_provenance(bam_file: Path) -> dict[str, Any]:
             - full_info: str (complete @PG command line for reference)
             - unknown: bool (True if provenance could not be determined)
 
-    Example:
+    Examples:
         >>> provenance = detect_modification_provenance(bam_path)
         >>> if not provenance["unknown"]:
         ...     print(f"Basecaller: {provenance['basecaller']} v{provenance['version']}")
