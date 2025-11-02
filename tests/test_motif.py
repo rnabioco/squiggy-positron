@@ -211,20 +211,20 @@ class TestSearchMotif:
 
     def test_search_with_region_filter(self, fasta_file):
         """Test search with region filter"""
-        # Search only in tRNA-Ala-AGC-1-1
-        matches = list(search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1"))
+        # Search only in tRNA-Ala-AGC-1-1-uncharged
+        matches = list(search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged"))
 
         assert len(matches) > 0
         for match in matches:
-            assert match.chrom == "tRNA-Ala-AGC-1-1"
+            assert match.chrom == "tRNA-Ala-AGC-1-1-uncharged"
 
     def test_search_with_position_range(self, fasta_file):
         """Test search with position range"""
         # Search in specific region
-        matches = list(search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1:1-50"))
+        matches = list(search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged:1-50"))
 
         for match in matches:
-            assert match.chrom == "tRNA-Ala-AGC-1-1"
+            assert match.chrom == "tRNA-Ala-AGC-1-1-uncharged"
             # match.position is 0-based
             assert match.position < 50
 
@@ -322,7 +322,7 @@ class TestCountMotifs:
 
     def test_count_with_region(self, fasta_file):
         """Test counting with region filter"""
-        count = count_motifs(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1")
+        count = count_motifs(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged")
         assert count > 0
 
     def test_count_with_strand(self, fasta_file):
@@ -351,10 +351,10 @@ class TestFastaFileIntegration:
         with FastaFile(fasta_file) as fasta:
             # Check references
             assert len(fasta.references) > 0
-            assert "tRNA-Ala-AGC-1-1" in fasta.references
+            assert "tRNA-Ala-AGC-1-1-uncharged" in fasta.references
 
             # Test fetch
-            seq = fasta.fetch("tRNA-Ala-AGC-1-1", 0, 10)
+            seq = fasta.fetch("tRNA-Ala-AGC-1-1-uncharged", 0, 10)
             assert len(seq) == 10
 
             # Test motif search
@@ -403,7 +403,7 @@ class TestBamFileMotifIntegration:
         with FastaFile(fasta_file) as fasta, BamFile(bam_file) as bam:
             # Find reads overlapping GGG motifs
             overlaps = bam.get_reads_overlapping_motif(
-                fasta, "GGG", region="tRNA-Ala-AGC-1-1"
+                fasta, "GGG", region="tRNA-Ala-AGC-1-1-uncharged"
             )
 
             # Should find some overlapping reads
@@ -415,7 +415,7 @@ class TestBamFileMotifIntegration:
                 # Position key format: "chrom:position:strand"
                 parts = position_key.split(":")
                 assert len(parts) == 3
-                assert parts[0] == "tRNA-Ala-AGC-1-1"
+                assert parts[0] == "tRNA-Ala-AGC-1-1-uncharged"
 
                 # Should have list of reads
                 assert isinstance(reads, list)
@@ -428,7 +428,7 @@ class TestBamFileMotifIntegration:
         with BamFile(bam_file) as bam:
             # Pass path as string
             overlaps = bam.get_reads_overlapping_motif(
-                str(fasta_file), "GGG", region="tRNA-Ala-AGC-1-1"
+                str(fasta_file), "GGG", region="tRNA-Ala-AGC-1-1-uncharged"
             )
 
             assert isinstance(overlaps, dict)

@@ -1183,6 +1183,7 @@ def extract_reads_for_motif(
                         "read_id": read.query_name,
                         "reference_start": read.reference_start,
                         "reference_end": read.reference_end,
+                        "chrom": motif_match.chrom,  # Add chromosome name
                         "sequence": read.query_sequence,
                         "move_table": moves,
                         "stride": stride,
