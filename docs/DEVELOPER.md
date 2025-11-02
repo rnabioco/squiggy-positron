@@ -42,9 +42,14 @@ pixi install && pixi run setup
 ```
 
 This installs:
-- **pixi install**: Python 3.12, Node.js 20+, packages from conda-forge (numpy, pytest, ruff, mkdocs), and PyPI packages (pod5, pysam, bokeh, selenium)
+- **pixi install**: Installs the `default` environment with:
+  - Python 3.12, Node.js 20+
+  - Runtime: numpy, pod5, pysam, bokeh
+  - Dev tools: pytest, pytest-cov, ruff
 - **pixi run setup**: npm packages (TypeScript, Jest, ESLint, Prettier) via `npm install`
 - All dependencies locked via `pixi.lock` and `package-lock.json`
+
+> **Building documentation?** Use `pixi install --environment docs` to include mkdocs and related tools.
 
 **Option B: Using uv (recommended for Python-only, faster)**
 
@@ -56,7 +61,7 @@ source .venv/bin/activate  # macOS/Linux
 .venv\Scripts\activate     # Windows
 
 # Install Python package in editable mode with dev dependencies
-uv pip install -e ".[dev,export]"
+uv pip install -e ".[dev]"
 
 # Install Node.js packages (requires Node.js installed separately)
 npm install

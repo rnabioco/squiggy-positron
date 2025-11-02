@@ -301,32 +301,29 @@ Common modification types:
 
 **Formats:**
 - **HTML**: Interactive Bokeh plot (with zoom/pan)
-- **PNG**: Static raster image
-- **SVG**: Static vector image (best for publications)
+- **PNG/SVG**: Use Positron's built-in plot export functionality
+  - Right-click on plot → "Export"
+  - Available in Positron's plot viewer
 
-**Dimensions:**
-- Width and height in pixels
-- Lock aspect ratio option (linked icon)
-
-**Zoom Level:**
-- **Full plot** (default): Export entire signal
-- **Current zoom**: Export only visible region
-  - Useful for focusing on specific sections
+**HTML Export:**
+- Preserves full interactivity (zoom, pan, hover)
+- Can be opened in any web browser
+- Best for sharing with collaborators
 
 ### Export Quality
 
 **For Publications:**
-- Use SVG format for vector graphics
-- Set high dimensions (e.g., 1200x800)
-- Export at full zoom for complete data
+- Use Positron's SVG export for vector graphics
+- Set high dimensions in Positron's export dialog
+- Best quality for figures
 
 **For Presentations:**
-- PNG works well for slides
-- Can export specific zoom regions for detail views
+- Use Positron's PNG export for slides
+- Quick and convenient for PowerPoint/Keynote
 
 **For Sharing:**
-- HTML format preserves interactivity
-- Recipients can zoom/pan themselves
+- HTML export preserves full interactivity
+- Recipients can explore data with zoom/pan tools
 
 ## Keyboard Shortcuts
 
@@ -371,8 +368,8 @@ Common modification types:
 - Check that BAM was basecalled with modification detection
 
 **Export fails:**
-- PNG/SVG export requires selenium (auto-downloads geckodriver)
-- First export may take longer (driver download)
+- HTML export saves the interactive plot to a file
+- For PNG/SVG export, use Positron's built-in plot export (right-click on plot)
 - Check Output panel for errors
 
 ## Example Workflows
