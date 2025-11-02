@@ -16,6 +16,14 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 - **Read Filtering**: Search by read ID, reference region, or sequence motif
 - **Modification Analysis**: Filter and visualize base modifications with probability thresholds
 
+## System Requirements
+
+- **Positron IDE**: Version 2024.09.0 or later
+- **Operating Systems**: macOS (Intel/Apple Silicon), Linux, Windows
+- **Python**: 3.12 or later
+- **Memory**: 4GB RAM minimum (8GB recommended for large POD5 files)
+- **Disk Space**: Varies by dataset size (POD5 files can be several GB)
+
 ## Installation
 
 ### Recommended: Install from OpenVSX

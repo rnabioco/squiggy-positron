@@ -4,14 +4,29 @@ Complete guide to using the Squiggy Positron extension for nanopore signal visua
 
 ## Table of Contents
 
+- [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
+- [Sample Data](#sample-data)
 - [Loading Data](#loading-data)
 - [Browsing Reads](#browsing-reads)
 - [Plotting Reads](#plotting-reads)
 - [Plot Customization](#plot-customization)
 - [Base Modifications](#base-modifications)
 - [Exporting Plots](#exporting-plots)
+- [Common Errors](#common-errors)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
+
+## Prerequisites
+
+Before using Squiggy, ensure you have:
+
+- **Positron IDE** 2024.09.0 or later installed
+- **Python 3.12+** with a virtual environment (venv, conda, or uv)
+- **POD5 files** from Oxford Nanopore sequencing
+- **BAM files** (optional, required for base annotations and modifications)
+  - Must be indexed (`.bai` file present)
+  - Should contain move tables (`mv` tag) for event-aligned visualization
+  - May contain modification tags (`MM`/`ML`) for modification analysis
 
 ## Getting Started
 
@@ -77,6 +92,28 @@ Click the Squiggy icon in the Activity Bar (left sidebar) to open the extension 
 - **Reads** - Hierarchical read list
 - **Plot Options** - Visualization settings
 - **Base Modifications** - Modification filtering (when BAM loaded)
+
+## Sample Data
+
+Squiggy includes sample data for testing and learning. The test data is available in the repository:
+
+- **Location**: `tests/data/` directory
+- **POD5 file**: `yeast_trna_reads.pod5` (180 reads from yeast tRNA sequencing)
+- **BAM file**: `yeast_trna_mappings.bam` (corresponding alignments with base calls)
+
+To use the sample data:
+
+```bash
+# Clone the repository (includes sample data via Git LFS)
+git clone https://github.com/rnabioco/squiggy-positron.git
+cd squiggy-positron
+git lfs pull  # Download POD5/BAM files
+
+# Sample files are now in tests/data/
+ls tests/data/
+```
+
+Alternatively, download individual files from the [GitHub repository](https://github.com/rnabioco/squiggy-positron/tree/main/tests/data).
 
 ## Loading Data
 
@@ -367,6 +404,64 @@ Common modification types:
 4. Enable "Color by dwell time"
 5. Identify slow-translocation regions
 6. Export specific regions for analysis
+
+## Common Errors
+
+### "BAM index not found"
+
+**Problem**: BAM file is not indexed (missing `.bai` file)
+
+**Solution**: Create an index using samtools:
+```bash
+samtools index your_file.bam
+```
+
+### "No move table found in BAM alignment"
+
+**Problem**: BAM file doesn't contain move tables (`mv` tag), which are required for event-aligned visualization
+
+**Solution**:
+- Ensure your BAM was generated with dorado or guppy basecaller (modern versions)
+- Older basecalling methods may not include move tables
+- Re-basecall your POD5 files with a recent version of dorado
+
+### "Cannot read POD5 file" or "File format error"
+
+**Problem**: POD5 file is corrupted or uses an incompatible format
+
+**Solution**:
+- Verify file integrity: `pod5 inspect summary your_file.pod5`
+- Ensure you have the latest version of the pod5 Python package
+- Check that the file was completely downloaded (not truncated)
+
+### "Python package not installed"
+
+**Problem**: The `squiggy` Python package is not available in the active Python kernel
+
+**Solution**:
+- Ensure you're using a virtual environment (not system Python)
+- Install the package: `pip install squiggy`
+- Restart the Python console in Positron
+- Check the selected Python interpreter in Positron matches your virtual environment
+
+### "Plots not rendering" or "Blank plot panel"
+
+**Problem**: Webview or browser rendering issues
+
+**Solution**:
+- Reload Positron window (`Ctrl+R` / `Cmd+R`)
+- Try a different plot mode (SINGLE vs EVENTALIGN)
+- Check the Output panel (Squiggy) for error messages
+- Ensure the read ID exists in the POD5 file
+
+### "Modifications not showing"
+
+**Problem**: BAM file doesn't contain modification tags (`MM`/`ML`)
+
+**Solution**:
+- Verify your BAM has modification tags: `samtools view your_file.bam | head -1`
+- Look for `MM:Z:` and `ML:B:C` tags in the output
+- If missing, re-basecall with modification calling enabled (dorado with modification model)
 
 ## Getting Help
 

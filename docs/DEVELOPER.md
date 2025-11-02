@@ -183,10 +183,16 @@ squiggy-positron-extension/
 │   │   ├── squiggy-positron-runtime.ts  # Positron kernel integration
 │   │   └── squiggy-python-backend.ts    # JSON-RPC subprocess fallback
 │   ├── views/                  # UI panels
+│   │   ├── components/         # React components for reads panel
+│   │   │   ├── squiggy-reads-core.tsx   # Main table logic
+│   │   │   ├── squiggy-reads-instance.tsx # Webview host
+│   │   │   ├── squiggy-read-item.tsx    # Individual read row
+│   │   │   ├── squiggy-reference-group.tsx # Grouped by reference
+│   │   │   ├── column-resizer.tsx       # Resizable columns
+│   │   │   └── webview-entry.tsx        # React entry point
 │   │   ├── squiggy-file-panel.ts        # File info panel
-│   │   ├── squiggy-read-explorer.ts     # Read list tree view
-│   │   ├── squiggy-read-search-view.ts   # Search panel
-│   │   ├── squiggy-plot-options-view.ts  # Plot options panel
+│   │   ├── squiggy-reads-view-pane.ts   # Read list React webview
+│   │   ├── squiggy-plot-options-view.ts # Plot options panel
 │   │   └── squiggy-modifications-panel.ts # Modifications panel
 │   ├── webview/                # Plot display
 │   │   └── squiggy-plot-panel.ts        # Bokeh plot webview
@@ -201,9 +207,10 @@ squiggy-positron-extension/
 │   └── data/                   # Test data (POD5/BAM files)
 │
 ├── .github/workflows/          # CI/CD
-│   ├── test.yml                # Run tests on PR
+│   ├── test.yml                # Run tests on PR/push
 │   ├── build.yml               # Build .vsix artifact
-│   └── release.yml             # Create releases
+│   ├── release.yml             # Create releases and publish to OpenVSX
+│   └── docs.yml                # Deploy documentation to GitHub Pages
 │
 ├── docs/                       # Documentation (MkDocs)
 ├── jest.config.js              # Jest test configuration
@@ -333,6 +340,25 @@ Use the sample data in `tests/data/`:
 
 ## Common Tasks
 
+### Version Management
+
+Version numbers are automatically synchronized between `package.json` and `squiggy/__init__.py`:
+
+```bash
+# Manually sync versions
+pixi run sync
+# OR
+npm run sync
+```
+
+This synchronization runs automatically before compilation via the `vscode:prepublish` npm script. The `scripts/sync-version.js` script ensures both files always have the same version number.
+
+When creating a new release:
+1. Update the version in `package.json`
+2. Run `pixi run sync` to update `squiggy/__init__.py`
+3. Commit both files together
+4. Create and push a git tag (e.g., `v0.2.0`)
+
 ### Adding a New Command
 
 1. **Register in `package.json`**:
@@ -389,27 +415,38 @@ Use the sample data in `tests/data/`:
 
 GitHub Actions runs on every push/PR:
 
-- **test.yml**: Python and TypeScript tests
-- **build.yml**: Compile and package .vsix
-- **release.yml**: Create GitHub releases (on version tags)
+- **test.yml**: Python and TypeScript tests on ubuntu-latest and macos-latest
+- **build.yml**: Compile and package .vsix artifact
+- **release.yml**: Create GitHub releases and publish to Open VSX Registry (on version tags)
+- **docs.yml**: Deploy MkDocs documentation to GitHub Pages (on push to main)
+
+Test coverage is automatically uploaded to Codecov.
 
 ## Release Process
 
-1. **Update version** in `package.json` and `squiggy/__init__.py`
+1. **Update version** in `package.json`
 
-2. **Update NEWS.md** with release notes
-
-3. **Create and push tag**:
+2. **Sync version** to Python package:
    ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
+   pixi run sync
    ```
 
-4. **GitHub Actions** automatically:
-   - Runs tests
-   - Builds .vsix
-   - Creates GitHub release
-   - Attaches .vsix artifact
+3. **Update NEWS.md** with release notes
+
+4. **Commit and tag**:
+   ```bash
+   git add package.json squiggy/__init__.py NEWS.md
+   git commit -m "Release v0.2.0"
+   git tag v0.2.0
+   git push origin main --tags
+   ```
+
+5. **GitHub Actions** automatically:
+   - Runs tests on multiple platforms
+   - Builds .vsix artifact
+   - Creates GitHub release with artifact
+   - Publishes to Open VSX Registry
+   - Detects pre-release versions (alpha, beta, rc) automatically
 
 ## Contributing
 
