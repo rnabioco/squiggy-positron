@@ -2,7 +2,7 @@
   "name": "squiggy-positron",
   "displayName": "Squiggy",
   "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files",
-  "version": "0.1.4-alpha",
+  "version": "0.1.5-alpha",
   "publisher": "rnabioco",
   "repository": {
     "type": "git",
@@ -81,7 +81,7 @@
       "activitybar": [
         {
           "id": "squiggy-sidebar",
-          "title": "Squiggy v0.1.4-alpha",
+          "title": "Squiggy v0.1.5-alpha",
           "icon": "resources/icon.svg"
         }
       ]
