@@ -93,7 +93,7 @@ class SquigglePlotter:
         else:
             self.base_colors = BASE_COLORS
 
-    def figure_to_html(self, fig) -> str:
+    def figure_to_html(self, fig: figure) -> str:
         """
         Convert a Bokeh figure to HTML string and route to Plots pane if in Positron
 

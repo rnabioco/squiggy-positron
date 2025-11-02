@@ -1,23 +1,21 @@
 site_name: Squiggy
 site_description: A Positron IDE extension for visualizing Oxford Nanopore sequencing data
 site_author: rnabioco
+site_url: https://rnabioco.github.io/squiggy-positron/
 repo_url: https://github.com/rnabioco/squiggy-positron
 repo_name: rnabioco/squiggy-positron
+edit_uri: edit/main/docs/
 
 theme:
   name: material
   palette:
-    # Palette toggle for light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: default
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    # Palette toggle for dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    - scheme: slate
       primary: indigo
       accent: indigo
       toggle:
@@ -26,13 +24,60 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
     - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            members_order: source
+            show_if_no_docstring: false
 
 markdown_extensions:
   - admonition
-  - codehilite
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
   - toc:
       permalink: true
+  - attr_list
+
+extra:
+  version:
+    provider: mike
 
 nav:
   - Home: index.md
+  - User Guide: USER_GUIDE.md
+  - Developer Guide: DEVELOPER.md
+  - API Reference:
+      - Overview: api/index.md
+      - Core Functions: api/core.md
+      - Object-Oriented API: api/api.md
+      - Plotting: api/plotting.md
+      - Alignment: api/alignment.md
+      - Modifications: api/modifications.md
+      - Normalization: api/normalization.md
+      - Utilities: api/utils.md
