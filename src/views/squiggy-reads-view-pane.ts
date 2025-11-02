@@ -51,6 +51,7 @@ export class ReadsViewPane extends BaseWebviewProvider {
                 type: 'updateReads',
                 reads: this._readItems,
                 groupedByReference: true,
+                referenceToReads: Array.from(this._referenceToReads.entries()),
             });
         } else if (this._readItems.length > 0) {
             this.postMessage({

@@ -45,12 +45,22 @@ export const ReadsCore: React.FC = () => {
                     // Handle unified message from backend
                     if (message.groupedByReference) {
                         // For grouped reads, message.reads contains reference headers
-                        // We need to reconstruct the referenceToReads map
-                        // (This is sent when webview becomes visible)
+                        // Populate the referenceToReads map for expansion logic
+                        if (message.referenceToReads) {
+                            referenceToReadsRef.current = new Map(message.referenceToReads);
+                        }
+
                         setState((prev) => ({
                             ...prev,
                             items: message.reads,
                             hasReferences: true,
+                            totalReadCount: message.referenceToReads
+                                ? message.referenceToReads.reduce(
+                                      (sum: number, [_, reads]: [string, ReadItem[]]) =>
+                                          sum + reads.length,
+                                      0
+                                  )
+                                : 0,
                             filteredItems: message.reads,
                         }));
                     } else {
