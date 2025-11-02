@@ -54,7 +54,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     }
 
     protected updateView(): void {
-        if (!this.isVisible) {
+        // Don't check isVisible - if we have a view and received 'ready',
+        // the webview is ready to receive messages
+        if (!this._view) {
             return;
         }
 

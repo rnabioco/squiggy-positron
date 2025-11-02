@@ -43,7 +43,9 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
     }
 
     protected updateView(): void {
-        if (!this.isVisible) {
+        // Don't check isVisible here - if we have a view and received 'ready',
+        // the webview is ready to receive messages even if not technically "visible" yet
+        if (!this._view) {
             return;
         }
 

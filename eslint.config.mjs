@@ -83,6 +83,7 @@ export default [
             'node_modules/**',
             '.vscode-test/**',
             '**/__tests__/**',
+            '**/__mocks__/**',
             '**/*.test.ts',
             '**/*.spec.ts',
             'build/**',

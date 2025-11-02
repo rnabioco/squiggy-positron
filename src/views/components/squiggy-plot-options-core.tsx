@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { vscode } from './vscode-api';
 
 interface PlotOptionsState {
     plotMode: 'SINGLE' | 'EVENTALIGN';
@@ -65,7 +66,7 @@ export const PlotOptionsCore: React.FC = () => {
     }, []);
 
     const sendMessage = (type: string, data: any) => {
-        (window as any).vscode.postMessage({ type, ...data });
+        vscode.postMessage({ type, ...data });
     };
 
     const handlePlotModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -84,24 +85,23 @@ export const PlotOptionsCore: React.FC = () => {
         });
     };
 
-    const handleCheckboxChange = (field: keyof PlotOptionsState) => (
-        e: React.ChangeEvent<HTMLInputElement>
-    ) => {
-        const value = e.target.checked;
-        let updates: Partial<PlotOptionsState> = { [field]: value };
+    const handleCheckboxChange =
+        (field: keyof PlotOptionsState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+            const value = e.target.checked;
+            let updates: Partial<PlotOptionsState> = { [field]: value };
 
-        // Handle mutual exclusivity
-        if (field === 'showDwellTime' && value) {
-            updates.scaleDwellTime = false;
-        } else if (field === 'scaleDwellTime' && value) {
-            updates.showDwellTime = false;
-        }
+            // Handle mutual exclusivity
+            if (field === 'showDwellTime' && value) {
+                updates.scaleDwellTime = false;
+            } else if (field === 'scaleDwellTime' && value) {
+                updates.showDwellTime = false;
+            }
 
-        setOptions((prev) => ({ ...prev, ...updates }));
-        sendMessage('optionsChanged', {
-            options: { ...options, ...updates },
-        });
-    };
+            setOptions((prev) => ({ ...prev, ...updates }));
+            sendMessage('optionsChanged', {
+                options: { ...options, ...updates },
+            });
+        };
 
     const handleDownsampleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseInt(e.target.value);

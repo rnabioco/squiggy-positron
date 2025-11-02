@@ -336,15 +336,25 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
             // Update modifications panel and context
             if (hasModifications) {
+                // Set context FIRST to make panel visible
+                await vscode.commands.executeCommand(
+                    'setContext',
+                    'squiggy.hasModifications',
+                    true
+                );
+                // Then update the panel data (panel is now visible)
                 state.modificationsProvider?.setModificationInfo(
                     hasModifications,
                     modificationTypes,
                     hasProbabilities
                 );
-                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', true);
             } else {
                 state.modificationsProvider?.clear();
-                vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+                await vscode.commands.executeCommand(
+                    'setContext',
+                    'squiggy.hasModifications',
+                    false
+                );
             }
 
             // Update plot options to show EVENTALIGN mode and set as default

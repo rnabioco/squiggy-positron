@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { vscode } from './vscode-api';
 
 interface ModificationsState {
     hasModifications: boolean;
@@ -69,8 +70,10 @@ export const ModificationsCore: React.FC = () => {
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
+            console.log('ModificationsCore received message:', message);
             switch (message.type) {
                 case 'updateModInfo':
+                    console.log('Updating mod info:', message);
                     setState({
                         hasModifications: message.hasModifications,
                         modificationTypes: message.modificationTypes,
@@ -80,6 +83,7 @@ export const ModificationsCore: React.FC = () => {
                     });
                     break;
                 case 'clearMods':
+                    console.log('Clearing mods');
                     setState({
                         hasModifications: false,
                         modificationTypes: [],
@@ -88,12 +92,15 @@ export const ModificationsCore: React.FC = () => {
                         enabledModTypes: new Set(),
                     });
                     break;
+                default:
+                    console.log('Unknown message type:', message.type);
             }
         };
 
         window.addEventListener('message', handleMessage);
         // Request initial state
-        (window as any).vscode.postMessage({ type: 'ready' });
+        console.log('ModificationsCore sending ready message');
+        vscode.postMessage({ type: 'ready' });
 
         return () => window.removeEventListener('message', handleMessage);
     }, []);
@@ -101,7 +108,7 @@ export const ModificationsCore: React.FC = () => {
     const handleProbabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseFloat(e.target.value);
         setState((prev) => ({ ...prev, minProbability: value }));
-        (window as any).vscode.postMessage({
+        vscode.postMessage({
             type: 'filtersChanged',
             minProbability: value,
             enabledModTypes: Array.from(state.enabledModTypes),
@@ -118,7 +125,7 @@ export const ModificationsCore: React.FC = () => {
             }
 
             // Send update to extension
-            (window as any).vscode.postMessage({
+            vscode.postMessage({
                 type: 'filtersChanged',
                 minProbability: prev.minProbability,
                 enabledModTypes: Array.from(newEnabled),
