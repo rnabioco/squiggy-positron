@@ -20,7 +20,7 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 
 ### Recommended: Install from OpenVSX
 
-Search for "Squiggy" in the Positron Extensions marketplace and click Install.
+Search for "Squiggy" in the Positron Extensions marketplace and click Install, or visit the [OpenVSX marketplace page](https://open-vsx.org/extension/rnabioco/squiggy-positron).
 
 ### Alternative: Install from VSIX
 
