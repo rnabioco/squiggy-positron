@@ -94,25 +94,26 @@ class SquiggySession:
 _squiggy_session = SquiggySession()
 
 
-def load_pod5(file_path: str) -> SquiggySession:
+def load_pod5(file_path: str) -> None:
     """
-    Load a POD5 file into the kernel session
+    Load a POD5 file into the global kernel session
 
-    This function is called from the Positron extension and makes
-    the POD5 data available in the kernel via the _squiggy_session object.
+    This function mutates the global _squiggy_session object, making
+    POD5 data available for subsequent plotting and analysis calls.
 
     Args:
         file_path: Path to POD5 file
 
     Returns:
-        SquiggySession object with loaded POD5 data
+        None (mutates global _squiggy_session)
 
     Examples:
         >>> from squiggy import load_pod5
-        >>> session = load_pod5('data.pod5')
-        >>> print(f"Loaded {len(session.read_ids)} reads")
+        >>> from squiggy.io import _squiggy_session
+        >>> load_pod5('data.pod5')
+        >>> print(f"Loaded {len(_squiggy_session.read_ids)} reads")
         >>> # Session is available as _squiggy_session in kernel
-        >>> first_read = next(session.reader.reads())
+        >>> first_read = next(_squiggy_session.reader.reads())
     """
     # Convert to absolute path
     abs_path = os.path.abspath(file_path)
@@ -133,8 +134,6 @@ def load_pod5(file_path: str) -> SquiggySession:
     _squiggy_session.reader = reader
     _squiggy_session.pod5_path = abs_path
     _squiggy_session.read_ids = read_ids
-
-    return _squiggy_session
 
 
 def get_bam_event_alignment_status(file_path: str) -> bool:
@@ -263,23 +262,27 @@ def get_bam_modification_info(file_path: str) -> dict:
     }
 
 
-def load_bam(file_path: str) -> SquiggySession:
+def load_bam(file_path: str) -> None:
     """
-    Load a BAM file into the kernel session
+    Load a BAM file into the global kernel session
+
+    This function mutates the global _squiggy_session object, making
+    BAM alignment data available for subsequent plotting and analysis calls.
 
     Args:
         file_path: Path to BAM file
 
     Returns:
-        SquiggySession object with loaded BAM data
+        None (mutates global _squiggy_session)
 
     Examples:
         >>> from squiggy import load_bam
-        >>> session = load_bam('alignments.bam')
-        >>> print(session.bam_info['references'])
-        >>> if session.bam_info['has_modifications']:
-        ...     print(f"Modifications: {session.bam_info['modification_types']}")
-        >>> if session.bam_info['has_event_alignment']:
+        >>> from squiggy.io import _squiggy_session
+        >>> load_bam('alignments.bam')
+        >>> print(_squiggy_session.bam_info['references'])
+        >>> if _squiggy_session.bam_info['has_modifications']:
+        ...     print(f"Modifications: {_squiggy_session.bam_info['modification_types']}")
+        >>> if _squiggy_session.bam_info['has_event_alignment']:
         ...     print("Event alignment data available")
     """
     # Convert to absolute path
@@ -311,8 +314,6 @@ def load_bam(file_path: str) -> SquiggySession:
     # Store state in session (no global keyword needed - just mutating object!)
     _squiggy_session.bam_path = abs_path
     _squiggy_session.bam_info = bam_info
-
-    return _squiggy_session
 
 
 def get_read_to_reference_mapping() -> dict[str, list[str]]:
