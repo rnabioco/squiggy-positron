@@ -1100,3 +1100,157 @@ def calculate_quality_by_position(reads_data):
         "mean_quality": np.array(mean_qualities),
         "std_quality": np.array(std_qualities),
     }
+
+
+def extract_reads_for_motif(
+    pod5_file, bam_file, fasta_file, motif, match_index=0, window=50, max_reads=100
+):
+    """Extract signal and alignment data for reads overlapping a motif match
+
+    This function finds reads that overlap a specific motif match position,
+    similar to extract_reads_for_reference() but centered on a motif position.
+
+    Args:
+        pod5_file: Path to POD5 file
+        bam_file: Path to BAM file with alignments and move tables
+        fasta_file: Path to indexed FASTA file
+        motif: IUPAC motif pattern (e.g., "DRACH")
+        match_index: Which motif match to use (0-based index)
+        window: Number of bases around motif center to include (±window)
+        max_reads: Maximum number of reads to return
+
+    Returns:
+        Tuple of (reads_data, motif_match) where:
+            - reads_data: List of dicts with adjusted reference coordinates
+              (same structure as extract_reads_for_reference())
+            - motif_match: MotifMatch object for the selected match
+
+    Raises:
+        ValueError: If no motif matches found or match_index out of range
+    """
+    from .motif import search_motif
+
+    # Search for motif matches
+    matches = list(search_motif(fasta_file, motif))
+
+    if not matches:
+        raise ValueError(f"No matches found for motif '{motif}' in FASTA file")
+
+    if match_index >= len(matches):
+        raise ValueError(
+            f"Match index {match_index} out of range (found {len(matches)} matches)"
+        )
+
+    # Get the selected match
+    motif_match = matches[match_index]
+
+    # Define window around motif center
+    motif_center = motif_match.position + (motif_match.length // 2)
+    region_start = max(0, motif_center - window)
+    region_end = motif_center + window
+
+    # Extract reads overlapping this region using existing function
+    # We'll use extract_reads_for_reference pattern but with region-based fetch
+    import random
+
+    reads_info = []
+
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(motif_match.chrom, region_start, region_end):
+                if read.is_unmapped:
+                    continue
+
+                # Extract move table
+                if not read.has_tag("mv"):
+                    continue
+
+                move_table = np.array(read.get_tag("mv"), dtype=np.uint8)
+                stride = int(move_table[0])
+                moves = move_table[1:]
+
+                # Get quality scores
+                quality_scores = (
+                    np.array(read.query_qualities) if read.query_qualities else None
+                )
+
+                # Store read info with ORIGINAL reference coordinates
+                # (we'll adjust them for motif-centered plotting later)
+                reads_info.append(
+                    {
+                        "read_id": read.query_name,
+                        "reference_start": read.reference_start,
+                        "reference_end": read.reference_end,
+                        "sequence": read.query_sequence,
+                        "move_table": moves,
+                        "stride": stride,
+                        "quality_scores": quality_scores,
+                        "motif_center": motif_center,  # Add motif center for alignment
+                    }
+                )
+
+        # Subsample if needed
+        if len(reads_info) > max_reads:
+            reads_info = random.sample(reads_info, max_reads)
+
+        # Extract signal data from POD5
+        read_id_set = {r["read_id"] for r in reads_info}
+        signal_data = {}
+
+        with pod5.Reader(pod5_file) as reader:
+            for pod5_read in reader.reads():
+                read_id_str = str(pod5_read.read_id)
+                if read_id_str in read_id_set:
+                    signal_data[read_id_str] = {
+                        "signal": pod5_read.signal,
+                        "sample_rate": pod5_read.run_info.sample_rate,
+                    }
+                    if len(signal_data) == len(read_id_set):
+                        break
+
+        # Combine BAM and POD5 data
+        result = []
+        for read_info in reads_info:
+            read_id = read_info["read_id"]
+            if read_id in signal_data:
+                result.append(
+                    {
+                        **read_info,
+                        **signal_data[read_id],
+                    }
+                )
+
+        return result, motif_match
+
+    except Exception as e:
+        raise ValueError(f"Error extracting reads for motif '{motif}': {str(e)}") from e
+
+
+def align_reads_to_motif_center(reads_data, motif_center):
+    """Adjust read coordinates to be relative to motif center position
+
+    Converts absolute reference coordinates to motif-centered coordinates
+    where the motif center is position 0.
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_motif()
+        motif_center: Genomic position of motif center
+
+    Returns:
+        List of read dicts with adjusted reference_start relative to motif_center
+
+    Example:
+        If motif_center=1000 and read starts at 950:
+        Original: reference_start=950
+        Adjusted: reference_start=-50 (50bp before motif center)
+    """
+    adjusted_reads = []
+
+    for read in reads_data:
+        adjusted_read = read.copy()
+        # Adjust reference coordinates to be motif-centered
+        adjusted_read["reference_start"] = read["reference_start"] - motif_center
+        adjusted_read["reference_end"] = read["reference_end"] - motif_center
+        adjusted_reads.append(adjusted_read)
+
+    return adjusted_reads

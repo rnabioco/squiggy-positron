@@ -428,6 +428,132 @@ def plot_aggregate(
     return html
 
 
+def plot_motif_aggregate(
+    fasta_file: str,
+    motif: str,
+    match_index: int = 0,
+    window: int = 50,
+    max_reads: int = 100,
+    normalization: str = "ZNORM",
+    theme: str = "LIGHT",
+) -> str:
+    """
+    Generate aggregate multi-read visualization centered on a motif match
+
+    Creates a three-track plot showing:
+    1. Aggregate signal (mean ± std dev across reads, centered on motif)
+    2. Base pileup (IGV-style stacked bar chart)
+    3. Quality scores by position
+
+    The plot is centered on the motif position, with x-axis showing positions
+    relative to the motif center (e.g., -50, 0, +50).
+
+    Args:
+        fasta_file: Path to indexed FASTA file (.fai required)
+        motif: IUPAC nucleotide pattern (e.g., "DRACH", "YGCY")
+        match_index: Which motif match to plot (0-based index, default=0)
+        window: Number of bases around motif center to include (±window, default=50)
+        max_reads: Maximum number of reads to sample for aggregation (default 100)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
+        theme: Color theme (LIGHT, DARK)
+
+    Returns:
+        Bokeh HTML string with three synchronized tracks
+
+    Example:
+        >>> import squiggy
+        >>> squiggy.load_pod5('data.pod5')
+        >>> squiggy.load_bam('alignments.bam')
+        >>> html = squiggy.plot_motif_aggregate(
+        ...     fasta_file='genome.fa',
+        ...     motif='DRACH',
+        ...     match_index=0,
+        ...     window=50
+        ... )
+        >>> # Extension displays this automatically
+
+    Raises:
+        ValueError: If POD5/BAM not loaded, no motif matches found,
+                    or invalid match_index
+    """
+    from .io import _current_bam_path, _current_pod5_path, _current_pod5_reader
+    from .utils import (
+        align_reads_to_motif_center,
+        calculate_aggregate_signal,
+        calculate_base_pileup,
+        calculate_quality_by_position,
+        extract_reads_for_motif,
+    )
+
+    # Validate state
+    if _current_pod5_reader is None:
+        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+    if _current_bam_path is None:
+        raise ValueError(
+            "No BAM file loaded. Motif aggregate plots require alignments. "
+            "Call load_bam() first."
+        )
+
+    # Parse parameters
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
+
+    # Extract reads overlapping this motif match
+    reads_data, motif_match = extract_reads_for_motif(
+        pod5_file=_current_pod5_path,
+        bam_file=_current_bam_path,
+        fasta_file=fasta_file,
+        motif=motif,
+        match_index=match_index,
+        window=window,
+        max_reads=max_reads,
+    )
+
+    if not reads_data:
+        raise ValueError(
+            f"No reads found overlapping motif match {match_index}. "
+            f"Try a different match or increase window size."
+        )
+
+    num_reads = len(reads_data)
+
+    # Calculate motif center position
+    motif_center = motif_match.position + (motif_match.length // 2)
+
+    # Align reads to motif center (adjust coordinates to be motif-relative)
+    aligned_reads = align_reads_to_motif_center(reads_data, motif_center)
+
+    # Calculate aggregate statistics
+    aggregate_stats = calculate_aggregate_signal(aligned_reads, norm_method)
+
+    # For pileup, we need the reference sequence around the motif
+    # Get chromosome sequence from BAM or FASTA
+    pileup_stats = calculate_base_pileup(
+        aligned_reads, bam_file=_current_bam_path, reference_name=motif_match.chrom
+    )
+
+    quality_stats = calculate_quality_by_position(aligned_reads)
+
+    # Generate plot with motif-specific title
+    plot_title = (
+        f"{motif} motif at {motif_match.chrom}:{motif_match.position + 1} "
+        f"({motif_match.strand} strand, {num_reads} reads)"
+    )
+
+    html, _ = SquigglePlotter.plot_aggregate(
+        aggregate_stats=aggregate_stats,
+        pileup_stats=pileup_stats,
+        quality_stats=quality_stats,
+        reference_name=plot_title,  # Use custom title
+        num_reads=num_reads,
+        normalization=norm_method,
+        theme=theme_enum,
+        motif_position=0,  # Motif center at position 0 in motif-centered coordinates
+    )
+
+    return html
+
+
 __all__ = [
     # Version
     "__version__",
@@ -443,6 +569,7 @@ __all__ = [
     "plot_read",
     "plot_reads",
     "plot_aggregate",
+    "plot_motif_aggregate",
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
