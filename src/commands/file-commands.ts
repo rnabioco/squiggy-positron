@@ -78,6 +78,36 @@ export function registerFileCommands(
         })
     );
 
+    // Open FASTA file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.openFASTA', async () => {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { 'FASTA Files': ['fa', 'fasta', 'fna'] },
+                title: 'Open FASTA File',
+            });
+
+            if (fileUri && fileUri[0]) {
+                await openFASTAFile(fileUri[0].fsPath, state);
+            }
+        })
+    );
+
+    // Close FASTA file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.closeFASTA', async () => {
+            const confirm = await vscode.window.showWarningMessage(
+                'Close FASTA file?',
+                { modal: true },
+                'Close'
+            );
+
+            if (confirm === 'Close') {
+                await closeFASTAFile(state);
+            }
+        })
+    );
+
     // Load test data
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.loadTestData', async () => {
@@ -93,12 +123,19 @@ export function registerFileCommands(
                 'data',
                 'yeast_trna_mappings.bam'
             );
+            const fastaPath = path.join(
+                context.extensionPath,
+                'tests',
+                'data',
+                'yeast_trna.fa'
+            );
 
             // Check if files are already loaded
             const pod5AlreadyLoaded = state.currentPod5File === pod5Path;
             const bamAlreadyLoaded = state.currentBamFile === bamPath;
+            const fastaAlreadyLoaded = state.currentFastaFile === fastaPath;
 
-            if (pod5AlreadyLoaded && bamAlreadyLoaded) {
+            if (pod5AlreadyLoaded && bamAlreadyLoaded && fastaAlreadyLoaded) {
                 vscode.window.showInformationMessage(
                     'Test data is already loaded. Use "Refresh Read List" to update the view.'
                 );
@@ -111,6 +148,9 @@ export function registerFileCommands(
             }
             if (!bamAlreadyLoaded) {
                 await openBAMFile(bamPath, state);
+            }
+            if (!fastaAlreadyLoaded) {
+                await openFASTAFile(fastaPath, state);
             }
 
             vscode.window.showInformationMessage('Test data loaded successfully!');
@@ -422,5 +462,79 @@ _current_bam_path = None
         vscode.window.showInformationMessage('BAM file closed');
     } catch (error) {
         handleError(error, ErrorContext.BAM_CLOSE);
+    }
+}
+
+/**
+ * Open a FASTA file
+ */
+async function openFASTAFile(filePath: string, state: ExtensionState): Promise<void> {
+    // Ensure squiggy is available (check if installed, prompt if needed)
+    const squiggyAvailable = await ensureSquiggyAvailable(state);
+
+    if (!squiggyAvailable) {
+        vscode.window.showWarningMessage(
+            'Cannot open FASTA file: squiggy Python package is not installed. ' +
+                'Please install it manually with: pip install -e <extension-path>'
+        );
+        return;
+    }
+
+    await safeExecuteWithProgress(
+        async () => {
+            if (state.usePositron && state.squiggyAPI) {
+                // Use Positron kernel - validate FASTA and index
+                await state.squiggyAPI.loadFASTA(filePath);
+            } else if (state.pythonBackend) {
+                // Use subprocess backend - validate FASTA file
+                await state.pythonBackend.call('load_fasta', {
+                    file_path: filePath,
+                });
+            } else {
+                throw new Error('No backend available');
+            }
+
+            // Track file in state
+            state.currentFastaFile = filePath;
+
+            // Get file size
+            const stats = await fs.stat(filePath);
+
+            // Update file panel to show FASTA file
+            state.filePanelProvider?.setFASTA?.({
+                path: filePath,
+                size: stats.size,
+            });
+
+            vscode.window.showInformationMessage(`FASTA file loaded: ${path.basename(filePath)}`);
+        },
+        ErrorContext.FASTA_LOAD,
+        'Opening FASTA file...'
+    );
+}
+
+/**
+ * Close FASTA file
+ */
+async function closeFASTAFile(state: ExtensionState): Promise<void> {
+    try {
+        // Clear Python state
+        if (state.usePositron && state.positronClient) {
+            await state.positronClient.executeSilent(`
+# Clear FASTA file state
+if '_squiggy_fasta_file' in globals():
+    del _squiggy_fasta_file
+`);
+        }
+
+        // Clear extension state
+        state.currentFastaFile = undefined;
+
+        // Clear UI
+        state.filePanelProvider?.clearFASTA?.();
+
+        vscode.window.showInformationMessage('FASTA file closed');
+    } catch (error) {
+        handleError(error, ErrorContext.FASTA_CLOSE);
     }
 }

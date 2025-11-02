@@ -36,13 +36,6 @@ from .constants import (
     PlotMode,
     Theme,
 )
-from .motif import (
-    IUPAC_CODES,
-    MotifMatch,
-    count_motifs,
-    iupac_to_regex,
-    search_motif,
-)
 
 # I/O functions
 from .io import (
@@ -56,6 +49,13 @@ from .io import (
     get_read_to_reference_mapping,
     load_bam,
     load_pod5,
+)
+from .motif import (
+    IUPAC_CODES,
+    MotifMatch,
+    count_motifs,
+    iupac_to_regex,
+    search_motif,
 )
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy

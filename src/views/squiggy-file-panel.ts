@@ -26,6 +26,8 @@ export class FilePanelProvider extends BaseWebviewProvider {
                     vscode.commands.executeCommand('squiggy.openPOD5');
                 } else if (message.fileType === 'BAM') {
                     vscode.commands.executeCommand('squiggy.openBAM');
+                } else if (message.fileType === 'FASTA') {
+                    vscode.commands.executeCommand('squiggy.openFASTA');
                 }
                 break;
             case 'closeFile':
@@ -33,6 +35,8 @@ export class FilePanelProvider extends BaseWebviewProvider {
                     vscode.commands.executeCommand('squiggy.closePOD5');
                 } else if (message.fileType === 'BAM') {
                     vscode.commands.executeCommand('squiggy.closeBAM');
+                } else if (message.fileType === 'FASTA') {
+                    vscode.commands.executeCommand('squiggy.closeFASTA');
                 }
                 break;
             case 'ready':
@@ -123,6 +127,33 @@ export class FilePanelProvider extends BaseWebviewProvider {
      */
     public clearBAM() {
         this._files = this._files.filter((f) => f.type !== 'BAM');
+        this.updateView();
+    }
+
+    /**
+     * Set FASTA file info
+     */
+    public setFASTA(fileInfo: { path: string; size: number }) {
+        // Remove existing FASTA file
+        this._files = this._files.filter((f) => f.type !== 'FASTA');
+
+        // Add new FASTA file
+        this._files.push({
+            path: fileInfo.path,
+            filename: path.basename(fileInfo.path),
+            type: 'FASTA',
+            size: fileInfo.size,
+            sizeFormatted: formatFileSize(fileInfo.size),
+        });
+
+        this.updateView();
+    }
+
+    /**
+     * Clear FASTA file
+     */
+    public clearFASTA() {
+        this._files = this._files.filter((f) => f.type !== 'FASTA');
         this.updateView();
     }
 }

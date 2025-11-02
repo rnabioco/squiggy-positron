@@ -11,10 +11,10 @@
 export interface FileItem {
     path: string;
     filename: string;
-    type: 'POD5' | 'BAM';
+    type: 'POD5' | 'BAM' | 'FASTA';
     size: number; // bytes
     sizeFormatted: string; // e.g., "2.5 MB"
-    numReads: number;
+    numReads?: number;
     numRefs?: number; // BAM only
     hasMods?: boolean; // BAM only - has MM/ML tags
     hasEvents?: boolean; // BAM only - has mv tag
@@ -47,15 +47,15 @@ export interface FilesViewState {
  */
 export type FilesViewMessage =
     | { type: 'updateFiles'; files: FileItem[] }
-    | { type: 'closeFile'; fileType: 'POD5' | 'BAM' }
-    | { type: 'openFile'; fileType: 'POD5' | 'BAM' };
+    | { type: 'closeFile'; fileType: 'POD5' | 'BAM' | 'FASTA' }
+    | { type: 'openFile'; fileType: 'POD5' | 'BAM' | 'FASTA' };
 
 /**
  * Props for React components
  */
 export interface FilesViewProps {
-    onCloseFile: (fileType: 'POD5' | 'BAM') => void;
-    onOpenFile: (fileType: 'POD5' | 'BAM') => void;
+    onCloseFile: (fileType: 'POD5' | 'BAM' | 'FASTA') => void;
+    onOpenFile: (fileType: 'POD5' | 'BAM' | 'FASTA') => void;
 }
 
 export interface FilesTableProps extends FilesViewProps {
@@ -73,6 +73,7 @@ export interface FileRowProps extends FilesViewProps {
 export interface FilesToolbarProps {
     onOpenPOD5: () => void;
     onOpenBAM: () => void;
+    onOpenFASTA: () => void;
 }
 
 /**

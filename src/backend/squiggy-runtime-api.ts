@@ -249,4 +249,108 @@ squiggy.plot_aggregate(
             throw new Error(`Failed to generate aggregate plot: ${error}`);
         }
     }
+
+    /**
+     * Load and validate a FASTA file
+     */
+    async loadFASTA(fastaPath: string): Promise<void> {
+        const escapedPath = fastaPath.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+from pathlib import Path
+
+fasta_path = Path('${escapedPath}')
+if not fasta_path.exists():
+    raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
+
+fai_path = Path(str(fasta_path) + ".fai")
+if not fai_path.exists():
+    raise FileNotFoundError(f"FASTA index not found: {fai_path}")
+
+_squiggy_fasta_file = str(fasta_path)
+`;
+
+        try {
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to load FASTA file: ${error}`);
+        }
+    }
+
+    /**
+     * Search for motif matches in FASTA file
+     */
+    async searchMotif(
+        fastaFile: string,
+        motif: string,
+        region?: string,
+        strand: string = 'both'
+    ): Promise<any[]> {
+        const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
+        const escapedMotif = motif.replace(/'/g, "\\'");
+        const escapedRegion = region ? region.replace(/'/g, "\\'") : null;
+
+        const searchCode = `
+import squiggy
+
+_squiggy_motif_matches = list(squiggy.search_motif(
+    fasta_file='${escapedFastaPath}',
+    motif='${escapedMotif}',
+    region=${escapedRegion ? `'${escapedRegion}'` : 'None'},
+    strand='${strand}'
+))
+
+_squiggy_motif_matches_json = [
+    {'chrom': m.chrom, 'position': m.position,
+     'sequence': m.sequence, 'strand': m.strand}
+    for m in _squiggy_motif_matches
+]
+`;
+
+        try {
+            await this.client.executeSilent(searchCode);
+            const matches = await this.client.getVariable('_squiggy_motif_matches_json');
+            return matches || [];
+        } catch (error) {
+            throw new Error(`Failed to search motif: ${error}`);
+        }
+    }
+
+    /**
+     * Generate motif-centered aggregate plot
+     */
+    async generateMotifAggregatePlot(
+        fastaFile: string,
+        motif: string,
+        matchIndex: number,
+        window: number = 50,
+        maxReads: number = 100,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<void> {
+        const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
+        const escapedMotif = motif.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+
+# Generate motif aggregate plot - will be automatically routed to Plots pane
+squiggy.plot_motif_aggregate(
+    fasta_file='${escapedFastaPath}',
+    motif='${escapedMotif}',
+    match_index=${matchIndex},
+    window=${window},
+    max_reads=${maxReads},
+    normalization='${normalization}',
+    theme='${theme}'
+)
+`;
+
+        try {
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to generate motif aggregate plot: ${error}`);
+        }
+    }
 }
