@@ -6,10 +6,21 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-TEST_WORKSPACE="$PROJECT_ROOT/test-workspace"
+
+# Get current branch and commit for unique directory naming
+cd "$PROJECT_ROOT"
+BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+COMMIT_HASH=$(git rev-parse --short HEAD)
+
+# Sanitize branch name for filesystem (replace / and other special chars with -)
+BRANCH_NAME_CLEAN=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9_-]/-/g')
+
+# Build test workspace directory name: test-<branch>-<commit>
+TEST_WORKSPACE="$PROJECT_ROOT/test-$BRANCH_NAME_CLEAN-$COMMIT_HASH"
 
 # Only create if it doesn't exist
 if [ -d "$TEST_WORKSPACE" ]; then
+    echo "Test workspace already exists at: $TEST_WORKSPACE"
     exit 0
 fi
 
@@ -72,3 +83,13 @@ cp /path/to/your/data.pod5 sample-data/
 EOF
 
 echo "✓ Test workspace created successfully"
+
+# Update .vscode/launch.json to point to the new test workspace
+LAUNCH_JSON="$PROJECT_ROOT/.vscode/launch.json"
+if [ -f "$LAUNCH_JSON" ]; then
+    # Use sed to replace the test workspace path in launch.json
+    # Match pattern: "${workspaceFolder}/test-*" and replace with current directory name
+    sed -i.bak "s|\"\${workspaceFolder}/test-[^\"]*\"|\"\${workspaceFolder}/test-$BRANCH_NAME_CLEAN-$COMMIT_HASH\"|g" "$LAUNCH_JSON"
+    rm -f "$LAUNCH_JSON.bak"
+    echo "✓ Updated .vscode/launch.json to use $TEST_WORKSPACE"
+fi
