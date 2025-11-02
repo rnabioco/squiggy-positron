@@ -5,7 +5,7 @@
  * with strict TypeScript types to eliminate 'any' usage.
  */
 
-import { ReadListItem } from './squiggy-reads-types';
+import { ReadListItem, ReadItem } from './squiggy-reads-types';
 
 // ========== Base Message Types ==========
 
@@ -65,6 +65,7 @@ export interface UpdateReadsMessage extends BaseMessage {
     type: 'updateReads';
     reads: ReadListItem[];
     groupedByReference: boolean;
+    referenceToReads?: [string, ReadItem[]][]; // Map of reference name to read items
 }
 
 export type ReadsViewIncomingMessage = PlotReadMessage | PlotAggregateMessage | ReadyMessage;
