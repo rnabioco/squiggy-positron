@@ -3,7 +3,7 @@
 
 # Notification settings (disable emails)
 notify:
-  email: false
+  email: off
 
 # Coverage calculation settings
 coverage:
