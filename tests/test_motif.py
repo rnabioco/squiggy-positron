@@ -212,7 +212,9 @@ class TestSearchMotif:
     def test_search_with_region_filter(self, fasta_file):
         """Test search with region filter"""
         # Search only in tRNA-Ala-AGC-1-1-uncharged
-        matches = list(search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged"))
+        matches = list(
+            search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged")
+        )
 
         assert len(matches) > 0
         for match in matches:
@@ -221,7 +223,9 @@ class TestSearchMotif:
     def test_search_with_position_range(self, fasta_file):
         """Test search with position range"""
         # Search in specific region
-        matches = list(search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged:1-50"))
+        matches = list(
+            search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged:1-50")
+        )
 
         for match in matches:
             assert match.chrom == "tRNA-Ala-AGC-1-1-uncharged"
