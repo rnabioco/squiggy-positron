@@ -36,8 +36,8 @@ export class SquiggyRuntimeAPI {
     /**
      * Load a POD5 file
      *
-     * Executes squiggy.load_pod5() in the kernel. The reader and read_ids
-     * are stored in kernel variables accessible from console/notebooks.
+     * Executes squiggy.load_pod5() in the kernel. The session object is stored
+     * in _squiggy_session kernel variable accessible from console/notebooks.
      *
      * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
      */
@@ -46,13 +46,15 @@ export class SquiggyRuntimeAPI {
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         // Load file silently (no console output)
+        // This populates the global _squiggy_session in Python
         await this.client.executeSilent(`
 import squiggy
-_squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
+from squiggy.io import _squiggy_session
+squiggy.load_pod5('${escapedPath}')
 `);
 
-        // Get read count by reading variable directly (no print needed)
-        const numReads = await this.client.getVariable('len(_squiggy_read_ids)');
+        // Get read count by reading from session object (no print needed)
+        const numReads = await this.client.getVariable('len(_squiggy_session.read_ids)');
 
         return { numReads: numReads as number };
     }
@@ -66,8 +68,8 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
     async getReadIds(offset: number = 0, limit?: number): Promise<string[]> {
         const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
 
-        // Read variable slice directly (no print needed)
-        const readIds = await this.client.getVariable(`_squiggy_read_ids${sliceStr}`);
+        // Read from session object (no print needed)
+        const readIds = await this.client.getVariable(`_squiggy_session.read_ids${sliceStr}`);
 
         return readIds as string[];
     }
@@ -82,25 +84,27 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         // Load BAM silently (no console output)
+        // This populates _squiggy_session.bam_info and .bam_path
         await this.client.executeSilent(`
 import squiggy
-_squiggy_bam_info = squiggy.load_bam('${escapedPath}')
-_squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
+from squiggy.io import _squiggy_session
+squiggy.load_bam('${escapedPath}')
+squiggy.get_read_to_reference_mapping()
 `);
 
-        // Read metadata directly from variables (no print needed)
-        const numReads = await this.client.getVariable("_squiggy_bam_info['num_reads']");
+        // Read metadata directly from session object (no print needed)
+        const numReads = await this.client.getVariable("_squiggy_session.bam_info['num_reads']");
         const hasModifications = await this.client.getVariable(
-            "_squiggy_bam_info.get('has_modifications', False)"
+            "_squiggy_session.bam_info.get('has_modifications', False)"
         );
         const modificationTypes = await this.client.getVariable(
-            "_squiggy_bam_info.get('modification_types', [])"
+            "_squiggy_session.bam_info.get('modification_types', [])"
         );
         const hasProbabilities = await this.client.getVariable(
-            "_squiggy_bam_info.get('has_probabilities', False)"
+            "_squiggy_session.bam_info.get('has_probabilities', False)"
         );
         const hasEventAlignment = await this.client.getVariable(
-            "_squiggy_bam_info.get('has_event_alignment', False)"
+            "_squiggy_session.bam_info.get('has_event_alignment', False)"
         );
 
         return {
@@ -116,8 +120,10 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
      * Get list of reference names from loaded BAM file
      */
     async getReferences(): Promise<string[]> {
-        // Read keys directly from variable (no print needed)
-        const references = await this.client.getVariable('list(_squiggy_ref_mapping.keys())');
+        // Read keys directly from session object (no print needed)
+        const references = await this.client.getVariable(
+            'list(_squiggy_session.ref_mapping.keys()) if _squiggy_session.ref_mapping else []'
+        );
         return references as string[];
     }
 
@@ -127,9 +133,9 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
     async getReadsForReference(referenceName: string): Promise<string[]> {
         const escapedRef = referenceName.replace(/'/g, "\\'");
 
-        // Read directly from variable (no print needed)
+        // Read directly from session object (no print needed)
         const readIds = await this.client.getVariable(
-            `_squiggy_ref_mapping.get('${escapedRef}', [])`
+            `_squiggy_session.ref_mapping.get('${escapedRef}', []) if _squiggy_session.ref_mapping else []`
         );
 
         return readIds as string[];

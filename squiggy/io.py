@@ -11,7 +11,89 @@ import pysam
 
 from .utils import get_bam_references
 
-# Global state for currently loaded files
+
+class SquiggySession:
+    """
+    Manages state for loaded POD5 and BAM files
+
+    This class consolidates all squiggy kernel state into a single object,
+    providing cleaner variable pane UX and better resource management.
+
+    Attributes:
+        reader: POD5 file reader
+        pod5_path: Path to loaded POD5 file
+        read_ids: List of read IDs from POD5 file
+        bam_path: Path to loaded BAM file
+        bam_info: Metadata about loaded BAM file
+        ref_mapping: Mapping of reference names to read IDs
+
+    Examples:
+        >>> from squiggy import load_pod5, load_bam
+        >>> session = load_pod5('data.pod5')
+        >>> print(session)
+        <SquiggySession: POD5: data.pod5 (1,234 reads)>
+        >>> session = load_bam('alignments.bam')
+        >>> print(session)
+        <SquiggySession: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
+    """
+
+    def __init__(self):
+        self.reader: pod5.Reader | None = None
+        self.pod5_path: str | None = None
+        self.read_ids: list[str] = []
+        self.bam_path: str | None = None
+        self.bam_info: dict | None = None
+        self.ref_mapping: dict[str, list[str]] | None = None
+
+    def __repr__(self) -> str:
+        """Return informative summary of loaded files"""
+        parts = []
+
+        if self.pod5_path:
+            filename = os.path.basename(self.pod5_path)
+            parts.append(f"POD5: {filename} ({len(self.read_ids):,} reads)")
+
+        if self.bam_path:
+            filename = os.path.basename(self.bam_path)
+            num_reads = self.bam_info.get("num_reads", 0) if self.bam_info else 0
+            parts.append(f"BAM: {filename} ({num_reads:,} reads)")
+
+            if self.bam_info:
+                if self.bam_info.get("has_modifications"):
+                    mod_types = ", ".join(str(m) for m in self.bam_info["modification_types"])
+                    parts.append(f"Modifications: {mod_types}")
+                if self.bam_info.get("has_event_alignment"):
+                    parts.append("Event alignment: yes")
+
+        if not parts:
+            return "<SquiggySession: No files loaded>"
+
+        return f"<SquiggySession: {' | '.join(parts)}>"
+
+    def close_pod5(self):
+        """Close POD5 reader and clear POD5 state"""
+        if self.reader is not None:
+            self.reader.close()
+            self.reader = None
+        self.pod5_path = None
+        self.read_ids = []
+
+    def close_bam(self):
+        """Clear BAM state"""
+        self.bam_path = None
+        self.bam_info = None
+        self.ref_mapping = None
+
+    def close_all(self):
+        """Close all resources and clear all state"""
+        self.close_pod5()
+        self.close_bam()
+
+
+# Global session instance
+_squiggy_session = SquiggySession()
+
+# Legacy global state (maintained for backward compatibility)
 _current_pod5_reader: pod5.Reader | None = None
 _current_pod5_path: str | None = None
 _current_bam_path: str | None = None
@@ -38,7 +120,7 @@ def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
         >>> # Reader is now available for inspection
         >>> first_read = next(reader.reads())
     """
-    global _current_pod5_reader, _current_pod5_path, _current_read_ids
+    global _current_pod5_reader, _current_pod5_path, _current_read_ids, _squiggy_session
 
     # Convert to absolute path
     abs_path = os.path.abspath(file_path)
@@ -50,16 +132,25 @@ def load_pod5(file_path: str) -> tuple[pod5.Reader, list[str]]:
     if _current_pod5_reader is not None:
         _current_pod5_reader.close()
 
+    # Close previous session POD5 if exists
+    if _squiggy_session.reader is not None:
+        _squiggy_session.reader.close()
+
     # Open new reader (no need for writable_working_directory in extension context)
     reader = pod5.Reader(abs_path)
 
     # Extract read IDs
     read_ids = [str(read.read_id) for read in reader.reads()]
 
-    # Store state
+    # Store state in legacy globals
     _current_pod5_reader = reader
     _current_pod5_path = abs_path
     _current_read_ids = read_ids
+
+    # Store state in session
+    _squiggy_session.reader = reader
+    _squiggy_session.pod5_path = abs_path
+    _squiggy_session.read_ids = read_ids
 
     return reader, read_ids
 
@@ -209,7 +300,7 @@ def load_bam(file_path: str) -> dict:
         >>> if bam_info['has_event_alignment']:
         ...     print("Event alignment data available")
     """
-    global _current_bam_path
+    global _current_bam_path, _squiggy_session
 
     # Convert to absolute path
     abs_path = os.path.abspath(file_path)
@@ -226,10 +317,8 @@ def load_bam(file_path: str) -> dict:
     # Check for event alignment data
     has_event_alignment = get_bam_event_alignment_status(abs_path)
 
-    # Store path
-    _current_bam_path = abs_path
-
-    return {
+    # Build metadata dict
+    bam_info = {
         "file_path": abs_path,
         "num_reads": sum(ref["read_count"] for ref in references),
         "references": references,
@@ -238,6 +327,15 @@ def load_bam(file_path: str) -> dict:
         "has_probabilities": mod_info["has_probabilities"],
         "has_event_alignment": has_event_alignment,
     }
+
+    # Store path in legacy global
+    _current_bam_path = abs_path
+
+    # Store state in session
+    _squiggy_session.bam_path = abs_path
+    _squiggy_session.bam_info = bam_info
+
+    return bam_info
 
 
 def get_read_to_reference_mapping() -> dict[str, list[str]]:
@@ -256,6 +354,8 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
         >>> mapping = get_read_to_reference_mapping()
         >>> print(f"References: {list(mapping.keys())}")
     """
+    global _squiggy_session
+
     if _current_bam_path is None:
         raise RuntimeError("No BAM file is currently loaded")
 
@@ -283,6 +383,9 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
 
     finally:
         bam.close()
+
+    # Store in session
+    _squiggy_session.ref_mapping = ref_to_reads
 
     return ref_to_reads
 
@@ -315,11 +418,42 @@ def close_pod5():
     Close the currently open POD5 reader
 
     Call this to free resources when done.
+
+    Examples:
+        >>> from squiggy import load_pod5, close_pod5
+        >>> load_pod5('data.pod5')
+        >>> # ... work with data ...
+        >>> close_pod5()
     """
-    global _current_pod5_reader, _current_pod5_path, _current_read_ids
+    global _current_pod5_reader, _current_pod5_path, _current_read_ids, _squiggy_session
 
     if _current_pod5_reader is not None:
         _current_pod5_reader.close()
         _current_pod5_reader = None
         _current_pod5_path = None
         _current_read_ids = []
+
+    # Also clear session
+    _squiggy_session.close_pod5()
+
+
+def close_bam():
+    """
+    Clear the currently loaded BAM file state
+
+    Call this to free BAM-related resources when done. Unlike close_pod5(),
+    this doesn't need to close a file handle since BAM files are opened
+    and closed per-operation.
+
+    Examples:
+        >>> from squiggy import load_bam, close_bam
+        >>> load_bam('alignments.bam')
+        >>> # ... work with alignments ...
+        >>> close_bam()
+    """
+    global _current_bam_path, _squiggy_session
+
+    _current_bam_path = None
+
+    # Also clear session
+    _squiggy_session.close_bam()

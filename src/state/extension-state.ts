@@ -120,12 +120,12 @@ export class ExtensionState {
             try {
                 await this._positronClient.executeSilent(`
 import squiggy
+from squiggy.io import _squiggy_session
+# Close all resources via session
+_squiggy_session.close_all()
+# Also call module-level cleanup functions
 squiggy.close_pod5()
-# Clear global variables
-if '_squiggy_reader' in globals():
-    del _squiggy_reader
-if '_squiggy_read_ids' in globals():
-    del _squiggy_read_ids
+squiggy.close_bam()
 `);
             } catch (_error) {
                 // Ignore errors if kernel is not running
