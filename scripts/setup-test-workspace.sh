@@ -7,16 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Get current branch and commit for unique directory naming
-cd "$PROJECT_ROOT"
-BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
-COMMIT_HASH=$(git rev-parse --short HEAD)
-
-# Sanitize branch name for filesystem (replace / and other special chars with -)
-BRANCH_NAME_CLEAN=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9_-]/-/g')
-
-# Build test workspace directory name: test-<branch>-<commit>
-TEST_WORKSPACE="$PROJECT_ROOT/test-$BRANCH_NAME_CLEAN-$COMMIT_HASH"
+# Use simple test-workspace directory
+TEST_WORKSPACE="$PROJECT_ROOT/test-workspace"
 
 # Only create if it doesn't exist
 if [ -d "$TEST_WORKSPACE" ]; then
@@ -82,17 +74,4 @@ cp /path/to/your/data.pod5 sample-data/
 - This directory is regenerated automatically when you press F5
 EOF
 
-echo "✓ Test workspace created successfully"
-
-# Generate .vscode/launch.json from template
-LAUNCH_TEMPLATE="$PROJECT_ROOT/.vscode/launch.json.template"
-LAUNCH_JSON="$PROJECT_ROOT/.vscode/launch.json"
-
-if [ -f "$LAUNCH_TEMPLATE" ]; then
-    # Replace placeholder with actual test workspace path
-    TEST_WORKSPACE_PATH="\${workspaceFolder}/test-$BRANCH_NAME_CLEAN-$COMMIT_HASH"
-    sed "s|{{TEST_WORKSPACE_PATH}}|$TEST_WORKSPACE_PATH|g" "$LAUNCH_TEMPLATE" > "$LAUNCH_JSON"
-    echo "✓ Generated .vscode/launch.json from template (test-$BRANCH_NAME_CLEAN-$COMMIT_HASH)"
-else
-    echo "⚠ Warning: .vscode/launch.json.template not found. Skipping launch.json generation."
-fi
+echo "✓ Test workspace created successfully at: test-workspace"
