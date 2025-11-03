@@ -119,9 +119,12 @@ export class ExtensionState {
         this._plotOptionsProvider?.updateBamStatus(false);
 
         // Clear Python kernel state if using Positron
-        if (this._usePositron && this._positronClient) {
+        if (this._usePositron && this._positronClient && this._packageManager) {
             try {
-                await this._positronClient.executeSilent(`
+                // Check if squiggy is installed before attempting cleanup
+                const isInstalled = await this._packageManager.isSquiggyInstalled();
+                if (isInstalled) {
+                    await this._positronClient.executeSilent(`
 import squiggy
 from squiggy.io import _squiggy_session
 # Close all resources via session
@@ -131,8 +134,10 @@ squiggy.close_pod5()
 squiggy.close_bam()
 squiggy.close_fasta()
 `);
+                }
+                // If not installed, nothing to clean up
             } catch (_error) {
-                // Ignore errors if kernel is not running
+                // Ignore errors if kernel is not running or other issues
             }
         }
     }
