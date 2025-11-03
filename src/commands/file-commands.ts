@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { ExtensionState } from '../state/extension-state';
+import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
 import { ErrorContext, handleError, safeExecuteWithProgress } from '../utils/error-handler';
 
 /**
@@ -16,7 +17,8 @@ import { ErrorContext, handleError, safeExecuteWithProgress } from '../utils/err
  */
 export function registerFileCommands(
     context: vscode.ExtensionContext,
-    state: ExtensionState
+    state: ExtensionState,
+    samplesProvider?: SamplesPanelProvider
 ): void {
     // Open POD5 file
     context.subscriptions.push(
@@ -546,7 +548,8 @@ squiggy.close_fasta()
  */
 async function loadSampleForComparison(
     context: vscode.ExtensionContext,
-    state: ExtensionState
+    state: ExtensionState,
+    samplesProvider?: SamplesPanelProvider
 ): Promise<void> {
     // Prompt for sample name
     const sampleName = await vscode.window.showInputBox({
@@ -606,7 +609,6 @@ async function loadSampleForComparison(
 
     // Load sample via API
     await safeExecuteWithProgress(
-        `Loading sample '${sampleName}'`,
         async () => {
             if (!state.squiggyAPI) {
                 throw new Error('SquiggyAPI not initialized');
@@ -630,10 +632,14 @@ async function loadSampleForComparison(
                 hasFasta: !!fastaPath,
             });
 
+            // Refresh samples panel if available
+            samplesProvider?.refresh();
+
             vscode.window.showInformationMessage(
                 `Sample '${sampleName}' loaded with ${result.numReads} reads`
             );
         },
-        ErrorContext.FILE_LOAD
+        ErrorContext.POD5_LOAD,
+        `Loading sample '${sampleName}'`
     );
 }

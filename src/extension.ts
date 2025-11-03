@@ -12,6 +12,7 @@ import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
 import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
+import { SamplesPanelProvider } from './views/squiggy-samples-panel';
 import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
@@ -33,6 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
+    const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider),
@@ -48,6 +50,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(
             MotifSearchPanelProvider.viewType,
             motifSearchProvider
+        ),
+        vscode.window.registerWebviewViewProvider(
+            SamplesPanelProvider.viewType,
+            samplesProvider
         )
     );
 
@@ -92,11 +98,40 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Listen for sample comparison requests and trigger delta plot
+    context.subscriptions.push(
+        samplesProvider.onDidRequestComparison((sampleNames) => {
+            vscode.commands.executeCommand('squiggy.plotDeltaComparison', sampleNames);
+        })
+    );
+
+    // Listen for sample unload requests
+    context.subscriptions.push(
+        samplesProvider.onDidRequestUnload(async (sampleName) => {
+            if (!state.squiggyAPI) {
+                vscode.window.showErrorMessage('API not available');
+                return;
+            }
+
+            try {
+                // Call Python to remove sample
+                await state.squiggyAPI.removeSample(sampleName);
+                // Update extension state
+                state.removeSample(sampleName);
+                // Refresh panel
+                samplesProvider.refresh();
+                vscode.window.showInformationMessage(`Sample '${sampleName}' unloaded`);
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to unload sample: ${error}`);
+            }
+        })
+    );
+
     // Register kernel event listeners (session changes, restarts)
     registerKernelListeners(context, state);
 
-    // Register all commands
-    registerFileCommands(context, state);
+    // Register all commands (pass samples provider so file commands can refresh it)
+    registerFileCommands(context, state, samplesProvider);
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
 

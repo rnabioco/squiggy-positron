@@ -475,6 +475,25 @@ if '_sample_info_json' in globals():
     }
 
     /**
+     * Remove a loaded sample from the session
+     *
+     * @param sampleName - Name of the sample to remove
+     */
+    async removeSample(sampleName: string): Promise<void> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            const code = `
+import squiggy
+squiggy.remove_sample('${escapedName}')
+`;
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to remove sample '${sampleName}': ${error}`);
+        }
+    }
+
+    /**
      * Generate a delta comparison plot between two or more samples
      * Shows differences in aggregate statistics between samples (B - A)
      *

@@ -353,7 +353,7 @@ async function plotDeltaComparison(
                 throw new Error('No backend available');
             }
         },
-        ErrorContext.PLOT_GENERATION,
+        ErrorContext.PLOT_GENERATE,
         `Comparing samples: ${sampleNames.join(', ')}...`
     );
 }
