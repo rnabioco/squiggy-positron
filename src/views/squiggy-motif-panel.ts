@@ -216,10 +216,24 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         function updateUpstreamValue() {
             const value = document.getElementById('upstreamSlider').value;
             document.getElementById('upstreamValue').textContent = value;
+            document.getElementById('upstreamInput').value = value;
         }
 
         function updateDownstreamValue() {
             const value = document.getElementById('downstreamSlider').value;
+            document.getElementById('downstreamValue').textContent = value;
+            document.getElementById('downstreamInput').value = value;
+        }
+
+        function updateUpstreamFromInput() {
+            const value = document.getElementById('upstreamInput').value;
+            document.getElementById('upstreamSlider').value = value;
+            document.getElementById('upstreamValue').textContent = value;
+        }
+
+        function updateDownstreamFromInput() {
+            const value = document.getElementById('downstreamInput').value;
+            document.getElementById('downstreamSlider').value = value;
             document.getElementById('downstreamValue').textContent = value;
         }
 
@@ -259,12 +273,22 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                         <div class="slider-row">
                             <div class="slider-group">
                                 <span class="slider-label">Upstream: <span id="upstreamValue">10</span>bp</span>
-                                <input type="range" id="upstreamSlider" min="0" max="100" value="10" oninput="updateUpstreamValue()" />
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="upstreamInput" min="0" max="50" value="10"
+                                           style="width: 50px; padding: 2px;" oninput="updateUpstreamFromInput()" />
+                                    <input type="range" id="upstreamSlider" min="0" max="50" value="10"
+                                           style="flex: 1;" oninput="updateUpstreamValue()" />
+                                </div>
                             </div>
                             <span class="slider-center">Motif<br/>Center</span>
                             <div class="slider-group">
                                 <span class="slider-label">Downstream: <span id="downstreamValue">10</span>bp</span>
-                                <input type="range" id="downstreamSlider" min="0" max="100" value="10" oninput="updateDownstreamValue()" />
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="range" id="downstreamSlider" min="0" max="50" value="10"
+                                           style="flex: 1;" oninput="updateDownstreamValue()" />
+                                    <input type="number" id="downstreamInput" min="0" max="50" value="10"
+                                           style="width: 50px; padding: 2px;" oninput="updateDownstreamFromInput()" />
+                                </div>
                             </div>
                         </div>
                     </div>
