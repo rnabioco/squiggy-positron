@@ -17,7 +17,7 @@ class TestPlotReadFunction:
 
     def test_plot_read_invalid_read_id(self, sample_pod5_file):
         """Test that plot_read raises error for invalid read ID"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
         load_pod5(str(sample_pod5_file))
 
@@ -26,9 +26,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_single_mode_returns_html(self, sample_pod5_file):
         """Test that plot_read in SINGLE mode returns HTML"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         html = plot_read(read_id, mode="SINGLE")
@@ -41,9 +42,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_with_normalization_options(self, sample_pod5_file):
         """Test plot_read with different normalization methods"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Test each normalization method
@@ -54,9 +56,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_with_theme_options(self, sample_pod5_file):
         """Test plot_read with different themes"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Test each theme
@@ -67,9 +70,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_with_downsample(self, sample_pod5_file):
         """Test plot_read with downsampling enabled/disabled"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # With downsampling
@@ -82,9 +86,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_eventalign_requires_bam(self, sample_pod5_file):
         """Test that EVENTALIGN mode requires BAM file"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Without BAM loaded, EVENTALIGN should raise error
@@ -95,9 +100,10 @@ class TestPlotReadFunction:
         """Test plot_read in EVENTALIGN mode with BAM loaded"""
         import pysam
 
-        from squiggy import load_bam, load_pod5, plot_read
+        from squiggy import get_read_ids, load_bam, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         load_bam(str(indexed_bam_file))
 
         # Find a read that has alignment in BAM
@@ -118,9 +124,10 @@ class TestPlotReadFunction:
         """Test plot_read with all options specified"""
         import pysam
 
-        from squiggy import load_bam, load_pod5, plot_read
+        from squiggy import get_read_ids, load_bam, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         load_bam(str(indexed_bam_file))
 
         # Find aligned read
@@ -151,20 +158,22 @@ class TestPlotReadFunction:
 
     def test_plot_read_unsupported_mode(self, sample_pod5_file):
         """Test that unsupported plot modes raise error"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # OVERLAY and STACKED are not supported for single reads
-        with pytest.raises(ValueError, match="not yet supported"):
+        with pytest.raises(ValueError, match="not supported for single read"):
             plot_read(read_id, mode="OVERLAY")
 
     def test_plot_read_invalid_normalization(self, sample_pod5_file):
         """Test that invalid normalization method raises error"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Invalid normalization should raise KeyError
@@ -173,9 +182,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_invalid_theme(self, sample_pod5_file):
         """Test that invalid theme raises error"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Invalid theme should raise KeyError
@@ -184,9 +194,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_with_downsample_factor(self, sample_pod5_file):
         """Test plot_read with downsampling"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Downsample should work
@@ -196,9 +207,10 @@ class TestPlotReadFunction:
 
     def test_plot_read_with_signal_points(self, sample_pod5_file):
         """Test plot_read with signal points enabled"""
-        from squiggy import load_pod5, plot_read
+        from squiggy import get_read_ids, load_pod5, plot_read
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         read_id = read_ids[0]
 
         # Signal points should work
@@ -221,17 +233,17 @@ class TestPlotReadsFunction:
 
     def test_plot_reads_empty_list(self, sample_pod5_file):
         """Test that plot_reads handles empty read list"""
-        from squiggy import load_pod5, plot_reads
+        from squiggy import get_read_ids, load_pod5, plot_reads
 
         load_pod5(str(sample_pod5_file))
 
-        # Empty list should return empty string
-        result = plot_reads([])
-        assert result == ""
+        # Empty list should raise ValueError
+        with pytest.raises(ValueError, match="No read IDs provided"):
+            plot_reads([])
 
     def test_plot_reads_nonexistent_ids(self, sample_pod5_file):
         """Test that plot_reads handles nonexistent read IDs"""
-        from squiggy import load_pod5, plot_reads
+        from squiggy import get_read_ids, load_pod5, plot_reads
 
         load_pod5(str(sample_pod5_file))
 
@@ -241,9 +253,10 @@ class TestPlotReadsFunction:
 
     def test_plot_reads_overlay_mode(self, sample_pod5_file):
         """Test plot_reads in OVERLAY mode (returns first plot for now)"""
-        from squiggy import load_pod5, plot_reads
+        from squiggy import get_read_ids, load_pod5, plot_reads
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
 
         # Take first 2 reads
         if len(read_ids) < 2:
@@ -257,23 +270,29 @@ class TestPlotReadsFunction:
         assert "bokeh" in html.lower()
 
     def test_plot_reads_stacked_mode(self, sample_pod5_file):
-        """Test plot_reads in STACKED mode (not yet implemented)"""
-        from squiggy import load_pod5, plot_reads
+        """Test plot_reads in STACKED mode"""
+        from squiggy import get_read_ids, load_pod5, plot_reads
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
 
         if len(read_ids) < 2:
             pytest.skip("Need at least 2 reads for stacked test")
 
-        # STACKED mode is not yet fully implemented
-        with pytest.raises(ValueError, match="not yet fully implemented"):
-            plot_reads(read_ids[:2], mode="STACKED")
+        # STACKED mode now works!
+        html = plot_reads(read_ids[:2], mode="STACKED")
+
+        # Should return valid HTML
+        assert isinstance(html, str)
+        assert len(html) > 0
+        assert "bokeh" in html.lower()
 
     def test_plot_reads_with_options(self, sample_pod5_file):
         """Test plot_reads with various options"""
-        from squiggy import load_pod5, plot_reads
+        from squiggy import get_read_ids, load_pod5, plot_reads
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
 
         if len(read_ids) < 2:
             pytest.skip("Need at least 2 reads")
@@ -292,15 +311,16 @@ class TestPlotReadsFunction:
 
     def test_plot_reads_unsupported_mode(self, sample_pod5_file):
         """Test that unsupported plot modes raise error"""
-        from squiggy import load_pod5, plot_reads
+        from squiggy import get_read_ids, load_pod5, plot_reads
 
-        _, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
 
         if len(read_ids) < 2:
             pytest.skip("Need at least 2 reads")
 
-        # SINGLE and EVENTALIGN are not supported for multiple reads
-        with pytest.raises(ValueError, match="not yet fully implemented"):
+        # SINGLE mode is not supported for multiple reads
+        with pytest.raises(ValueError, match="not supported for multiple reads"):
             plot_reads(read_ids[:2], mode="SINGLE")
 
 
@@ -330,10 +350,12 @@ class TestAPIStateManagement:
         from squiggy import get_read_ids, load_pod5
 
         # Load first time
-        _, ids1 = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        ids1 = get_read_ids()
 
         # Load second time (same file)
-        _, ids2 = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        ids2 = get_read_ids()
 
         # IDs should be the same
         assert ids1 == ids2
@@ -348,13 +370,14 @@ class TestAPIIntegration:
 
     def test_full_workflow_single_read(self, sample_pod5_file):
         """Test complete workflow: load POD5 → plot single read"""
-        from squiggy import close_pod5, load_pod5, plot_read
+        from squiggy import close_pod5, get_read_ids, load_pod5, plot_read
 
         # Clean state
         close_pod5()
 
         # Load file
-        reader, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         assert len(read_ids) > 0
 
         # Plot first read
@@ -368,13 +391,14 @@ class TestAPIIntegration:
         """Test complete workflow: load POD5 + BAM → plot event-aligned"""
         import pysam
 
-        from squiggy import close_pod5, load_bam, load_pod5, plot_read
+        from squiggy import close_pod5, get_read_ids, load_bam, load_pod5, plot_read
 
         # Clean state
         close_pod5()
 
         # Load files
-        reader, read_ids = load_pod5(str(sample_pod5_file))
+        load_pod5(str(sample_pod5_file))
+        read_ids = get_read_ids()
         load_bam(str(indexed_bam_file))
 
         # Find aligned read with move table
