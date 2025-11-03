@@ -6,7 +6,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "${workspaceFolder}/test-refactor-plotting-architecture-25f5c6c",
+        "{{TEST_WORKSPACE_PATH}}",
         "--extensionDevelopmentPath=${workspaceFolder}"
       ],
       "outFiles": [
