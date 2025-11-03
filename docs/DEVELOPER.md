@@ -82,6 +82,31 @@ pixi run build
 3. This launches a new **Extension Development Host** window with your extension loaded
 4. The extension recompiles automatically when you save changes (if you ran `npm run watch`)
 
+### Test Workspace Auto-Generation
+
+When you press F5, a test workspace is automatically created at `test-<branch>-<commit>/` (e.g., `test-main-db05aa3/`).
+
+**How it works**:
+
+1. The `prepare-extension` pre-launch task runs `scripts/setup-test-workspace.sh`
+2. This script:
+   - Creates `test-<branch>-<commit>/` directory (if it doesn't exist)
+   - Configures Python interpreter to use pixi environment
+   - Generates `.vscode/launch.json` from `.vscode/launch.json.template`
+3. The Extension Development Host opens with your test workspace
+
+**Key points**:
+
+- **`.vscode/launch.json.template`**: Committed template with `{{TEST_WORKSPACE_PATH}}` placeholder
+- **`.vscode/launch.json`**: Auto-generated, gitignored, points to current branch's test workspace
+- **Branch isolation**: Each branch gets its own test workspace (enables parallel testing sessions)
+- **Test data**: Place POD5/BAM files in `test-<branch>-<commit>/sample-data/`
+
+**Cleanup**:
+```bash
+pixi run clean  # Removes all test-*/ directories
+```
+
 ### Extension Commands
 
 Once the extension is running, open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and try:

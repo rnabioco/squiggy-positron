@@ -84,12 +84,15 @@ EOF
 
 echo "✓ Test workspace created successfully"
 
-# Update .vscode/launch.json to point to the new test workspace
+# Generate .vscode/launch.json from template
+LAUNCH_TEMPLATE="$PROJECT_ROOT/.vscode/launch.json.template"
 LAUNCH_JSON="$PROJECT_ROOT/.vscode/launch.json"
-if [ -f "$LAUNCH_JSON" ]; then
-    # Use sed to replace the test workspace path in launch.json
-    # Match pattern: "${workspaceFolder}/test-*" and replace with current directory name
-    sed -i.bak "s|\"\${workspaceFolder}/test-[^\"]*\"|\"\${workspaceFolder}/test-$BRANCH_NAME_CLEAN-$COMMIT_HASH\"|g" "$LAUNCH_JSON"
-    rm -f "$LAUNCH_JSON.bak"
-    echo "✓ Updated .vscode/launch.json to use $TEST_WORKSPACE"
+
+if [ -f "$LAUNCH_TEMPLATE" ]; then
+    # Replace placeholder with actual test workspace path
+    TEST_WORKSPACE_PATH="\${workspaceFolder}/test-$BRANCH_NAME_CLEAN-$COMMIT_HASH"
+    sed "s|{{TEST_WORKSPACE_PATH}}|$TEST_WORKSPACE_PATH|g" "$LAUNCH_TEMPLATE" > "$LAUNCH_JSON"
+    echo "✓ Generated .vscode/launch.json from template (test-$BRANCH_NAME_CLEAN-$COMMIT_HASH)"
+else
+    echo "⚠ Warning: .vscode/launch.json.template not found. Skipping launch.json generation."
 fi

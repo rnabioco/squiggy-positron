@@ -16,7 +16,7 @@ ENV/
 
 # IDEs
 .vscode/*
-!.vscode/launch.json
+!.vscode/launch.json.template
 !.vscode/tasks.json
 !.vscode/settings.json
 .idea/
