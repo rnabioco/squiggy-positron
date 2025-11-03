@@ -35,7 +35,6 @@ tests/__pycache__/**
 codecov.yml
 *.egg-info/**
 dist/**
-build/**
 
 # Pixi environment (this is the key exclusion to fix the build error)
 .pixi/**
