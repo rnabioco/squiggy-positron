@@ -209,7 +209,11 @@ class SingleReadPlotStrategy(PlotStrategy):
         if not show_dwell_time and sequence:
             fig.legend.click_policy = "hide"
             fig.legend.location = "bottom_right"
-            fig.legend.background_fill_alpha = 0.7
+            fig.legend.orientation = "horizontal"
+            fig.legend.background_fill_alpha = 0.5
+            fig.legend.label_text_font_size = "8pt"
+            fig.legend.glyph_width = 15
+            fig.legend.glyph_height = 10
 
         # Create modification track if available
         mod_fig = self._create_modification_track(
