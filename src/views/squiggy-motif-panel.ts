@@ -40,8 +40,8 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                 case 'searchMotif':
                     await this.searchMotif(message.motif, message.strand || 'both');
                     break;
-                case 'plotMotif':
-                    await this.plotMotif(message.motif, message.matchIndex, message.window);
+                case 'plotAllMotifs':
+                    await this.plotAllMotifs(message.motif, message.upstream, message.downstream);
                     break;
             }
         });
@@ -64,7 +64,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         .search-box {
             margin-bottom: 15px;
         }
-        input {
+        input[type="text"] {
             width: 60%;
             padding: 5px;
             background: var(--vscode-input-background);
@@ -82,6 +82,10 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         }
         button:hover {
             background: var(--vscode-button-hoverBackground);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .matches-table {
             width: 100%;
@@ -106,40 +110,84 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             font-family: monospace;
             font-weight: bold;
         }
-        .plot-btn {
-            padding: 2px 8px;
-            font-size: 11px;
-        }
         .status {
             margin: 10px 0;
             font-style: italic;
             color: var(--vscode-descriptionForeground);
         }
-        .window-input {
-            width: 50px;
-            padding: 2px;
-            margin-right: 5px;
+        .window-control {
+            margin: 15px 0;
+            padding: 10px;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 3px;
+        }
+        .window-control label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .slider-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .slider-label {
+            font-size: 11px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .slider-center {
+            font-size: 11px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+            padding: 0 10px;
+            white-space: nowrap;
+        }
+        .plot-all-btn {
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="search-box">
         <label>Motif Pattern (IUPAC):</label><br/>
-        <input type="text" id="motifInput" value="DRACH" placeholder="e.g., DRACH, YGCY"/>
-        <button onclick="searchMotif()">Search</button>
-        <br/>
-        <label style="margin-top: 8px; display: inline-block;">
-            <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin-right: 5px;"/>
-            + strand only
-        </label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="motifInput" value="" placeholder="e.g., DRACH or CCA" style="width: 50%;"/>
+            <button onclick="searchMotif()">Search</button>
+            <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
+                <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin: 0;"/>
+                + strand only
+            </label>
+        </div>
     </div>
 
     <div id="status" class="status"></div>
+
+    <div id="windowControlContainer"></div>
 
     <div id="resultsContainer"></div>
 
     <script>
         const vscode = acquireVsCodeApi();
+        let currentMotif = '';
 
         function searchMotif() {
             const motif = document.getElementById('motifInput').value.trim();
@@ -147,20 +195,47 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                 document.getElementById('status').textContent = 'Please enter a motif pattern';
                 return;
             }
+            currentMotif = motif;
             const plusStrandOnly = document.getElementById('plusStrandOnly').checked;
             const strand = plusStrandOnly ? '+' : 'both';
             document.getElementById('status').textContent = 'Searching...';
             vscode.postMessage({ type: 'searchMotif', motif: motif, strand: strand });
         }
 
-        function plotMotif(motif, matchIndex) {
-            const window = parseInt(document.getElementById('window-' + matchIndex).value) || 50;
+        function plotAllMotifs() {
+            const upstream = parseInt(document.getElementById('upstreamSlider').value) || 10;
+            const downstream = parseInt(document.getElementById('downstreamSlider').value) || 10;
+
             vscode.postMessage({
-                type: 'plotMotif',
-                motif: motif,
-                matchIndex: matchIndex,
-                window: window
+                type: 'plotAllMotifs',
+                motif: currentMotif,
+                upstream: upstream,
+                downstream: downstream
             });
+        }
+
+        function updateUpstreamValue() {
+            const value = document.getElementById('upstreamSlider').value;
+            document.getElementById('upstreamValue').textContent = value;
+            document.getElementById('upstreamInput').value = value;
+        }
+
+        function updateDownstreamValue() {
+            const value = document.getElementById('downstreamSlider').value;
+            document.getElementById('downstreamValue').textContent = value;
+            document.getElementById('downstreamInput').value = value;
+        }
+
+        function updateUpstreamFromInput() {
+            const value = document.getElementById('upstreamInput').value;
+            document.getElementById('upstreamSlider').value = value;
+            document.getElementById('upstreamValue').textContent = value;
+        }
+
+        function updateDownstreamFromInput() {
+            const value = document.getElementById('downstreamInput').value;
+            document.getElementById('downstreamSlider').value = value;
+            document.getElementById('downstreamValue').textContent = value;
         }
 
         window.addEventListener('message', event => {
@@ -172,23 +247,60 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
         function updateMatchesTable(matches, searching, motif) {
             const statusEl = document.getElementById('status');
+            const windowControlContainer = document.getElementById('windowControlContainer');
             const containerEl = document.getElementById('resultsContainer');
 
             if (searching) {
                 statusEl.textContent = 'Searching...';
+                windowControlContainer.innerHTML = '';
                 return;
             }
 
             if (!matches || matches.length === 0) {
                 statusEl.textContent = 'No matches found';
                 containerEl.innerHTML = '';
+                windowControlContainer.innerHTML = '';
                 return;
             }
 
+            currentMotif = motif;
             statusEl.textContent = \`Found \${matches.length} matches for \${motif}\`;
 
+            // Add window control sliders
+            let windowHtml = \`
+                <div class="window-control">
+                    <label>Window Size (bp):</label>
+                    <div class="slider-container">
+                        <div class="slider-row">
+                            <div class="slider-group">
+                                <span class="slider-label">Upstream: <span id="upstreamValue">10</span>bp</span>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="upstreamInput" min="0" max="50" value="10"
+                                           style="width: 50px; padding: 2px;" oninput="updateUpstreamFromInput()" />
+                                    <input type="range" id="upstreamSlider" min="0" max="50" value="10"
+                                           style="flex: 1;" oninput="updateUpstreamValue()" />
+                                </div>
+                            </div>
+                            <span class="slider-center">Motif<br/>Center</span>
+                            <div class="slider-group">
+                                <span class="slider-label">Downstream: <span id="downstreamValue">10</span>bp</span>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="range" id="downstreamSlider" min="0" max="50" value="10"
+                                           style="flex: 1;" oninput="updateDownstreamValue()" />
+                                    <input type="number" id="downstreamInput" min="0" max="50" value="10"
+                                           style="width: 50px; padding: 2px;" oninput="updateDownstreamFromInput()" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="plot-all-btn" onclick="plotAllMotifs()">Plot All Matches</button>
+                </div>
+            \`;
+            windowControlContainer.innerHTML = windowHtml;
+
+            // Build table without window/action columns
             let html = '<table class="matches-table">';
-            html += '<tr><th>#</th><th>Chrom</th><th>Position</th><th>Sequence</th><th>Strand</th><th>Window</th><th>Action</th></tr>';
+            html += '<tr><th>#</th><th>Chrom</th><th>Position</th><th>Sequence</th><th>Strand</th></tr>';
 
             matches.forEach((match, index) => {
                 html += \`<tr>
@@ -197,8 +309,6 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                     <td>\${match.position.toLocaleString()}</td>
                     <td class="sequence">\${match.sequence}</td>
                     <td>\${match.strand}</td>
-                    <td><input type="number" id="window-\${index}" class="window-input" value="50" min="10" max="500"/> bp</td>
-                    <td><button class="plot-btn" onclick="plotMotif('\${motif}', \${index})">Plot</button></td>
                 </tr>\`;
             });
 
@@ -257,24 +367,33 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Generate motif aggregate plot
+     * Generate aggregate plot for all motif matches
      */
-    private async plotMotif(motif: string, matchIndex: number, window: number): Promise<void> {
+    private async plotAllMotifs(
+        motif: string,
+        upstream: number,
+        downstream: number
+    ): Promise<void> {
         if (!this.state.currentFastaFile) {
             vscode.window.showErrorMessage('No FASTA file loaded.');
             return;
         }
 
+        if (!this._matches || this._matches.length === 0) {
+            vscode.window.showErrorMessage('No motif matches to plot. Search for a motif first.');
+            return;
+        }
+
         try {
-            await vscode.commands.executeCommand('squiggy.plotMotifAggregate', {
+            await vscode.commands.executeCommand('squiggy.plotMotifAggregateAll', {
                 fastaFile: this.state.currentFastaFile,
                 motif: motif,
-                matchIndex: matchIndex,
-                window: window,
+                upstream: upstream,
+                downstream: downstream,
             });
         } catch (error) {
             vscode.window.showErrorMessage(
-                `Failed to plot motif: ${error instanceof Error ? error.message : String(error)}`
+                `Failed to plot motif aggregate: ${error instanceof Error ? error.message : String(error)}`
             );
         }
     }
