@@ -24,9 +24,29 @@ Squiggy is a Positron extension that integrates nanopore signal visualization in
 
 ## Installation
 
+> [!IMPORTANT]
+> Squiggy requires the `squiggy-positron` Python package to be installed **before** using the extension. Follow these steps in order:
+
+### 1. Install Python Package
+
+First, install the `squiggy-positron` Python package in your project's virtual environment:
+
+```bash
+uv pip install squiggy-positron
+```
+
+> **Note**: While the PyPI package is named `squiggy-positron`, you import it as `import squiggy`.
+
+### 2. Install Positron Extension
+
+Then install the Squiggy extension in Positron:
+
 1. Download the latest `.vsix` file from [Releases](https://github.com/rnabioco/squiggy-positron/releases)
 2. In Positron: `Extensions` → `...` → `Install from VSIX...`
 3. Select the downloaded `.vsix` file
+
+Or install from the Open VSX Registry (when available):
+- Search for "Squiggy" in Positron's Extensions panel
 
 > For development installation, see the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-guide/).
 
@@ -88,12 +108,13 @@ See the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-
 ## Requirements
 
 - **Positron IDE** (version 2025.6.0+)
-- **Python 3.12+** with an active Python console
-- **squiggy Python package**: The extension will prompt to install automatically on first use
+- **Python 3.12+** with a virtual environment
+- **uv** for Python package management
+- **squiggy-positron Python package** (installed via `uv pip install squiggy-positron`)
 
 ### Python Environment Setup
 
-**Recommended**: Use `uv` for fast, reliable Python environment management:
+Use `uv` for fast, reliable Python environment management:
 
 ```bash
 # Install uv (if not already installed)
@@ -102,47 +123,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Windows
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# Create virtual environment and install squiggy
+# Create virtual environment and install squiggy-positron
 uv venv
 source .venv/bin/activate  # macOS/Linux
 # OR
 .venv\Scripts\activate     # Windows
 
-uv pip install squiggy  # Includes: pod5, bokeh, numpy, pysam
+uv pip install squiggy-positron  # Includes: pod5, bokeh, numpy, pysam
 ```
 
-**Alternative (using venv)**: Standard Python virtual environment:
-
-```bash
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate it
-source .venv/bin/activate  # macOS/Linux
-# OR
-.venv\Scripts\activate     # Windows
-
-# Install squiggy (automatic via extension or manual)
-pip install squiggy
-```
-
-> **Important**: If you're using Homebrew Python or system Python, you **must** use a virtual environment. Modern Python installations follow [PEP 668](https://peps.python.org/pep-0668/) and prevent direct package installation to system Python.
->
-> When you first open a POD5 file, Squiggy will:
-> 1. Check if the Python package is installed
-> 2. Detect if you're using a virtual environment
-> 3. Prompt to install automatically (if in venv/mamba) or show manual setup instructions (if system Python)
-
-**Alternative (using mamba)**: If you need mamba environments:
-
-```bash
-# Install mamba (much faster than conda)
-# See: https://mamba.readthedocs.io/en/latest/installation.html
-
-mamba create -n squiggy python=3.12
-mamba activate squiggy
-pip install squiggy
-```
+> **Important**: Always use a project-based virtual environment. The extension will check for the `squiggy-positron` package when you first try to load data, and will provide installation instructions if it's not found.
 
 ### Optional Requirements
 

@@ -1,7 +1,7 @@
 {
   "name": "squiggy-positron",
   "displayName": "Squiggy",
-  "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files",
+  "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files. Requires: uv pip install squiggy-positron",
   "version": "0.1.7-alpha",
   "publisher": "rnabioco",
   "repository": {
@@ -26,49 +26,57 @@
         "command": "squiggy.openPOD5",
         "title": "Open POD5 File",
         "category": "Squiggy",
-        "icon": "$(file-binary)"
+        "icon": "$(file-binary)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.openBAM",
         "title": "Open BAM File",
         "category": "Squiggy",
-        "icon": "$(file-code)"
+        "icon": "$(file-code)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.closePOD5",
         "title": "Close POD5 File",
         "category": "Squiggy",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.closeBAM",
         "title": "Close BAM File",
         "category": "Squiggy",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.loadTestData",
         "title": "Load Test Data",
         "category": "Squiggy",
-        "icon": "$(database)"
+        "icon": "$(database)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotRead",
         "title": "Plot Selected Read(s)",
         "category": "Squiggy",
-        "icon": "$(graph)"
+        "icon": "$(graph)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotAggregate",
         "title": "Plot Aggregate for Reference",
         "category": "Squiggy",
-        "icon": "$(graph-line)"
+        "icon": "$(graph-line)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.refreshReads",
         "title": "Refresh Read List",
         "category": "Squiggy",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.clearState",
@@ -80,19 +88,22 @@
         "command": "squiggy.openFASTA",
         "title": "Open FASTA File",
         "category": "Squiggy",
-        "icon": "$(file-text)"
+        "icon": "$(file-text)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.closeFASTA",
         "title": "Close FASTA File",
         "category": "Squiggy",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotMotifAggregate",
         "title": "Plot Motif Aggregate",
         "category": "Squiggy",
-        "icon": "$(graph-scatter)"
+        "icon": "$(graph-scatter)",
+        "enablement": "squiggy.packageInstalled"
       }
     ],
     "viewsContainers": {

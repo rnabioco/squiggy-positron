@@ -62,6 +62,32 @@ export async function activate(context: vscode.ExtensionContext) {
     // Set initial context for modifications panel (hidden by default)
     vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
+    // Check if squiggy package is installed and set context for command enablement
+    if (state.packageManager) {
+        const isInstalled = await state.packageManager.isSquiggyInstalled();
+        await vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', isInstalled);
+
+        // Show helpful message if not installed
+        if (!isInstalled) {
+            const choice = await vscode.window.showWarningMessage(
+                'Squiggy requires the squiggy-positron Python package. ' +
+                    'Install it with: uv pip install squiggy-positron',
+                'Copy Install Command',
+                'Dismiss'
+            );
+
+            if (choice === 'Copy Install Command') {
+                await vscode.env.clipboard.writeText('uv pip install squiggy-positron');
+                vscode.window.showInformationMessage(
+                    'Copied to clipboard. Paste in your terminal to install.'
+                );
+            }
+        }
+    } else {
+        // No package manager available (non-Positron mode) - assume package is available
+        await vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', true);
+    }
+
     // Listen for plot option changes and refresh current plot
     context.subscriptions.push(
         plotOptionsProvider.onDidChangeOptions(() => {
