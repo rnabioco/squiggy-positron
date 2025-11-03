@@ -203,6 +203,36 @@ class ThemeManager:
             fig.add_tools(wheel_zoom)
             fig.toolbar.active_scroll = wheel_zoom
 
+    def configure_legend(self, fig) -> None:
+        """
+        Configure legend styling for compact, unobtrusive display
+
+        Applies consistent legend styling across all plot types:
+        - Horizontal orientation for space efficiency
+        - Compact sizing with minimal padding
+        - Semi-transparent background
+        - Click-to-hide functionality
+
+        Args:
+            fig: Bokeh figure with legend to configure
+
+        Example:
+            >>> manager = ThemeManager(Theme.LIGHT)
+            >>> fig = manager.create_figure("Plot", "X", "Y")
+            >>> fig.line([1, 2, 3], [1, 4, 9], legend_label="Data")
+            >>> manager.configure_legend(fig)
+        """
+        fig.legend.click_policy = "hide"
+        fig.legend.location = "bottom_right"
+        fig.legend.orientation = "horizontal"
+        fig.legend.background_fill_alpha = 0.65
+        fig.legend.label_text_font_size = "8pt"
+        fig.legend.glyph_width = 15
+        fig.legend.glyph_height = 10
+        fig.legend.padding = 2
+        fig.legend.spacing = 2
+        fig.legend.margin = 2
+
     def get_color(self, color_key: str) -> str:
         """
         Get a specific theme color by key

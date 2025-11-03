@@ -202,13 +202,7 @@ class StackedPlotStrategy(PlotStrategy):
         fig.add_tools(hover)
 
         # Configure legend
-        fig.legend.click_policy = "hide"
-        fig.legend.location = "bottom_right"
-        fig.legend.orientation = "horizontal"
-        fig.legend.background_fill_alpha = 0.5
-        fig.legend.label_text_font_size = "8pt"
-        fig.legend.glyph_width = 15
-        fig.legend.glyph_height = 10
+        self.theme_manager.configure_legend(fig)
 
         # Generate HTML
         html_title = self._format_html_title(reads_data)
