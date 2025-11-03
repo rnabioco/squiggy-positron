@@ -44,6 +44,7 @@ Read the current version from `package.json` (look for `"version": "..."`).
 - `squiggy/__init__.py` (__version__)
 - `pyproject.toml` (version)
 - `package.json` viewsContainers title (sidebar display)
+- `package-lock.json` (version)
 
 The sync script runs automatically during build, but you should run it manually after updating the version: `npm run sync`
 
@@ -98,12 +99,13 @@ This will automatically update:
 - `squiggy/__init__.py` (__version__)
 - `pyproject.toml` (version)
 - `package.json` viewsContainers title (sidebar)
+- `package-lock.json` (version)
 
 ## Step 6: Stage Changes
 
 Stage all modified files with git:
 ```bash
-git add package.json squiggy/__init__.py pyproject.toml NEWS.md
+git add package.json package-lock.json squiggy/__init__.py pyproject.toml NEWS.md
 ```
 
 ## Step 7: Show Summary
@@ -112,6 +114,7 @@ Display a summary showing:
 - Old version → New version
 - Files updated:
   - `package.json` (version and sidebar title)
+  - `package-lock.json` (version)
   - `squiggy/__init__.py` (__version__)
   - `pyproject.toml` (version)
   - `NEWS.md`
