@@ -15,6 +15,7 @@ import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
 import { FilePanelProvider } from '../views/squiggy-file-panel';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
+import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
@@ -45,6 +46,7 @@ export class ExtensionState {
     private _plotOptionsProvider?: PlotOptionsViewProvider;
     private _filePanelProvider?: FilePanelProvider;
     private _modificationsProvider?: ModificationsPanelProvider;
+    private _samplesProvider?: SamplesPanelProvider;
 
     // File state
     private _currentPod5File?: string;
@@ -106,12 +108,14 @@ export class ExtensionState {
         readsViewPane: ReadsViewPane,
         plotOptionsProvider: PlotOptionsViewProvider,
         filePanelProvider: FilePanelProvider,
-        modificationsProvider: ModificationsPanelProvider
+        modificationsProvider: ModificationsPanelProvider,
+        samplesProvider?: SamplesPanelProvider
     ): void {
         this._readsViewPane = readsViewPane;
         this._plotOptionsProvider = plotOptionsProvider;
         this._filePanelProvider = filePanelProvider;
         this._modificationsProvider = modificationsProvider;
+        this._samplesProvider = samplesProvider;
     }
 
     /**
@@ -199,6 +203,10 @@ squiggy.close_fasta()
 
     get modificationsProvider(): ModificationsPanelProvider | undefined {
         return this._modificationsProvider;
+    }
+
+    get samplesProvider(): SamplesPanelProvider | undefined {
+        return this._samplesProvider;
     }
 
     get currentPod5File(): string | undefined {

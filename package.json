@@ -101,6 +101,12 @@
         "icon": "$(folder-opened)"
       },
       {
+        "command": "squiggy.loadTestMultiReadDataset",
+        "title": "Load Test Multi-Read Dataset",
+        "category": "Squiggy",
+        "icon": "$(database)"
+      },
+      {
         "command": "squiggy.plotDeltaComparison",
         "title": "Plot Delta Comparison",
         "category": "Squiggy",

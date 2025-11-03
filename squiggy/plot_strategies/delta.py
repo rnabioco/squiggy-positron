@@ -221,6 +221,7 @@ class DeltaPlotStrategy(PlotStrategy):
             title=f"Delta Signal: {sample_b_name} - {sample_a_name}",
             x_label="Position",
             y_label="Δ Signal (pA)",
+            width=900,
             height=DELTA_SIGNAL_HEIGHT,
         )
 
@@ -317,6 +318,7 @@ class DeltaPlotStrategy(PlotStrategy):
             title="Coverage Comparison",
             x_label="Position",
             y_label="Read Count",
+            width=900,
             height=DELTA_STATS_HEIGHT,
         )
 

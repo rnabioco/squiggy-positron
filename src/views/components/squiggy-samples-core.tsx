@@ -97,19 +97,20 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
-    const formatFileSize = (bytes: number): string => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-    };
+    // Unused utility functions - reserved for future file size display feature
+    // const formatFileSize = (bytes: number): string => {
+    //     if (bytes === 0) return '0 B';
+    //     const k = 1024;
+    //     const sizes = ['B', 'KB', 'MB', 'GB'];
+    //     const i = Math.floor(Math.log(bytes) / Math.log(k));
+    //     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    // };
 
-    const getFileSize = (filePath: string): string => {
-        // In a real implementation, we'd pass file size from extension
-        // For now, just show a placeholder
-        return 'unknown';
-    };
+    // const getFileSize = (_filePath: string): string => {
+    //     // In a real implementation, we'd pass file size from extension
+    //     // For now, just show a placeholder
+    //     return 'unknown';
+    // };
 
     if (state.samples.length === 0) {
         return (

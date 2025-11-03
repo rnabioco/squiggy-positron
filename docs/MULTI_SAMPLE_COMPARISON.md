@@ -180,6 +180,11 @@ In the **Sample Comparison Manager** panel:
 
 ### Generating Delta Plot
 
+**⚠️ Requirements:**
+- Both samples must have **BAM files** loaded
+- BAM files are required to align signals to reference positions for meaningful comparison
+- If you get "BAM files are required" error, reload samples with BAM files
+
 **Option 1: Via Panel**
 
 ```

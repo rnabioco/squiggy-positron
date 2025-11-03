@@ -13,11 +13,11 @@ import {
     SampleItem,
     ClearSamplesMessage,
 } from '../types/messages';
-import { ExtensionState, SampleInfo } from '../state/extension-state';
-import { formatFileSize } from '../utils/format-utils';
+import { ExtensionState } from '../state/extension-state';
+// SampleInfo and formatFileSize unused - reserved for future features
 
 export class SamplesPanelProvider extends BaseWebviewProvider {
-    public static readonly viewType = 'squiggySamplesPanel';
+    public static readonly viewType = 'squiggyComparisonSamples';
 
     private _state: ExtensionState;
     private _samples: SampleItem[] = [];
@@ -65,7 +65,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 }
                 break;
 
-            case 'unloadSample':
+            case 'unloadSample': {
                 // Ask for confirmation
                 const confirm = await vscode.window.showWarningMessage(
                     `Unload sample "${message.sampleName}"?`,
@@ -79,19 +79,27 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     this._selectedSamples.delete(message.sampleName);
                 }
                 break;
+            }
         }
     }
 
     protected updateView(): void {
+        console.log('[SamplesPanelProvider] updateView called');
+        console.log('[SamplesPanelProvider] _view exists:', !!this._view);
+
         if (!this._view) {
-            console.log('SamplesPanelProvider: No view to update');
+            console.log('[SamplesPanelProvider] No view to update');
             return;
         }
 
         // Rebuild samples list from extension state
-        this._samples = Array.from(this._state.getAllSampleNames())
+        const sampleNames = this._state.getAllSampleNames();
+        console.log('[SamplesPanelProvider] Sample names from state:', sampleNames);
+
+        this._samples = Array.from(sampleNames)
             .map((name) => {
                 const sampleInfo = this._state.getSample(name);
+                console.log(`[SamplesPanelProvider] Sample '${name}' info:`, sampleInfo);
                 if (!sampleInfo) {
                     return null;
                 }
@@ -109,12 +117,20 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             })
             .filter((item): item is SampleItem => item !== null);
 
+        console.log('[SamplesPanelProvider] Built samples array:', this._samples);
+
         if (this._samples.length === 0) {
+            console.log('[SamplesPanelProvider] Sending clearSamples message');
             const message: ClearSamplesMessage = {
                 type: 'clearSamples',
             };
             this.postMessage(message);
         } else {
+            console.log(
+                '[SamplesPanelProvider] Sending updateSamples message with',
+                this._samples.length,
+                'samples'
+            );
             const message: UpdateSamplesMessage = {
                 type: 'updateSamples',
                 samples: this._samples,
@@ -126,7 +142,19 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     /**
      * Update samples display when samples are added
      */
-    public refresh(): void {
+    public async refresh(): Promise<void> {
+        // If view doesn't exist yet, try to show it
+        if (!this._view) {
+            console.log('[SamplesPanelProvider] View not yet created, showing panel...');
+            try {
+                await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
+                // Wait a bit for view to be created
+                await new Promise((resolve) => setTimeout(resolve, 500));
+            } catch (error) {
+                console.error('[SamplesPanelProvider] Error showing panel:', error);
+            }
+        }
+
         this.updateView();
     }
 
