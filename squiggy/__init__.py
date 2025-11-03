@@ -71,6 +71,8 @@ from .motif import (
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
 
+import numpy as np
+
 # Legacy SquigglePlotter removed - use plot_read() or Read.plot() instead
 # Utility functions and data classes
 from .utils import (
@@ -580,6 +582,117 @@ def plot_motif_aggregate(
     return html
 
 
+def plot_delta_comparison(
+    sample_names: list[str],
+    reference_name: str = "Default",
+    normalization: str = "NONE",
+    theme: str = "LIGHT",
+) -> str:
+    """
+    Generate delta comparison plot between two or more samples
+
+    Creates a visualization showing differences in aggregate statistics
+    between samples. Shows:
+    1. Delta Signal Track: Mean signal differences (B - A)
+    2. Delta Stats Track: Coverage comparisons
+
+    Args:
+        sample_names: List of sample names to compare (minimum 2 required)
+        reference_name: Optional reference name for plot title (default: "Default")
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
+        theme: Color theme (LIGHT, DARK)
+
+    Returns:
+        Bokeh HTML string with delta comparison visualization
+
+    Example:
+        >>> import squiggy
+        >>> squiggy.load_sample('v4.2', 'data_v4.2.pod5', 'align_v4.2.bam')
+        >>> squiggy.load_sample('v5.0', 'data_v5.0.pod5', 'align_v5.0.bam')
+        >>> html = squiggy.plot_delta_comparison(['v4.2', 'v5.0'])
+        >>> # Extension displays this automatically
+
+    Raises:
+        ValueError: If fewer than 2 samples provided or samples not found
+    """
+    from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
+    from .utils import calculate_delta_stats, calculate_aggregate_signal
+
+    # Validate input
+    if len(sample_names) < 2:
+        raise ValueError("Delta comparison requires at least 2 samples")
+
+    # Get samples
+    samples = []
+    for name in sample_names:
+        sample = _squiggy_session.get_sample(name)
+        if sample is None:
+            raise ValueError(f"Sample '{name}' not found")
+        samples.append(sample)
+
+    # For now, use first two samples for comparison (A vs B)
+    sample_a = samples[0]
+    sample_b = samples[1]
+
+    # Validate both samples have POD5 loaded
+    if sample_a.pod5_reader is None or sample_b.pod5_reader is None:
+        raise ValueError("Both samples must have POD5 files loaded")
+
+    # Parse parameters
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
+
+    # Extract reads from both samples
+    reads_a = [
+        (read_id, sample_a.pod5_reader[read_id].signal, 4000)
+        for read_id in sample_a.read_ids[:100]  # Sample first 100 reads
+    ]
+    reads_b = [
+        (read_id, sample_b.pod5_reader[read_id].signal, 4000)
+        for read_id in sample_b.read_ids[:100]  # Sample first 100 reads
+    ]
+
+    # Calculate aggregate statistics for both samples
+    stats_a = calculate_aggregate_signal(reads_a)
+    stats_b = calculate_aggregate_signal(reads_b)
+
+    # Calculate deltas
+    delta_stats = calculate_delta_stats(stats_a, stats_b)
+
+    # Prepare data for DeltaPlotStrategy
+    positions = stats_a.get("positions", delta_stats.get("positions"))
+    if positions is None:
+        positions = np.arange(len(delta_stats.get("delta_mean_signal", [])))
+
+    data = {
+        "positions": positions,
+        "delta_mean_signal": delta_stats.get(
+            "delta_mean_signal", np.array([])
+        ),
+        "delta_std_signal": delta_stats.get(
+            "delta_std_signal", np.array([])
+        ),
+        "sample_a_name": sample_a.name,
+        "sample_b_name": sample_b.name,
+        "sample_a_coverage": stats_a.get("coverage", [1] * len(positions)),
+        "sample_b_coverage": stats_b.get("coverage", [1] * len(positions)),
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.DELTA, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .utils import _route_to_plots_pane
+
+    _route_to_plots_pane(grid)
+
+    return html
+
+
 __all__ = [
     # Version
     "__version__",
@@ -597,6 +710,7 @@ __all__ = [
     "plot_reads",
     "plot_aggregate",
     "plot_motif_aggregate",
+    "plot_delta_comparison",  # Phase 3 - NEW
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
