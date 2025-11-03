@@ -128,16 +128,62 @@ export interface ModificationFilters {
 export type ModificationsIncomingMessage = ModFiltersChangedMessage | ReadyMessage;
 export type ModificationsOutgoingMessage = UpdateModInfoMessage | ClearModsMessage;
 
+// ========== Sample Comparison Panel Messages ==========
+
+export interface SampleItem {
+    name: string;
+    pod5Path: string;
+    bamPath?: string;
+    fastaPath?: string;
+    readCount: number;
+    hasBam: boolean;
+    hasFasta: boolean;
+}
+
+export interface UpdateSamplesMessage extends BaseMessage {
+    type: 'updateSamples';
+    samples: SampleItem[];
+}
+
+export interface SelectSampleMessage extends BaseMessage {
+    type: 'selectSample';
+    sampleName: string;
+    selected: boolean;
+}
+
+export interface StartComparisonMessage extends BaseMessage {
+    type: 'startComparison';
+    sampleNames: string[];
+}
+
+export interface UnloadSampleMessage extends BaseMessage {
+    type: 'unloadSample';
+    sampleName: string;
+}
+
+export interface ClearSamplesMessage extends BaseMessage {
+    type: 'clearSamples';
+}
+
+export type SamplesIncomingMessage =
+    | SelectSampleMessage
+    | StartComparisonMessage
+    | UnloadSampleMessage
+    | ReadyMessage;
+export type SamplesOutgoingMessage = UpdateSamplesMessage | ClearSamplesMessage;
+
 // ========== Union Types for Message Handlers ==========
 
 export type IncomingWebviewMessage =
     | FilePanelIncomingMessage
     | ReadsViewIncomingMessage
     | PlotOptionsIncomingMessage
-    | ModificationsIncomingMessage;
+    | ModificationsIncomingMessage
+    | SamplesIncomingMessage;
 
 export type OutgoingWebviewMessage =
     | FilePanelOutgoingMessage
     | ReadsViewOutgoingMessage
     | PlotOptionsOutgoingMessage
-    | ModificationsOutgoingMessage;
+    | ModificationsOutgoingMessage
+    | SamplesOutgoingMessage;
