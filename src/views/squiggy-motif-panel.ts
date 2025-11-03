@@ -40,8 +40,8 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                 case 'searchMotif':
                     await this.searchMotif(message.motif, message.strand || 'both');
                     break;
-                case 'plotMotif':
-                    await this.plotMotif(message.motif, message.matchIndex, message.window);
+                case 'plotAllMotifs':
+                    await this.plotAllMotifs(message.motif, message.upstream, message.downstream);
                     break;
             }
         });
@@ -64,7 +64,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         .search-box {
             margin-bottom: 15px;
         }
-        input {
+        input[type="text"] {
             width: 60%;
             padding: 5px;
             background: var(--vscode-input-background);
@@ -82,6 +82,10 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         }
         button:hover {
             background: var(--vscode-button-hoverBackground);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .matches-table {
             width: 100%;
@@ -106,19 +110,47 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             font-family: monospace;
             font-weight: bold;
         }
-        .plot-btn {
-            padding: 2px 8px;
-            font-size: 11px;
-        }
         .status {
             margin: 10px 0;
             font-style: italic;
             color: var(--vscode-descriptionForeground);
         }
-        .window-input {
-            width: 50px;
-            padding: 2px;
-            margin-right: 5px;
+        .window-control {
+            margin: 15px 0;
+            padding: 10px;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 3px;
+        }
+        .window-control label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .slider-container {
+            display: grid;
+            grid-template-columns: auto 1fr auto 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .slider-label {
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .slider-center {
+            font-size: 11px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+        }
+        .plot-all-btn {
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -136,10 +168,13 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
     <div id="status" class="status"></div>
 
+    <div id="windowControlContainer"></div>
+
     <div id="resultsContainer"></div>
 
     <script>
         const vscode = acquireVsCodeApi();
+        let currentMotif = 'DRACH';
 
         function searchMotif() {
             const motif = document.getElementById('motifInput').value.trim();
@@ -147,20 +182,33 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                 document.getElementById('status').textContent = 'Please enter a motif pattern';
                 return;
             }
+            currentMotif = motif;
             const plusStrandOnly = document.getElementById('plusStrandOnly').checked;
             const strand = plusStrandOnly ? '+' : 'both';
             document.getElementById('status').textContent = 'Searching...';
             vscode.postMessage({ type: 'searchMotif', motif: motif, strand: strand });
         }
 
-        function plotMotif(motif, matchIndex) {
-            const window = parseInt(document.getElementById('window-' + matchIndex).value) || 50;
+        function plotAllMotifs() {
+            const upstream = parseInt(document.getElementById('upstreamSlider').value) || 10;
+            const downstream = parseInt(document.getElementById('downstreamSlider').value) || 10;
+
             vscode.postMessage({
-                type: 'plotMotif',
-                motif: motif,
-                matchIndex: matchIndex,
-                window: window
+                type: 'plotAllMotifs',
+                motif: currentMotif,
+                upstream: upstream,
+                downstream: downstream
             });
+        }
+
+        function updateUpstreamValue() {
+            const value = document.getElementById('upstreamSlider').value;
+            document.getElementById('upstreamValue').textContent = value;
+        }
+
+        function updateDownstreamValue() {
+            const value = document.getElementById('downstreamSlider').value;
+            document.getElementById('downstreamValue').textContent = value;
         }
 
         window.addEventListener('message', event => {
@@ -172,23 +220,44 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
         function updateMatchesTable(matches, searching, motif) {
             const statusEl = document.getElementById('status');
+            const windowControlContainer = document.getElementById('windowControlContainer');
             const containerEl = document.getElementById('resultsContainer');
 
             if (searching) {
                 statusEl.textContent = 'Searching...';
+                windowControlContainer.innerHTML = '';
                 return;
             }
 
             if (!matches || matches.length === 0) {
                 statusEl.textContent = 'No matches found';
                 containerEl.innerHTML = '';
+                windowControlContainer.innerHTML = '';
                 return;
             }
 
+            currentMotif = motif;
             statusEl.textContent = \`Found \${matches.length} matches for \${motif}\`;
 
+            // Add window control sliders
+            let windowHtml = \`
+                <div class="window-control">
+                    <label>Window Size (bp):</label>
+                    <div class="slider-container">
+                        <span class="slider-label">Upstream: <span id="upstreamValue">10</span>bp</span>
+                        <input type="range" id="upstreamSlider" min="0" max="100" value="10" oninput="updateUpstreamValue()" />
+                        <span class="slider-center">← Motif Center →</span>
+                        <input type="range" id="downstreamSlider" min="0" max="100" value="10" oninput="updateDownstreamValue()" />
+                        <span class="slider-label">Downstream: <span id="downstreamValue">10</span>bp</span>
+                    </div>
+                    <button class="plot-all-btn" onclick="plotAllMotifs()">Plot All Matches</button>
+                </div>
+            \`;
+            windowControlContainer.innerHTML = windowHtml;
+
+            // Build table without window/action columns
             let html = '<table class="matches-table">';
-            html += '<tr><th>#</th><th>Chrom</th><th>Position</th><th>Sequence</th><th>Strand</th><th>Window</th><th>Action</th></tr>';
+            html += '<tr><th>#</th><th>Chrom</th><th>Position</th><th>Sequence</th><th>Strand</th></tr>';
 
             matches.forEach((match, index) => {
                 html += \`<tr>
@@ -197,8 +266,6 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                     <td>\${match.position.toLocaleString()}</td>
                     <td class="sequence">\${match.sequence}</td>
                     <td>\${match.strand}</td>
-                    <td><input type="number" id="window-\${index}" class="window-input" value="50" min="10" max="500"/> bp</td>
-                    <td><button class="plot-btn" onclick="plotMotif('\${motif}', \${index})">Plot</button></td>
                 </tr>\`;
             });
 
@@ -257,24 +324,33 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
     }
 
     /**
-     * Generate motif aggregate plot
+     * Generate aggregate plot for all motif matches
      */
-    private async plotMotif(motif: string, matchIndex: number, window: number): Promise<void> {
+    private async plotAllMotifs(
+        motif: string,
+        upstream: number,
+        downstream: number
+    ): Promise<void> {
         if (!this.state.currentFastaFile) {
             vscode.window.showErrorMessage('No FASTA file loaded.');
             return;
         }
 
+        if (!this._matches || this._matches.length === 0) {
+            vscode.window.showErrorMessage('No motif matches to plot. Search for a motif first.');
+            return;
+        }
+
         try {
-            await vscode.commands.executeCommand('squiggy.plotMotifAggregate', {
+            await vscode.commands.executeCommand('squiggy.plotMotifAggregateAll', {
                 fastaFile: this.state.currentFastaFile,
                 motif: motif,
-                matchIndex: matchIndex,
-                window: window,
+                upstream: upstream,
+                downstream: downstream,
             });
         } catch (error) {
             vscode.window.showErrorMessage(
-                `Failed to plot motif: ${error instanceof Error ? error.message : String(error)}`
+                `Failed to plot motif aggregate: ${error instanceof Error ? error.message : String(error)}`
             );
         }
     }

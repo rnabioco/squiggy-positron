@@ -359,4 +359,41 @@ squiggy.plot_motif_aggregate(
             throw new Error(`Failed to generate motif aggregate plot: ${error}`);
         }
     }
+
+    /**
+     * Generate aggregate plot for all motif matches with asymmetric windows
+     */
+    async generateMotifAggregateAllPlot(
+        fastaFile: string,
+        motif: string,
+        upstream: number = 10,
+        downstream: number = 10,
+        maxReadsPerMotif: number = 100,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<void> {
+        const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
+        const escapedMotif = motif.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+
+# Generate aggregate plot across all motif matches
+squiggy.plot_motif_aggregate_all(
+    fasta_file='${escapedFastaPath}',
+    motif='${escapedMotif}',
+    upstream=${upstream},
+    downstream=${downstream},
+    max_reads_per_motif=${maxReadsPerMotif},
+    normalization='${normalization}',
+    theme='${theme}'
+)
+`;
+
+        try {
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to generate motif aggregate all plot: ${error}`);
+        }
+    }
 }

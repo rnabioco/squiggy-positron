@@ -568,6 +568,172 @@ def plot_motif_aggregate(
     return html
 
 
+def plot_motif_aggregate_all(
+    fasta_file: str,
+    motif: str,
+    upstream: int = 10,
+    downstream: int = 10,
+    max_reads_per_motif: int = 100,
+    normalization: str = "ZNORM",
+    theme: str = "LIGHT",
+    strand: str = "both",
+) -> str:
+    """
+    Generate aggregate multi-read visualization across ALL motif matches
+
+    Creates a three-track plot showing aggregate statistics from reads aligned
+    to ALL instances of the motif in the genome. The x-axis is centered on the
+    motif position with configurable upstream/downstream windows.
+
+    This differs from plot_motif_aggregate() which plots a single motif match.
+    This function combines reads from all motif matches into one aggregate view.
+
+    Args:
+        fasta_file: Path to indexed FASTA file (.fai required)
+        motif: IUPAC nucleotide pattern (e.g., "DRACH", "YGCY")
+        upstream: Number of bases upstream (5') of motif center (default=10)
+        downstream: Number of bases downstream (3') of motif center (default=10)
+        max_reads_per_motif: Maximum reads per motif match (default=100)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
+        theme: Color theme (LIGHT, DARK)
+        strand: Which strand to search ('+', '-', or 'both')
+
+    Returns:
+        Bokeh HTML string with three synchronized tracks showing aggregate
+        statistics across all motif instances
+
+    Example:
+        >>> import squiggy
+        >>> squiggy.load_pod5('data.pod5')
+        >>> squiggy.load_bam('alignments.bam')
+        >>> html = squiggy.plot_motif_aggregate_all(
+        ...     fasta_file='genome.fa',
+        ...     motif='DRACH',
+        ...     upstream=20,
+        ...     downstream=50
+        ... )
+        >>> # Extension displays this automatically
+
+    Raises:
+        ValueError: If POD5/BAM not loaded or no motif matches found
+    """
+    from .io import _squiggy_session
+    from .motif import search_motif
+    from .plot_factory import create_plot_strategy
+    from .utils import (
+        align_reads_to_motif_center,
+        calculate_aggregate_signal,
+        calculate_base_pileup,
+        calculate_quality_by_position,
+        extract_reads_for_motif,
+    )
+
+    # Validate state
+    if _squiggy_session.reader is None:
+        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+    if _squiggy_session.bam_path is None:
+        raise ValueError(
+            "No BAM file loaded. Motif aggregate plots require alignments. "
+            "Call load_bam() first."
+        )
+
+    # Parse parameters
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
+
+    # Search for all motif matches
+    matches = list(search_motif(fasta_file, motif, strand=strand))
+
+    if not matches:
+        raise ValueError(f"No matches found for motif '{motif}' in FASTA file")
+
+    # Extract and align reads from all motif matches
+    all_aligned_reads = []
+    num_matches_with_reads = 0
+
+    for match_index, motif_match in enumerate(matches):
+        try:
+            # Extract reads for this motif match
+            reads_data, _ = extract_reads_for_motif(
+                pod5_file=_squiggy_session.pod5_path,
+                bam_file=_squiggy_session.bam_path,
+                fasta_file=fasta_file,
+                motif=motif,
+                match_index=match_index,
+                upstream=upstream,
+                downstream=downstream,
+                max_reads=max_reads_per_motif,
+            )
+
+            if reads_data:
+                # Calculate motif center position
+                motif_center = motif_match.position + (motif_match.length // 2)
+
+                # Align reads to motif center (adjust coordinates to be motif-relative)
+                aligned_reads = align_reads_to_motif_center(reads_data, motif_center)
+
+                # Add to combined dataset
+                all_aligned_reads.extend(aligned_reads)
+                num_matches_with_reads += 1
+
+        except Exception:
+            # Skip motif matches that fail (e.g., no reads, edge of chromosome)
+            continue
+
+    if not all_aligned_reads:
+        raise ValueError(
+            f"No reads found overlapping any of {len(matches)} motif matches. "
+            "Try a different motif or increase window size."
+        )
+
+    num_reads = len(all_aligned_reads)
+
+    # Calculate aggregate statistics across all reads
+    aggregate_stats = calculate_aggregate_signal(all_aligned_reads, norm_method)
+
+    # Calculate base pileup across all aligned reads
+    # Use first match's chromosome as reference name (all should be similar)
+    pileup_stats = calculate_base_pileup(
+        all_aligned_reads,
+        bam_file=_squiggy_session.bam_path,
+        reference_name=matches[0].chrom,
+    )
+
+    quality_stats = calculate_quality_by_position(all_aligned_reads)
+
+    # Generate plot with informative title
+    plot_title = (
+        f"{motif} motif aggregate ({num_matches_with_reads}/{len(matches)} matches, "
+        f"{num_reads} reads, -{upstream}bp to +{downstream}bp)"
+    )
+
+    # Prepare data for AggregatePlotStrategy
+    data = {
+        "aggregate_stats": aggregate_stats,
+        "pileup_stats": pileup_stats,
+        "quality_stats": quality_stats,
+        "reference_name": plot_title,
+        "num_reads": num_reads,
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Update x-axis title to reflect motif-relative coordinates
+    # The aggregate plot strategy already handles the coordinate system,
+    # but we can add a note about the window in the title
+
+    # Route to Positron Plots pane if running in Positron
+    from .utils import _route_to_plots_pane
+
+    _route_to_plots_pane(grid)
+
+    return html
+
+
 __all__ = [
     # Version
     "__version__",
@@ -585,6 +751,7 @@ __all__ = [
     "plot_reads",
     "plot_aggregate",
     "plot_motif_aggregate",
+    "plot_motif_aggregate_all",
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",

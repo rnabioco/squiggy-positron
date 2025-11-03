@@ -1103,7 +1103,15 @@ def calculate_quality_by_position(reads_data):
 
 
 def extract_reads_for_motif(
-    pod5_file, bam_file, fasta_file, motif, match_index=0, window=50, max_reads=100
+    pod5_file,
+    bam_file,
+    fasta_file,
+    motif,
+    match_index=0,
+    window=None,
+    upstream=None,
+    downstream=None,
+    max_reads=100,
 ):
     """Extract signal and alignment data for reads overlapping a motif match
 
@@ -1116,7 +1124,10 @@ def extract_reads_for_motif(
         fasta_file: Path to indexed FASTA file
         motif: IUPAC motif pattern (e.g., "DRACH")
         match_index: Which motif match to use (0-based index)
-        window: Number of bases around motif center to include (±window)
+        window: Number of bases around motif center to include (±window, symmetric).
+                Deprecated: use upstream/downstream for asymmetric windows.
+        upstream: Number of bases upstream (5') of motif center
+        downstream: Number of bases downstream (3') of motif center
         max_reads: Maximum number of reads to return
 
     Returns:
@@ -1129,6 +1140,15 @@ def extract_reads_for_motif(
         ValueError: If no motif matches found or match_index out of range
     """
     from .motif import search_motif
+
+    # Handle window parameter for backward compatibility
+    if window is not None and upstream is None and downstream is None:
+        upstream = window
+        downstream = window
+    elif upstream is None or downstream is None:
+        raise ValueError(
+            "Must provide either 'window' or both 'upstream' and 'downstream'"
+        )
 
     # Search for motif matches
     matches = list(search_motif(fasta_file, motif))
@@ -1144,10 +1164,10 @@ def extract_reads_for_motif(
     # Get the selected match
     motif_match = matches[match_index]
 
-    # Define window around motif center
+    # Define asymmetric window around motif center
     motif_center = motif_match.position + (motif_match.length // 2)
-    region_start = max(0, motif_center - window)
-    region_end = motif_center + window
+    region_start = max(0, motif_center - upstream)
+    region_end = motif_center + downstream
 
     # Extract reads overlapping this region using existing function
     # We'll use extract_reads_for_reference pattern but with region-based fetch

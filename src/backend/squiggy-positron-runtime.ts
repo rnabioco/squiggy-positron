@@ -754,4 +754,39 @@ squiggy.io._route_to_plots_pane(html)
 
         await this.executeCode(code, false, true, positron.RuntimeCodeExecutionMode.Silent);
     }
+
+    /**
+     * Generate aggregate plot for all motif matches with asymmetric windows
+     */
+    async generateMotifAggregateAllPlot(
+        fastaFile: string,
+        motif: string,
+        upstream: number = 10,
+        downstream: number = 10,
+        maxReadsPerMotif: number = 100,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<void> {
+        await this.ensureKernelReady();
+
+        const code = `
+import squiggy
+
+# Generate aggregate plot across all motif matches
+html = squiggy.plot_motif_aggregate_all(
+    fasta_file=${JSON.stringify(fastaFile)},
+    motif=${JSON.stringify(motif)},
+    upstream=${upstream},
+    downstream=${downstream},
+    max_reads_per_motif=${maxReadsPerMotif},
+    normalization=${JSON.stringify(normalization)},
+    theme=${JSON.stringify(theme)}
+)
+
+# Route to Positron Plots pane
+squiggy.io._route_to_plots_pane(html)
+`;
+
+        await this.executeCode(code, false, true, positron.RuntimeCodeExecutionMode.Silent);
+    }
 }

@@ -114,6 +114,49 @@ export function registerPlotCommands(
             }
         )
     );
+
+    // Plot motif aggregate all
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotMotifAggregateAll',
+            async (params?: {
+                fastaFile: string;
+                motif: string;
+                upstream: number;
+                downstream: number;
+            }) => {
+                // Validate that all required files are loaded
+                if (!state.currentPod5File) {
+                    vscode.window.showErrorMessage(
+                        'No POD5 file loaded. Use "Open POD5 File" first.'
+                    );
+                    return;
+                }
+                if (!state.currentBamFile) {
+                    vscode.window.showErrorMessage(
+                        'Motif aggregate plots require a BAM file. Use "Open BAM File" first.'
+                    );
+                    return;
+                }
+                if (!state.currentFastaFile) {
+                    vscode.window.showErrorMessage(
+                        'No FASTA file loaded. Use "Open FASTA File" first.'
+                    );
+                    return;
+                }
+
+                // Validate params were provided
+                if (!params) {
+                    vscode.window.showErrorMessage(
+                        'Please select a motif and window from the Motif Explorer panel'
+                    );
+                    return;
+                }
+
+                await plotMotifAggregateAll(params, state);
+            }
+        )
+    );
 }
 
 /**
@@ -270,5 +313,57 @@ async function plotMotifAggregate(
         },
         ErrorContext.MOTIF_PLOT,
         `Generating motif aggregate plot for ${params.motif} (match ${params.matchIndex + 1})...`
+    );
+}
+
+async function plotMotifAggregateAll(
+    params: {
+        fastaFile: string;
+        motif: string;
+        upstream: number;
+        downstream: number;
+    },
+    state: ExtensionState
+): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            // Get normalization from sidebar panel
+            const options = state.plotOptionsProvider?.getOptions();
+            if (!options) {
+                throw new Error('Plot options not available');
+            }
+
+            const normalization = options.normalization;
+
+            // Detect VS Code theme
+            const colorThemeKind = vscode.window.activeColorTheme.kind;
+            const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
+
+            // Get max reads from config
+            const config = vscode.workspace.getConfiguration('squiggy');
+            const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
+
+            if (state.usePositron && state.squiggyAPI) {
+                // Use Positron kernel - plot appears in Plots pane automatically
+                await state.squiggyAPI.generateMotifAggregateAllPlot(
+                    params.fastaFile,
+                    params.motif,
+                    params.upstream,
+                    params.downstream,
+                    maxReadsPerMotif,
+                    normalization,
+                    theme
+                );
+            } else if (state.pythonBackend) {
+                // Subprocess backend not yet implemented for motif aggregate all
+                throw new Error(
+                    'Motif aggregate plots are only available with Positron runtime. Please use Positron IDE.'
+                );
+            } else {
+                throw new Error('No backend available');
+            }
+        },
+        ErrorContext.MOTIF_PLOT,
+        `Generating aggregate plot for all ${params.motif} matches (-${params.upstream}bp to +${params.downstream}bp)...`
     );
 }
