@@ -39,18 +39,27 @@ from .constants import (
 
 # I/O functions
 from .io import (
+    Sample,
     SquiggySession,
+    close_all_samples,
     close_bam,
     close_fasta,
     close_pod5,
+    compare_samples,
     get_bam_event_alignment_status,
     get_bam_modification_info,
+    get_common_reads,
     get_current_files,
     get_read_ids,
     get_read_to_reference_mapping,
+    get_sample,
+    get_unique_reads,
+    list_samples,
     load_bam,
     load_fasta,
     load_pod5,
+    load_sample,
+    remove_sample,
 )
 from .motif import (
     IUPAC_CODES,
@@ -63,14 +72,17 @@ from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
 
 # Legacy SquigglePlotter removed - use plot_read() or Read.plot() instead
-# Utility functions
+# Utility functions and data classes
 from .utils import (
+    ModelProvenance,
     downsample_signal,
+    extract_model_provenance,
     get_bam_references,
     get_reads_in_region,
     get_reference_sequence_for_read,
     parse_region,
     reverse_complement,
+    validate_sq_headers,
 )
 
 # Import pod5 for user convenience
@@ -593,12 +605,24 @@ __all__ = [
     "close_pod5",
     "close_bam",
     "close_fasta",
+    # Multi-sample API (Phase 1 - NEW)
+    "load_sample",
+    "get_sample",
+    "list_samples",
+    "remove_sample",
+    "close_all_samples",
+    # Comparison API (Phase 2 - NEW)
+    "get_common_reads",
+    "get_unique_reads",
+    "compare_samples",
     # Session management
     "SquiggySession",
+    "Sample",
     # Data structures
     "AlignedRead",
     "BaseAnnotation",
     "MotifMatch",
+    "ModelProvenance",
     # Constants
     "NormalizationMethod",
     "PlotMode",
@@ -619,5 +643,11 @@ __all__ = [
     "iupac_to_regex",
     "search_motif",
     "count_motifs",
+    "extract_model_provenance",
+    "validate_sq_headers",
+    # Comparison utilities (Phase 2 - NEW)
+    "compare_read_sets",
+    "calculate_delta_stats",
+    "compare_signal_distributions",
     # Classes
 ]
