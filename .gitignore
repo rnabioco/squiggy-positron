@@ -13,6 +13,8 @@ dist/
 venv/
 ENV/
 .pixi/
+# we don't use we uv for dev, so should never apear
+uv.lock
 
 # IDEs
 .vscode/*
