@@ -692,11 +692,12 @@ def plot_motif_aggregate_all(
     aggregate_stats = calculate_aggregate_signal(all_aligned_reads, norm_method)
 
     # Calculate base pileup across all aligned reads
-    # Use first match's chromosome as reference name (all should be similar)
+    # Don't pass reference_name because reads are in motif-relative coordinates,
+    # not genomic coordinates - we can't extract reference sequence from BAM
     pileup_stats = calculate_base_pileup(
         all_aligned_reads,
-        bam_file=_squiggy_session.bam_path,
-        reference_name=matches[0].chrom,
+        bam_file=None,  # Don't try to extract reference sequence
+        reference_name=None,
     )
 
     quality_stats = calculate_quality_by_position(all_aligned_reads)
