@@ -151,6 +151,13 @@ export function registerFileCommands(
             vscode.window.showInformationMessage('Test data loaded successfully!');
         })
     );
+
+    // Load sample (for multi-sample comparison) - Phase 4
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadSample', async () => {
+            await loadSampleForComparison(context, state);
+        })
+    );
 }
 
 /**
@@ -531,4 +538,102 @@ squiggy.close_fasta()
     } catch (error) {
         handleError(error, ErrorContext.FASTA_CLOSE);
     }
+}
+
+/**
+ * Load a sample (POD5 + optional BAM/FASTA) for multi-sample comparison
+ * Phase 4 - Multi-sample comparison feature
+ */
+async function loadSampleForComparison(
+    context: vscode.ExtensionContext,
+    state: ExtensionState
+): Promise<void> {
+    // Prompt for sample name
+    const sampleName = await vscode.window.showInputBox({
+        placeHolder: 'e.g., model_v4.2, basecaller_v5.0',
+        prompt: 'Enter a name for this sample',
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Sample name cannot be empty';
+            }
+            if (state.getSample(value)) {
+                return 'Sample name already exists';
+            }
+            return '';
+        },
+    });
+
+    if (!sampleName) {
+        return; // User cancelled
+    }
+
+    // Select POD5 file
+    const pod5Uris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { 'POD5 Files': ['pod5'] },
+        title: 'Select POD5 file for sample',
+    });
+
+    if (!pod5Uris || !pod5Uris[0]) {
+        return; // User cancelled
+    }
+
+    const pod5Path = pod5Uris[0].fsPath;
+
+    // Optionally select BAM file
+    const bamUris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { 'BAM Files': ['bam'] },
+        title: 'Select BAM file (optional)',
+    });
+
+    const bamPath = bamUris?.[0]?.fsPath;
+
+    // Optionally select FASTA file
+    const fastaUris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { 'FASTA Files': ['fa', 'fasta', 'fna'] },
+        title: 'Select FASTA file (optional)',
+    });
+
+    const fastaPath = fastaUris?.[0]?.fsPath;
+
+    // Ensure squiggy is available
+    if (!(await ensureSquiggyAvailable(state))) {
+        vscode.window.showErrorMessage('Squiggy package not available');
+        return;
+    }
+
+    // Load sample via API
+    await safeExecuteWithProgress(
+        `Loading sample '${sampleName}'`,
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            const result = await state.squiggyAPI.loadSample(
+                sampleName,
+                pod5Path,
+                bamPath,
+                fastaPath
+            );
+
+            // Update extension state
+            state.addSample({
+                name: sampleName,
+                pod5Path,
+                bamPath,
+                fastaPath,
+                readCount: result.numReads,
+                hasBam: !!bamPath,
+                hasFasta: !!fastaPath,
+            });
+
+            vscode.window.showInformationMessage(
+                `Sample '${sampleName}' loaded with ${result.numReads} reads`
+            );
+        },
+        ErrorContext.FILE_LOAD
+    );
 }
