@@ -160,9 +160,40 @@ This task implements a complete multi-sample comparison framework for Squiggy:
 
 All three phases are complete with 572 passing tests and zero regressions.
 
+## Phase 4: TypeScript/Extension Integration ✅ COMPLETE
+
+### Objectives
+Integrate multi-sample comparison features into the TypeScript extension for end-to-end functionality.
+
+### Files Modified
+- `src/backend/squiggy-runtime-api.ts` - Added loadSample(), listSamples(), getSampleInfo(), generateDeltaPlot() methods
+- `src/state/extension-state.ts` - Added SampleInfo interface, sample tracking and comparison selection
+- `src/commands/file-commands.ts` - Added loadSampleForComparison() function and squiggy.loadSample command
+- `src/commands/plot-commands.ts` - Added plotDeltaComparison() function and squiggy.plotDeltaComparison command
+- `package.json` - Registered new commands with icons
+
+### Completed Tasks
+- [x] Add generateDeltaPlot() to SquiggyRuntimeAPI for Python integration
+- [x] Add loadSample(), listSamples(), getSampleInfo() to SquiggyRuntimeAPI
+- [x] Create SampleInfo interface and sample tracking in ExtensionState
+- [x] Implement squiggy.loadSample command with file selection UI
+- [x] Implement squiggy.plotDeltaComparison command with sample selection
+- [x] Proper error handling and validation for all operations
+- [x] Update package.json with command definitions
+
+### Phase 4 Success Criteria ✅ MET
+- [x] Users can load multiple samples via "Load Sample" command
+- [x] Users can compare 2+ samples via "Plot Delta Comparison" command
+- [x] Sample metadata properly tracked in ExtensionState
+- [x] Delta comparison plots display in Positron Plots pane
+- [x] Proper error messages for invalid operations
+- [x] Theme detection (light/dark) integration
+- [x] All commands follow existing extension patterns
+
 ## Progress
 - [x] Worktree created
 - [x] Phase 1 complete (Session infrastructure) - 22 tests
 - [x] Phase 2 complete (Aggregate functions and comparison) - 21 tests
 - [x] Phase 3 complete (Plotting with delta tracks) - 19 tests
-- [ ] Phase 4-7 pending (TypeScript integration, Export, Testing, Documentation)
+- [x] Phase 4 complete (TypeScript extension integration) - MVP complete
+- [ ] Phase 5-7 pending (Optional: UI panel, Additional testing, Documentation)
