@@ -11,7 +11,6 @@ from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
-from ..normalization import normalize_signal
 from ..theme_manager import ThemeManager
 from .base import PlotStrategy
 
@@ -111,7 +110,9 @@ class StackedPlotStrategy(PlotStrategy):
         offset_step = 0
 
         for read_id, signal, sample_rate in reads_data:
-            processed_signal, _ = self._process_signal(signal, normalization, downsample)
+            processed_signal, _ = self._process_signal(
+                signal, normalization, downsample
+            )
             processed_reads.append((read_id, processed_signal, sample_rate))
 
             # Calculate offset based on signal range

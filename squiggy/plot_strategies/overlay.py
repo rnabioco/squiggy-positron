@@ -11,7 +11,6 @@ from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
-from ..normalization import normalize_signal
 from ..theme_manager import ThemeManager
 from .base import PlotStrategy
 
@@ -119,7 +118,9 @@ class OverlayPlotStrategy(PlotStrategy):
         all_renderers = []
         for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
             # Process signal
-            processed_signal, _ = self._process_signal(signal, normalization, downsample)
+            processed_signal, _ = self._process_signal(
+                signal, normalization, downsample
+            )
 
             # Create data source
             x = np.arange(len(processed_signal))

@@ -13,7 +13,6 @@ from bokeh.resources import CDN
 from ..base_annotation_renderer import BaseAnnotationRenderer
 from ..constants import NormalizationMethod, Theme
 from ..modification_track_builder import ModificationTrackBuilder
-from ..normalization import normalize_signal
 from ..theme_manager import ThemeManager
 from .base import PlotStrategy
 

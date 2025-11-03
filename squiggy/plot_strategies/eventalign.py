@@ -17,7 +17,6 @@ from ..constants import (
     NormalizationMethod,
     Theme,
 )
-from ..normalization import normalize_signal
 from ..theme_manager import ThemeManager
 from .base import PlotStrategy
 
