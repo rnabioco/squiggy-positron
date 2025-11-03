@@ -114,6 +114,52 @@ export function registerPlotCommands(
             }
         )
     );
+
+    // Plot delta comparison - Phase 4
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotDeltaComparison',
+            async (sampleNames?: string[]) => {
+                // If no sample names provided, prompt user to select
+                if (!sampleNames || sampleNames.length === 0) {
+                    // Get list of loaded samples
+                    const loadedSamples = state.getAllSampleNames();
+
+                    if (loadedSamples.length < 2) {
+                        vscode.window.showErrorMessage(
+                            'Delta comparison requires at least 2 loaded samples. ' +
+                                'Use "Load Sample" to add samples for comparison.'
+                        );
+                        return;
+                    }
+
+                    // Let user select samples to compare
+                    const selected = await vscode.window.showQuickPick(loadedSamples, {
+                        canPickMany: true,
+                        placeHolder: 'Select 2 or more samples to compare',
+                        matchOnDetail: true,
+                    });
+
+                    if (!selected || selected.length < 2) {
+                        vscode.window.showWarningMessage(
+                            'Please select at least 2 samples for comparison'
+                        );
+                        return;
+                    }
+
+                    sampleNames = selected;
+                }
+
+                // Validate we have at least 2 samples
+                if (sampleNames.length < 2) {
+                    vscode.window.showErrorMessage('Delta comparison requires at least 2 samples');
+                    return;
+                }
+
+                await plotDeltaComparison(sampleNames, state);
+            }
+        )
+    );
 }
 
 /**
@@ -270,5 +316,44 @@ async function plotMotifAggregate(
         },
         ErrorContext.MOTIF_PLOT,
         `Generating motif aggregate plot for ${params.motif} (match ${params.matchIndex + 1})...`
+    );
+}
+
+/**
+ * Plot delta comparison between two or more samples
+ * Phase 4 - Multi-sample comparison feature
+ */
+async function plotDeltaComparison(
+    sampleNames: string[],
+    state: ExtensionState
+): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            // Get plot options
+            const options = state.plotOptionsProvider?.getOptions();
+            const normalization = options?.normalization || 'ZNORM';
+
+            // Detect theme from VSCode settings
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Generate delta plot
+            if (state.usePositron && state.positronClient) {
+                await state.squiggyAPI.generateDeltaPlot(sampleNames, normalization, theme);
+            } else if (state.pythonBackend) {
+                // Subprocess backend not yet implemented for delta plots
+                throw new Error(
+                    'Delta comparison plots are only available with Positron runtime. Please use Positron IDE.'
+                );
+            } else {
+                throw new Error('No backend available');
+            }
+        },
+        ErrorContext.PLOT_GENERATION,
+        `Comparing samples: ${sampleNames.join(', ')}...`
     );
 }

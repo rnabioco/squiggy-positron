@@ -93,6 +93,18 @@
         "title": "Plot Motif Aggregate",
         "category": "Squiggy",
         "icon": "$(graph-scatter)"
+      },
+      {
+        "command": "squiggy.loadSample",
+        "title": "Load Sample (Multi-Sample Comparison)",
+        "category": "Squiggy",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "squiggy.plotDeltaComparison",
+        "title": "Plot Delta Comparison",
+        "category": "Squiggy",
+        "icon": "$(compare)"
       }
     ],
     "viewsContainers": {
