@@ -38,10 +38,6 @@ html = plot_read(read_ids[0])
 
 ::: squiggy.api.Read
 
-## Plotting
-
-::: squiggy.plotter.SquigglePlotter
-
 ## Alignment
 
 ::: squiggy.alignment.BaseAnnotation
