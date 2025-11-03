@@ -62,6 +62,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // Set initial context for modifications panel (hidden by default)
     vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
+    // Set initial context for package installation (disabled until checked)
+    vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', false);
+
     // Listen for plot option changes and refresh current plot
     context.subscriptions.push(
         plotOptionsProvider.onDidChangeOptions(() => {

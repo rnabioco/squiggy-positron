@@ -18,6 +18,49 @@ export function registerFileCommands(
     context: vscode.ExtensionContext,
     state: ExtensionState
 ): void {
+    // Install squiggy package
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.installPackage', async () => {
+            if (!state.usePositron) {
+                vscode.window.showWarningMessage(
+                    'Automatic installation is only available in Positron. ' +
+                        'Please install squiggy manually with: pip install -e <extension-path>'
+                );
+                return;
+            }
+
+            const packageManager = state.packageManager;
+            if (!packageManager) {
+                vscode.window.showErrorMessage('Package manager not available.');
+                return;
+            }
+
+            // Check if already installed
+            const installed = await packageManager.isSquiggyInstalled();
+            if (installed) {
+                vscode.window.showInformationMessage('Squiggy package is already installed!');
+                return;
+            }
+
+            // Prompt user to install
+            const userChoice = await packageManager.promptInstallSquiggy();
+
+            if (userChoice === 'install') {
+                const extensionPath = state.extensionContext?.extensionPath || '';
+                const success = await packageManager.installSquiggyWithProgress(extensionPath);
+                if (success) {
+                    state.squiggyInstallChecked = true;
+                    vscode.window.showInformationMessage(
+                        'Installation complete! You can now use Squiggy commands.'
+                    );
+                }
+            } else if (userChoice === 'manual') {
+                const extensionPath = state.extensionContext?.extensionPath || '';
+                await packageManager.showManualInstallationGuide(extensionPath);
+            }
+        })
+    );
+
     // Open POD5 file
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.openPOD5', async () => {
@@ -174,8 +217,13 @@ async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
         // Package is installed - return success
         state.squiggyInstallChecked = true;
         state.squiggyInstallDeclined = false; // Reset declined flag since it's now installed
+        // Enable commands that require squiggy
+        vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', true);
         return true;
     }
+
+    // Package not installed - disable commands
+    vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', false);
 
     // Not installed - check if we should prompt
     if (state.squiggyInstallChecked && state.squiggyInstallDeclined) {
