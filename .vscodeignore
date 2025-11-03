@@ -16,6 +16,11 @@ htmlcov/**
 # images
 resources/screenshot.png
 
+# Python package (now distributed via PyPI separately)
+squiggy/**
+pyproject.toml
+PYPI_README.md
+
 # Python development files (exclude test code but include test data)
 tests/*.py
 tests/__pycache__/**
@@ -29,6 +34,8 @@ tests/__pycache__/**
 .venv/**
 codecov.yml
 *.egg-info/**
+dist/**
+build/**
 
 # Pixi environment (this is the key exclusion to fix the build error)
 .pixi/**

@@ -154,7 +154,7 @@ export function registerFileCommands(
 }
 
 /**
- * Ensure squiggy package is available (check if installed, prompt if needed)
+ * Ensure squiggy package is available (check if installed, show guidance if not)
  */
 async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
     if (!state.usePositron) {
@@ -167,48 +167,29 @@ async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
         return false;
     }
 
-    // Always check if squiggy is installed (user may have installed manually)
-    const installed = await packageManager.isSquiggyInstalled();
-
-    if (installed) {
-        // Package is installed - return success
-        state.squiggyInstallChecked = true;
-        state.squiggyInstallDeclined = false; // Reset declined flag since it's now installed
-        return true;
-    }
-
-    // Not installed - check if we should prompt
+    // Don't prompt repeatedly in the same session
     if (state.squiggyInstallChecked && state.squiggyInstallDeclined) {
-        // User already declined this session - don't prompt again
         return false;
     }
 
     try {
-        // Prompt user to install
-        const userChoice = await packageManager.promptInstallSquiggy();
+        // Check if package is installed and compatible
+        const available = await packageManager.verifyPackage();
 
-        if (userChoice === 'install') {
-            // Install squiggy
-            const extensionPath = state.extensionContext?.extensionPath || '';
-            const success = await packageManager.installSquiggyWithProgress(extensionPath);
+        if (available) {
             state.squiggyInstallChecked = true;
-            return success;
-        } else if (userChoice === 'manual') {
-            // Show manual installation guide
-            const extensionPath = state.extensionContext?.extensionPath || '';
-            await packageManager.showManualInstallationGuide(extensionPath);
-            state.squiggyInstallDeclined = true;
-            state.squiggyInstallChecked = true;
-            return false;
+            state.squiggyInstallDeclined = false;
+            return true;
         } else {
-            // User canceled installation
-            state.squiggyInstallDeclined = true;
+            // verifyPackage() already showed appropriate error message
             state.squiggyInstallChecked = true;
+            state.squiggyInstallDeclined = true;
             return false;
         }
     } catch (_error) {
         // Error during check - mark as unavailable
         state.squiggyInstallChecked = true;
+        state.squiggyInstallDeclined = true;
         return false;
     }
 }
@@ -222,8 +203,8 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
 
     if (!squiggyAvailable) {
         vscode.window.showWarningMessage(
-            'Cannot open POD5 file: squiggy Python package is not installed. ' +
-                'Please install it manually with: pip install -e <extension-path>'
+            'Cannot open POD5 file: squiggy-positron Python package is not installed. ' +
+                'Please install it with: uv pip install squiggy-positron'
         );
         return;
     }
@@ -282,8 +263,8 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
     if (!squiggyAvailable) {
         vscode.window.showWarningMessage(
-            'Cannot open BAM file: squiggy Python package is not installed. ' +
-                'Please install it manually with: pip install -e <extension-path>'
+            'Cannot open BAM file: squiggy-positron Python package is not installed. ' +
+                'Please install it with: uv pip install squiggy-positron'
         );
         return;
     }
@@ -469,8 +450,8 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
 
     if (!squiggyAvailable) {
         vscode.window.showWarningMessage(
-            'Cannot open FASTA file: squiggy Python package is not installed. ' +
-                'Please install it manually with: pip install -e <extension-path>'
+            'Cannot open FASTA file: squiggy-positron Python package is not installed. ' +
+                'Please install it with: uv pip install squiggy-positron'
         );
         return;
     }
