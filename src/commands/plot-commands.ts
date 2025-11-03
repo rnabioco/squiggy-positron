@@ -323,10 +323,7 @@ async function plotMotifAggregate(
  * Plot delta comparison between two or more samples
  * Phase 4 - Multi-sample comparison feature
  */
-async function plotDeltaComparison(
-    sampleNames: string[],
-    state: ExtensionState
-): Promise<void> {
+async function plotDeltaComparison(sampleNames: string[], state: ExtensionState): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
             if (!state.squiggyAPI) {

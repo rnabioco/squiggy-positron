@@ -9,21 +9,18 @@ from sample A across reference positions.
 from typing import Any
 
 import numpy as np
-from bokeh.layouts import column, gridplot
+from bokeh.layouts import gridplot
 from bokeh.models import Band, ColumnDataSource, HoverTool, NumeralTickFormatter
-from bokeh.plotting import figure
 
 from ..constants import (
     DELTA_BAND_ALPHA,
     DELTA_LINE_WIDTH,
     DELTA_NEGATIVE_COLOR,
     DELTA_NEUTRAL_COLOR,
-    DELTA_PERCENTILE_HIGH,
-    DELTA_PERCENTILE_LOW,
     DELTA_POSITIVE_COLOR,
+    DELTA_SIGNAL_HEIGHT,
     DELTA_STATS_HEIGHT,
     DELTA_ZERO_LINE_COLOR,
-    DELTA_SIGNAL_HEIGHT,
     NormalizationMethod,
     Theme,
 )
@@ -196,12 +193,6 @@ class DeltaPlotStrategy(PlotStrategy):
         # Convert to HTML
         html = self._figure_to_html(layout_obj)
 
-        # Build title
-        title = self._build_html_title(
-            "Delta Comparison",
-            f"{sample_a_name} vs {sample_b_name}",
-        )
-
         return html, layout_obj
 
     def _create_signal_track(
@@ -266,7 +257,7 @@ class DeltaPlotStrategy(PlotStrategy):
         )
 
         # Add scatter for individual deltas (colored by direction)
-        for i, (pos, delta) in enumerate(zip(positions, delta_mean)):
+        for i, (pos, delta) in enumerate(zip(positions, delta_mean, strict=True)):
             color = colors[i]
             p.scatter(
                 [pos],

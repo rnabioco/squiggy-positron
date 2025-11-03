@@ -1,9 +1,5 @@
 """Tests for multi-sample functionality in enhanced SquiggySession"""
 
-from pathlib import Path
-
-import pytest
-
 
 class TestSample:
     """Tests for Sample class"""
@@ -30,8 +26,9 @@ class TestSample:
 
     def test_sample_repr_with_pod5(self, sample_pod5_file):
         """Test Sample repr with POD5 loaded"""
-        from squiggy.io import Sample
         import pod5
+
+        from squiggy.io import Sample
 
         sample = Sample("model_v4.2")
         reader = pod5.Reader(str(sample_pod5_file))
@@ -47,8 +44,9 @@ class TestSample:
 
     def test_sample_close(self, sample_pod5_file):
         """Test that sample.close() properly cleans up"""
-        from squiggy.io import Sample
         import pod5
+
+        from squiggy.io import Sample
 
         sample = Sample("test")
         reader = pod5.Reader(str(sample_pod5_file))
@@ -102,8 +100,12 @@ class TestSquiggySessionMultiSample:
 
         session = SquiggySession()
 
-        sample_a = session.load_sample("v4.2", str(sample_pod5_file), str(sample_bam_file))
-        sample_b = session.load_sample("v5.0", str(sample_pod5_file), str(sample_bam_file))
+        sample_a = session.load_sample(
+            "v4.2", str(sample_pod5_file), str(sample_bam_file)
+        )
+        sample_b = session.load_sample(
+            "v5.0", str(sample_pod5_file), str(sample_bam_file)
+        )
 
         assert len(session.samples) == 2
         assert "v4.2" in session.samples
@@ -258,7 +260,7 @@ class TestBackwardCompatibility:
 
     def test_mixing_old_and_new_api(self, sample_pod5_file, sample_bam_file):
         """Test mixing old single-sample and new multi-sample APIs"""
-        from squiggy import load_pod5, load_bam, load_sample
+        from squiggy import load_bam, load_pod5, load_sample
         from squiggy.io import _squiggy_session
 
         # Load single-sample (old API)
@@ -279,15 +281,11 @@ class TestSampleIntegration:
 
     def test_comparison_workflow(self, sample_pod5_file, sample_bam_file):
         """Test typical A/B comparison workflow"""
-        from squiggy import load_sample, list_samples, get_sample
+        from squiggy import get_sample, list_samples, load_sample
 
         # Load two basecaller versions
-        load_sample(
-            "dorado_v4.2", str(sample_pod5_file), str(sample_bam_file)
-        )
-        load_sample(
-            "dorado_v5.0", str(sample_pod5_file), str(sample_bam_file)
-        )
+        load_sample("dorado_v4.2", str(sample_pod5_file), str(sample_bam_file))
+        load_sample("dorado_v5.0", str(sample_pod5_file), str(sample_bam_file))
 
         # List all samples
         samples = list_samples()
@@ -304,7 +302,7 @@ class TestSampleIntegration:
 
     def test_replicate_samples(self, sample_pod5_file, sample_bam_file):
         """Test loading replicate samples"""
-        from squiggy import load_sample, list_samples
+        from squiggy import list_samples, load_sample
 
         # Load technical replicates
         load_sample("replicate_1", str(sample_pod5_file), str(sample_bam_file))

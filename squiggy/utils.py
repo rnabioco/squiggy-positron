@@ -1595,9 +1595,7 @@ def calculate_delta_stats(
     return deltas
 
 
-def compare_signal_distributions(
-    signal_a: np.ndarray, signal_b: np.ndarray
-) -> dict:
+def compare_signal_distributions(signal_a: np.ndarray, signal_b: np.ndarray) -> dict:
     """
     Compare signal distributions from two samples
 
