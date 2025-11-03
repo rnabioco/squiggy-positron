@@ -22,22 +22,52 @@ Squiggy is a Positron extension that integrates nanopore signal visualization in
 - **Read Filtering**: Search by read ID, reference region, or sequence motif
 - **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
 
+## Project-Based Workflow
+
+> [!IMPORTANT]
+> **Squiggy follows a strict project-based workflow**. You must:
+> 1. Open a specific project directory in Positron (not the home directory)
+> 2. Have a project-specific virtual environment with `squiggy-positron` installed
+> 3. Work with data files within or relative to that project
+>
+> This follows [tidyverse workflow principles](https://tidyverse.org/blog/2017/12/workflow-vs-script/) - your analysis should be reproducible and self-contained within a project directory.
+
 ## Installation
 
 > [!IMPORTANT]
 > Squiggy requires the `squiggy-positron` Python package to be installed **before** using the extension. Follow these steps in order:
 
-### 1. Install Python Package
-
-First, install the `squiggy-positron` Python package in your project's virtual environment:
+### 1. Create a Project Directory
 
 ```bash
+# Create a project directory for your analysis
+mkdir my-nanopore-analysis
+cd my-nanopore-analysis
+
+# Open this directory in Positron
+# File → Open Folder → Select my-nanopore-analysis
+```
+
+### 2. Install Python Package
+
+Install the `squiggy-positron` Python package in a **project-specific** virtual environment:
+
+```bash
+# Create project-specific virtual environment
+uv venv
+
+# Activate it
+source .venv/bin/activate  # macOS/Linux
+# OR
+.venv\Scripts\activate     # Windows
+
+# Install squiggy-positron
 uv pip install squiggy-positron
 ```
 
 > **Note**: While the PyPI package is named `squiggy-positron`, you import it as `import squiggy`.
 
-### 2. Install Positron Extension
+### 3. Install Positron Extension
 
 Then install the Squiggy extension in Positron:
 
