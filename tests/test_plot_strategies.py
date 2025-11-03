@@ -3,8 +3,8 @@ Tests for plot strategy pattern base classes and infrastructure
 """
 
 import pytest
-from bokeh.plotting import figure
 from bokeh.models.plots import Plot
+from bokeh.plotting import figure
 
 from squiggy.constants import Theme
 from squiggy.plot_strategies.base import PlotStrategy

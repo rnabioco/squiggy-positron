@@ -17,7 +17,7 @@ class TestPlotReadFunction:
 
     def test_plot_read_invalid_read_id(self, sample_pod5_file):
         """Test that plot_read raises error for invalid read ID"""
-        from squiggy import get_read_ids, load_pod5, plot_read
+        from squiggy import load_pod5, plot_read
 
         load_pod5(str(sample_pod5_file))
 
@@ -100,10 +100,9 @@ class TestPlotReadFunction:
         """Test plot_read in EVENTALIGN mode with BAM loaded"""
         import pysam
 
-        from squiggy import get_read_ids, load_bam, load_pod5, plot_read
+        from squiggy import load_bam, load_pod5, plot_read
 
         load_pod5(str(sample_pod5_file))
-        read_ids = get_read_ids()
         load_bam(str(indexed_bam_file))
 
         # Find a read that has alignment in BAM
@@ -124,10 +123,9 @@ class TestPlotReadFunction:
         """Test plot_read with all options specified"""
         import pysam
 
-        from squiggy import get_read_ids, load_bam, load_pod5, plot_read
+        from squiggy import load_bam, load_pod5, plot_read
 
         load_pod5(str(sample_pod5_file))
-        read_ids = get_read_ids()
         load_bam(str(indexed_bam_file))
 
         # Find aligned read
@@ -233,7 +231,7 @@ class TestPlotReadsFunction:
 
     def test_plot_reads_empty_list(self, sample_pod5_file):
         """Test that plot_reads handles empty read list"""
-        from squiggy import get_read_ids, load_pod5, plot_reads
+        from squiggy import load_pod5, plot_reads
 
         load_pod5(str(sample_pod5_file))
 
@@ -243,7 +241,7 @@ class TestPlotReadsFunction:
 
     def test_plot_reads_nonexistent_ids(self, sample_pod5_file):
         """Test that plot_reads handles nonexistent read IDs"""
-        from squiggy import get_read_ids, load_pod5, plot_reads
+        from squiggy import load_pod5, plot_reads
 
         load_pod5(str(sample_pod5_file))
 
@@ -391,14 +389,13 @@ class TestAPIIntegration:
         """Test complete workflow: load POD5 + BAM → plot event-aligned"""
         import pysam
 
-        from squiggy import close_pod5, get_read_ids, load_bam, load_pod5, plot_read
+        from squiggy import close_pod5, load_bam, load_pod5, plot_read
 
         # Clean state
         close_pod5()
 
         # Load files
         load_pod5(str(sample_pod5_file))
-        read_ids = get_read_ids()
         load_bam(str(indexed_bam_file))
 
         # Find aligned read with move table

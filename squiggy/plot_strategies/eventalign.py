@@ -84,14 +84,16 @@ class EventAlignPlotStrategy(PlotStrategy):
             - reads: list of (read_id, signal, sample_rate) tuples
             - aligned_reads: list of AlignedRead objects with .bases attribute
         """
-        if 'reads' not in data:
+        if "reads" not in data:
             raise ValueError("Missing required data for event-aligned plot: reads")
 
-        if 'aligned_reads' not in data:
-            raise ValueError("Missing required data for event-aligned plot: aligned_reads")
+        if "aligned_reads" not in data:
+            raise ValueError(
+                "Missing required data for event-aligned plot: aligned_reads"
+            )
 
-        reads = data['reads']
-        aligned_reads = data['aligned_reads']
+        reads = data["reads"]
+        aligned_reads = data["aligned_reads"]
 
         if not isinstance(reads, list) or len(reads) == 0:
             raise ValueError("reads must be a non-empty list")
@@ -122,10 +124,8 @@ class EventAlignPlotStrategy(PlotStrategy):
 
         # Validate aligned reads have bases
         for idx, aligned_read in enumerate(aligned_reads):
-            if not hasattr(aligned_read, 'bases'):
-                raise ValueError(
-                    f"Aligned read {idx} must have 'bases' attribute"
-                )
+            if not hasattr(aligned_read, "bases"):
+                raise ValueError(f"Aligned read {idx} must have 'bases' attribute")
 
     def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
         """
@@ -154,18 +154,17 @@ class EventAlignPlotStrategy(PlotStrategy):
         self.validate_data(data)
 
         # Extract data
-        reads_data = data['reads']
-        aligned_reads = data['aligned_reads']
+        reads_data = data["reads"]
+        aligned_reads = data["aligned_reads"]
 
         # Extract options with defaults
-        normalization = options.get('normalization', NormalizationMethod.NONE)
-        downsample = options.get('downsample', 1)
-        show_dwell_time = options.get('show_dwell_time', False)
-        show_labels = options.get('show_labels', True)
-        show_signal_points = options.get('show_signal_points', False)
+        normalization = options.get("normalization", NormalizationMethod.NONE)
+        downsample = options.get("downsample", 1)
+        show_dwell_time = options.get("show_dwell_time", False)
+        show_labels = options.get("show_labels", True)
+        show_signal_points = options.get("show_signal_points", False)
         position_label_interval = options.get(
-            'position_label_interval',
-            DEFAULT_POSITION_LABEL_INTERVAL
+            "position_label_interval", DEFAULT_POSITION_LABEL_INTERVAL
         )
 
         # Create figure
@@ -207,7 +206,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         # Plot signals
         all_renderers = []
         for idx, ((read_id, signal, sample_rate), aligned_read) in enumerate(
-            zip(all_processed, aligned_reads)
+            zip(all_processed, aligned_reads, strict=False)
         ):
             renderers = self._plot_aligned_signal(
                 fig=fig,

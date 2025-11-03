@@ -273,7 +273,9 @@ class BaseAnnotationRenderer:
             if seq_pos + 1 < len(seq_to_sig_map):
                 next_sig_idx = seq_to_sig_map[seq_pos + 1]
                 end_time = (
-                    time_ms[next_sig_idx] if next_sig_idx < len(time_ms) else time_ms[-1]
+                    time_ms[next_sig_idx]
+                    if next_sig_idx < len(time_ms)
+                    else time_ms[-1]
                 )
             else:
                 end_time = time_ms[-1]
@@ -335,7 +337,9 @@ class BaseAnnotationRenderer:
             if seq_pos + 1 < len(seq_to_sig_map):
                 next_sig_idx = seq_to_sig_map[seq_pos + 1]
                 end_time = (
-                    time_ms[next_sig_idx] if next_sig_idx < len(time_ms) else time_ms[-1]
+                    time_ms[next_sig_idx]
+                    if next_sig_idx < len(time_ms)
+                    else time_ms[-1]
                 )
             else:
                 end_time = time_ms[-1]
@@ -350,7 +354,9 @@ class BaseAnnotationRenderer:
             )
 
             mid_time = (start_time + end_time) / 2
-            base_labels_data[base].append({"time": mid_time, "y": signal_max, "text": base})
+            base_labels_data[base].append(
+                {"time": mid_time, "y": signal_max, "text": base}
+            )
 
         return base_regions, base_labels_data
 
@@ -377,7 +383,8 @@ class BaseAnnotationRenderer:
                 # Calculate dwell time
                 if i + 1 < len(base_annotations):
                     dwell_samples = (
-                        base_annotations[i + 1].signal_start - base_annotation.signal_start
+                        base_annotations[i + 1].signal_start
+                        - base_annotation.signal_start
                     )
                 else:
                     dwell_samples = signal_length - base_annotation.signal_start
@@ -622,7 +629,9 @@ class BaseAnnotationRenderer:
             from .constants import DARK_THEME, LIGHT_THEME
 
             text_color = (
-                DARK_THEME["axis_text"] if theme == Theme.DARK else LIGHT_THEME["axis_text"]
+                DARK_THEME["axis_text"]
+                if theme == Theme.DARK
+                else LIGHT_THEME["axis_text"]
             )
 
             position_source = ColumnDataSource(

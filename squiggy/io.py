@@ -60,7 +60,9 @@ class SquiggySession:
 
             if self.bam_info:
                 if self.bam_info.get("has_modifications"):
-                    mod_types = ", ".join(str(m) for m in self.bam_info["modification_types"])
+                    mod_types = ", ".join(
+                        str(m) for m in self.bam_info["modification_types"]
+                    )
                     parts.append(f"Modifications: {mod_types}")
                 if self.bam_info.get("has_event_alignment"):
                     parts.append("Event alignment: yes")
@@ -373,7 +375,10 @@ def get_current_files() -> dict[str, str | None]:
     Returns:
         Dict with pod5_path and bam_path (may be None)
     """
-    return {"pod5_path": _squiggy_session.pod5_path, "bam_path": _squiggy_session.bam_path}
+    return {
+        "pod5_path": _squiggy_session.pod5_path,
+        "bam_path": _squiggy_session.bam_path,
+    }
 
 
 def get_read_ids() -> list[str]:

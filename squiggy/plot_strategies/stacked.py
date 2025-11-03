@@ -81,12 +81,14 @@ class StackedPlotStrategy(PlotStrategy):
         Required keys:
             - reads: list of (read_id, signal, sample_rate) tuples
         """
-        if 'reads' not in data:
+        if "reads" not in data:
             raise ValueError("Missing required data for stacked plot: reads")
 
-        reads = data['reads']
+        reads = data["reads"]
         if not isinstance(reads, list):
-            raise ValueError("reads must be a list of (read_id, signal, sample_rate) tuples")
+            raise ValueError(
+                "reads must be a list of (read_id, signal, sample_rate) tuples"
+            )
 
         if len(reads) == 0:
             raise ValueError("reads list cannot be empty")
@@ -129,12 +131,12 @@ class StackedPlotStrategy(PlotStrategy):
         self.validate_data(data)
 
         # Extract data
-        reads_data = data['reads']
+        reads_data = data["reads"]
 
         # Extract options with defaults
-        normalization = options.get('normalization', NormalizationMethod.NONE)
-        downsample = options.get('downsample', 1)
-        show_signal_points = options.get('show_signal_points', False)
+        normalization = options.get("normalization", NormalizationMethod.NONE)
+        downsample = options.get("downsample", 1)
+        show_signal_points = options.get("show_signal_points", False)
 
         # First pass: process all signals and determine offset
         processed_reads = []
@@ -159,7 +161,7 @@ class StackedPlotStrategy(PlotStrategy):
 
         # Second pass: plot with offsets
         all_renderers = []
-        for idx, (read_id, signal, sample_rate) in enumerate(processed_reads):
+        for idx, (read_id, signal, _sample_rate) in enumerate(processed_reads):
             # Apply vertical offset
             offset = idx * offset_step
             y_offset = signal + offset

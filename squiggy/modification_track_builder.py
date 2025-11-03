@@ -7,7 +7,6 @@ This module handles creation of separate Bokeh figures showing base modification
 
 import numpy as np
 from bokeh.models import ColumnDataSource, HoverTool
-from bokeh.plotting import figure
 
 from .constants import (
     MODIFICATION_CODES,
@@ -357,7 +356,9 @@ class ModificationTrackBuilder:
         mod_types = {str(m.mod_code) for m in modifications}
 
         # Count passing probability filter
-        filtered = sum(1 for m in modifications if m.probability >= self.min_probability)
+        filtered = sum(
+            1 for m in modifications if m.probability >= self.min_probability
+        )
 
         # Count passing type filter
         if self.enabled_types is not None and len(self.enabled_types) > 0:

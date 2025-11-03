@@ -151,7 +151,9 @@ class TestDataValidation:
 
         del valid_data["aggregate_stats"]["mean_signal"]
 
-        with pytest.raises(ValueError, match="aggregate_stats missing keys.*mean_signal"):
+        with pytest.raises(
+            ValueError, match="aggregate_stats missing keys.*mean_signal"
+        ):
             strategy.validate_data(valid_data)
 
     def test_validate_aggregate_stats_missing_std_signal(self, valid_data):
@@ -160,7 +162,9 @@ class TestDataValidation:
 
         del valid_data["aggregate_stats"]["std_signal"]
 
-        with pytest.raises(ValueError, match="aggregate_stats missing keys.*std_signal"):
+        with pytest.raises(
+            ValueError, match="aggregate_stats missing keys.*std_signal"
+        ):
             strategy.validate_data(valid_data)
 
     def test_validate_aggregate_stats_missing_coverage(self, valid_data):
@@ -205,7 +209,9 @@ class TestDataValidation:
 
         del valid_data["quality_stats"]["mean_quality"]
 
-        with pytest.raises(ValueError, match="quality_stats missing keys.*mean_quality"):
+        with pytest.raises(
+            ValueError, match="quality_stats missing keys.*mean_quality"
+        ):
             strategy.validate_data(valid_data)
 
     def test_validate_quality_stats_missing_std_quality(self, valid_data):
@@ -235,9 +241,7 @@ class TestCreatePlot:
             },
             "pileup_stats": {
                 "positions": positions,
-                "counts": {
-                    pos: {"A": 5, "C": 10, "G": 8, "T": 7} for pos in positions
-                },
+                "counts": {pos: {"A": 5, "C": 10, "G": 8, "T": 7} for pos in positions},
             },
             "quality_stats": {
                 "positions": positions,
@@ -330,9 +334,7 @@ class TestAggregateTracks:
             },
             "pileup_stats": {
                 "positions": positions,
-                "counts": {
-                    pos: {"A": 3, "C": 5, "G": 4, "T": 3} for pos in positions
-                },
+                "counts": {pos: {"A": 3, "C": 5, "G": 4, "T": 3} for pos in positions},
                 "reference_bases": {pos: "ACGT"[pos % 4] for pos in positions},
             },
             "quality_stats": {
@@ -360,7 +362,7 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # GridPlot children are tuples of (figure, row, col)
-        for fig, row, col in grid.children:
+        for fig, _row, _col in grid.children:
             assert isinstance(fig, Plot)
 
     def test_signal_track_has_title(self, sample_data):
@@ -477,9 +479,7 @@ class TestAggregateIntegration:
             },
             "pileup_stats": {
                 "positions": positions,
-                "counts": {
-                    pos: {"A": 5, "C": 10, "G": 8, "T": 7} for pos in positions
-                },
+                "counts": {pos: {"A": 5, "C": 10, "G": 8, "T": 7} for pos in positions},
             },
             "quality_stats": {
                 "positions": positions,

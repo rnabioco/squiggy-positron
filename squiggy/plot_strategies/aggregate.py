@@ -5,7 +5,6 @@ This module implements the Strategy Pattern for aggregate multi-read visualizati
 with synchronized tracks showing signal statistics, base pileup, and quality.
 """
 
-import numpy as np
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
 from bokeh.models import Band, ColumnDataSource, HoverTool
@@ -86,33 +85,33 @@ class AggregatePlotStrategy(PlotStrategy):
             - num_reads: int
         """
         required = [
-            'aggregate_stats',
-            'pileup_stats',
-            'quality_stats',
-            'reference_name',
-            'num_reads',
+            "aggregate_stats",
+            "pileup_stats",
+            "quality_stats",
+            "reference_name",
+            "num_reads",
         ]
         missing = [k for k in required if k not in data]
         if missing:
             raise ValueError(f"Missing required data for aggregate plot: {missing}")
 
         # Validate aggregate_stats structure
-        agg = data['aggregate_stats']
-        required_agg = ['positions', 'mean_signal', 'std_signal', 'coverage']
+        agg = data["aggregate_stats"]
+        required_agg = ["positions", "mean_signal", "std_signal", "coverage"]
         missing_agg = [k for k in required_agg if k not in agg]
         if missing_agg:
             raise ValueError(f"aggregate_stats missing keys: {missing_agg}")
 
         # Validate pileup_stats structure
-        pileup = data['pileup_stats']
-        required_pileup = ['positions', 'counts']
+        pileup = data["pileup_stats"]
+        required_pileup = ["positions", "counts"]
         missing_pileup = [k for k in required_pileup if k not in pileup]
         if missing_pileup:
             raise ValueError(f"pileup_stats missing keys: {missing_pileup}")
 
         # Validate quality_stats structure
-        quality = data['quality_stats']
-        required_quality = ['positions', 'mean_quality', 'std_quality']
+        quality = data["quality_stats"]
+        required_quality = ["positions", "mean_quality", "std_quality"]
         missing_quality = [k for k in required_quality if k not in quality]
         if missing_quality:
             raise ValueError(f"quality_stats missing keys: {missing_quality}")
@@ -142,14 +141,14 @@ class AggregatePlotStrategy(PlotStrategy):
         self.validate_data(data)
 
         # Extract data
-        aggregate_stats = data['aggregate_stats']
-        pileup_stats = data['pileup_stats']
-        quality_stats = data['quality_stats']
-        reference_name = data['reference_name']
-        num_reads = data['num_reads']
+        aggregate_stats = data["aggregate_stats"]
+        pileup_stats = data["pileup_stats"]
+        quality_stats = data["quality_stats"]
+        reference_name = data["reference_name"]
+        num_reads = data["num_reads"]
 
         # Extract options
-        normalization = options.get('normalization', NormalizationMethod.NONE)
+        normalization = options.get("normalization", NormalizationMethod.NONE)
 
         # Create three synchronized tracks
         p_signal = self._create_signal_track(

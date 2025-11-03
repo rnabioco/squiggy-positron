@@ -476,10 +476,7 @@ class TestMultiReadIntegration:
         strategy = OverlayPlotStrategy(Theme.LIGHT)
 
         # Create 10 reads
-        reads = [
-            (f"read_{i:03d}", np.random.randn(300), 4000)
-            for i in range(10)
-        ]
+        reads = [(f"read_{i:03d}", np.random.randn(300), 4000) for i in range(10)]
 
         data = {"reads": reads}
 
@@ -493,10 +490,7 @@ class TestMultiReadIntegration:
         strategy = StackedPlotStrategy(Theme.LIGHT)
 
         # Create 10 reads
-        reads = [
-            (f"read_{i:03d}", np.random.randn(300), 4000)
-            for i in range(10)
-        ]
+        reads = [(f"read_{i:03d}", np.random.randn(300), 4000) for i in range(10)]
 
         data = {"reads": reads}
 

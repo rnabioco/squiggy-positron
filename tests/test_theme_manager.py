@@ -3,8 +3,8 @@ Tests for ThemeManager class
 """
 
 import pytest
-from bokeh.plotting import figure
 from bokeh.models.plots import Plot
+from bokeh.plotting import figure
 
 from squiggy.constants import Theme
 from squiggy.theme_manager import ThemeManager
@@ -31,7 +31,7 @@ class TestThemeManagerInitialization:
 
     def test_light_theme_uses_light_colors(self):
         """Test that LIGHT theme uses LIGHT_THEME colors"""
-        from squiggy.constants import LIGHT_THEME, BASE_COLORS
+        from squiggy.constants import BASE_COLORS, LIGHT_THEME
 
         manager = ThemeManager(Theme.LIGHT)
 
@@ -40,7 +40,7 @@ class TestThemeManagerInitialization:
 
     def test_dark_theme_uses_dark_colors(self):
         """Test that DARK theme uses DARK_THEME colors"""
-        from squiggy.constants import DARK_THEME, BASE_COLORS_DARK
+        from squiggy.constants import BASE_COLORS_DARK, DARK_THEME
 
         manager = ThemeManager(Theme.DARK)
 
@@ -129,9 +129,7 @@ class TestThemeManagerFigureCreation:
         manager = ThemeManager(Theme.LIGHT)
 
         fig = manager.create_figure(
-            title="Test Plot",
-            x_label="X Axis",
-            y_label="Y Axis"
+            title="Test Plot", x_label="X Axis", y_label="Y Axis"
         )
 
         assert isinstance(fig, Plot)
@@ -141,9 +139,7 @@ class TestThemeManagerFigureCreation:
         manager = ThemeManager(Theme.LIGHT)
 
         fig = manager.create_figure(
-            title="Test Plot",
-            x_label="X Axis",
-            y_label="Y Axis"
+            title="Test Plot", x_label="X Axis", y_label="Y Axis"
         )
 
         assert fig.title.text == "Test Plot"
@@ -155,9 +151,7 @@ class TestThemeManagerFigureCreation:
         manager = ThemeManager(Theme.DARK)
 
         fig = manager.create_figure(
-            title="Test Plot",
-            x_label="X Axis",
-            y_label="Y Axis"
+            title="Test Plot", x_label="X Axis", y_label="Y Axis"
         )
 
         # Check background colors
@@ -172,11 +166,7 @@ class TestThemeManagerFigureCreation:
         manager = ThemeManager(Theme.LIGHT)
 
         fig = manager.create_figure(
-            title="Test",
-            x_label="X",
-            y_label="Y",
-            width=1000,
-            height=600
+            title="Test", x_label="X", y_label="Y", width=1000, height=600
         )
 
         assert fig.width == 1000
@@ -186,12 +176,7 @@ class TestThemeManagerFigureCreation:
         """Test create_figure without width uses stretch_width"""
         manager = ThemeManager(Theme.LIGHT)
 
-        fig = manager.create_figure(
-            title="Test",
-            x_label="X",
-            y_label="Y",
-            height=400
-        )
+        fig = manager.create_figure(title="Test", x_label="X", y_label="Y", height=400)
 
         assert fig.sizing_mode == "stretch_width"
 
@@ -200,10 +185,7 @@ class TestThemeManagerFigureCreation:
         manager = ThemeManager(Theme.LIGHT)
 
         fig = manager.create_figure(
-            title="Test",
-            x_label="X",
-            y_label="Y",
-            tools="pan,reset"
+            title="Test", x_label="X", y_label="Y", tools="pan,reset"
         )
 
         # Check that tools were set (exact tool list may vary)
@@ -292,20 +274,12 @@ class TestThemeManagerIntegration:
 
         # Method 1: create_figure
         fig1 = manager.create_figure(
-            title="Test",
-            x_label="X",
-            y_label="Y",
-            width=800,
-            height=400
+            title="Test", x_label="X", y_label="Y", width=800, height=400
         )
 
         # Method 2: manual creation + apply
         fig2 = figure(
-            width=800,
-            height=400,
-            title="Test",
-            x_axis_label="X",
-            y_axis_label="Y"
+            width=800, height=400, title="Test", x_axis_label="X", y_axis_label="Y"
         )
         manager.apply_to_figure(fig2)
 

@@ -5,7 +5,6 @@ Tests for BaseAnnotationRenderer class
 import numpy as np
 import pytest
 from bokeh.models import LinearColorMapper
-from bokeh.models.plots import Plot
 from bokeh.plotting import figure
 
 from squiggy.base_annotation_renderer import BaseAnnotationRenderer
@@ -38,9 +37,7 @@ class TestBaseAnnotationRendererInitialization:
         """Test initialization with dwell time enabled"""
         base_colors = {"A": "#00b388", "C": "#3c8dbc", "G": "#d8ce0d", "T": "#f18033"}
 
-        renderer = BaseAnnotationRenderer(
-            base_colors=base_colors, show_dwell_time=True
-        )
+        renderer = BaseAnnotationRenderer(base_colors=base_colors, show_dwell_time=True)
 
         assert renderer.show_dwell_time is True
 
@@ -109,9 +106,7 @@ class TestTimeBasedRendering:
         self, base_colors, sample_data
     ):
         """Test that render_time_based returns LinearColorMapper with dwell time"""
-        renderer = BaseAnnotationRenderer(
-            base_colors=base_colors, show_dwell_time=True
-        )
+        renderer = BaseAnnotationRenderer(base_colors=base_colors, show_dwell_time=True)
         fig = figure(width=800, height=400)
 
         result = renderer.render_time_based(fig=fig, **sample_data)
@@ -184,9 +179,7 @@ class TestPositionBasedRendering:
             MockBaseAnnotation("T", 300),
         ]
 
-    def test_render_position_based_adds_glyphs(
-        self, base_colors, sample_annotations
-    ):
+    def test_render_position_based_adds_glyphs(self, base_colors, sample_annotations):
         """Test that render_position_based adds glyphs to figure"""
         renderer = BaseAnnotationRenderer(base_colors=base_colors)
         fig = figure(width=800, height=400)
@@ -226,9 +219,7 @@ class TestPositionBasedRendering:
         self, base_colors, sample_annotations
     ):
         """Test render_position_based with dwell time scaling"""
-        renderer = BaseAnnotationRenderer(
-            base_colors=base_colors, show_dwell_time=True
-        )
+        renderer = BaseAnnotationRenderer(base_colors=base_colors, show_dwell_time=True)
         fig = figure(width=800, height=400)
 
         renderer.render_position_based(
@@ -288,9 +279,7 @@ class TestPrivateRegionCalculation:
 
     def test_calculate_regions_time_dwell(self, base_colors):
         """Test _calculate_regions_time_dwell returns correct structure"""
-        renderer = BaseAnnotationRenderer(
-            base_colors=base_colors, show_dwell_time=True
-        )
+        renderer = BaseAnnotationRenderer(base_colors=base_colors, show_dwell_time=True)
 
         sequence = "ACGT"
         seq_to_sig_map = [0, 100, 200, 300]
@@ -386,9 +375,7 @@ class TestDwellTimeColorMapper:
 
     def test_dwell_patches_creates_color_mapper(self, base_colors):
         """Test that _add_dwell_patches creates a LinearColorMapper"""
-        renderer = BaseAnnotationRenderer(
-            base_colors=base_colors, show_dwell_time=True
-        )
+        renderer = BaseAnnotationRenderer(base_colors=base_colors, show_dwell_time=True)
         fig = figure(width=800, height=400)
 
         regions = [
@@ -406,9 +393,7 @@ class TestDwellTimeColorMapper:
 
     def test_dwell_patches_with_empty_regions(self, base_colors):
         """Test that _add_dwell_patches handles empty regions"""
-        renderer = BaseAnnotationRenderer(
-            base_colors=base_colors, show_dwell_time=True
-        )
+        renderer = BaseAnnotationRenderer(base_colors=base_colors, show_dwell_time=True)
         fig = figure(width=800, height=400)
 
         color_mapper = renderer._add_dwell_patches(fig, [], [])

@@ -82,17 +82,17 @@ class SingleReadPlotStrategy(PlotStrategy):
             - read_id: str identifier for the read
             - sample_rate: int sampling rate in Hz
         """
-        required = ['signal', 'read_id', 'sample_rate']
+        required = ["signal", "read_id", "sample_rate"]
         missing = [k for k in required if k not in data]
         if missing:
             raise ValueError(f"Missing required data for single read plot: {missing}")
 
         # Validate types
-        if not isinstance(data['signal'], np.ndarray):
+        if not isinstance(data["signal"], np.ndarray):
             raise ValueError("signal must be a numpy array")
-        if not isinstance(data['read_id'], str):
+        if not isinstance(data["read_id"], str):
             raise ValueError("read_id must be a string")
-        if not isinstance(data['sample_rate'], (int, float)):
+        if not isinstance(data["sample_rate"], (int, float)):
             raise ValueError("sample_rate must be a number")
 
     def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
@@ -130,24 +130,24 @@ class SingleReadPlotStrategy(PlotStrategy):
         self.validate_data(data)
 
         # Extract data
-        signal = data['signal']
-        read_id = data['read_id']
-        sample_rate = data['sample_rate']
-        sequence = data.get('sequence')
-        seq_to_sig_map = data.get('seq_to_sig_map')
-        modifications = data.get('modifications')
+        signal = data["signal"]
+        read_id = data["read_id"]
+        sample_rate = data["sample_rate"]
+        sequence = data.get("sequence")
+        seq_to_sig_map = data.get("seq_to_sig_map")
+        modifications = data.get("modifications")
 
         # Extract options with defaults
-        normalization = options.get('normalization', NormalizationMethod.NONE)
-        downsample = options.get('downsample', 1)
-        show_dwell_time = options.get('show_dwell_time', False)
-        show_labels = options.get('show_labels', True)
-        show_signal_points = options.get('show_signal_points', False)
-        scale_dwell_time = options.get('scale_dwell_time', False)
-        show_modification_overlay = options.get('show_modification_overlay', True)
-        modification_overlay_opacity = options.get('modification_overlay_opacity', 0.6)
-        min_mod_probability = options.get('min_mod_probability', 0.5)
-        enabled_mod_types = options.get('enabled_mod_types', None)
+        normalization = options.get("normalization", NormalizationMethod.NONE)
+        downsample = options.get("downsample", 1)
+        show_dwell_time = options.get("show_dwell_time", False)
+        show_labels = options.get("show_labels", True)
+        show_signal_points = options.get("show_signal_points", False)
+        scale_dwell_time = options.get("scale_dwell_time", False)
+        show_modification_overlay = options.get("show_modification_overlay", True)
+        modification_overlay_opacity = options.get("modification_overlay_opacity", 0.6)
+        min_mod_probability = options.get("min_mod_probability", 0.5)
+        enabled_mod_types = options.get("enabled_mod_types", None)
 
         # Process signal (normalize and downsample)
         signal, seq_to_sig_map = self._process_signal(

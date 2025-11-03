@@ -296,6 +296,7 @@ class TestModificationTrack:
     @pytest.fixture
     def data_with_mods(self):
         """Data with modifications"""
+
         # Mock modification
         class MockMod:
             def __init__(self, position, mod_code, probability):

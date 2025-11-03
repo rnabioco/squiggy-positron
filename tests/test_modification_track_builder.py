@@ -5,7 +5,6 @@ Tests for ModificationTrackBuilder class
 import numpy as np
 import pytest
 from bokeh.models.plots import Plot
-from bokeh.plotting import figure
 
 from squiggy.constants import Theme
 from squiggy.modification_track_builder import ModificationTrackBuilder
@@ -110,10 +109,7 @@ class TestBuildTrack:
         """Test that build_track returns a Bokeh figure"""
         builder = ModificationTrackBuilder()
 
-        fig = builder.build_track(
-            modifications=sample_modifications,
-            **sample_data
-        )
+        fig = builder.build_track(modifications=sample_modifications, **sample_data)
 
         assert isinstance(fig, Plot)
 
@@ -121,10 +117,7 @@ class TestBuildTrack:
         """Test that build_track returns None when no modifications"""
         builder = ModificationTrackBuilder()
 
-        fig = builder.build_track(
-            modifications=None,
-            **sample_data
-        )
+        fig = builder.build_track(modifications=None, **sample_data)
 
         assert fig is None
 
@@ -132,10 +125,7 @@ class TestBuildTrack:
         """Test that build_track returns None with empty modifications list"""
         builder = ModificationTrackBuilder()
 
-        fig = builder.build_track(
-            modifications=[],
-            **sample_data
-        )
+        fig = builder.build_track(modifications=[], **sample_data)
 
         assert fig is None
 
@@ -216,10 +206,7 @@ class TestBuildTrack:
         """Test that built figure has expected properties"""
         builder = ModificationTrackBuilder()
 
-        fig = builder.build_track(
-            modifications=sample_modifications,
-            **sample_data
-        )
+        fig = builder.build_track(modifications=sample_modifications, **sample_data)
 
         # Check figure properties
         assert fig.height == 80
@@ -483,10 +470,7 @@ class TestModificationTrackBuilderIntegration:
         assert summary["enabled_mods"] == 4
 
         # Build track
-        fig = builder.build_track(
-            modifications=sample_modifications,
-            **sample_data
-        )
+        fig = builder.build_track(modifications=sample_modifications, **sample_data)
 
         # Should have figure
         assert isinstance(fig, Plot)
@@ -513,20 +497,14 @@ class TestModificationTrackBuilderIntegration:
         builder = ModificationTrackBuilder(min_probability=0.5)
 
         # Build with low threshold
-        fig1 = builder.build_track(
-            modifications=sample_modifications,
-            **sample_data
-        )
+        fig1 = builder.build_track(modifications=sample_modifications, **sample_data)
         assert isinstance(fig1, Plot)
 
         # Update to higher threshold
         builder.update_filters(min_probability=0.85)
 
         # Rebuild - should have fewer mods
-        fig2 = builder.build_track(
-            modifications=sample_modifications,
-            **sample_data
-        )
+        fig2 = builder.build_track(modifications=sample_modifications, **sample_data)
         assert isinstance(fig2, Plot)
 
     def test_theme_variations(self, sample_data, sample_modifications):
@@ -534,15 +512,13 @@ class TestModificationTrackBuilderIntegration:
         # Light theme
         builder_light = ModificationTrackBuilder(theme=Theme.LIGHT)
         fig_light = builder_light.build_track(
-            modifications=sample_modifications,
-            **sample_data
+            modifications=sample_modifications, **sample_data
         )
 
         # Dark theme
         builder_dark = ModificationTrackBuilder(theme=Theme.DARK)
         fig_dark = builder_dark.build_track(
-            modifications=sample_modifications,
-            **sample_data
+            modifications=sample_modifications, **sample_data
         )
 
         # Both should create figures

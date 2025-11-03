@@ -51,7 +51,9 @@ class PlotStrategy(ABC):
         self.theme = theme
 
     @abstractmethod
-    def create_plot(self, data: dict[str, Any], options: dict[str, Any]) -> tuple[str, Any]:
+    def create_plot(
+        self, data: dict[str, Any], options: dict[str, Any]
+    ) -> tuple[str, Any]:
         """
         Generate Bokeh plot HTML and figure
 

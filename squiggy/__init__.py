@@ -193,6 +193,7 @@ def plot_read(
 
     # Route to Positron Plots pane if running in Positron
     from .plotter import _route_to_plots_pane
+
     _route_to_plots_pane(fig)
 
     return html
@@ -283,7 +284,9 @@ def plot_reads(
 
         aligned_reads = []
         for read_id in read_ids:
-            aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
+            aligned_read = extract_alignment_from_bam(
+                _squiggy_session.bam_path, read_id
+            )
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
             aligned_reads.append(aligned_read)
@@ -313,6 +316,7 @@ def plot_reads(
 
     # Route to Positron Plots pane if running in Positron
     from .plotter import _route_to_plots_pane
+
     _route_to_plots_pane(fig)
 
     return html
@@ -411,6 +415,7 @@ def plot_aggregate(
 
     # Route to Positron Plots pane if running in Positron
     from .plotter import _route_to_plots_pane
+
     _route_to_plots_pane(grid)
 
     return html

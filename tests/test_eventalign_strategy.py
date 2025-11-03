@@ -432,10 +432,7 @@ class TestEventAlignIntegration:
         strategy = EventAlignPlotStrategy(Theme.LIGHT)
 
         # Create 100 bases
-        bases = [
-            MockBaseAnnotation("ACGT"[i % 4], i * 10)
-            for i in range(100)
-        ]
+        bases = [MockBaseAnnotation("ACGT"[i % 4], i * 10) for i in range(100)]
         aligned = MockAlignedRead("long_read", bases)
 
         data = {
