@@ -1,5 +1,41 @@
 # Squiggy Release Notes
 
+## v0.1.6-alpha (2025-11-02)
+
+Major refactoring release with improved code organization, new motif search features, and comprehensive documentation updates.
+
+### Features
+
+- **Motif Search and Visualization**: Search for IUPAC sequence motifs in reference genomes and visualize aggregate signal patterns centered on motif matches (#43, #51)
+- **API Documentation**: Auto-generated API reference using mkdocstrings with code examples (#50)
+
+### Improvements
+
+- **Strategy Pattern Architecture**: Complete refactoring of plotting system using Strategy Pattern with 5 plot strategies (SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE) for better maintainability and extensibility (#62)
+- **Rendering Package**: Created `squiggy/rendering/` package with reusable components (ThemeManager, BaseAnnotationRenderer, ModificationTrackBuilder)
+- **Session State**: Consolidated kernel state into single `_squiggy_session` object for cleaner Variables pane (#59)
+- **Launch Configuration**: Template-based `.vscode/launch.json` system for consistent test workspace setup (#63)
+
+### Fixes
+
+- **CI/CD**: Fixed shell command injection vulnerability in release workflow that caused jobs to hang
+- **Documentation**: Added `docs-build` task for CI to prevent indefinite server runs
+- **Read Explorer**: Fixed reference dropdown expansion bug
+
+### Documentation
+
+- Updated all documentation to reflect new rendering/ package structure and Strategy Pattern architecture
+- Removed outdated references to deleted `plotter.py` module (2,049 lines removed)
+- Added comprehensive Copilot/AI agent instructions
+- Fixed API documentation code example rendering
+
+### Internal
+
+- Removed legacy `plotter.py` and `SquigglePlotter` class in favor of Strategy Pattern
+- Improved test workspace directory naming with branch and commit info
+- Updated `.gitignore` and VSIX package exclusions
+- Changed email notification setting to 'off'
+
 ## v0.1.5-alpha (2025-11-01)
 
 Maintenance release focused on code quality and internal architecture improvements.
