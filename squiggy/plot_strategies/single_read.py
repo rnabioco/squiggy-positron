@@ -254,26 +254,6 @@ class SingleReadPlotStrategy(PlotStrategy):
     # Private Methods: Signal Processing
     # =========================================================================
 
-    def _process_signal(
-        self,
-        signal: np.ndarray,
-        normalization: NormalizationMethod,
-        downsample: int,
-        seq_to_sig_map: list[int] | None,
-    ) -> tuple[np.ndarray, list[int] | None]:
-        """Process signal: normalize and downsample"""
-        # Normalize
-        if normalization != NormalizationMethod.NONE:
-            signal = normalize_signal(signal, method=normalization)
-
-        # Downsample
-        if downsample > 1:
-            signal = signal[::downsample]
-            if seq_to_sig_map is not None:
-                seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
-
-        return signal, seq_to_sig_map
-
     def _create_x_axis(
         self,
         signal: np.ndarray,

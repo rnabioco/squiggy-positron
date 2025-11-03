@@ -8,7 +8,10 @@ Each plot mode (SINGLE, EVENTALIGN, AGGREGATE, etc.) implements this interface.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ..constants import Theme
+import numpy as np
+
+from ..constants import NormalizationMethod, Theme
+from ..normalization import normalize_signal
 
 
 class PlotStrategy(ABC):
@@ -145,3 +148,48 @@ class PlotStrategy(ABC):
         from bokeh.resources import CDN
 
         return file_html(figure, CDN, "Squiggy Plot")
+
+    def _process_signal(
+        self,
+        signal: np.ndarray,
+        normalization: NormalizationMethod = NormalizationMethod.NONE,
+        downsample: int = 1,
+        seq_to_sig_map: list[int] | None = None,
+    ) -> tuple[np.ndarray, list[int] | None]:
+        """
+        Process signal: normalize and optionally downsample
+
+        Applies normalization and downsampling to signal data. Optionally
+        adjusts sequence-to-signal mapping indices when downsampling.
+
+        Args:
+            signal: Raw signal array
+            normalization: Normalization method to apply
+            downsample: Downsampling factor (1 = no downsampling)
+            seq_to_sig_map: Optional sequence-to-signal index mapping
+
+        Returns:
+            Tuple of (processed_signal, adjusted_seq_to_sig_map)
+            - If seq_to_sig_map was None, returns (signal, None)
+            - If seq_to_sig_map provided and downsample > 1, indices are adjusted
+
+        Example:
+            >>> signal = np.array([1, 2, 3, 4, 5, 6])
+            >>> processed, _ = self._process_signal(
+            ...     signal,
+            ...     normalization=NormalizationMethod.ZNORM,
+            ...     downsample=2
+            ... )
+            >>> # Returns z-normalized signal downsampled by factor of 2
+        """
+        # Normalize
+        if normalization != NormalizationMethod.NONE:
+            signal = normalize_signal(signal, method=normalization)
+
+        # Downsample
+        if downsample > 1:
+            signal = signal[::downsample]
+            if seq_to_sig_map is not None:
+                seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
+
+        return signal, seq_to_sig_map

@@ -305,20 +305,21 @@ class TestOverlayPrivateMethods:
         strategy = OverlayPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000)
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal.copy(),
             normalization=NormalizationMethod.NONE,
             downsample=1,
         )
 
         np.testing.assert_array_equal(processed, signal)
+        assert seq_map is None
 
     def test_process_signal_with_normalization(self):
         """Test signal processing with normalization"""
         strategy = OverlayPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000) * 10 + 50
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal,
             normalization=NormalizationMethod.ZNORM,
             downsample=1,
@@ -327,19 +328,21 @@ class TestOverlayPrivateMethods:
         # Should be z-normalized
         assert abs(np.mean(processed)) < 0.1
         assert abs(np.std(processed) - 1.0) < 0.1
+        assert seq_map is None
 
     def test_process_signal_with_downsample(self):
         """Test signal processing with downsampling"""
         strategy = OverlayPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000)
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal,
             normalization=NormalizationMethod.NONE,
             downsample=10,
         )
 
         assert len(processed) == len(signal) // 10
+        assert seq_map is None
 
 
 class TestStackedPrivateMethods:
@@ -350,20 +353,21 @@ class TestStackedPrivateMethods:
         strategy = StackedPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000)
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal.copy(),
             normalization=NormalizationMethod.NONE,
             downsample=1,
         )
 
         np.testing.assert_array_equal(processed, signal)
+        assert seq_map is None
 
     def test_process_signal_with_normalization(self):
         """Test signal processing with normalization"""
         strategy = StackedPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000) * 10 + 50
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal,
             normalization=NormalizationMethod.ZNORM,
             downsample=1,
@@ -372,6 +376,7 @@ class TestStackedPrivateMethods:
         # Should be z-normalized
         assert abs(np.mean(processed)) < 0.1
         assert abs(np.std(processed) - 1.0) < 0.1
+        assert seq_map is None
 
 
 class TestMultiReadIntegration:

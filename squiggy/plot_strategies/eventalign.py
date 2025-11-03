@@ -11,7 +11,12 @@ from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
 from ..base_annotation_renderer import BaseAnnotationRenderer
-from ..constants import DEFAULT_POSITION_LABEL_INTERVAL, NormalizationMethod, Theme
+from ..constants import (
+    DEFAULT_POSITION_LABEL_INTERVAL,
+    MULTI_READ_COLORS,
+    NormalizationMethod,
+    Theme,
+)
 from ..normalization import normalize_signal
 from ..theme_manager import ThemeManager
 from .base import PlotStrategy
@@ -47,18 +52,6 @@ class EventAlignPlotStrategy(PlotStrategy):
         >>>
         >>> html, fig = strategy.create_plot(data, options)
     """
-
-    # Color palette for multiple reads
-    MULTI_READ_COLORS = [
-        "#3c8dbc",  # Blue
-        "#d62728",  # Red
-        "#2ca02c",  # Green
-        "#ff7f0e",  # Orange
-        "#9467bd",  # Purple
-        "#8c564b",  # Brown
-        "#e377c2",  # Pink
-        "#7f7f7f",  # Gray
-    ]
 
     def __init__(self, theme: Theme):
         """
@@ -180,7 +173,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         # Process all signals first to get global min/max
         all_processed = []
         for read_id, signal, sample_rate in reads_data:
-            processed = self._process_signal(signal, normalization)
+            processed, _ = self._process_signal(signal, normalization)
             all_processed.append((read_id, processed, sample_rate))
 
         signal_min = min(np.min(s) for _, s, _ in all_processed)
@@ -248,16 +241,6 @@ class EventAlignPlotStrategy(PlotStrategy):
     # =========================================================================
     # Private Methods: Signal Processing
     # =========================================================================
-
-    def _process_signal(
-        self,
-        signal: np.ndarray,
-        normalization: NormalizationMethod,
-    ) -> np.ndarray:
-        """Process signal: normalize (no downsampling for event-aligned)"""
-        if normalization != NormalizationMethod.NONE:
-            signal = normalize_signal(signal, method=normalization)
-        return signal
 
     # =========================================================================
     # Private Methods: Rendering
@@ -385,7 +368,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         if color_index == 0:
             color = self.theme_manager.get_signal_color()
         else:
-            color = self.MULTI_READ_COLORS[color_index % len(self.MULTI_READ_COLORS)]
+            color = MULTI_READ_COLORS[color_index % len(MULTI_READ_COLORS)]
 
         # Add renderers
         renderers = []

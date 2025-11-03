@@ -10,7 +10,7 @@ from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
-from ..constants import NormalizationMethod, Theme
+from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
 from ..normalization import normalize_signal
 from ..theme_manager import ThemeManager
 from .base import PlotStrategy
@@ -45,18 +45,6 @@ class OverlayPlotStrategy(PlotStrategy):
         >>>
         >>> html, fig = strategy.create_plot(data, options)
     """
-
-    # Color palette for multiple reads
-    MULTI_READ_COLORS = [
-        "#3c8dbc",  # Blue (matches SIGNAL_LINE_COLOR)
-        "#d62728",  # Red
-        "#2ca02c",  # Green
-        "#ff7f0e",  # Orange
-        "#9467bd",  # Purple
-        "#8c564b",  # Brown
-        "#e377c2",  # Pink
-        "#7f7f7f",  # Gray
-    ]
 
     def __init__(self, theme: Theme):
         """
@@ -151,7 +139,7 @@ class OverlayPlotStrategy(PlotStrategy):
         all_renderers = []
         for idx, (read_id, signal, _sample_rate) in enumerate(reads_data):
             # Process signal
-            processed_signal = self._process_signal(signal, normalization, downsample)
+            processed_signal, _ = self._process_signal(signal, normalization, downsample)
 
             # Create data source
             x = np.arange(len(processed_signal))
@@ -164,7 +152,7 @@ class OverlayPlotStrategy(PlotStrategy):
             )
 
             # Get color for this read
-            color = self.MULTI_READ_COLORS[idx % len(self.MULTI_READ_COLORS)]
+            color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
 
             # Add renderers
             renderers = self._add_signal_renderers(
@@ -199,23 +187,6 @@ class OverlayPlotStrategy(PlotStrategy):
     # =========================================================================
     # Private Methods: Signal Processing
     # =========================================================================
-
-    def _process_signal(
-        self,
-        signal: np.ndarray,
-        normalization: NormalizationMethod,
-        downsample: int,
-    ) -> np.ndarray:
-        """Process signal: normalize and downsample"""
-        # Normalize
-        if normalization != NormalizationMethod.NONE:
-            signal = normalize_signal(signal, method=normalization)
-
-        # Downsample
-        if downsample > 1:
-            signal = signal[::downsample]
-
-        return signal
 
     # =========================================================================
     # Private Methods: Rendering

@@ -29,6 +29,33 @@ MIN_POINTS_FOR_DOWNSAMPLING = (
     10000  # Only downsample if signal has more than this many points
 )
 
+# Bokeh plot visual constants
+# Plot dimensions (heights in pixels)
+DEFAULT_PLOT_HEIGHT = 400  # Default single plot height
+AGGREGATE_SIGNAL_HEIGHT = 300  # Aggregate signal track height
+AGGREGATE_PILEUP_HEIGHT = 250  # Aggregate pileup track height
+AGGREGATE_QUALITY_HEIGHT = 200  # Aggregate quality track height
+MODIFICATION_TRACK_HEIGHT = 80  # Modification track height
+
+# Line rendering
+SIGNAL_LINE_WIDTH_THIN = 1  # Thin line width for multi-read plots
+SIGNAL_LINE_WIDTH_THICK = 2  # Thick line width for single-read plots
+
+# Alpha/transparency values
+SIGNAL_LINE_ALPHA_DEFAULT = 0.8  # Default line alpha (single read)
+SIGNAL_LINE_ALPHA_OVERLAY = 0.7  # Line alpha for overlay plots
+SIGNAL_LINE_ALPHA_STACKED = 1.0  # Line alpha for stacked plots (full opacity)
+SIGNAL_BAND_ALPHA = 0.3  # Alpha for confidence/error bands
+SIGNAL_POINT_ALPHA_DEFAULT = 0.5  # Alpha for signal points
+
+# Point rendering
+SIGNAL_POINT_SIZE_DEFAULT = 3  # Point size for signal scatter plots
+
+# Layout and spacing
+PLOT_COLUMN_SPACING = 0  # Spacing between columns in gridplot
+BASE_POSITION_HALF_WIDTH = 0.5  # Half-width for base annotation positioning
+STACKED_OFFSET_MULTIPLIER = 1.2  # Vertical spacing multiplier for stacked reads
+
 # Base colors for visualization
 # Using Okabe-Ito colorblind-friendly palette
 BASE_COLORS = {
@@ -128,6 +155,9 @@ LIGHT_THEME = {
     "axis_text": "#000000",
     "title_text": "#000000",
     "signal_line": "#000000",
+    # Aggregate plot band colors
+    "signal_band": "#56B4E9",  # Light blue for signal confidence bands
+    "quality_band": "#FFA500",  # Orange for quality bands
 }
 
 DARK_THEME = {
@@ -148,6 +178,9 @@ DARK_THEME = {
     "axis_text": "#cccccc",
     "title_text": "#ffffff",
     "signal_line": "#e0e0e0",  # Bright light gray for good visibility
+    # Aggregate plot band colors
+    "signal_band": "#0072B2",  # Darker blue for signal confidence bands
+    "quality_band": "#FF8C00",  # Dark orange for quality bands
 }
 
 # Base colors for dark mode (adjusted for better visibility)

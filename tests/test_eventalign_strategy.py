@@ -316,19 +316,20 @@ class TestPrivateMethods:
         strategy = EventAlignPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000)
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal.copy(),
             normalization=NormalizationMethod.NONE,
         )
 
         np.testing.assert_array_equal(processed, signal)
+        assert seq_map is None  # No seq_to_sig_map provided
 
     def test_process_signal_with_normalization(self):
         """Test signal processing with normalization"""
         strategy = EventAlignPlotStrategy(Theme.LIGHT)
 
         signal = np.random.randn(1000) * 10 + 50
-        processed = strategy._process_signal(
+        processed, seq_map = strategy._process_signal(
             signal=signal,
             normalization=NormalizationMethod.ZNORM,
         )
@@ -336,6 +337,7 @@ class TestPrivateMethods:
         # Should be z-normalized
         assert abs(np.mean(processed)) < 0.1
         assert abs(np.std(processed) - 1.0) < 0.1
+        assert seq_map is None  # No seq_to_sig_map provided
 
 
 class TestEventAlignIntegration:
