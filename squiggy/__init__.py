@@ -658,27 +658,58 @@ def plot_delta_comparison(
     sample_a = samples[0]
     sample_b = samples[1]
 
-    # Validate both samples have POD5 loaded
+    # Validate both samples have POD5 and BAM loaded
     if sample_a.pod5_reader is None or sample_b.pod5_reader is None:
         raise ValueError("Both samples must have POD5 files loaded")
+
+    if sample_a.bam_path is None or sample_b.bam_path is None:
+        raise ValueError(
+            "Both samples must have BAM files loaded for delta comparison. "
+            "BAM files are required to align signals to reference positions."
+        )
 
     # Parse parameters
     norm_method = NormalizationMethod[normalization.upper()]
     theme_enum = Theme[theme.upper()]
 
-    # Extract reads from both samples
-    reads_a = [
-        (read_id, sample_a.pod5_reader[read_id].signal, 4000)
-        for read_id in sample_a.read_ids[:100]  # Sample first 100 reads
-    ]
-    reads_b = [
-        (read_id, sample_b.pod5_reader[read_id].signal, 4000)
-        for read_id in sample_b.read_ids[:100]  # Sample first 100 reads
-    ]
+    # Get first reference from sample A's BAM
+    # (assumes both samples have the same reference genome)
+    if not sample_a.bam_info or "references" not in sample_a.bam_info:
+        raise ValueError("BAM file must be loaded with reference information")
+
+    references = sample_a.bam_info["references"]
+    if not references:
+        raise ValueError("No references found in BAM file")
+
+    reference_name = references[0]["name"]
+
+    # Extract aligned reads from both samples using the proper utility function
+    from .utils import extract_reads_for_reference
+
+    reads_a = extract_reads_for_reference(
+        pod5_file=sample_a.pod5_path,
+        bam_file=sample_a.bam_path,
+        reference_name=reference_name,
+        max_reads=100,
+        random_sample=True,
+    )
+
+    reads_b = extract_reads_for_reference(
+        pod5_file=sample_b.pod5_path,
+        bam_file=sample_b.bam_path,
+        reference_name=reference_name,
+        max_reads=100,
+        random_sample=True,
+    )
+
+    if not reads_a:
+        raise ValueError(f"No reads found for sample A on reference '{reference_name}'")
+    if not reads_b:
+        raise ValueError(f"No reads found for sample B on reference '{reference_name}'")
 
     # Calculate aggregate statistics for both samples
-    stats_a = calculate_aggregate_signal(reads_a)
-    stats_b = calculate_aggregate_signal(reads_b)
+    stats_a = calculate_aggregate_signal(reads_a, norm_method)
+    stats_b = calculate_aggregate_signal(reads_b, norm_method)
 
     # Calculate deltas
     delta_stats = calculate_delta_stats(stats_a, stats_b)

@@ -308,3 +308,30 @@ class TestDeltaIntegration:
 
         with pytest.raises(ValueError, match="not found"):
             plot_delta_comparison(["nonexistent_a", "nonexistent_b"])
+
+    def test_plot_delta_comparison_requires_bam(self, sample_pod5_file):
+        """Test that plot_delta_comparison requires BAM files"""
+        from squiggy import load_sample, plot_delta_comparison
+
+        # Load samples without BAM
+        load_sample("sample_a", str(sample_pod5_file))
+        load_sample("sample_b", str(sample_pod5_file))
+
+        # Should fail because no BAM files loaded
+        with pytest.raises(ValueError, match="BAM files"):
+            plot_delta_comparison(["sample_a", "sample_b"])
+
+    def test_plot_delta_comparison_with_bam(self, sample_pod5_file, sample_bam_file):
+        """Test plot_delta_comparison with proper BAM files"""
+        from squiggy import load_sample, plot_delta_comparison
+
+        # Load samples with BAM files (bam_path is positional parameter)
+        load_sample("sample_a", str(sample_pod5_file), str(sample_bam_file))
+        load_sample("sample_b", str(sample_pod5_file), str(sample_bam_file))
+
+        # Should succeed with BAM files
+        html = plot_delta_comparison(["sample_a", "sample_b"], normalization="ZNORM")
+
+        assert html is not None
+        assert len(html) > 0
+        assert "Delta Signal" in html

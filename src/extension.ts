@@ -59,7 +59,8 @@ export async function activate(context: vscode.ExtensionContext) {
         readsViewPane,
         plotOptionsProvider,
         filePanelProvider,
-        modificationsProvider
+        modificationsProvider,
+        samplesProvider
     );
 
     // Set initial context for modifications panel (hidden by default)
@@ -127,8 +128,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Register kernel event listeners (session changes, restarts)
     registerKernelListeners(context, state);
 
-    // Register all commands (pass samples provider so file commands can refresh it)
-    registerFileCommands(context, state, samplesProvider);
+    // Register all commands
+    registerFileCommands(context, state);
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
 
