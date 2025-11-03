@@ -75,6 +75,24 @@
         "title": "Clear All State (After Kernel Restart)",
         "category": "Squiggy",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "squiggy.openFASTA",
+        "title": "Open FASTA File",
+        "category": "Squiggy",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "squiggy.closeFASTA",
+        "title": "Close FASTA File",
+        "category": "Squiggy",
+        "icon": "$(close)"
+      },
+      {
+        "command": "squiggy.plotMotifAggregate",
+        "title": "Plot Motif Aggregate",
+        "category": "Squiggy",
+        "icon": "$(graph-scatter)"
       }
     ],
     "viewsContainers": {
@@ -109,6 +127,12 @@
           "name": "Base Modifications",
           "type": "webview",
           "when": "squiggy.hasModifications"
+        },
+        {
+          "id": "squiggyMotifSearch",
+          "name": "Motif Search",
+          "type": "webview",
+          "visibility": "collapsed"
         }
       ]
     },

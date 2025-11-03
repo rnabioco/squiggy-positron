@@ -107,6 +107,11 @@
     color: var(--vscode-terminal-background);
 }
 
+.file-type-badge.fasta {
+    background: var(--vscode-terminal-ansiMagenta);
+    color: var(--vscode-terminal-background);
+}
+
 /* Close Button */
 .file-close-button {
     background: transparent;

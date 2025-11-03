@@ -11,6 +11,7 @@ import { ReadsViewPane } from './views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
 import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
+import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
@@ -31,6 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const readsViewPane = new ReadsViewPane(context.extensionUri);
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
+    const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider),
@@ -42,6 +44,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(
             ModificationsPanelProvider.viewType,
             modificationsProvider
+        ),
+        vscode.window.registerWebviewViewProvider(
+            MotifSearchPanelProvider.viewType,
+            motifSearchProvider
         )
     );
 

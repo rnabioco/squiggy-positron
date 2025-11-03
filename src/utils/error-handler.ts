@@ -13,12 +13,16 @@ import * as vscode from 'vscode';
 export enum ErrorContext {
     POD5_LOAD = 'loading POD5 file',
     BAM_LOAD = 'loading BAM file',
+    FASTA_LOAD = 'loading FASTA file',
     POD5_CLOSE = 'closing POD5 file',
     BAM_CLOSE = 'closing BAM file',
+    FASTA_CLOSE = 'closing FASTA file',
     PLOT_GENERATE = 'generating plot',
     KERNEL_COMMUNICATION = 'communicating with Python kernel',
     PACKAGE_INSTALL = 'installing squiggy package',
     STATE_CLEAR = 'clearing extension state',
+    MOTIF_SEARCH = 'searching for motif matches',
+    MOTIF_PLOT = 'generating motif aggregate plot',
 }
 
 /**
