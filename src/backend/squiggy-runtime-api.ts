@@ -324,43 +324,6 @@ if '_squiggy_motif_matches_json' in globals():
     }
 
     /**
-     * Generate motif-centered aggregate plot
-     */
-    async generateMotifAggregatePlot(
-        fastaFile: string,
-        motif: string,
-        matchIndex: number,
-        window: number = 50,
-        maxReads: number = 100,
-        normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
-    ): Promise<void> {
-        const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
-        const escapedMotif = motif.replace(/'/g, "\\'");
-
-        const code = `
-import squiggy
-
-# Generate motif aggregate plot - will be automatically routed to Plots pane
-squiggy.plot_motif_aggregate(
-    fasta_file='${escapedFastaPath}',
-    motif='${escapedMotif}',
-    match_index=${matchIndex},
-    window=${window},
-    max_reads=${maxReads},
-    normalization='${normalization}',
-    theme='${theme}'
-)
-`;
-
-        try {
-            await this.client.executeSilent(code);
-        } catch (error) {
-            throw new Error(`Failed to generate motif aggregate plot: ${error}`);
-        }
-    }
-
-    /**
      * Generate aggregate plot for all motif matches with asymmetric windows
      */
     async generateMotifAggregateAllPlot(

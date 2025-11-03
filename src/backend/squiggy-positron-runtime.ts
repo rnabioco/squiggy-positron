@@ -721,41 +721,6 @@ if '_squiggy_motif_matches_json' in globals():
     }
 
     /**
-     * Generate motif-centered aggregate plot
-     */
-    async generateMotifAggregatePlot(
-        fastaFile: string,
-        motif: string,
-        matchIndex: number,
-        window: number = 50,
-        maxReads: number = 100,
-        normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
-    ): Promise<void> {
-        await this.ensureKernelReady();
-
-        const code = `
-import squiggy
-
-# Generate motif aggregate plot
-html = squiggy.plot_motif_aggregate(
-    fasta_file=${JSON.stringify(fastaFile)},
-    motif=${JSON.stringify(motif)},
-    match_index=${matchIndex},
-    window=${window},
-    max_reads=${maxReads},
-    normalization=${JSON.stringify(normalization)},
-    theme=${JSON.stringify(theme)}
-)
-
-# Route to Positron Plots pane
-squiggy.io._route_to_plots_pane(html)
-`;
-
-        await this.executeCode(code, false, true, positron.RuntimeCodeExecutionMode.Silent);
-    }
-
-    /**
      * Generate aggregate plot for all motif matches with asymmetric windows
      */
     async generateMotifAggregateAllPlot(

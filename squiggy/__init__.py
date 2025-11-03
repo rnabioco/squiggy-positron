@@ -430,144 +430,6 @@ def plot_aggregate(
     return html
 
 
-def plot_motif_aggregate(
-    fasta_file: str,
-    motif: str,
-    match_index: int = 0,
-    window: int = 50,
-    max_reads: int = 100,
-    normalization: str = "ZNORM",
-    theme: str = "LIGHT",
-) -> str:
-    """
-    Generate aggregate multi-read visualization centered on a motif match
-
-    Creates a three-track plot showing:
-    1. Aggregate signal (mean ± std dev across reads, centered on motif)
-    2. Base pileup (IGV-style stacked bar chart)
-    3. Quality scores by position
-
-    The plot is centered on the motif position, with x-axis showing positions
-    relative to the motif center (e.g., -50, 0, +50).
-
-    Args:
-        fasta_file: Path to indexed FASTA file (.fai required)
-        motif: IUPAC nucleotide pattern (e.g., "DRACH", "YGCY")
-        match_index: Which motif match to plot (0-based index, default=0)
-        window: Number of bases around motif center to include (±window, default=50)
-        max_reads: Maximum number of reads to sample for aggregation (default 100)
-        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
-        theme: Color theme (LIGHT, DARK)
-
-    Returns:
-        Bokeh HTML string with three synchronized tracks
-
-    Example:
-        >>> import squiggy
-        >>> squiggy.load_pod5('data.pod5')
-        >>> squiggy.load_bam('alignments.bam')
-        >>> html = squiggy.plot_motif_aggregate(
-        ...     fasta_file='genome.fa',
-        ...     motif='DRACH',
-        ...     match_index=0,
-        ...     window=50
-        ... )
-        >>> # Extension displays this automatically
-
-    Raises:
-        ValueError: If POD5/BAM not loaded, no motif matches found,
-                    or invalid match_index
-    """
-    from .io import _squiggy_session
-    from .plot_factory import create_plot_strategy
-    from .utils import (
-        align_reads_to_motif_center,
-        calculate_aggregate_signal,
-        calculate_base_pileup,
-        calculate_quality_by_position,
-        extract_reads_for_motif,
-    )
-
-    # Validate state
-    if _squiggy_session.reader is None:
-        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-    if _squiggy_session.bam_path is None:
-        raise ValueError(
-            "No BAM file loaded. Motif aggregate plots require alignments. "
-            "Call load_bam() first."
-        )
-
-    # Parse parameters
-    norm_method = NormalizationMethod[normalization.upper()]
-    theme_enum = Theme[theme.upper()]
-
-    # Extract reads overlapping this motif match
-    reads_data, motif_match = extract_reads_for_motif(
-        pod5_file=_squiggy_session.pod5_path,
-        bam_file=_squiggy_session.bam_path,
-        fasta_file=fasta_file,
-        motif=motif,
-        match_index=match_index,
-        window=window,
-        max_reads=max_reads,
-    )
-
-    if not reads_data:
-        raise ValueError(
-            f"No reads found overlapping motif match {match_index}. "
-            f"Try a different match or increase window size."
-        )
-
-    num_reads = len(reads_data)
-
-    # Calculate motif center position
-    motif_center = motif_match.position + (motif_match.length // 2)
-
-    # Align reads to motif center (adjust coordinates to be motif-relative)
-    aligned_reads = align_reads_to_motif_center(reads_data, motif_center)
-
-    # Calculate aggregate statistics
-    aggregate_stats = calculate_aggregate_signal(aligned_reads, norm_method)
-
-    # For pileup, we need the reference sequence around the motif
-    # Get chromosome sequence from BAM or FASTA
-    pileup_stats = calculate_base_pileup(
-        aligned_reads,
-        bam_file=_squiggy_session.bam_path,
-        reference_name=motif_match.chrom,
-    )
-
-    quality_stats = calculate_quality_by_position(aligned_reads)
-
-    # Generate plot with motif-specific title
-    plot_title = (
-        f"{motif} motif at {motif_match.chrom}:{motif_match.position + 1} "
-        f"({motif_match.strand} strand, {num_reads} reads)"
-    )
-
-    # Prepare data for AggregatePlotStrategy
-    data = {
-        "aggregate_stats": aggregate_stats,
-        "pileup_stats": pileup_stats,
-        "quality_stats": quality_stats,
-        "reference_name": plot_title,
-        "num_reads": num_reads,
-    }
-
-    options = {"normalization": norm_method}
-
-    # Create strategy and generate plot
-    strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
-    html, grid = strategy.create_plot(data, options)
-
-    # Route to Positron Plots pane if running in Positron
-    from .utils import _route_to_plots_pane
-
-    _route_to_plots_pane(grid)
-
-    return html
-
-
 def plot_motif_aggregate_all(
     fasta_file: str,
     motif: str,
@@ -585,8 +447,8 @@ def plot_motif_aggregate_all(
     to ALL instances of the motif in the genome. The x-axis is centered on the
     motif position with configurable upstream/downstream windows.
 
-    This differs from plot_motif_aggregate() which plots a single motif match.
-    This function combines reads from all motif matches into one aggregate view.
+    This function combines reads from all motif matches into one aggregate view,
+    providing a genome-wide perspective on signal patterns around the motif.
 
     Args:
         fasta_file: Path to indexed FASTA file (.fai required)
@@ -621,7 +483,6 @@ def plot_motif_aggregate_all(
     from .motif import search_motif
     from .plot_factory import create_plot_strategy
     from .utils import (
-        align_reads_to_motif_center,
         calculate_aggregate_signal,
         calculate_base_pileup,
         calculate_quality_by_position,
@@ -651,7 +512,7 @@ def plot_motif_aggregate_all(
     all_aligned_reads = []
     num_matches_with_reads = 0
 
-    for match_index, motif_match in enumerate(matches):
+    for match_index, _motif_match in enumerate(matches):
         try:
             # Extract reads for this motif match
             reads_data, _ = extract_reads_for_motif(
@@ -666,14 +527,8 @@ def plot_motif_aggregate_all(
             )
 
             if reads_data:
-                # Calculate motif center position
-                motif_center = motif_match.position + (motif_match.length // 2)
-
-                # Align reads to motif center (adjust coordinates to be motif-relative)
-                aligned_reads = align_reads_to_motif_center(reads_data, motif_center)
-
-                # Add to combined dataset
-                all_aligned_reads.extend(aligned_reads)
+                # Reads are already clipped and in motif-relative coordinates from extract_reads_for_motif()
+                all_aligned_reads.extend(reads_data)
                 num_matches_with_reads += 1
 
         except Exception:
@@ -688,10 +543,11 @@ def plot_motif_aggregate_all(
 
     num_reads = len(all_aligned_reads)
 
+    # Reads are already clipped to the window in extract_reads_for_motif()
     # Calculate aggregate statistics across all reads
     aggregate_stats = calculate_aggregate_signal(all_aligned_reads, norm_method)
 
-    # Calculate base pileup across all aligned reads
+    # Calculate base pileup across all reads
     # Don't pass reference_name because reads are in motif-relative coordinates,
     # not genomic coordinates - we can't extract reference sequence from BAM
     pileup_stats = calculate_base_pileup(
@@ -751,7 +607,6 @@ __all__ = [
     "plot_read",
     "plot_reads",
     "plot_aggregate",
-    "plot_motif_aggregate",
     "plot_motif_aggregate_all",
     "get_current_files",
     "get_read_ids",

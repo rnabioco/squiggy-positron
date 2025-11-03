@@ -128,15 +128,25 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             font-weight: bold;
         }
         .slider-container {
-            display: grid;
-            grid-template-columns: auto 1fr auto 1fr auto;
-            gap: 10px;
-            align-items: center;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             margin-bottom: 10px;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .slider-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
         }
         .slider-label {
             font-size: 11px;
-            white-space: nowrap;
+            font-weight: bold;
         }
         input[type="range"] {
             width: 100%;
@@ -145,6 +155,8 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             font-size: 11px;
             text-align: center;
             color: var(--vscode-descriptionForeground);
+            padding: 0 10px;
+            white-space: nowrap;
         }
         .plot-all-btn {
             width: 100%;
@@ -244,11 +256,17 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                 <div class="window-control">
                     <label>Window Size (bp):</label>
                     <div class="slider-container">
-                        <span class="slider-label">Upstream: <span id="upstreamValue">10</span>bp</span>
-                        <input type="range" id="upstreamSlider" min="0" max="100" value="10" oninput="updateUpstreamValue()" />
-                        <span class="slider-center">← Motif Center →</span>
-                        <input type="range" id="downstreamSlider" min="0" max="100" value="10" oninput="updateDownstreamValue()" />
-                        <span class="slider-label">Downstream: <span id="downstreamValue">10</span>bp</span>
+                        <div class="slider-row">
+                            <div class="slider-group">
+                                <span class="slider-label">Upstream: <span id="upstreamValue">10</span>bp</span>
+                                <input type="range" id="upstreamSlider" min="0" max="100" value="10" oninput="updateUpstreamValue()" />
+                            </div>
+                            <span class="slider-center">Motif<br/>Center</span>
+                            <div class="slider-group">
+                                <span class="slider-label">Downstream: <span id="downstreamValue">10</span>bp</span>
+                                <input type="range" id="downstreamSlider" min="0" max="100" value="10" oninput="updateDownstreamValue()" />
+                            </div>
+                        </div>
                     </div>
                     <button class="plot-all-btn" onclick="plotAllMotifs()">Plot All Matches</button>
                 </div>
