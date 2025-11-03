@@ -476,7 +476,8 @@ def plot_motif_aggregate(
         ValueError: If POD5/BAM not loaded, no motif matches found,
                     or invalid match_index
     """
-    from .io import _current_bam_path, _current_pod5_path, _current_pod5_reader
+    from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
     from .utils import (
         align_reads_to_motif_center,
         calculate_aggregate_signal,
@@ -486,9 +487,9 @@ def plot_motif_aggregate(
     )
 
     # Validate state
-    if _current_pod5_reader is None:
+    if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-    if _current_bam_path is None:
+    if _squiggy_session.bam_path is None:
         raise ValueError(
             "No BAM file loaded. Motif aggregate plots require alignments. "
             "Call load_bam() first."
@@ -500,8 +501,8 @@ def plot_motif_aggregate(
 
     # Extract reads overlapping this motif match
     reads_data, motif_match = extract_reads_for_motif(
-        pod5_file=_current_pod5_path,
-        bam_file=_current_bam_path,
+        pod5_file=_squiggy_session.pod5_path,
+        bam_file=_squiggy_session.bam_path,
         fasta_file=fasta_file,
         motif=motif,
         match_index=match_index,
@@ -529,7 +530,9 @@ def plot_motif_aggregate(
     # For pileup, we need the reference sequence around the motif
     # Get chromosome sequence from BAM or FASTA
     pileup_stats = calculate_base_pileup(
-        aligned_reads, bam_file=_current_bam_path, reference_name=motif_match.chrom
+        aligned_reads,
+        bam_file=_squiggy_session.bam_path,
+        reference_name=motif_match.chrom,
     )
 
     quality_stats = calculate_quality_by_position(aligned_reads)
@@ -540,16 +543,25 @@ def plot_motif_aggregate(
         f"({motif_match.strand} strand, {num_reads} reads)"
     )
 
-    html, _ = SquigglePlotter.plot_aggregate(
-        aggregate_stats=aggregate_stats,
-        pileup_stats=pileup_stats,
-        quality_stats=quality_stats,
-        reference_name=plot_title,  # Use custom title
-        num_reads=num_reads,
-        normalization=norm_method,
-        theme=theme_enum,
-        motif_position=0,  # Motif center at position 0 in motif-centered coordinates
-    )
+    # Prepare data for AggregatePlotStrategy
+    data = {
+        "aggregate_stats": aggregate_stats,
+        "pileup_stats": pileup_stats,
+        "quality_stats": quality_stats,
+        "reference_name": plot_title,
+        "num_reads": num_reads,
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .plotter import _route_to_plots_pane
+
+    _route_to_plots_pane(grid)
 
     return html
 
