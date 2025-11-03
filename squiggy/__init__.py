@@ -189,7 +189,11 @@ def plot_read(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(plot_mode, theme_enum)
-    html, _ = strategy.create_plot(data, options)
+    html, fig = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .plotter import _route_to_plots_pane
+    _route_to_plots_pane(fig)
 
     return html
 
@@ -305,7 +309,11 @@ def plot_reads(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(plot_mode, theme_enum)
-    html, _ = strategy.create_plot(data, options)
+    html, fig = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .plotter import _route_to_plots_pane
+    _route_to_plots_pane(fig)
 
     return html
 
@@ -399,7 +407,11 @@ def plot_aggregate(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
-    html, _ = strategy.create_plot(data, options)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .plotter import _route_to_plots_pane
+    _route_to_plots_pane(grid)
 
     return html
 
