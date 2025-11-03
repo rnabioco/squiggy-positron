@@ -169,13 +169,14 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 <body>
     <div class="search-box">
         <label>Motif Pattern (IUPAC):</label><br/>
-        <input type="text" id="motifInput" value="DRACH" placeholder="e.g., DRACH, YGCY"/>
-        <button onclick="searchMotif()">Search</button>
-        <br/>
-        <label style="margin-top: 8px; display: inline-block;">
-            <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin-right: 5px;"/>
-            + strand only
-        </label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="motifInput" value="DRACH" placeholder="e.g., DRACH, YGCY" style="width: 50%;"/>
+            <button onclick="searchMotif()">Search</button>
+            <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
+                <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin: 0;"/>
+                + strand only
+            </label>
+        </div>
     </div>
 
     <div id="status" class="status"></div>
