@@ -290,13 +290,14 @@ if '${tempVar}' in globals():
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         // Load file silently (no console output)
+        // This populates _squiggy_session.reader and _squiggy_session.read_ids
         await this.executeSilent(`
 import squiggy
-_squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
+squiggy.load_pod5('${escapedPath}')
 `);
 
-        // Get read count by reading variable directly (no print needed)
-        const numReads = await this.getVariable('len(_squiggy_read_ids)');
+        // Get read count from session (no global variables created)
+        const numReads = await this.getVariable('len(squiggy.io._squiggy_session.read_ids)');
 
         return { numReads: numReads as number };
     }
@@ -310,8 +311,8 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
     async getReadIds(offset: number = 0, limit?: number): Promise<string[]> {
         const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
 
-        // Read variable slice directly (no print needed)
-        const readIds = await this.getVariable(`_squiggy_read_ids${sliceStr}`);
+        // Read from session instead of global variable
+        const readIds = await this.getVariable(`squiggy.io._squiggy_session.read_ids${sliceStr}`);
 
         return readIds as string[];
     }
@@ -332,25 +333,27 @@ _squiggy_reader, _squiggy_read_ids = squiggy.load_pod5('${escapedPath}')
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         // Load BAM silently (no console output)
+        // This populates _squiggy_session.bam_info and _squiggy_session.ref_mapping
         await this.executeSilent(`
 import squiggy
-_squiggy_bam_info = squiggy.load_bam('${escapedPath}')
-_squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
+squiggy.load_bam('${escapedPath}')
 `);
 
-        // Read metadata directly from variables (no print needed)
-        const numReads = await this.getVariable("_squiggy_bam_info['num_reads']");
+        // Read metadata from session (no global variables created)
+        const numReads = await this.getVariable(
+            "squiggy.io._squiggy_session.bam_info['num_reads']"
+        );
         const hasModifications = await this.getVariable(
-            "_squiggy_bam_info.get('has_modifications', False)"
+            "squiggy.io._squiggy_session.bam_info.get('has_modifications', False)"
         );
         const modificationTypes = await this.getVariable(
-            "_squiggy_bam_info.get('modification_types', [])"
+            "squiggy.io._squiggy_session.bam_info.get('modification_types', [])"
         );
         const hasProbabilities = await this.getVariable(
-            "_squiggy_bam_info.get('has_probabilities', False)"
+            "squiggy.io._squiggy_session.bam_info.get('has_probabilities', False)"
         );
         const hasEventAlignment = await this.getVariable(
-            "_squiggy_bam_info.get('has_event_alignment', False)"
+            "squiggy.io._squiggy_session.bam_info.get('has_event_alignment', False)"
         );
 
         return {
@@ -366,8 +369,10 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
      * Get list of reference names from loaded BAM file
      */
     async getReferences(): Promise<string[]> {
-        // Read keys directly from variable (no print needed)
-        const references = await this.getVariable('list(_squiggy_ref_mapping.keys())');
+        // Read from session instead of global variable
+        const references = await this.getVariable(
+            'list(squiggy.io._squiggy_session.ref_mapping.keys())'
+        );
         return references as string[];
     }
 
@@ -377,8 +382,10 @@ _squiggy_ref_mapping = squiggy.get_read_to_reference_mapping()
     async getReadsForReference(referenceName: string): Promise<string[]> {
         const escapedRef = referenceName.replace(/'/g, "\\'");
 
-        // Read directly from variable (no print needed)
-        const readIds = await this.getVariable(`_squiggy_ref_mapping.get('${escapedRef}', [])`);
+        // Read from session instead of global variable
+        const readIds = await this.getVariable(
+            `squiggy.io._squiggy_session.ref_mapping.get('${escapedRef}', [])`
+        );
 
         return readIds as string[];
     }
@@ -651,21 +658,10 @@ print('SUCCESS')
 
         const code = `
 import squiggy
-from pathlib import Path
 
-# Validate FASTA file exists
-fasta_path = Path(${JSON.stringify(fastaPath)})
-if not fasta_path.exists():
-    raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
-
-# Check for .fai index
-fai_path = Path(str(fasta_path) + ".fai")
-if not fai_path.exists():
-    raise FileNotFoundError(f"FASTA index not found: {fai_path}. Create with: samtools faidx {fasta_path}")
-
-# Store path in global state for easy access
-_squiggy_fasta_file = str(fasta_path)
-print(f"FASTA file loaded: {_squiggy_fasta_file}")
+# Load FASTA file using squiggy.load_fasta()
+# This populates _squiggy_session.fasta_path and _squiggy_session.fasta_info
+squiggy.load_fasta(${JSON.stringify(fastaPath)})
 `;
 
         await this.executeSilent(code);
@@ -710,6 +706,16 @@ _squiggy_motif_matches_json = [
 
         // Retrieve matches using getVariable
         const matches = await this.getVariable('_squiggy_motif_matches_json');
+
+        // Clean up temporary variables
+        await this.executeSilent(
+            `
+if '_squiggy_motif_matches' in globals():
+    del _squiggy_motif_matches
+if '_squiggy_motif_matches_json' in globals():
+    del _squiggy_motif_matches_json
+`
+        ).catch(() => {});
 
         return (matches as any[]) || [];
     }

@@ -26,6 +26,8 @@ class SquiggySession:
         bam_path: Path to loaded BAM file
         bam_info: Metadata about loaded BAM file
         ref_mapping: Mapping of reference names to read IDs
+        fasta_path: Path to loaded FASTA file
+        fasta_info: Metadata about loaded FASTA file
 
     Examples:
         >>> from squiggy import load_pod5, load_bam
@@ -44,6 +46,8 @@ class SquiggySession:
         self.bam_path: str | None = None
         self.bam_info: dict | None = None
         self.ref_mapping: dict[str, list[str]] | None = None
+        self.fasta_path: str | None = None
+        self.fasta_info: dict | None = None
 
     def __repr__(self) -> str:
         """Return informative summary of loaded files"""
@@ -67,6 +71,13 @@ class SquiggySession:
                 if self.bam_info.get("has_event_alignment"):
                     parts.append("Event alignment: yes")
 
+        if self.fasta_path:
+            filename = os.path.basename(self.fasta_path)
+            num_refs = (
+                len(self.fasta_info.get("references", [])) if self.fasta_info else 0
+            )
+            parts.append(f"FASTA: {filename} ({num_refs:,} references)")
+
         if not parts:
             return "<SquiggySession: No files loaded>"
 
@@ -86,10 +97,16 @@ class SquiggySession:
         self.bam_info = None
         self.ref_mapping = None
 
+    def close_fasta(self):
+        """Clear FASTA state"""
+        self.fasta_path = None
+        self.fasta_info = None
+
     def close_all(self):
         """Close all resources and clear all state"""
         self.close_pod5()
         self.close_bam()
+        self.close_fasta()
 
 
 # Global session instance (single source of truth for kernel state)
@@ -318,6 +335,67 @@ def load_bam(file_path: str) -> None:
     _squiggy_session.bam_info = bam_info
 
 
+def load_fasta(file_path: str) -> None:
+    """
+    Load a FASTA file into the global kernel session
+
+    This function mutates the global _squiggy_session object, making
+    FASTA reference sequences available for subsequent motif search and
+    analysis calls.
+
+    Args:
+        file_path: Path to FASTA file (must be indexed with .fai)
+
+    Returns:
+        None (mutates global _squiggy_session)
+
+    Examples:
+        >>> from squiggy import load_fasta
+        >>> from squiggy.io import _squiggy_session
+        >>> load_fasta('genome.fa')
+        >>> print(_squiggy_session.fasta_info['references'])
+        >>> # Use with motif search
+        >>> from squiggy.motif import search_motif
+        >>> matches = list(search_motif(_squiggy_session.fasta_path, "DRACH"))
+    """
+    # Convert to absolute path
+    abs_path = os.path.abspath(file_path)
+
+    if not os.path.exists(abs_path):
+        raise FileNotFoundError(f"FASTA file not found: {abs_path}")
+
+    # Check for index
+    fai_path = abs_path + ".fai"
+    if not os.path.exists(fai_path):
+        raise FileNotFoundError(
+            f"FASTA index not found: {fai_path}. "
+            f"Create index with: samtools faidx {abs_path}"
+        )
+
+    # Open FASTA file to get metadata
+    fasta = pysam.FastaFile(abs_path)
+
+    try:
+        # Extract reference information
+        references = list(fasta.references)
+        lengths = list(fasta.lengths)
+
+        # Build metadata dict
+        fasta_info = {
+            "file_path": abs_path,
+            "references": references,
+            "num_references": len(references),
+            "reference_lengths": dict(zip(references, lengths, strict=True)),
+        }
+
+    finally:
+        fasta.close()
+
+    # Store state in session (no global keyword needed - just mutating object!)
+    _squiggy_session.fasta_path = abs_path
+    _squiggy_session.fasta_info = fasta_info
+
+
 def get_read_to_reference_mapping() -> dict[str, list[str]]:
     """
     Get mapping of reference names to read IDs from currently loaded BAM
@@ -426,3 +504,21 @@ def close_bam():
     """
     # Clear session (no global keyword needed!)
     _squiggy_session.close_bam()
+
+
+def close_fasta():
+    """
+    Clear the currently loaded FASTA file state
+
+    Call this to free FASTA-related resources when done. Unlike close_pod5(),
+    this doesn't need to close a file handle since FASTA files are opened
+    and closed per-operation.
+
+    Examples:
+        >>> from squiggy import load_fasta, close_fasta
+        >>> load_fasta('genome.fa')
+        >>> # ... work with sequences ...
+        >>> close_fasta()
+    """
+    # Clear session (no global keyword needed!)
+    _squiggy_session.close_fasta()

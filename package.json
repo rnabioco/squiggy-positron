@@ -124,13 +124,13 @@
         },
         {
           "id": "squiggyModificationsPanel",
-          "name": "Base Modifications",
+          "name": "Modifications Explorer",
           "type": "webview",
           "when": "squiggy.hasModifications"
         },
         {
           "id": "squiggyMotifSearch",
-          "name": "Motif Search",
+          "name": "Motif Explorer",
           "type": "webview",
           "visibility": "collapsed"
         }

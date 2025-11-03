@@ -1,5 +1,7 @@
 """Tests for object-oriented API (Pod5File, Read, BamFile classes)"""
 
+import os
+
 import pytest
 
 
@@ -12,7 +14,7 @@ class TestPod5File:
 
         pod5 = Pod5File(sample_pod5_file)
         assert pod5 is not None
-        assert pod5.path.exists()
+        assert os.path.exists(pod5.path)
         pod5.close()
 
     def test_pod5file_nonexistent_file(self):
@@ -334,7 +336,7 @@ class TestBamFile:
 
         bam = BamFile(indexed_bam_file)
         assert bam is not None
-        assert bam.path.exists()
+        assert os.path.exists(bam.path)
         bam.close()
 
     def test_bamfile_nonexistent_file(self):
@@ -446,7 +448,7 @@ class TestBamFile:
         from squiggy import BamFile
 
         with BamFile(indexed_bam_file) as bam:
-            assert bam.path.exists()
+            assert os.path.exists(bam.path)
             references = bam.references
             assert isinstance(references, list)
 

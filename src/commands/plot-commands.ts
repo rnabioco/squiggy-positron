@@ -105,7 +105,7 @@ export function registerPlotCommands(
                 // Validate params were provided
                 if (!params) {
                     vscode.window.showErrorMessage(
-                        'Please select a motif match from the Motif Search panel'
+                        'Please select a motif match from the Motif Explorer panel'
                     );
                     return;
                 }

@@ -68,13 +68,16 @@ class Pod5File:
 
     def __init__(self, path: str | Path):
         """Open POD5 file for reading"""
-        self.path = Path(path).resolve()
+        resolved_path = Path(path).resolve()
 
-        if not self.path.exists():
-            raise FileNotFoundError(f"POD5 file not found: {self.path}")
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"POD5 file not found: {resolved_path}")
+
+        # Store as string to avoid Path object in variables pane
+        self.path = str(resolved_path)
 
         # Open reader
-        self._reader = pod5.Reader(str(self.path))
+        self._reader = pod5.Reader(self.path)
 
         # Cache read IDs (lazy loaded on first access)
         self._read_ids: list[str] | None = None
@@ -350,21 +353,24 @@ class BamFile:
 
     def __init__(self, path: str | Path):
         """Open BAM file for reading"""
-        self.path = Path(path).resolve()
+        resolved_path = Path(path).resolve()
 
-        if not self.path.exists():
-            raise FileNotFoundError(f"BAM file not found: {self.path}")
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"BAM file not found: {resolved_path}")
+
+        # Store as string to avoid Path object in variables pane
+        self.path = str(resolved_path)
 
         # Check for index
-        bai_path = Path(str(self.path) + ".bai")
+        bai_path = Path(self.path + ".bai")
         if not bai_path.exists():
             # Try alternate index location
-            alt_bai = self.path.with_suffix(".bam.bai")
+            alt_bai = Path(self.path).with_suffix(".bam.bai")
             if not alt_bai.exists():
                 print("Warning: BAM index not found. Region queries may not work.")
 
         # Open BAM file
-        self._bam = pysam.AlignmentFile(str(self.path), "rb", check_sq=False)
+        self._bam = pysam.AlignmentFile(self.path, "rb", check_sq=False)
 
         # Cache references
         self._references: list[str] | None = None
@@ -444,7 +450,7 @@ class BamFile:
         # Import here to avoid circular dependency
         from .io import get_bam_modification_info
 
-        self._mod_info = get_bam_modification_info(str(self.path))
+        self._mod_info = get_bam_modification_info(self.path)
         return self._mod_info
 
     def get_reads_overlapping_motif(
@@ -547,13 +553,16 @@ class FastaFile:
 
     def __init__(self, path: str | Path):
         """Open FASTA file for reading"""
-        self.path = Path(path).resolve()
+        resolved_path = Path(path).resolve()
 
-        if not self.path.exists():
-            raise FileNotFoundError(f"FASTA file not found: {self.path}")
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"FASTA file not found: {resolved_path}")
+
+        # Store as string to avoid Path object in variables pane
+        self.path = str(resolved_path)
 
         # Check for index
-        fai_path = Path(str(self.path) + ".fai")
+        fai_path = Path(self.path + ".fai")
         if not fai_path.exists():
             raise FileNotFoundError(
                 f"FASTA index not found: {fai_path}. "
@@ -561,7 +570,7 @@ class FastaFile:
             )
 
         # Open FASTA file
-        self._fasta = pysam.FastaFile(str(self.path))
+        self._fasta = pysam.FastaFile(self.path)
 
         # Cache references
         self._references: list[str] | None = None
