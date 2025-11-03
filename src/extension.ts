@@ -51,10 +51,7 @@ export async function activate(context: vscode.ExtensionContext) {
             MotifSearchPanelProvider.viewType,
             motifSearchProvider
         ),
-        vscode.window.registerWebviewViewProvider(
-            SamplesPanelProvider.viewType,
-            samplesProvider
-        )
+        vscode.window.registerWebviewViewProvider(SamplesPanelProvider.viewType, samplesProvider)
     );
 
     // Initialize state with panel references

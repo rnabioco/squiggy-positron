@@ -111,9 +111,7 @@ class TestCalculateDeltaStats:
             "std_signal": np.array([10.0, 12.0]),
         }
 
-        result = calculate_delta_stats(
-            stats_a, stats_b, stat_names=["mean_signal"]
-        )
+        result = calculate_delta_stats(stats_a, stats_b, stat_names=["mean_signal"])
 
         assert "delta_mean_signal" in result
         assert "delta_std_signal" not in result
@@ -176,9 +174,18 @@ class TestCompareSignalDistributions:
         result = compare_signal_distributions(signal_a, signal_b)
 
         expected_keys = [
-            "mean_a", "mean_b", "median_a", "median_b",
-            "std_a", "std_b", "min_a", "min_b",
-            "max_a", "max_b", "mean_diff", "std_diff"
+            "mean_a",
+            "mean_b",
+            "median_a",
+            "median_b",
+            "std_a",
+            "std_b",
+            "min_a",
+            "min_b",
+            "max_a",
+            "max_b",
+            "mean_diff",
+            "std_diff",
         ]
 
         for key in expected_keys:
@@ -190,7 +197,7 @@ class TestGetCommonReads:
 
     def test_get_common_reads_two_samples(self, sample_pod5_file):
         """Test getting common reads from two samples"""
-        from squiggy import load_sample, get_common_reads
+        from squiggy import get_common_reads, load_sample
 
         load_sample("a", str(sample_pod5_file))
         load_sample("b", str(sample_pod5_file))
@@ -201,7 +208,7 @@ class TestGetCommonReads:
 
     def test_get_common_reads_nonexistent_sample(self, sample_pod5_file):
         """Test get_common_reads with nonexistent sample"""
-        from squiggy import load_sample, get_common_reads
+        from squiggy import get_common_reads, load_sample
 
         load_sample("a", str(sample_pod5_file))
 
@@ -221,7 +228,7 @@ class TestGetUniqueReads:
 
     def test_get_unique_reads_single_sample(self, sample_pod5_file):
         """Test getting unique reads when only one sample loaded"""
-        from squiggy import load_sample, get_unique_reads
+        from squiggy import get_unique_reads, load_sample
 
         load_sample("a", str(sample_pod5_file))
 
@@ -240,7 +247,7 @@ class TestGetUniqueReads:
 
     def test_get_unique_reads_with_exclude_list(self, sample_pod5_file):
         """Test get_unique_reads with custom exclude list"""
-        from squiggy import load_sample, get_unique_reads
+        from squiggy import get_unique_reads, load_sample
 
         load_sample("a", str(sample_pod5_file))
         load_sample("b", str(sample_pod5_file))
@@ -257,7 +264,7 @@ class TestCompareSamples:
 
     def test_compare_two_samples(self, sample_pod5_file, sample_bam_file):
         """Test comparing two samples"""
-        from squiggy import load_sample, compare_samples
+        from squiggy import compare_samples, load_sample
 
         load_sample("v4.2", str(sample_pod5_file), str(sample_bam_file))
         load_sample("v5.0", str(sample_pod5_file), str(sample_bam_file))
@@ -281,7 +288,7 @@ class TestCompareSamples:
         self, sample_pod5_file, sample_bam_file
     ):
         """Test that compare_samples validates BAM references"""
-        from squiggy import load_sample, compare_samples
+        from squiggy import compare_samples, load_sample
 
         load_sample("v4.2", str(sample_pod5_file), str(sample_bam_file))
         load_sample("v5.0", str(sample_pod5_file), str(sample_bam_file))
@@ -294,7 +301,7 @@ class TestCompareSamples:
 
     def test_compare_samples_single(self, sample_pod5_file):
         """Test comparing single sample (edge case)"""
-        from squiggy import load_sample, compare_samples
+        from squiggy import compare_samples, load_sample
 
         load_sample("only_one", str(sample_pod5_file))
 
@@ -310,8 +317,11 @@ class TestPhase2Integration:
     def test_full_comparison_workflow(self, sample_pod5_file, sample_bam_file):
         """Test complete comparison workflow"""
         from squiggy import (
-            load_sample, compare_samples, get_common_reads,
-            get_unique_reads, list_samples
+            compare_samples,
+            get_common_reads,
+            get_unique_reads,
+            list_samples,
+            load_sample,
         )
 
         # Load samples

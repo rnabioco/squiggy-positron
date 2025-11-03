@@ -9,16 +9,16 @@ class TestDeltaPlotStrategy:
 
     def test_delta_plot_strategy_initialization(self):
         """Test DeltaPlotStrategy initialization"""
-        from squiggy.plot_strategies.delta import DeltaPlotStrategy
         from squiggy.constants import Theme
+        from squiggy.plot_strategies.delta import DeltaPlotStrategy
 
         strategy = DeltaPlotStrategy(Theme.LIGHT)
         assert strategy.theme == Theme.LIGHT
 
     def test_delta_plot_strategy_validation_required_data(self):
         """Test that validate_data checks for required keys"""
-        from squiggy.plot_strategies.delta import DeltaPlotStrategy
         from squiggy.constants import Theme
+        from squiggy.plot_strategies.delta import DeltaPlotStrategy
 
         strategy = DeltaPlotStrategy(Theme.LIGHT)
 
@@ -32,8 +32,8 @@ class TestDeltaPlotStrategy:
 
     def test_delta_plot_strategy_validation_complete(self):
         """Test validation with complete data"""
-        from squiggy.plot_strategies.delta import DeltaPlotStrategy
         from squiggy.constants import Theme
+        from squiggy.plot_strategies.delta import DeltaPlotStrategy
 
         strategy = DeltaPlotStrategy(Theme.LIGHT)
 
@@ -56,8 +56,8 @@ class TestDeltaPlotStrategy:
 
     def test_delta_plot_strategy_create_plot(self):
         """Test that create_plot generates HTML and figure"""
+        from squiggy.constants import NormalizationMethod, Theme
         from squiggy.plot_strategies.delta import DeltaPlotStrategy
-        from squiggy.constants import Theme, NormalizationMethod
 
         strategy = DeltaPlotStrategy(Theme.LIGHT)
 
@@ -89,8 +89,8 @@ class TestDeltaPlotStrategy:
 
     def test_delta_plot_strategy_with_downsampling(self):
         """Test delta plot with downsampling"""
+        from squiggy.constants import NormalizationMethod, Theme
         from squiggy.plot_strategies.delta import DeltaPlotStrategy
-        from squiggy.constants import Theme, NormalizationMethod
 
         strategy = DeltaPlotStrategy(Theme.LIGHT)
 
@@ -122,12 +122,12 @@ class TestDeltaPlotStrategy:
 
     def test_delta_plot_color_by_direction(self):
         """Test color assignment based on delta direction"""
-        from squiggy.plot_strategies.delta import DeltaPlotStrategy
         from squiggy.constants import (
-            DELTA_POSITIVE_COLOR,
             DELTA_NEGATIVE_COLOR,
             DELTA_NEUTRAL_COLOR,
+            DELTA_POSITIVE_COLOR,
         )
+        from squiggy.plot_strategies.delta import DeltaPlotStrategy
 
         deltas = np.array([1.0, -2.0, 0.05, -0.05, 5.0])
         colors = DeltaPlotStrategy._color_by_direction(deltas)
@@ -141,8 +141,8 @@ class TestDeltaPlotStrategy:
 
     def test_delta_plot_dark_theme(self):
         """Test delta plot with dark theme"""
+        from squiggy.constants import NormalizationMethod, Theme
         from squiggy.plot_strategies.delta import DeltaPlotStrategy
-        from squiggy.constants import Theme, NormalizationMethod
 
         strategy = DeltaPlotStrategy(Theme.DARK)
 
@@ -171,8 +171,8 @@ class TestDeltaPlotFactory:
 
     def test_delta_plot_mode_in_factory(self):
         """Test that DELTA mode is available in plot factory"""
-        from squiggy.plot_factory import create_plot_strategy
         from squiggy.constants import PlotMode, Theme
+        from squiggy.plot_factory import create_plot_strategy
         from squiggy.plot_strategies.delta import DeltaPlotStrategy
 
         strategy = create_plot_strategy(PlotMode.DELTA, Theme.LIGHT)
@@ -188,8 +188,8 @@ class TestDeltaPlotFactory:
 
     def test_create_delta_strategy_light_theme(self):
         """Test creating delta strategy with light theme"""
-        from squiggy.plot_factory import create_plot_strategy
         from squiggy.constants import PlotMode, Theme
+        from squiggy.plot_factory import create_plot_strategy
 
         strategy = create_plot_strategy(PlotMode.DELTA, Theme.LIGHT)
 
@@ -197,8 +197,8 @@ class TestDeltaPlotFactory:
 
     def test_create_delta_strategy_dark_theme(self):
         """Test creating delta strategy with dark theme"""
-        from squiggy.plot_factory import create_plot_strategy
         from squiggy.constants import PlotMode, Theme
+        from squiggy.plot_factory import create_plot_strategy
 
         strategy = create_plot_strategy(PlotMode.DELTA, Theme.DARK)
 
@@ -211,9 +211,9 @@ class TestDeltaConstants:
     def test_delta_color_constants_exist(self):
         """Test that delta color constants are defined"""
         from squiggy.constants import (
-            DELTA_POSITIVE_COLOR,
             DELTA_NEGATIVE_COLOR,
             DELTA_NEUTRAL_COLOR,
+            DELTA_POSITIVE_COLOR,
             DELTA_ZERO_LINE_COLOR,
         )
 
@@ -250,17 +250,18 @@ class TestDeltaIntegration:
 
     def test_delta_plot_with_sample_comparison(self, sample_pod5_file):
         """Test delta plotting with actual samples"""
-        from squiggy import load_sample, compare_samples
-        from squiggy.plot_factory import create_plot_strategy
-        from squiggy.constants import PlotMode, Theme, NormalizationMethod
         import numpy as np
+
+        from squiggy import compare_samples, load_sample
+        from squiggy.constants import NormalizationMethod, PlotMode, Theme
+        from squiggy.plot_factory import create_plot_strategy
 
         # Load two samples
         load_sample("a", str(sample_pod5_file))
         load_sample("b", str(sample_pod5_file))
 
         # Get comparison data
-        comparison = compare_samples(["a", "b"])
+        compare_samples(["a", "b"])
 
         # Create minimal delta data
         positions = np.arange(10)

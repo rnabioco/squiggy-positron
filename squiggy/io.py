@@ -181,8 +181,11 @@ class SquiggySession:
     # Multi-sample API methods (NEW)
 
     def load_sample(
-        self, name: str, pod5_path: str, bam_path: str | None = None,
-        fasta_path: str | None = None
+        self,
+        name: str,
+        pod5_path: str,
+        bam_path: str | None = None,
+        fasta_path: str | None = None,
     ) -> Sample:
         """
         Load a POD5/BAM/FASTA sample set into this session
@@ -786,8 +789,10 @@ def close_fasta():
 
 # Public API convenience function for multi-sample loading
 def load_sample(
-    name: str, pod5_path: str, bam_path: str | None = None,
-    fasta_path: str | None = None
+    name: str,
+    pod5_path: str,
+    bam_path: str | None = None,
+    fasta_path: str | None = None,
 ) -> Sample:
     """
     Load a POD5/BAM/FASTA sample set into the global session
@@ -912,7 +917,9 @@ def get_common_reads(sample_names: list[str]) -> set[str]:
     return common
 
 
-def get_unique_reads(sample_name: str, exclude_samples: list[str] | None = None) -> set[str]:
+def get_unique_reads(
+    sample_name: str, exclude_samples: list[str] | None = None
+) -> set[str]:
     """
     Get reads unique to a sample (not in other samples)
 
@@ -943,8 +950,7 @@ def get_unique_reads(sample_name: str, exclude_samples: list[str] | None = None)
     if exclude_samples is None:
         # Exclude all other samples
         exclude_samples = [
-            name for name in _squiggy_session.list_samples()
-            if name != sample_name
+            name for name in _squiggy_session.list_samples() if name != sample_name
         ]
 
     # Remove reads that appear in any excluded sample
@@ -1004,7 +1010,7 @@ def compare_samples(sample_names: list[str]) -> dict:
     # Compare read sets for all pairs
     if len(sample_names) >= 2:
         for i, name_a in enumerate(sample_names):
-            for name_b in sample_names[i + 1:]:
+            for name_b in sample_names[i + 1 :]:
                 sample_a = _squiggy_session.get_sample(name_a)
                 sample_b = _squiggy_session.get_sample(name_b)
                 pair_key = f"{name_a}_vs_{name_b}"
@@ -1016,11 +1022,13 @@ def compare_samples(sample_names: list[str]) -> dict:
     if len(sample_names) >= 2:
         bam_pairs = []
         for i, name_a in enumerate(sample_names):
-            for name_b in sample_names[i + 1:]:
+            for name_b in sample_names[i + 1 :]:
                 sample_a = _squiggy_session.get_sample(name_a)
                 sample_b = _squiggy_session.get_sample(name_b)
                 if sample_a.bam_path and sample_b.bam_path:
-                    bam_pairs.append((name_a, name_b, sample_a.bam_path, sample_b.bam_path))
+                    bam_pairs.append(
+                        (name_a, name_b, sample_a.bam_path, sample_b.bam_path)
+                    )
 
         if bam_pairs:
             result["reference_validation"] = {}

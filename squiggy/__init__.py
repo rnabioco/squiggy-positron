@@ -25,6 +25,9 @@ Example usage in Jupyter notebook:
 
 __version__ = "0.1.7"
 
+# Standard library
+import numpy as np
+
 # Object-oriented API (NEW - notebook-friendly)
 # Core data structures and constants
 from .alignment import AlignedRead, BaseAnnotation, extract_alignment_from_bam
@@ -71,9 +74,6 @@ from .motif import (
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
 
-import numpy as np
-
-# Legacy SquigglePlotter removed - use plot_read() or Read.plot() instead
 # Utility functions and data classes
 from .utils import (
     ModelProvenance,
@@ -617,7 +617,7 @@ def plot_delta_comparison(
     """
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
-    from .utils import calculate_delta_stats, calculate_aggregate_signal
+    from .utils import calculate_aggregate_signal, calculate_delta_stats
 
     # Validate input
     if len(sample_names) < 2:
@@ -667,12 +667,8 @@ def plot_delta_comparison(
 
     data = {
         "positions": positions,
-        "delta_mean_signal": delta_stats.get(
-            "delta_mean_signal", np.array([])
-        ),
-        "delta_std_signal": delta_stats.get(
-            "delta_std_signal", np.array([])
-        ),
+        "delta_mean_signal": delta_stats.get("delta_mean_signal", np.array([])),
+        "delta_std_signal": delta_stats.get("delta_std_signal", np.array([])),
         "sample_a_name": sample_a.name,
         "sample_b_name": sample_b.name,
         "sample_a_coverage": stats_a.get("coverage", [1] * len(positions)),

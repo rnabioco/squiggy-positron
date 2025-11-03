@@ -59,7 +59,9 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 if (message.sampleNames.length >= 2) {
                     this._onDidRequestComparison.fire(message.sampleNames);
                 } else {
-                    vscode.window.showWarningMessage('Please select at least 2 samples for comparison');
+                    vscode.window.showWarningMessage(
+                        'Please select at least 2 samples for comparison'
+                    );
                 }
                 break;
 
