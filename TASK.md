@@ -45,27 +45,57 @@ Instead of separate ComparisonSession with session_a/b, unified SquiggySession n
 - [x] All 22 new tests pass + 532 total tests pass (no regressions)
 - [x] Code follows project style guidelines
 
-## Phase 2: Aggregate Functions (Current Focus)
+## Phase 2: Aggregate Functions ✅ COMPLETE
 
 ### Objectives
 Implement aggregate computation functions for parallel statistics calculation across both datasets.
 
-### Tasks
-- [ ] Implement calculate_aggregate_stats_comparison() in squiggy/utils.py
-- [ ] Implement calculate_delta_stats() in squiggy/utils.py
-- [ ] Implement compare_read_sets() in squiggy/utils.py
-- [ ] Add load_motif_dataset_a() and load_motif_dataset_b() in squiggy/io.py
-- [ ] Add get_common_reads() in squiggy/io.py
-- [ ] Add get_unique_reads_a() and get_unique_reads_b() in squiggy/io.py
-- [ ] Export new functions in squiggy/__init__.py
-- [ ] Write tests in tests/test_comparison.py (expand existing)
+### Files Modified
+- `squiggy/utils.py` - Added 3 comparison utility functions (NEW)
+- `squiggy/io.py` - Added 3 read comparison functions (NEW)
+- `squiggy/__init__.py` - Exported Phase 2 functions with proper categorization
+- `tests/test_phase2_comparison.py` - 21 comprehensive comparison tests (NEW)
+
+### Completed Tasks
+- [x] Implement compare_read_sets() in squiggy/utils.py
+- [x] Implement calculate_delta_stats() in squiggy/utils.py
+- [x] Implement compare_signal_distributions() in squiggy/utils.py
+- [x] Add get_common_reads() in squiggy/io.py
+- [x] Add get_unique_reads() in squiggy/io.py
+- [x] Add compare_samples() in squiggy/io.py
+- [x] Export new functions in squiggy/__init__.py
+- [x] Write tests in tests/test_phase2_comparison.py
+
+### Phase 2 Success Criteria ✅ MET
+- [x] Read comparison functions work correctly (get_common_reads, get_unique_reads)
+- [x] Delta calculations implemented for statistics (calculate_delta_stats)
+- [x] Signal distribution comparisons implemented (compare_signal_distributions)
+- [x] Comprehensive sample comparison with reference validation (compare_samples)
+- [x] All 21 Phase 2 tests pass + 553 total tests pass (no regressions)
+- [x] Code follows project style guidelines
+
+## Phase 3: Plotting with Delta Tracks
+
+### Objectives
+Implement plotting strategies to visualize comparisons with delta tracks showing differences between datasets.
+
+### Planned Tasks
+- [ ] Create DeltaPlotStrategy in squiggy/plot_strategies/delta.py
+- [ ] Implement aggregate plot mode showing delta statistics
+- [ ] Add delta track rendering to comparison plots
+- [ ] Extend plot_factory.py to support delta plot mode
+- [ ] Create comparison visualization helpers in squiggy/rendering/
+- [ ] Write tests for delta plotting
+- [ ] Ensure all existing plot modes still work
 
 ### Success Criteria
-- [ ] Aggregate statistics computed correctly for both datasets
-- [ ] Delta tracks calculated for visualization
-- [ ] Read comparison functions work correctly
-- [ ] All tests pass
+- [ ] Delta tracks display correctly on plots
+- [ ] Can compare 2-6+ samples simultaneously
+- [ ] All existing plot modes remain functional
+- [ ] Tests cover delta plotting scenarios
 - [ ] Code follows project style guidelines
+
+---
 
 ## Notes
 - Branch: feature/comparison-session
@@ -73,26 +103,42 @@ Implement aggregate computation functions for parallel statistics calculation ac
 - Related: Issue #33, PR #59 (SquiggySession foundation)
 - Implementation plan in Issue #61
 
-## Architecture Notes
+## Architecture: One Session, Multiple Samples
 
-From Issue #61:
-- ComparisonSession manages two SquiggySession instances (A and B)
-- Detects model mismatches via @PG header parsing
-- Validates matching SQ headers between datasets
-- Creates two global instances: _squiggy_session and _squiggy_comparison
+From redesign feedback:
+- Single SquiggySession manages multiple named POD5/BAM pairs (samples)
+- Each pair is a Sample object (name, pod5_path, pod5_reader, read_ids, bam_path, bam_info, model_provenance, fasta_path, fasta_info)
+- Scalable to 2-6+ samples (not limited to A/B)
+- Flexible user-defined naming (vs hard-coded session_a/session_b)
 
 Key Classes:
 ```python
-class ComparisonSession:
-    session_a: SquiggySession
-    session_b: SquiggySession
-    has_model_mismatch: bool
-    model_provenance_a: ModelProvenance
-    model_provenance_b: ModelProvenance
+class Sample:
+    """Represents one POD5/BAM file pair"""
+    name: str
+    pod5_path: str
+    pod5_reader: pod5.Reader
+    read_ids: list[str]
+    bam_path: str | None
+    bam_info: dict | None
+    model_provenance: dict | None
+    fasta_path: str | None
+    fasta_info: dict | None
+
+class SquiggySession:
+    """Manages multiple samples"""
+    samples: dict[str, Sample]  # name -> Sample
+
+    # Multi-sample methods
+    load_sample(name, pod5_path, bam_path=None, fasta_path=None) -> Sample
+    get_sample(name) -> Sample | None
+    list_samples() -> list[str]
+    remove_sample(name) -> None
 ```
 
 ## Progress
 - [x] Worktree created
 - [x] Phase 1 complete (Session infrastructure)
-- [ ] Phase 2 in progress (Aggregate functions)
-- [ ] Phase 3-7 pending (Plotting, Integration, Export, Testing, Documentation)
+- [x] Phase 2 complete (Aggregate functions and comparison)
+- [ ] Phase 3 pending (Plotting with delta tracks)
+- [ ] Phase 4-7 pending (Integration, Export, Testing, Documentation)
