@@ -198,25 +198,27 @@ squiggy-positron-extension/
 │   ├── __init__.py             # Public API (plot_read, plot_reads, plot_aggregate)
 │   ├── api.py                  # Object-oriented API (Pod5File, BamFile, Read)
 │   ├── io.py                   # POD5/BAM file loading with kernel state
-│   ├── plotter.py              # Legacy plotting code (being phased out)
 │   ├── alignment.py            # Base annotation extraction from BAM
 │   ├── normalization.py        # Signal normalization
 │   ├── constants.py            # Enums (PlotMode, Theme, NormalizationMethod)
 │   ├── modifications.py        # Base modification parsing
 │   ├── utils.py                # Utility functions
+│   ├── motif.py                # Sequence motif search
 │   │
 │   ├── plot_factory.py         # Factory for creating plot strategies
-│   ├── theme_manager.py        # Centralized theme management
-│   ├── base_annotation_renderer.py  # Reusable base annotation rendering
-│   ├── modification_track_builder.py # Modification track rendering
 │   │
-│   └── plot_strategies/        # Strategy Pattern implementation
-│       ├── base.py             # PlotStrategy ABC
-│       ├── single_read.py      # SingleReadPlotStrategy
-│       ├── overlay.py          # OverlayPlotStrategy
-│       ├── stacked.py          # StackedPlotStrategy
-│       ├── eventalign.py       # EventAlignPlotStrategy
-│       └── aggregate.py        # AggregatePlotStrategy
+│   ├── plot_strategies/        # Strategy Pattern implementation
+│   │   ├── base.py             # PlotStrategy ABC
+│   │   ├── single_read.py      # SingleReadPlotStrategy
+│   │   ├── overlay.py          # OverlayPlotStrategy
+│   │   ├── stacked.py          # StackedPlotStrategy
+│   │   ├── eventalign.py       # EventAlignPlotStrategy
+│   │   └── aggregate.py        # AggregatePlotStrategy
+│   │
+│   └── rendering/              # Reusable rendering components
+│       ├── theme_manager.py        # Centralized theme management
+│       ├── base_annotation_renderer.py  # Base annotation rendering
+│       └── modification_track_builder.py # Modification track rendering
 │
 ├── src/                        # TypeScript extension (frontend)
 │   ├── extension.ts            # Entry point
@@ -400,7 +402,7 @@ To add a new plot type (e.g., A/B comparison from issue #61):
        html, fig = strategy.create_plot(data, options)
 
        # Route to Positron Plots pane
-       from .plotter import _route_to_plots_pane
+       from .utils import _route_to_plots_pane
        _route_to_plots_pane(fig)
 
        return html
@@ -425,21 +427,23 @@ That's it! The factory automatically routes to your new strategy.
 
 #### Reusable Components
 
-**ThemeManager** (`squiggy/theme_manager.py`):
+The `squiggy/rendering/` package provides reusable rendering components used by plot strategies:
+
+**ThemeManager** (`squiggy/rendering/theme_manager.py`):
 - Centralizes all theme-related configuration
 - Methods:
   - `create_figure()` - Creates themed Bokeh figure with consistent styling
   - `get_base_colors()` - Returns base color palette for current theme
   - Properties: `background_color`, `text_color`, `grid_color`, etc.
 
-**BaseAnnotationRenderer** (`squiggy/base_annotation_renderer.py`):
+**BaseAnnotationRenderer** (`squiggy/rendering/base_annotation_renderer.py`):
 - Renders base annotations on plots (A, C, G, T color-coded rectangles)
 - Two rendering modes:
   - `render_time_based()` - For time-based x-axis (single read mode)
   - `render_position_based()` - For position-based x-axis (event-aligned mode)
 - Handles dwell time coloring with Viridis colormap
 
-**ModificationTrackBuilder** (`squiggy/modification_track_builder.py`):
+**ModificationTrackBuilder** (`squiggy/rendering/modification_track_builder.py`):
 - Creates separate track showing base modifications
 - Filters by probability threshold and modification types
 - Color-codes by modification type (5mC, 6mA, etc.)
@@ -640,7 +644,7 @@ When creating a new release:
 
 1. **Add to `squiggy/__init__.py`** for public API exposure
 
-2. **Implement in appropriate module** (`io.py`, `plotter.py`, etc.)
+2. **Implement in appropriate module** (`io.py`, `plot_factory.py`, create new strategy in `plot_strategies/`, or add to `rendering/` components, etc.)
 
 3. **Add tests** in `tests/`
 

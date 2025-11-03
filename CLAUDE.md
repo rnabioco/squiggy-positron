@@ -52,12 +52,26 @@ squiggy-positron-extension/
 │   ├── __init__.py                    # Public API (legacy + OO)
 │   ├── api.py                         # Object-oriented API for notebooks
 │   ├── io.py                          # POD5/BAM file loading with kernel state
-│   ├── plotter.py                     # Bokeh plot generation
+│   ├── plot_factory.py                # Factory for creating plot strategies
 │   ├── alignment.py                   # Base annotation extraction from BAM
 │   ├── constants.py                   # Enums and constants
 │   ├── modifications.py               # Base modification parsing
 │   ├── normalization.py               # Signal normalization (ZNORM, MEDIAN, MAD)
-│   └── utils.py                       # Utility functions
+│   ├── motif.py                       # Sequence motif search
+│   ├── utils.py                       # Utility functions
+│   │
+│   ├── plot_strategies/               # Strategy Pattern for plot generation
+│   │   ├── base.py                    # PlotStrategy abstract base class
+│   │   ├── single_read.py             # Single read plots
+│   │   ├── overlay.py                 # Multiple reads overlaid
+│   │   ├── stacked.py                 # Multiple reads stacked
+│   │   ├── eventalign.py              # Event-aligned with base annotations
+│   │   └── aggregate.py               # Multi-read aggregate statistics
+│   │
+│   └── rendering/                     # Reusable rendering components
+│       ├── theme_manager.py           # Centralized theme management
+│       ├── base_annotation_renderer.py # Base annotation rendering
+│       └── modification_track_builder.py # Modification track rendering
 │
 ├── src/                               # TypeScript extension (frontend)
 │   ├── extension.ts                   # Entry point, command registration
@@ -316,12 +330,14 @@ _squiggy_session.close_all()  # Or close everything via session
 - BAM indexing and reference extraction
 - New cleanup functions: `close_bam()` for BAM state cleanup
 
-**Plotting** (`squiggy/plotter.py`):
-- Generates Bokeh figures with interactive tools
-- Supports SINGLE and EVENTALIGN plot modes
-- Base annotation rendering with color-coded bases
-- Modification probability coloring
-- Returns HTML via `bokeh.embed.file_html()`
+**Plotting** (Strategy Pattern - `squiggy/plot_factory.py` + `squiggy/plot_strategies/`):
+- Uses Strategy Pattern via PlotFactory to generate plots
+- Supports 5 plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE
+- Reusable rendering components in `squiggy/rendering/`:
+  - ThemeManager: Centralized theme configuration (light/dark mode)
+  - BaseAnnotationRenderer: Color-coded base annotations
+  - ModificationTrackBuilder: Modification probability tracks
+- Each strategy returns HTML via `bokeh.embed.file_html()`
 
 ## Development Workflow
 
