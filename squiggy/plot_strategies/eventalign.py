@@ -10,14 +10,13 @@ from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
-from ..base_annotation_renderer import BaseAnnotationRenderer
 from ..constants import (
     DEFAULT_POSITION_LABEL_INTERVAL,
     MULTI_READ_COLORS,
     NormalizationMethod,
     Theme,
 )
-from ..theme_manager import ThemeManager
+from ..rendering import BaseAnnotationRenderer, ThemeManager
 from .base import PlotStrategy
 
 

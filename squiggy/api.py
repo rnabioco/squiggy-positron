@@ -47,7 +47,7 @@ from .alignment import AlignedRead, extract_alignment_from_bam
 from .constants import NormalizationMethod, PlotMode, Theme
 from .motif import MotifMatch, search_motif
 from .normalization import normalize_signal
-from .plotter import SquigglePlotter
+from .plot_factory import create_plot_strategy
 
 
 class Pod5File:
@@ -284,9 +284,6 @@ class Read:
 
         # Get alignment if needed
         aligned_read = None
-        sequence = None
-        seq_to_sig_map = None
-        modifications = None
 
         if plot_mode == PlotMode.EVENTALIGN:
             if bam_file is None:
@@ -298,30 +295,36 @@ class Read:
                     f"Read {self.read_id} not found in BAM or has no move table"
                 )
 
-            sequence = aligned_read.sequence
-            if aligned_read.bases:
-                seq_to_sig_map = [ann.signal_start for ann in aligned_read.bases]
-            if hasattr(aligned_read, "modifications"):
-                modifications = aligned_read.modifications
+        # Generate plot using plot strategy
+        if plot_mode == PlotMode.SINGLE:
+            data = {
+                "signal": self.signal,
+                "read_id": self.read_id,
+                "sample_rate": self.sample_rate,
+            }
+            options = {
+                "normalization": norm_method,
+                "downsample": downsample,
+                "show_signal_points": show_signal_points,
+                "x_axis_mode": "dwell_time" if scale_dwell_time else "regular_time",
+            }
+        elif plot_mode == PlotMode.EVENTALIGN:
+            data = {
+                "reads": [(self.read_id, self.signal, self.sample_rate)],
+                "aligned_reads": [aligned_read],
+            }
+            options = {
+                "normalization": norm_method,
+                "downsample": downsample,
+                "show_dwell_time": scale_dwell_time,
+                "show_labels": show_labels,
+                "show_signal_points": show_signal_points,
+            }
+        else:
+            raise ValueError(f"Unsupported plot mode for single read: {plot_mode}")
 
-        # Generate plot - returns (html, figure) tuple
-        _, fig = SquigglePlotter.plot_single_read(
-            signal=self.signal,
-            read_id=self.read_id,
-            sample_rate=self.sample_rate,
-            sequence=sequence,
-            seq_to_sig_map=seq_to_sig_map,
-            normalization=norm_method,
-            downsample=downsample,
-            show_dwell_time=show_dwell_time,
-            show_labels=show_labels,
-            show_signal_points=show_signal_points,
-            modifications=modifications,
-            scale_dwell_time=scale_dwell_time,
-            min_mod_probability=min_mod_probability,
-            enabled_mod_types=enabled_mod_types,
-            theme=theme_enum,
-        )
+        strategy = create_plot_strategy(plot_mode, theme_enum)
+        _, fig = strategy.create_plot(data, options)
 
         return fig
 

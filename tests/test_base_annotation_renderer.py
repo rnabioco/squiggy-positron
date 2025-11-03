@@ -7,8 +7,8 @@ import pytest
 from bokeh.models import LinearColorMapper
 from bokeh.plotting import figure
 
-from squiggy.base_annotation_renderer import BaseAnnotationRenderer
 from squiggy.constants import Theme
+from squiggy.rendering import BaseAnnotationRenderer
 
 
 # Mock BaseAnnotation class for testing
