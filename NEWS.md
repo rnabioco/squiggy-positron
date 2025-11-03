@@ -1,5 +1,20 @@
 # Squiggy Release Notes
 
+## v0.1.7-alpha (2025-11-02)
+
+State management improvements with FASTA integration and cleaner Python namespace.
+
+### Improvements
+
+- **Unified Session State**: Integrated FASTA file support into the `_squiggy_session` object, consolidating all file state into a single Variables pane entry
+- **Cleaner Namespace**: Eliminated legacy global variables (`_squiggy_reader`, `_squiggy_read_ids`, etc.) from Python namespace by migrating to session-based approach
+- **UI Panel Naming**: Renamed panels to "Modifications Explorer" and "Motif Explorer" for clarity
+
+### Fixes
+
+- **Kernel Restart**: Fixed FASTA files and reads explorer not clearing properly after kernel restart
+- **Path Objects**: Converted Path objects to strings in API classes to prevent namespace pollution
+
 ## v0.1.6-alpha (2025-11-02)
 
 Major refactoring release with improved code organization, new motif search features, and comprehensive documentation updates.
