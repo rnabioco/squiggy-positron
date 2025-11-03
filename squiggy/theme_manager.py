@@ -253,3 +253,37 @@ class ThemeManager:
             '#ffffff'
         """
         return self.colors[color_key]
+
+    def get_signal_band_color(self) -> str:
+        """
+        Get signal confidence band color for current theme
+
+        Returns theme-appropriate color for signal confidence/error bands
+        in aggregate plots.
+
+        Returns:
+            Hex color string
+
+        Example:
+            >>> manager = ThemeManager(Theme.LIGHT)
+            >>> manager.get_signal_band_color()
+            '#56B4E9'  # Light blue for light theme
+        """
+        return self.colors["signal_band"]
+
+    def get_quality_band_color(self) -> str:
+        """
+        Get quality band color for current theme
+
+        Returns theme-appropriate color for quality score bands
+        in aggregate plots.
+
+        Returns:
+            Hex color string
+
+        Example:
+            >>> manager = ThemeManager(Theme.DARK)
+            >>> manager.get_quality_band_color()
+            '#FF8C00'  # Dark orange for dark theme
+        """
+        return self.colors["quality_band"]

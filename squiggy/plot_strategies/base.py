@@ -193,3 +193,105 @@ class PlotStrategy(ABC):
                 seq_to_sig_map = [idx // downsample for idx in seq_to_sig_map]
 
         return signal, seq_to_sig_map
+
+    def _validate_read_tuples(self, reads: list) -> None:
+        """
+        Validate list of read tuples
+
+        Checks that reads is a non-empty list where each element is a
+        3-tuple of (read_id: str, signal: np.ndarray, sample_rate: float).
+
+        Args:
+            reads: List of (read_id, signal, sample_rate) tuples to validate
+
+        Raises:
+            ValueError: If validation fails with descriptive message
+
+        Example:
+            >>> reads = [
+            ...     ("read_001", np.array([1, 2, 3]), 4000),
+            ...     ("read_002", np.array([4, 5, 6]), 4000),
+            ... ]
+            >>> self._validate_read_tuples(reads)  # Passes validation
+        """
+        if not isinstance(reads, list):
+            raise ValueError(
+                "reads must be a list of (read_id, signal, sample_rate) tuples"
+            )
+
+        if len(reads) == 0:
+            raise ValueError("reads list cannot be empty")
+
+        # Validate each read tuple
+        for idx, read_tuple in enumerate(reads):
+            if not isinstance(read_tuple, tuple) or len(read_tuple) != 3:
+                raise ValueError(
+                    f"Read {idx} must be a tuple of (read_id, signal, sample_rate)"
+                )
+
+            read_id, signal, sample_rate = read_tuple
+            if not isinstance(read_id, str):
+                raise ValueError(f"Read {idx}: read_id must be a string")
+            if not isinstance(signal, np.ndarray):
+                raise ValueError(f"Read {idx}: signal must be a numpy array")
+            if not isinstance(sample_rate, (int, float)):
+                raise ValueError(f"Read {idx}: sample_rate must be a number")
+
+    def _build_title(
+        self,
+        base_title: str,
+        normalization: NormalizationMethod,
+        downsample: int,
+    ) -> str:
+        """
+        Build formatted plot title with normalization and downsampling info
+
+        Creates a title string by joining base title with optional normalization
+        and downsampling information using " | " separator.
+
+        Args:
+            base_title: Base title string (e.g., "Single Read: read_001")
+            normalization: Normalization method applied
+            downsample: Downsampling factor applied
+
+        Returns:
+            Formatted title string
+
+        Example:
+            >>> title = self._build_title(
+            ...     "Single Read: read_001",
+            ...     NormalizationMethod.ZNORM,
+            ...     5
+            ... )
+            >>> print(title)
+            "Single Read: read_001 | znorm normalized | downsampled 5x"
+        """
+        parts = [base_title]
+
+        if normalization != NormalizationMethod.NONE:
+            parts.append(f"{normalization.value} normalized")
+
+        if downsample > 1:
+            parts.append(f"downsampled {downsample}x")
+
+        return " | ".join(parts)
+
+    def _build_html_title(self, mode_name: str, description: str) -> str:
+        """
+        Build HTML page title
+
+        Creates title for HTML document in format "Squiggy {mode}: {description}".
+
+        Args:
+            mode_name: Plot mode name (e.g., "Single Read", "Overlay")
+            description: Description string (e.g., "read_001", "5 reads")
+
+        Returns:
+            Formatted HTML title string
+
+        Example:
+            >>> title = self._build_html_title("Overlay", "5 reads")
+            >>> print(title)
+            "Squiggy Overlay: 5 reads"
+        """
+        return f"Squiggy {mode_name}: {description}"

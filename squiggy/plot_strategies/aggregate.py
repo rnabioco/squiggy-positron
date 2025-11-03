@@ -219,7 +219,7 @@ class AggregatePlotStrategy(PlotStrategy):
         )
 
         # Add confidence band
-        band_color = "#56B4E9" if self.theme == Theme.LIGHT else "#0072B2"
+        band_color = self.theme_manager.get_signal_band_color()
         band = Band(
             base="x",
             lower="lower",
@@ -364,7 +364,7 @@ class AggregatePlotStrategy(PlotStrategy):
         )
 
         # Add confidence band
-        band_color = "#FFA500" if self.theme == Theme.LIGHT else "#FF8C00"
+        band_color = self.theme_manager.get_quality_band_color()
         band = Band(
             base="x",
             lower="lower",

@@ -483,12 +483,4 @@ class SingleReadPlotStrategy(PlotStrategy):
         downsample: int,
     ) -> str:
         """Format plot title"""
-        parts = [f"Single Read: {read_id}"]
-
-        if normalization != NormalizationMethod.NONE:
-            parts.append(f"{normalization.value} normalized")
-
-        if downsample > 1:
-            parts.append(f"downsampled {downsample}x")
-
-        return " | ".join(parts)
+        return self._build_title(f"Single Read: {read_id}", normalization, downsample)

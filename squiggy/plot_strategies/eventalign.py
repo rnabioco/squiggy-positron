@@ -94,26 +94,14 @@ class EventAlignPlotStrategy(PlotStrategy):
         if not isinstance(aligned_reads, list) or len(aligned_reads) == 0:
             raise ValueError("aligned_reads must be a non-empty list")
 
+        # Validate read tuples
+        self._validate_read_tuples(reads)
+
         if len(reads) != len(aligned_reads):
             raise ValueError(
                 f"reads and aligned_reads must have same length "
                 f"(got {len(reads)} and {len(aligned_reads)})"
             )
-
-        # Validate each read tuple
-        for idx, read_tuple in enumerate(reads):
-            if not isinstance(read_tuple, tuple) or len(read_tuple) != 3:
-                raise ValueError(
-                    f"Read {idx} must be a tuple of (read_id, signal, sample_rate)"
-                )
-
-            read_id, signal, sample_rate = read_tuple
-            if not isinstance(read_id, str):
-                raise ValueError(f"Read {idx}: read_id must be a string")
-            if not isinstance(signal, np.ndarray):
-                raise ValueError(f"Read {idx}: signal must be a numpy array")
-            if not isinstance(sample_rate, (int, float)):
-                raise ValueError(f"Read {idx}: sample_rate must be a number")
 
         # Validate aligned reads have bases
         for idx, aligned_read in enumerate(aligned_reads):
@@ -408,16 +396,10 @@ class EventAlignPlotStrategy(PlotStrategy):
         downsample: int,
     ) -> str:
         """Format plot title"""
-        parts = [f"Event-Aligned: {len(reads_data)} reads"]
-
-        if normalization != NormalizationMethod.NONE:
-            parts.append(f"{normalization.value} normalized")
-
-        if downsample > 1:
-            parts.append(f"downsampled {downsample}x")
-
-        return " | ".join(parts)
+        return self._build_title(
+            f"Event-Aligned: {len(reads_data)} reads", normalization, downsample
+        )
 
     def _format_html_title(self, reads_data: list) -> str:
         """Format HTML page title"""
-        return f"Squiggy Event-Aligned: {len(reads_data)} reads"
+        return self._build_html_title("Event-Aligned", f"{len(reads_data)} reads")
