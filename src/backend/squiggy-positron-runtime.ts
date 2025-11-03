@@ -642,4 +642,110 @@ print('SUCCESS')
             throw new Error(`Failed to install squiggy: ${error}`);
         }
     }
+
+    /**
+     * Load and validate a FASTA file
+     */
+    async loadFASTA(fastaPath: string): Promise<void> {
+        await this.ensureKernelReady();
+
+        const code = `
+import squiggy
+from pathlib import Path
+
+# Validate FASTA file exists
+fasta_path = Path(${JSON.stringify(fastaPath)})
+if not fasta_path.exists():
+    raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
+
+# Check for .fai index
+fai_path = Path(str(fasta_path) + ".fai")
+if not fai_path.exists():
+    raise FileNotFoundError(f"FASTA index not found: {fai_path}. Create with: samtools faidx {fasta_path}")
+
+# Store path in global state for easy access
+_squiggy_fasta_file = str(fasta_path)
+print(f"FASTA file loaded: {_squiggy_fasta_file}")
+`;
+
+        await this.executeSilent(code);
+    }
+
+    /**
+     * Search for motif matches in FASTA file
+     */
+    async searchMotif(
+        fastaFile: string,
+        motif: string,
+        region?: string,
+        strand: string = 'both'
+    ): Promise<any[]> {
+        await this.ensureKernelReady();
+
+        // Execute search and store results in kernel variable
+        const searchCode = `
+import squiggy
+
+# Search for motif matches
+_squiggy_motif_matches = list(squiggy.search_motif(
+    fasta_file=${JSON.stringify(fastaFile)},
+    motif=${JSON.stringify(motif)},
+    region=${region ? JSON.stringify(region) : 'None'},
+    strand=${JSON.stringify(strand)}
+))
+
+# Convert matches to dicts for JSON serialization
+_squiggy_motif_matches_json = [
+    {
+        'chrom': m.chrom,
+        'position': m.position,
+        'sequence': m.sequence,
+        'strand': m.strand
+    }
+    for m in _squiggy_motif_matches
+]
+`;
+
+        await this.executeSilent(searchCode);
+
+        // Retrieve matches using getVariable
+        const matches = await this.getVariable('_squiggy_motif_matches_json');
+
+        return (matches as any[]) || [];
+    }
+
+    /**
+     * Generate motif-centered aggregate plot
+     */
+    async generateMotifAggregatePlot(
+        fastaFile: string,
+        motif: string,
+        matchIndex: number,
+        window: number = 50,
+        maxReads: number = 100,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<void> {
+        await this.ensureKernelReady();
+
+        const code = `
+import squiggy
+
+# Generate motif aggregate plot
+html = squiggy.plot_motif_aggregate(
+    fasta_file=${JSON.stringify(fastaFile)},
+    motif=${JSON.stringify(motif)},
+    match_index=${matchIndex},
+    window=${window},
+    max_reads=${maxReads},
+    normalization=${JSON.stringify(normalization)},
+    theme=${JSON.stringify(theme)}
+)
+
+# Route to Positron Plots pane
+squiggy.io._route_to_plots_pane(html)
+`;
+
+        await this.executeCode(code, false, true, positron.RuntimeCodeExecutionMode.Silent);
+    }
 }

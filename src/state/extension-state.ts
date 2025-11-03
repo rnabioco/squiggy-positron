@@ -36,6 +36,7 @@ export class ExtensionState {
     // File state
     private _currentPod5File?: string;
     private _currentBamFile?: string;
+    private _currentFastaFile?: string;
     private _currentPlotReadIds?: string[];
 
     // Installation state
@@ -103,6 +104,7 @@ export class ExtensionState {
         // Clear file state
         this._currentPod5File = undefined;
         this._currentBamFile = undefined;
+        this._currentFastaFile = undefined;
         this._currentPlotReadIds = undefined;
 
         // Reset installation check flags
@@ -194,6 +196,14 @@ squiggy.close_bam()
 
     set currentBamFile(value: string | undefined) {
         this._currentBamFile = value;
+    }
+
+    get currentFastaFile(): string | undefined {
+        return this._currentFastaFile;
+    }
+
+    set currentFastaFile(value: string | undefined) {
+        this._currentFastaFile = value;
     }
 
     get currentPlotReadIds(): string[] | undefined {

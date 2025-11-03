@@ -17,12 +17,12 @@ export interface BaseMessage {
 
 export interface OpenFileMessage extends BaseMessage {
     type: 'openFile';
-    fileType: 'POD5' | 'BAM';
+    fileType: 'POD5' | 'BAM' | 'FASTA';
 }
 
 export interface CloseFileMessage extends BaseMessage {
     type: 'closeFile';
-    fileType: 'POD5' | 'BAM';
+    fileType: 'POD5' | 'BAM' | 'FASTA';
 }
 
 export interface UpdateFilesMessage extends BaseMessage {
@@ -37,10 +37,10 @@ export interface ReadyMessage extends BaseMessage {
 export interface FileItem {
     path: string;
     filename: string;
-    type: 'POD5' | 'BAM';
+    type: 'POD5' | 'BAM' | 'FASTA';
     size: number;
     sizeFormatted: string;
-    numReads: number;
+    numReads?: number;
     numRefs?: number;
     hasMods?: boolean;
     hasEvents?: boolean;

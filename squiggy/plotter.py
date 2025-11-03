@@ -1728,6 +1728,7 @@ class SquigglePlotter:
         num_reads: int,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
         theme: Theme = Theme.LIGHT,
+        motif_position: int | None = None,
     ) -> tuple[str, object]:
         """Plot aggregate multi-read visualization with three synchronized tracks
 
@@ -1742,6 +1743,8 @@ class SquigglePlotter:
             num_reads: Number of reads included in aggregate
             normalization: Normalization method used
             theme: Color theme (LIGHT or DARK)
+            motif_position: Optional position of motif center to highlight
+                            with vertical line
 
         Returns:
             Tuple[str, object]: (HTML string, gridplot object)
@@ -1814,6 +1817,20 @@ class SquigglePlotter:
                 ("Coverage", "@coverage"),
             ],
         )
+
+        # Add motif position marker if provided
+        if motif_position is not None:
+            from bokeh.models import Span
+
+            motif_line = Span(
+                location=motif_position,
+                dimension="height",
+                line_color="red",
+                line_dash="dashed",
+                line_width=2,
+                line_alpha=0.7,
+            )
+            p_signal.add_layout(motif_line)
 
         # Track 2: Base pileup (IGV-style stacked bars)
         p_pileup = SquigglePlotter._create_figure(

@@ -31,7 +31,7 @@ export const FileRow: React.FC<FileRowProps> = ({ file, isEvenRow, onCloseFile }
 
             {/* Reads */}
             <div className="file-cell file-col-reads file-cell-numeric">
-                {file.numReads.toLocaleString()}
+                {file.numReads !== undefined ? file.numReads.toLocaleString() : '-'}
             </div>
 
             {/* Refs */}
