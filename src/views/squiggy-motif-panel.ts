@@ -170,7 +170,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
     <div class="search-box">
         <label>Motif Pattern (IUPAC):</label><br/>
         <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="motifInput" value="DRACH" placeholder="e.g., DRACH, YGCY" style="width: 50%;"/>
+            <input type="text" id="motifInput" value="" placeholder="e.g., DRACH or CCA" style="width: 50%;"/>
             <button onclick="searchMotif()">Search</button>
             <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
                 <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin: 0;"/>
@@ -187,7 +187,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
     <script>
         const vscode = acquireVsCodeApi();
-        let currentMotif = 'DRACH';
+        let currentMotif = '';
 
         function searchMotif() {
             const motif = document.getElementById('motifInput').value.trim();
