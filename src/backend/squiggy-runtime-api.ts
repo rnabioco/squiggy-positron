@@ -258,17 +258,10 @@ squiggy.plot_aggregate(
 
         const code = `
 import squiggy
-from pathlib import Path
 
-fasta_path = Path('${escapedPath}')
-if not fasta_path.exists():
-    raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
-
-fai_path = Path(str(fasta_path) + ".fai")
-if not fai_path.exists():
-    raise FileNotFoundError(f"FASTA index not found: {fai_path}")
-
-_squiggy_fasta_file = str(fasta_path)
+# Load FASTA file using squiggy.load_fasta()
+# This populates _squiggy_session.fasta_path and _squiggy_session.fasta_info
+squiggy.load_fasta('${escapedPath}')
 `;
 
         try {
@@ -311,6 +304,19 @@ _squiggy_motif_matches_json = [
         try {
             await this.client.executeSilent(searchCode);
             const matches = await this.client.getVariable('_squiggy_motif_matches_json');
+
+            // Clean up temporary variables
+            await this.client
+                .executeSilent(
+                    `
+if '_squiggy_motif_matches' in globals():
+    del _squiggy_motif_matches
+if '_squiggy_motif_matches_json' in globals():
+    del _squiggy_motif_matches_json
+`
+                )
+                .catch(() => {});
+
             return (matches as any[]) || [];
         } catch (error) {
             throw new Error(`Failed to search motif: ${error}`);

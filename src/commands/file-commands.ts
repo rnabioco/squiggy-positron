@@ -431,11 +431,11 @@ squiggy.close_pod5()
  */
 async function closeBAMFile(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state
+        // Clear Python state using squiggy.close_bam()
         if (state.usePositron && state.positronClient) {
             await state.positronClient.executeSilent(`
-# Clear BAM file state
-_current_bam_path = None
+import squiggy
+squiggy.close_bam()
 `);
         }
 
@@ -513,12 +513,11 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
  */
 async function closeFASTAFile(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state
+        // Clear Python state using squiggy.close_fasta()
         if (state.usePositron && state.positronClient) {
             await state.positronClient.executeSilent(`
-# Clear FASTA file state
-if '_squiggy_fasta_file' in globals():
-    del _squiggy_fasta_file
+import squiggy
+squiggy.close_fasta()
 `);
         }
 

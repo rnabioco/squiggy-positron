@@ -45,7 +45,7 @@ export class ReadsViewPane extends BaseWebviewProvider {
             return;
         }
 
-        // Re-send data based on current mode
+        // Always send update message (even if empty, to clear the view)
         if (this._hasReferences && this._referenceToReads) {
             this.postMessage({
                 type: 'updateReads',
@@ -53,7 +53,8 @@ export class ReadsViewPane extends BaseWebviewProvider {
                 groupedByReference: true,
                 referenceToReads: Array.from(this._referenceToReads.entries()),
             });
-        } else if (this._readItems.length > 0) {
+        } else {
+            // Send update even if empty - this clears the webview
             this.postMessage({
                 type: 'updateReads',
                 reads: this._readItems,

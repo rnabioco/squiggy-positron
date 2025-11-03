@@ -41,6 +41,7 @@ from .constants import (
 from .io import (
     SquiggySession,
     close_bam,
+    close_fasta,
     close_pod5,
     get_bam_event_alignment_status,
     get_bam_modification_info,
@@ -48,6 +49,7 @@ from .io import (
     get_read_ids,
     get_read_to_reference_mapping,
     load_bam,
+    load_fasta,
     load_pod5,
 )
 from .motif import (
@@ -578,6 +580,7 @@ __all__ = [
     # Main functions (legacy API - for Positron extension)
     "load_pod5",
     "load_bam",
+    "load_fasta",
     "plot_read",
     "plot_reads",
     "plot_aggregate",
@@ -589,6 +592,7 @@ __all__ = [
     "get_read_to_reference_mapping",
     "close_pod5",
     "close_bam",
+    "close_fasta",
     # Session management
     "SquiggySession",
     # Data structures

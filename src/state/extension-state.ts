@@ -115,6 +115,7 @@ export class ExtensionState {
         this._readsViewPane?.setReads([]);
         this._filePanelProvider?.clearPOD5();
         this._filePanelProvider?.clearBAM();
+        this._filePanelProvider?.clearFASTA?.();
         this._plotOptionsProvider?.updateBamStatus(false);
 
         // Clear Python kernel state if using Positron
@@ -128,6 +129,7 @@ _squiggy_session.close_all()
 # Also call module-level cleanup functions
 squiggy.close_pod5()
 squiggy.close_bam()
+squiggy.close_fasta()
 `);
             } catch (_error) {
                 // Ignore errors if kernel is not running
