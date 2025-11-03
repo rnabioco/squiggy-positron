@@ -323,7 +323,7 @@ class AggregatePlotStrategy(PlotStrategy):
                 width=0.8,
                 source=source,
                 color=base_colors[base],
-                legend_label=f"Base {base}",
+                legend_label=base,
             )
 
         # Set y-axis range
@@ -332,7 +332,8 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Configure legend
         fig.legend.click_policy = "hide"
-        fig.legend.location = "top_right"
+        fig.legend.location = "bottom_right"
+        fig.legend.background_fill_alpha = 0.7
 
         return fig
 

@@ -481,7 +481,7 @@ class BaseAnnotationRenderer:
                     source=patch_source,
                     color=self.base_colors[base],
                     alpha=BASE_ANNOTATION_ALPHA,
-                    legend_label=f"Base {base}",
+                    legend_label=base,
                 )
 
     # =========================================================================

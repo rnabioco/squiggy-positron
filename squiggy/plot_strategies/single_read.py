@@ -208,7 +208,8 @@ class SingleReadPlotStrategy(PlotStrategy):
         # Legend configuration
         if not show_dwell_time and sequence:
             fig.legend.click_policy = "hide"
-            fig.legend.location = "top_right"
+            fig.legend.location = "bottom_right"
+            fig.legend.background_fill_alpha = 0.7
 
         # Create modification track if available
         mod_fig = self._create_modification_track(

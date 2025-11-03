@@ -190,7 +190,8 @@ class OverlayPlotStrategy(PlotStrategy):
 
         # Configure legend
         fig.legend.click_policy = "hide"
-        fig.legend.location = "top_right"
+        fig.legend.location = "bottom_right"
+        fig.legend.background_fill_alpha = 0.7
 
         # Generate HTML
         html_title = self._format_html_title(reads_data)
