@@ -170,12 +170,28 @@ Or use the `/test` slash command in Claude Code to run everything.
 ```
 squiggy-positron-extension/
 ├── squiggy/                    # Python package (backend)
-│   ├── __init__.py             # Public API
-│   ├── io.py                   # POD5/BAM file loading
-│   ├── plotter.py              # Bokeh plotting
-│   ├── alignment.py            # Base annotation extraction
+│   ├── __init__.py             # Public API (plot_read, plot_reads, plot_aggregate)
+│   ├── api.py                  # Object-oriented API (Pod5File, BamFile, Read)
+│   ├── io.py                   # POD5/BAM file loading with kernel state
+│   ├── plotter.py              # Legacy plotting code (being phased out)
+│   ├── alignment.py            # Base annotation extraction from BAM
 │   ├── normalization.py        # Signal normalization
-│   └── utils.py                # Utility functions
+│   ├── constants.py            # Enums (PlotMode, Theme, NormalizationMethod)
+│   ├── modifications.py        # Base modification parsing
+│   ├── utils.py                # Utility functions
+│   │
+│   ├── plot_factory.py         # Factory for creating plot strategies
+│   ├── theme_manager.py        # Centralized theme management
+│   ├── base_annotation_renderer.py  # Reusable base annotation rendering
+│   ├── modification_track_builder.py # Modification track rendering
+│   │
+│   └── plot_strategies/        # Strategy Pattern implementation
+│       ├── base.py             # PlotStrategy ABC
+│       ├── single_read.py      # SingleReadPlotStrategy
+│       ├── overlay.py          # OverlayPlotStrategy
+│       ├── stacked.py          # StackedPlotStrategy
+│       ├── eventalign.py       # EventAlignPlotStrategy
+│       └── aggregate.py        # AggregatePlotStrategy
 │
 ├── src/                        # TypeScript extension (frontend)
 │   ├── extension.ts            # Entry point
@@ -234,9 +250,206 @@ Active Python Kernel
     ↓
 squiggy Package (Python)
     ↓
+PlotFactory → PlotStrategy (Strategy Pattern)
+    ↓
 Bokeh HTML Output
     ↓
 Webview Panel (TypeScript)
+```
+
+### Strategy Pattern Architecture
+
+Squiggy uses the **Strategy Pattern** for plot generation, making it easy to add new plot types without modifying existing code.
+
+#### Core Design Principles
+
+1. **PlotStrategy ABC** - All plot types implement a common interface:
+   - `create_plot(data, options)` - Generate Bokeh plot HTML and figure
+   - `validate_data(data)` - Validate that required data is present
+
+2. **PlotFactory** - Factory function creates appropriate strategy based on `PlotMode` enum:
+   ```python
+   from squiggy.plot_factory import create_plot_strategy
+   from squiggy.constants import PlotMode, Theme
+
+   # Factory selects the right strategy
+   strategy = create_plot_strategy(PlotMode.SINGLE, Theme.LIGHT)
+   html, fig = strategy.create_plot(data, options)
+   ```
+
+3. **Composition over Inheritance** - Strategies use reusable components:
+   - **ThemeManager** - Centralized theme configuration (LIGHT/DARK)
+   - **BaseAnnotationRenderer** - Renders base annotations on plots
+   - **ModificationTrackBuilder** - Creates modification probability tracks
+
+#### Available Plot Strategies
+
+| Strategy | PlotMode | Description | Use Case |
+|----------|----------|-------------|----------|
+| `SingleReadPlotStrategy` | `SINGLE` | Raw signal for one read | Quick visualization of signal quality |
+| `OverlayPlotStrategy` | `OVERLAY` | Multiple reads overlaid with transparency | Compare signals across reads |
+| `StackedPlotStrategy` | `STACKED` | Multiple reads vertically offset | View multiple reads without overlap |
+| `EventAlignPlotStrategy` | `EVENTALIGN` | Reads aligned to basecalls | Analyze signal per base position |
+| `AggregatePlotStrategy` | `AGGREGATE` | 3-track aggregate view | Multi-read statistics and pileup |
+
+#### Adding a New Plot Type
+
+To add a new plot type (e.g., A/B comparison from issue #61):
+
+1. **Create strategy class** in `squiggy/plot_strategies/`:
+   ```python
+   # squiggy/plot_strategies/comparison.py
+   from .base import PlotStrategy
+   from ..theme_manager import ThemeManager
+
+   class ComparisonPlotStrategy(PlotStrategy):
+       def __init__(self, theme: Theme):
+           super().__init__(theme)
+           self.theme_manager = ThemeManager(theme)
+
+       def validate_data(self, data: dict) -> None:
+           required = ['read_a_signal', 'read_b_signal']
+           for key in required:
+               if key not in data:
+                   raise ValueError(f"Missing required data: {key}")
+
+       def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
+           # Extract data
+           signal_a = data['read_a_signal']
+           signal_b = data['read_b_signal']
+
+           # Create themed figure
+           fig = self.theme_manager.create_figure(
+               title="A/B Comparison",
+               x_label="Sample",
+               y_label="Signal (pA)"
+           )
+
+           # Plot both signals
+           fig.line(range(len(signal_a)), signal_a, color='blue', legend_label='Read A')
+           fig.line(range(len(signal_b)), signal_b, color='red', legend_label='Read B')
+
+           # Convert to HTML
+           html = self._figure_to_html(fig)
+           return html, fig
+   ```
+
+2. **Add to PlotMode enum** in `squiggy/constants.py`:
+   ```python
+   class PlotMode(str, Enum):
+       SINGLE = "single"
+       OVERLAY = "overlay"
+       STACKED = "stacked"
+       EVENTALIGN = "eventalign"
+       AGGREGATE = "aggregate"
+       COMPARISON = "comparison"  # NEW
+   ```
+
+3. **Register in PlotFactory** in `squiggy/plot_factory.py`:
+   ```python
+   from .plot_strategies.comparison import ComparisonPlotStrategy
+
+   def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
+       strategy_map = {
+           PlotMode.SINGLE: SingleReadPlotStrategy,
+           PlotMode.OVERLAY: OverlayPlotStrategy,
+           PlotMode.STACKED: StackedPlotStrategy,
+           PlotMode.EVENTALIGN: EventAlignPlotStrategy,
+           PlotMode.AGGREGATE: AggregatePlotStrategy,
+           PlotMode.COMPARISON: ComparisonPlotStrategy,  # NEW
+       }
+       # ...
+   ```
+
+4. **Add public API function** in `squiggy/__init__.py`:
+   ```python
+   def plot_comparison(read_a_id: str, read_b_id: str, ...) -> str:
+       # Get signals for both reads
+       # ...
+
+       data = {'read_a_signal': signal_a, 'read_b_signal': signal_b}
+       options = {'normalization': norm_method}
+
+       # Use factory to create strategy
+       strategy = create_plot_strategy(PlotMode.COMPARISON, theme_enum)
+       html, fig = strategy.create_plot(data, options)
+
+       # Route to Positron Plots pane
+       from .plotter import _route_to_plots_pane
+       _route_to_plots_pane(fig)
+
+       return html
+   ```
+
+5. **Write comprehensive tests** in `tests/test_plot_strategies.py`:
+   ```python
+   class TestComparisonPlotStrategy:
+       def test_validates_required_data(self):
+           strategy = ComparisonPlotStrategy(Theme.LIGHT)
+           with pytest.raises(ValueError, match="Missing required data"):
+               strategy.validate_data({})
+
+       def test_creates_valid_plot(self):
+           strategy = ComparisonPlotStrategy(Theme.LIGHT)
+           data = {'read_a_signal': np.array([1,2,3]), 'read_b_signal': np.array([2,3,4])}
+           html, fig = strategy.create_plot(data, {})
+           assert 'bokeh' in html.lower()
+   ```
+
+That's it! The factory automatically routes to your new strategy.
+
+#### Reusable Components
+
+**ThemeManager** (`squiggy/theme_manager.py`):
+- Centralizes all theme-related configuration
+- Methods:
+  - `create_figure()` - Creates themed Bokeh figure with consistent styling
+  - `get_base_colors()` - Returns base color palette for current theme
+  - Properties: `background_color`, `text_color`, `grid_color`, etc.
+
+**BaseAnnotationRenderer** (`squiggy/base_annotation_renderer.py`):
+- Renders base annotations on plots (A, C, G, T color-coded rectangles)
+- Two rendering modes:
+  - `render_time_based()` - For time-based x-axis (single read mode)
+  - `render_position_based()` - For position-based x-axis (event-aligned mode)
+- Handles dwell time coloring with Viridis colormap
+
+**ModificationTrackBuilder** (`squiggy/modification_track_builder.py`):
+- Creates separate track showing base modifications
+- Filters by probability threshold and modification types
+- Color-codes by modification type (5mC, 6mA, etc.)
+- Returns Bokeh figure that can be combined with main plot
+
+**Example Usage in Strategy**:
+```python
+class MyPlotStrategy(PlotStrategy):
+    def __init__(self, theme: Theme):
+        super().__init__(theme)
+        self.theme_manager = ThemeManager(theme)
+        self.annotation_renderer = BaseAnnotationRenderer(
+            base_colors=self.theme_manager.base_colors,
+            show_dwell_time=True,
+            show_labels=True
+        )
+
+    def create_plot(self, data, options):
+        # Create themed figure
+        fig = self.theme_manager.create_figure(
+            title="My Plot",
+            x_label="Position",
+            y_label="Signal"
+        )
+
+        # Plot signal
+        fig.line(x, y, color=self.theme_manager.colors['line'])
+
+        # Add base annotations
+        self.annotation_renderer.render_position_based(
+            fig, base_annotations, sample_rate,
+            signal_length, signal_min, signal_max
+        )
+
+        return self._figure_to_html(fig), fig
 ```
 
 ### Key Components
@@ -301,10 +514,25 @@ npm run test:coverage    # Generate coverage report
 Located in `tests/`:
 
 ```bash
-pytest tests/ -v                        # Run all tests
+pytest tests/ -v                        # Run all tests (449 tests total)
 pytest tests/test_io.py -v              # Run specific file
 pytest tests/ --cov=squiggy             # With coverage
 ```
+
+**Test Coverage by Component:**
+
+- `test_io.py` - File loading and session management
+- `test_api.py` - Public API functions (plot_read, plot_reads, plot_aggregate)
+- `test_oo_api.py` - Object-oriented API (Pod5File, BamFile, Read)
+- `test_plot_factory.py` - PlotFactory creation and routing (29 tests)
+- `test_plot_strategies.py` - All 5 plot strategies (102 tests)
+- `test_theme_manager.py` - Theme management (26 tests)
+- `test_base_annotation_renderer.py` - Base annotation rendering (25 tests)
+- `test_modification_track_builder.py` - Modification track rendering (35 tests)
+- `test_alignment.py` - BAM alignment extraction
+- `test_normalization.py` - Signal normalization
+- `test_modifications.py` - Modification parsing
+- `test_utils.py` - Utility functions
 
 ### Manual Testing
 

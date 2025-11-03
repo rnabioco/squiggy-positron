@@ -5,10 +5,13 @@ Squiggy provides both a simple functional API and an object-oriented API for wor
 ## Quick Start
 
 ```python
-from squiggy import load_pod5, load_bam, plot_read
+from squiggy import load_pod5, load_bam, plot_read, get_read_ids
 
-# Load POD5 file
-reader, read_ids = load_pod5("data.pod5")
+# Load POD5 file (populates global kernel state)
+load_pod5("data.pod5")
+
+# Get read IDs from loaded file
+read_ids = get_read_ids()
 
 # Optionally load BAM for base annotations
 load_bam("alignments.bam")
