@@ -8,7 +8,7 @@ This module handles creation of separate Bokeh figures showing base modification
 import numpy as np
 from bokeh.models import ColumnDataSource, HoverTool
 
-from .constants import (
+from ..constants import (
     MODIFICATION_CODES,
     MODIFICATION_COLORS,
     Theme,

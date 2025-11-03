@@ -12,7 +12,7 @@ import numpy as np
 from bokeh.models import ColumnDataSource, LinearColorMapper
 from bokeh.transform import transform
 
-from .constants import BASE_ANNOTATION_ALPHA, DEFAULT_POSITION_LABEL_INTERVAL, Theme
+from ..constants import BASE_ANNOTATION_ALPHA, DEFAULT_POSITION_LABEL_INTERVAL, Theme
 
 
 class BaseAnnotationRenderer:
@@ -626,7 +626,7 @@ class BaseAnnotationRenderer:
         # Add position numbers
         if position_number_data:
             # Get text color from theme
-            from .constants import DARK_THEME, LIGHT_THEME
+            from ..constants import DARK_THEME, LIGHT_THEME
 
             text_color = (
                 DARK_THEME["axis_text"]

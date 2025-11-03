@@ -1257,3 +1257,32 @@ def align_reads_to_motif_center(reads_data, motif_center):
         adjusted_reads.append(adjusted_read)
 
     return adjusted_reads
+
+
+def _route_to_plots_pane(fig) -> None:
+    """
+    Route Bokeh figure to Positron Plots pane via bokeh.io.show()
+
+    Positron intercepts bokeh.io.show() calls and routes them to Plots pane
+    by inspecting the call stack for bokeh.io.showing.show function.
+
+    This ensures plots appear in the Plots pane (with history and navigation)
+    rather than the Viewer pane.
+
+    Args:
+        fig: Bokeh figure object
+    """
+    import os
+    import sys
+
+    # Skip if running in test environment (pytest)
+    if "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST"):
+        return
+
+    try:
+        from bokeh.io import show
+
+        show(fig)  # Positron intercepts this and routes to Plots pane
+    except Exception:
+        # Silently fail if bokeh.io not available or not in Positron
+        pass

@@ -59,8 +59,8 @@ from .motif import (
 )
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
-from .plotter import SquigglePlotter
 
+# Legacy SquigglePlotter removed - use plot_read() or Read.plot() instead
 # Utility functions
 from .utils import (
     downsample_signal,
@@ -199,7 +199,7 @@ def plot_read(
     html, fig = strategy.create_plot(data, options)
 
     # Route to Positron Plots pane if running in Positron
-    from .plotter import _route_to_plots_pane
+    from .utils import _route_to_plots_pane
 
     _route_to_plots_pane(fig)
 
@@ -322,7 +322,7 @@ def plot_reads(
     html, fig = strategy.create_plot(data, options)
 
     # Route to Positron Plots pane if running in Positron
-    from .plotter import _route_to_plots_pane
+    from .utils import _route_to_plots_pane
 
     _route_to_plots_pane(fig)
 
@@ -421,7 +421,7 @@ def plot_aggregate(
     html, grid = strategy.create_plot(data, options)
 
     # Route to Positron Plots pane if running in Positron
-    from .plotter import _route_to_plots_pane
+    from .utils import _route_to_plots_pane
 
     _route_to_plots_pane(grid)
 
@@ -559,7 +559,7 @@ def plot_motif_aggregate(
     html, grid = strategy.create_plot(data, options)
 
     # Route to Positron Plots pane if running in Positron
-    from .plotter import _route_to_plots_pane
+    from .utils import _route_to_plots_pane
 
     _route_to_plots_pane(grid)
 
@@ -616,5 +616,4 @@ __all__ = [
     "search_motif",
     "count_motifs",
     # Classes
-    "SquigglePlotter",
 ]

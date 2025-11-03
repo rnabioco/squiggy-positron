@@ -10,10 +10,8 @@ from bokeh.layouts import column
 from bokeh.models import ColorBar, ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
-from ..base_annotation_renderer import BaseAnnotationRenderer
 from ..constants import NormalizationMethod, Theme
-from ..modification_track_builder import ModificationTrackBuilder
-from ..theme_manager import ThemeManager
+from ..rendering import BaseAnnotationRenderer, ModificationTrackBuilder, ThemeManager
 from .base import PlotStrategy
 
 

@@ -7,7 +7,7 @@ from bokeh.models.plots import Plot
 from bokeh.plotting import figure
 
 from squiggy.constants import Theme
-from squiggy.theme_manager import ThemeManager
+from squiggy.rendering import ThemeManager
 
 
 class TestThemeManagerInitialization:

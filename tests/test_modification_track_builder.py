@@ -7,7 +7,7 @@ import pytest
 from bokeh.models.plots import Plot
 
 from squiggy.constants import Theme
-from squiggy.modification_track_builder import ModificationTrackBuilder
+from squiggy.rendering import ModificationTrackBuilder
 
 
 # Mock ModificationAnnotation class for testing

@@ -11,7 +11,7 @@ from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
-from ..theme_manager import ThemeManager
+from ..rendering import ThemeManager
 from .base import PlotStrategy
 
 

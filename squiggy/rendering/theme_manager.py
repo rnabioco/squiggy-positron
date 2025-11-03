@@ -8,7 +8,7 @@ styling across all plot types.
 from bokeh.models import WheelZoomTool
 from bokeh.plotting import figure
 
-from .constants import (
+from ..constants import (
     BASE_COLORS,
     BASE_COLORS_DARK,
     DARK_THEME,
