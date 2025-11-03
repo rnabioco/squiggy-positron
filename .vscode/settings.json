@@ -1,6 +1,7 @@
 {
     "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
     "python.testing.pytestEnabled": true,
+    "python.enableAutoReload": false,
     "python.testing.pytestArgs": [
         "tests"
     ],
