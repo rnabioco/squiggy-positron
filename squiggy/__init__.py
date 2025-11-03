@@ -51,6 +51,7 @@ from .io import (
     load_pod5,
 )
 from .normalization import normalize_signal
+from .plot_factory import create_plot_strategy
 from .plotter import SquigglePlotter
 
 # Utility functions
@@ -118,6 +119,7 @@ def plot_read(
         >>>     f.write(html)
     """
     from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
@@ -132,65 +134,64 @@ def plot_read(
     if read_obj is None:
         raise ValueError(f"Read not found: {read_id}")
 
-    # Extract signal (no automatic downsampling - use user-specified factor)
-    signal = read_obj.signal
-
-    # Get alignment if available
-    aligned_read = None
-    if _squiggy_session.bam_path and mode.upper() == "EVENTALIGN":
-        from .alignment import extract_alignment_from_bam
-
-        aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
-
     # Parse parameters
     plot_mode = PlotMode[mode.upper()]
     norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
 
-    # Extract sequence, seq_to_sig_map, and modifications if available
-    sequence = None
-    seq_to_sig_map = None
-    modifications = None
-    if aligned_read:
-        sequence = aligned_read.sequence
-        # Build seq_to_sig_map from base annotations
-        if aligned_read.bases:
-            seq_to_sig_map = [ann.signal_start for ann in aligned_read.bases]
-        # Extract modifications
-        if hasattr(aligned_read, "modifications") and aligned_read.modifications:
-            modifications = aligned_read.modifications
+    # Prepare data based on plot mode
+    if plot_mode == PlotMode.SINGLE:
+        # Single read mode: no alignment needed
+        data = {
+            "signal": read_obj.signal,
+            "read_id": read_id,
+            "sample_rate": read_obj.run_info.sample_rate,
+        }
 
-    # Generate plot (returns HTML and figure)
-    if plot_mode in (PlotMode.SINGLE, PlotMode.EVENTALIGN):
-        if plot_mode == PlotMode.EVENTALIGN and aligned_read is None:
+        options = {
+            "normalization": norm_method,
+            "downsample": downsample,
+            "show_signal_points": show_signal_points,
+            "x_axis_mode": "dwell_time" if scale_dwell_time else "regular_time",
+        }
+
+    elif plot_mode == PlotMode.EVENTALIGN:
+        # Event-aligned mode: requires alignment
+        if _squiggy_session.bam_path is None:
             raise ValueError(
                 "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
 
-        # Parse theme parameter
-        theme_enum = Theme[theme.upper()]
+        from .alignment import extract_alignment_from_bam
 
-        html, figure = SquigglePlotter.plot_single_read(
-            signal=signal,
-            read_id=read_id,
-            sample_rate=read_obj.run_info.sample_rate,
-            sequence=sequence,
-            seq_to_sig_map=seq_to_sig_map,
-            normalization=norm_method,
-            downsample=downsample,
-            show_dwell_time=show_dwell_time,
-            show_labels=show_labels,
-            show_signal_points=show_signal_points,
-            modifications=modifications,
-            scale_dwell_time=scale_dwell_time,
-            min_mod_probability=min_mod_probability,
-            enabled_mod_types=enabled_mod_types,
-            theme=theme_enum,
-        )
-        return html
+        aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
+        if aligned_read is None:
+            raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+
+        data = {
+            "reads": [(read_id, read_obj.signal, read_obj.run_info.sample_rate)],
+            "aligned_reads": [aligned_read],
+        }
+
+        options = {
+            "normalization": norm_method,
+            "downsample": downsample,
+            "show_dwell_time": scale_dwell_time,
+            "show_labels": show_labels,
+            "show_signal_points": show_signal_points,
+            "position_label_interval": position_label_interval,
+        }
+
     else:
         raise ValueError(
-            f"Plot mode {plot_mode} not yet supported in extension. Use SINGLE or EVENTALIGN."
+            f"Plot mode {plot_mode} not supported for single read. Use SINGLE or EVENTALIGN."
         )
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(plot_mode, theme_enum)
+    html, _ = strategy.create_plot(data, options)
+
+    return html
 
 
 def plot_reads(
@@ -211,13 +212,13 @@ def plot_reads(
 
     Args:
         read_ids: List of read IDs to plot
-        mode: Plot mode (OVERLAY, STACKED)
+        mode: Plot mode (OVERLAY, STACKED, EVENTALIGN)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
         downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
-        show_dwell_time: Color bases by dwell time
-        show_labels: Show base labels on plot
-        scale_dwell_time: Scale x-axis by cumulative dwell time
+        show_dwell_time: Color bases by dwell time (EVENTALIGN mode only)
+        show_labels: Show base labels on plot (EVENTALIGN mode only)
+        scale_dwell_time: Scale x-axis by cumulative dwell time (EVENTALIGN mode only)
         min_mod_probability: Minimum probability threshold for displaying modifications
         enabled_mod_types: List of modification type codes to display
         show_signal_points: Show individual signal points as circles
@@ -227,41 +228,86 @@ def plot_reads(
 
     Examples:
         >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY')
+        >>> html = plot_reads(['read_001', 'read_002'], mode='STACKED')
+        >>> html = plot_reads(['read_001', 'read_002'], mode='EVENTALIGN')
     """
     from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
+    if not read_ids:
+        raise ValueError("No read IDs provided.")
+
     # Parse parameters
     plot_mode = PlotMode[mode.upper()]
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
 
-    # For now, only OVERLAY mode is supported by plotting multiple in sequence
-    if plot_mode == PlotMode.OVERLAY:
-        # Generate HTML for each read separately and combine
-        # This is a simplified implementation
-        htmls = []
-        for read_id in read_ids:
-            html = plot_read(
-                read_id,
-                mode="SINGLE",
-                normalization=normalization,
-                theme=theme,
-                downsample=downsample,
-                show_dwell_time=show_dwell_time,
-                show_labels=show_labels,
-                scale_dwell_time=scale_dwell_time,
-                min_mod_probability=min_mod_probability,
-                enabled_mod_types=enabled_mod_types,
-                show_signal_points=show_signal_points,
+    # Collect read data
+    reads_data = []
+    for read_id in read_ids:
+        read_obj = None
+        for read in _squiggy_session.reader.reads():
+            if str(read.read_id) == read_id:
+                read_obj = read
+                break
+
+        if read_obj is None:
+            raise ValueError(f"Read not found: {read_id}")
+
+        reads_data.append((read_id, read_obj.signal, read_obj.run_info.sample_rate))
+
+    # Prepare data and options based on mode
+    if plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
+        data = {"reads": reads_data}
+        options = {
+            "normalization": norm_method,
+            "downsample": downsample,
+            "show_signal_points": show_signal_points,
+        }
+
+    elif plot_mode == PlotMode.EVENTALIGN:
+        # Event-aligned mode for multiple reads
+        if _squiggy_session.bam_path is None:
+            raise ValueError(
+                "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
-            htmls.append(html)
-        # Return first plot for now - full OVERLAY implementation TODO
-        return htmls[0] if htmls else ""
+
+        from .alignment import extract_alignment_from_bam
+
+        aligned_reads = []
+        for read_id in read_ids:
+            aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
+            if aligned_read is None:
+                raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+            aligned_reads.append(aligned_read)
+
+        data = {
+            "reads": reads_data,
+            "aligned_reads": aligned_reads,
+        }
+
+        options = {
+            "normalization": norm_method,
+            "downsample": downsample,
+            "show_dwell_time": scale_dwell_time,
+            "show_labels": show_labels,
+            "show_signal_points": show_signal_points,
+        }
+
     else:
         raise ValueError(
-            f"Plot mode {mode} not yet fully implemented. Use plot_read() for single reads."
+            f"Plot mode {plot_mode} not supported for multiple reads. "
+            f"Use OVERLAY, STACKED, or EVENTALIGN."
         )
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(plot_mode, theme_enum)
+    html, _ = strategy.create_plot(data, options)
+
+    return html
 
 
 def plot_aggregate(
@@ -298,6 +344,7 @@ def plot_aggregate(
         ValueError: If POD5 or BAM files not loaded
     """
     from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,
@@ -339,16 +386,20 @@ def plot_aggregate(
     )
     quality_stats = calculate_quality_by_position(reads_data)
 
-    # Generate plot
-    html, _ = SquigglePlotter.plot_aggregate(
-        aggregate_stats=aggregate_stats,
-        pileup_stats=pileup_stats,
-        quality_stats=quality_stats,
-        reference_name=reference_name,
-        num_reads=num_reads,
-        normalization=norm_method,
-        theme=theme_enum,
-    )
+    # Prepare data for AggregatePlotStrategy
+    data = {
+        "aggregate_stats": aggregate_stats,
+        "pileup_stats": pileup_stats,
+        "quality_stats": quality_stats,
+        "reference_name": reference_name,
+        "num_reads": num_reads,
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
+    html, _ = strategy.create_plot(data, options)
 
     return html
 
@@ -394,6 +445,7 @@ __all__ = [
     "parse_region",
     "reverse_complement",
     "downsample_signal",
+    "create_plot_strategy",
     # Classes
     "SquigglePlotter",
 ]
