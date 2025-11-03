@@ -72,6 +72,19 @@ If your BAM file contains base modifications:
 
 Squiggy provides an object-oriented Python API for use in Jupyter notebooks and Python scripts. See [`examples/notebook_api_demo.ipynb`](examples/notebook_api_demo.ipynb) for a complete tutorial.
 
+## Architecture
+
+Squiggy uses the **Strategy Pattern** to make adding new plot types easy and maintainable:
+
+- **PlotFactory** - Creates the appropriate plotting strategy based on plot mode
+- **5 Plot Strategies** - Each plot type (SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE) is a separate strategy class
+- **Reusable Components** - ThemeManager, BaseAnnotationRenderer, ModificationTrackBuilder shared across strategies
+- **Easy Extension** - Adding new plot types requires only creating a new strategy class
+
+This design makes it straightforward to add new visualization types (like A/B comparison plots) without modifying existing code.
+
+See the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-guide/#strategy-pattern-architecture) for detailed architecture documentation.
+
 ## Requirements
 
 - **Positron IDE** (version 2025.6.0+)

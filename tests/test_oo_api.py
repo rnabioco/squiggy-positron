@@ -588,8 +588,8 @@ class TestIntegrationWorkflows:
         from squiggy import io as squiggy_io
 
         # Verify no global state before
-        assert squiggy_io._current_pod5_reader is None
-        assert squiggy_io._current_bam_path is None
+        assert squiggy_io._squiggy_session.reader is None
+        assert squiggy_io._squiggy_session.bam_path is None
 
         # Use OO API
         pod5 = Pod5File(sample_pod5_file)
@@ -600,8 +600,8 @@ class TestIntegrationWorkflows:
         _ = bam.references
 
         # Verify global state is still None (OO API doesn't touch it)
-        assert squiggy_io._current_pod5_reader is None
-        assert squiggy_io._current_bam_path is None
+        assert squiggy_io._squiggy_session.reader is None
+        assert squiggy_io._squiggy_session.bam_path is None
 
         pod5.close()
         bam.close()

@@ -16,9 +16,10 @@ ENV/
 
 # IDEs
 .vscode/*
-!.vscode/launch.json.template
+!.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -44,8 +45,8 @@ node_modules/
 build/
 *.vsix
 
-# Test workspace - created on the fly during development
-test-*/
+# Test workspace - used for extension development
+test-workspace/
 
 # Claude planning files
 .claude-*.md

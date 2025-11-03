@@ -6,7 +6,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "{{TEST_WORKSPACE_PATH}}",
+        "${workspaceFolder}/test-workspace",
         "--extensionDevelopmentPath=${workspaceFolder}"
       ],
       "outFiles": [
