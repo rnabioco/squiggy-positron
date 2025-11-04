@@ -1,6 +1,6 @@
 # Squiggy Release Notes
 
-## v0.1.10-alpha (2025-01-04)
+## v0.1.10-alpha (2025-11-04)
 
 UX improvement with search mode toggle for better reference navigation.
 
