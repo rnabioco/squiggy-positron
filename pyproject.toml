@@ -89,6 +89,8 @@ packages = ["squiggy"]
 [tool.setuptools.package-data]
 squiggy = [
   "data/*.pod5",
+  "data/*.bam",
+  "data/*.bai",
   "data/*.png",
   "data/*.ico",
   "data/*.icns",

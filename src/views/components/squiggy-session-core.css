@@ -1,0 +1,120 @@
+/**
+ * Session Manager Panel Styles
+ */
+
+.session-container {
+    padding: 10px;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+}
+
+/* Demo Card */
+.demo-card {
+    background: var(--vscode-editor-background);
+    border: 2px solid var(--vscode-button-background);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.demo-title {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--vscode-button-background);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.demo-description {
+    margin: 8px 0 12px 0;
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.demo-info {
+    margin-top: 10px;
+    padding: 8px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    background: var(--vscode-textBlockQuote-background);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Sections */
+.section {
+    margin: 20px 0;
+}
+
+.section-title {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    opacity: 0.8;
+}
+
+/* Status Box */
+.status-box {
+    padding: 10px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    background: var(--vscode-textBlockQuote-background);
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+/* Buttons */
+.btn {
+    padding: 8px 12px;
+    margin: 4px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background-color 0.1s;
+}
+
+.btn-full {
+    width: 100%;
+}
+
+.btn-primary {
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--vscode-button-hoverBackground);
+}
+
+.btn-secondary {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Icons */
+.icon {
+    font-size: 14px;
+    line-height: 1;
+}

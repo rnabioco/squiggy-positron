@@ -217,6 +217,51 @@ export type SamplesIncomingMessage =
     | ReadyMessage;
 export type SamplesOutgoingMessage = UpdateSamplesMessage | ClearSamplesMessage;
 
+// ========== Session Manager Messages ==========
+
+export interface LoadDemoMessage extends BaseMessage {
+    type: 'loadDemo';
+}
+
+export interface SaveSessionMessage extends BaseMessage {
+    type: 'save';
+}
+
+export interface RestoreSessionMessage extends BaseMessage {
+    type: 'restore';
+}
+
+export interface ExportSessionMessage extends BaseMessage {
+    type: 'export';
+}
+
+export interface ImportSessionMessage extends BaseMessage {
+    type: 'import';
+}
+
+export interface ClearSessionMessage extends BaseMessage {
+    type: 'clear';
+}
+
+export interface UpdateSessionMessage extends BaseMessage {
+    type: 'updateSession';
+    hasSamples: boolean;
+    hasSavedSession: boolean;
+    sampleCount: number;
+    sampleNames: string[];
+}
+
+export type SessionPanelIncomingMessage =
+    | ReadyMessage
+    | LoadDemoMessage
+    | SaveSessionMessage
+    | RestoreSessionMessage
+    | ExportSessionMessage
+    | ImportSessionMessage
+    | ClearSessionMessage;
+
+export type SessionPanelOutgoingMessage = UpdateSessionMessage;
+
 // ========== Union Types for Message Handlers ==========
 
 export type IncomingWebviewMessage =
@@ -224,11 +269,13 @@ export type IncomingWebviewMessage =
     | ReadsViewIncomingMessage
     | PlotOptionsIncomingMessage
     | ModificationsIncomingMessage
-    | SamplesIncomingMessage;
+    | SamplesIncomingMessage
+    | SessionPanelIncomingMessage;
 
 export type OutgoingWebviewMessage =
     | FilePanelOutgoingMessage
     | ReadsViewOutgoingMessage
     | PlotOptionsOutgoingMessage
     | ModificationsOutgoingMessage
-    | SamplesOutgoingMessage;
+    | SamplesOutgoingMessage
+    | SessionPanelOutgoingMessage;
