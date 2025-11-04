@@ -61,6 +61,17 @@ export interface PlotAggregateMessage extends BaseMessage {
     referenceName: string;
 }
 
+export interface LoadMoreReadsMessage extends BaseMessage {
+    type: 'loadMore';
+}
+
+export interface ExpandReferenceMessage extends BaseMessage {
+    type: 'expandReference';
+    referenceName: string;
+    offset: number;
+    limit: number;
+}
+
 export interface UpdateReadsMessage extends BaseMessage {
     type: 'updateReads';
     reads: ReadListItem[];
@@ -68,8 +79,42 @@ export interface UpdateReadsMessage extends BaseMessage {
     referenceToReads?: [string, ReadItem[]][]; // Map of reference name to read items
 }
 
-export type ReadsViewIncomingMessage = PlotReadMessage | PlotAggregateMessage | ReadyMessage;
-export type ReadsViewOutgoingMessage = UpdateReadsMessage;
+export interface SetReferencesOnlyMessage extends BaseMessage {
+    type: 'setReferencesOnly';
+    references: { referenceName: string; readCount: number }[];
+}
+
+export interface AppendReadsMessage extends BaseMessage {
+    type: 'appendReads';
+    reads: ReadItem[];
+}
+
+export interface SetReadsForReferenceMessage extends BaseMessage {
+    type: 'setReadsForReference';
+    referenceName: string;
+    reads: ReadItem[];
+    offset: number;
+    totalCount: number;
+}
+
+export interface SetLoadingMessage extends BaseMessage {
+    type: 'setLoading';
+    isLoading: boolean;
+    message?: string;
+}
+
+export type ReadsViewIncomingMessage =
+    | PlotReadMessage
+    | PlotAggregateMessage
+    | LoadMoreReadsMessage
+    | ExpandReferenceMessage
+    | ReadyMessage;
+export type ReadsViewOutgoingMessage =
+    | UpdateReadsMessage
+    | SetReferencesOnlyMessage
+    | AppendReadsMessage
+    | SetReadsForReferenceMessage
+    | SetLoadingMessage;
 
 // ========== Plot Options Messages ==========
 

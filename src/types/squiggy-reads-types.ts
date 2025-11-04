@@ -69,12 +69,23 @@ export interface ReadsViewState {
 export type ReadsViewMessage =
     | { type: 'setReads'; reads: ReadItem[] }
     | { type: 'setReadsGrouped'; references: Map<string, ReadItem[]> }
+    | { type: 'setReferencesOnly'; references: { referenceName: string; readCount: number }[] }
+    | { type: 'appendReads'; reads: ReadItem[] }
+    | {
+          type: 'setReadsForReference';
+          referenceName: string;
+          reads: ReadItem[];
+          offset: number;
+          totalCount: number;
+      }
     | { type: 'updateSearch'; searchText: string }
     | { type: 'selectRead'; readId: string; multiSelect: boolean }
     | { type: 'plotRead'; readId: string }
     | { type: 'toggleReference'; referenceName: string }
+    | { type: 'expandReference'; referenceName: string; offset: number; limit: number }
     | { type: 'updateColumnWidths'; nameWidth: number; detailsWidth: number }
-    | { type: 'loadMore' };
+    | { type: 'loadMore' }
+    | { type: 'setLoading'; isLoading: boolean; message?: string };
 
 /**
  * Props for React components

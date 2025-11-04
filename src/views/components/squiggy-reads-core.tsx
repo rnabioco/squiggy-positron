@@ -32,8 +32,21 @@ export const ReadsCore: React.FC = () => {
         detailsColumnWidth: CONSTANTS.DEFAULT_DETAILS_WIDTH,
     });
 
+    // Loading state
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [loadingMessage, setLoadingMessage] = React.useState('');
+
+    // Debounced search
+    const [debouncedSearchText, setDebouncedSearchText] = React.useState('');
+    const searchTimeoutRef = React.useRef<number | undefined>();
+
     // Store reference to reads data (for expansion)
     const referenceToReadsRef = React.useRef<Map<string, ReadItem[]>>(new Map());
+
+    // Client-side cache for expanded references
+    const referenceCacheRef = React.useRef<
+        Map<string, { reads: ReadItem[]; fullyLoaded: boolean; offset: number }>
+    >(new Map());
 
     // Handle messages from extension
     React.useEffect(() => {
@@ -79,6 +92,24 @@ export const ReadsCore: React.FC = () => {
                     break;
                 case 'setReadsGrouped':
                     handleSetReadsGrouped(message.items, message.referenceToReads);
+                    break;
+                case 'setReferencesOnly':
+                    handleSetReferencesOnly(message.references);
+                    break;
+                case 'appendReads':
+                    handleAppendReads(message.reads);
+                    break;
+                case 'setReadsForReference':
+                    handleSetReadsForReference(
+                        message.referenceName,
+                        message.reads,
+                        message.offset,
+                        message.totalCount
+                    );
+                    break;
+                case 'setLoading':
+                    setIsLoading(message.isLoading);
+                    setLoadingMessage(message.message || '');
                     break;
                 case 'updateSearch':
                     handleSearch(message.searchText);
@@ -130,16 +161,123 @@ export const ReadsCore: React.FC = () => {
         }));
     };
 
-    const handleSearch = (searchText: string) => {
+    const handleSetReferencesOnly = (
+        references: { referenceName: string; readCount: number }[]
+    ) => {
+        // Initialize with reference headers only (lazy loading mode)
+        const items: ReadListItem[] = references.map((ref) => ({
+            type: 'reference' as const,
+            referenceName: ref.referenceName,
+            readCount: ref.readCount,
+            isExpanded: false,
+            indentLevel: 0,
+        }));
+
+        // Clear cache for fresh load
+        referenceCacheRef.current.clear();
+        referenceToReadsRef.current.clear();
+
+        setState((prev) => ({
+            ...prev,
+            items,
+            hasReferences: true,
+            totalReadCount: references.reduce((sum, ref) => sum + ref.readCount, 0),
+            filteredItems: items,
+            selectedReadIds: new Set(),
+            focusedIndex: null,
+            expandedReferences: new Set(),
+        }));
+    };
+
+    const handleAppendReads = (newReads: ReadItem[]) => {
+        // Append reads to flat list (POD5 pagination)
         setState((prev) => {
-            const filtered = filterItems(prev.items, searchText, referenceToReadsRef.current);
+            const updatedItems = [...prev.items, ...newReads];
             return {
                 ...prev,
-                searchText,
-                filteredItems: filtered,
+                items: updatedItems,
+                totalReadCount: prev.totalReadCount + newReads.length,
+                filteredItems: filterItems(
+                    updatedItems,
+                    prev.searchText,
+                    referenceToReadsRef.current
+                ),
             };
         });
     };
+
+    const handleSetReadsForReference = (
+        referenceName: string,
+        reads: ReadItem[],
+        offset: number,
+        totalCount: number
+    ) => {
+        // Update cache with fetched reads
+        const cached = referenceCacheRef.current.get(referenceName) || {
+            reads: [],
+            fullyLoaded: false,
+            offset: 0,
+        };
+
+        // Merge reads (handle pagination)
+        const allReads = [...cached.reads, ...reads];
+        const fullyLoaded = allReads.length >= totalCount;
+
+        referenceCacheRef.current.set(referenceName, {
+            reads: allReads,
+            fullyLoaded,
+            offset: offset + reads.length,
+        });
+
+        // Also update referenceToReadsRef for compatibility
+        referenceToReadsRef.current.set(referenceName, allReads);
+
+        // Rebuild items list if this reference is expanded
+        setState((prev) => {
+            if (prev.expandedReferences.has(referenceName)) {
+                const newItems = rebuildItemsList(
+                    referenceToReadsRef.current,
+                    prev.expandedReferences,
+                    prev.searchText
+                );
+                return {
+                    ...prev,
+                    filteredItems: newItems,
+                };
+            }
+            return prev;
+        });
+    };
+
+    const handleSearch = (searchText: string) => {
+        // Clear existing timeout
+        if (searchTimeoutRef.current) {
+            window.clearTimeout(searchTimeoutRef.current);
+        }
+
+        // Update search text immediately for input responsiveness
+        setState((prev) => ({ ...prev, searchText }));
+
+        // Debounce the actual filtering (300ms)
+        searchTimeoutRef.current = window.setTimeout(() => {
+            setDebouncedSearchText(searchText);
+        }, 300);
+    };
+
+    // Effect to perform filtering when debounced search changes
+    React.useEffect(() => {
+        setState((prev) => {
+            const filtered = filterItems(
+                prev.items,
+                debouncedSearchText,
+                referenceToReadsRef.current
+            );
+            return {
+                ...prev,
+                filteredItems: filtered,
+            };
+        });
+    }, [debouncedSearchText]);
 
     const handleToggleReference = (referenceName: string) => {
         setState((prev) => {
@@ -147,12 +285,30 @@ export const ReadsCore: React.FC = () => {
             const isExpanded = expandedReferences.has(referenceName);
 
             if (isExpanded) {
+                // Collapse - just update UI state
                 expandedReferences.delete(referenceName);
             } else {
+                // Expand - check cache first
                 expandedReferences.add(referenceName);
+
+                const cached = referenceCacheRef.current.get(referenceName);
+                if (!cached) {
+                    // Not in cache - request from backend
+                    vscode.postMessage({
+                        type: 'expandReference',
+                        referenceName,
+                        offset: 0,
+                        limit: 500,
+                    });
+                    // Return early - will rebuild when data arrives
+                    return {
+                        ...prev,
+                        expandedReferences,
+                    };
+                }
             }
 
-            // Rebuild items list with expansion
+            // Rebuild items list with expansion (either collapsing or using cached data)
             const newItems = rebuildItemsList(
                 referenceToReadsRef.current,
                 expandedReferences,
@@ -217,6 +373,14 @@ export const ReadsCore: React.FC = () => {
 
     return (
         <div className="reads-core-container">
+            {/* Loading overlay */}
+            {isLoading && (
+                <div className="loading-overlay">
+                    <div className="loading-spinner"></div>
+                    {loadingMessage && <div className="loading-message">{loadingMessage}</div>}
+                </div>
+            )}
+
             {/* Search box */}
             <div className="reads-search-box">
                 <input

@@ -378,6 +378,7 @@ squiggy.load_bam('${escapedPath}')
 
     /**
      * Get read IDs mapping to a specific reference
+     * @deprecated Use getReadsForReferencePaginated instead for better performance
      */
     async getReadsForReference(referenceName: string): Promise<string[]> {
         const escapedRef = referenceName.replace(/'/g, "\\'");
@@ -388,6 +389,30 @@ squiggy.load_bam('${escapedPath}')
         );
 
         return readIds as string[];
+    }
+
+    /**
+     * Get read IDs mapping to a specific reference with pagination support
+     * Enables lazy loading for large reference groups
+     */
+    async getReadsForReferencePaginated(
+        referenceName: string,
+        offset: number = 0,
+        limit: number | null = null
+    ): Promise<{ readIds: string[]; totalCount: number }> {
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        // Get paginated reads using the new Python function
+        const readIds = await this.getVariable(
+            `squiggy.get_reads_for_reference_paginated('${escapedRef}', offset=${offset}, limit=${limit === null ? 'None' : limit})`
+        );
+
+        // Get total count for this reference
+        const totalCount = await this.getVariable(
+            `len(squiggy.io._squiggy_session.ref_mapping.get('${escapedRef}', []))`
+        );
+
+        return { readIds: readIds as string[], totalCount: totalCount as number };
     }
 
     /**
