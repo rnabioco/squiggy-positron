@@ -49,6 +49,7 @@ export interface ReadsViewState {
 
     // Search/Filter
     searchText: string;
+    searchMode: 'reference' | 'read'; // Search in reference names or read IDs
     filteredItems: ReadListItem[]; // Filtered subset of items
 
     // Selection

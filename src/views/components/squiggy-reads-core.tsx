@@ -24,6 +24,7 @@ export const ReadsCore: React.FC = () => {
         hasReferences: false,
         totalReadCount: 0,
         searchText: '',
+        searchMode: 'reference',
         filteredItems: [],
         selectedReadIds: new Set<string>(),
         focusedIndex: null,
@@ -76,7 +77,8 @@ export const ReadsCore: React.FC = () => {
                                     prev.expandedReferences,
                                     prev.searchText,
                                     prev.sortBy,
-                                    prev.sortOrder
+                                    prev.sortOrder,
+                                    prev.searchMode
                                 );
                             } else {
                                 // In lazy-loading mode, use incoming reference headers with current sort
@@ -181,7 +183,8 @@ export const ReadsCore: React.FC = () => {
                 new Set<string>(), // No references expanded initially
                 '', // No search text initially
                 prev.sortBy,
-                prev.sortOrder
+                prev.sortOrder,
+                prev.searchMode
             );
 
             return {
@@ -236,7 +239,8 @@ export const ReadsCore: React.FC = () => {
                 filteredItems: filterItems(
                     updatedItems,
                     prev.searchText,
-                    referenceToReadsRef.current
+                    referenceToReadsRef.current,
+                    prev.searchMode
                 ),
             };
         });
@@ -276,7 +280,8 @@ export const ReadsCore: React.FC = () => {
                     prev.expandedReferences,
                     prev.searchText,
                     prev.sortBy,
-                    prev.sortOrder
+                    prev.sortOrder,
+                    prev.searchMode
                 );
                 return {
                     ...prev,
@@ -308,14 +313,15 @@ export const ReadsCore: React.FC = () => {
             const filtered = filterItems(
                 prev.items,
                 debouncedSearchText,
-                referenceToReadsRef.current
+                referenceToReadsRef.current,
+                prev.searchMode
             );
             return {
                 ...prev,
                 filteredItems: filtered,
             };
         });
-    }, [debouncedSearchText]);
+    }, [debouncedSearchText, state.searchMode]);
 
     const handleToggleReference = (referenceName: string) => {
         setState((prev) => {
@@ -352,7 +358,8 @@ export const ReadsCore: React.FC = () => {
                 expandedReferences,
                 prev.searchText,
                 prev.sortBy,
-                prev.sortOrder
+                prev.sortOrder,
+                prev.searchMode
             );
 
             return {
@@ -379,7 +386,8 @@ export const ReadsCore: React.FC = () => {
                     prev.expandedReferences,
                     prev.searchText,
                     newSortBy,
-                    newSortOrder
+                    newSortOrder,
+                    prev.searchMode
                 );
             } else {
                 // In lazy-loading mode, just re-sort the existing reference headers
@@ -443,6 +451,13 @@ export const ReadsCore: React.FC = () => {
         }
     };
 
+    const handleToggleSearchMode = () => {
+        setState((prev) => ({
+            ...prev,
+            searchMode: prev.searchMode === 'reference' ? 'read' : 'reference',
+        }));
+    };
+
     return (
         <div className="reads-core-container">
             {/* Loading overlay */}
@@ -455,9 +470,16 @@ export const ReadsCore: React.FC = () => {
 
             {/* Search box */}
             <div className="reads-search-box">
+                <button
+                    className={`reads-search-mode-toggle ${state.searchMode === 'reference' ? 'active' : ''}`}
+                    onClick={handleToggleSearchMode}
+                    title={`Search mode: ${state.searchMode === 'reference' ? 'Reference names' : 'Read IDs'} (click to toggle)`}
+                >
+                    {state.searchMode === 'reference' ? 'Ref' : 'Read'}
+                </button>
                 <input
                     type="text"
-                    placeholder="Search reads..."
+                    placeholder={`Search ${state.searchMode === 'reference' ? 'references' : 'reads'}...`}
                     value={state.searchText}
                     onChange={(e) => handleSearch(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -508,7 +530,8 @@ export const ReadsCore: React.FC = () => {
 function filterItems(
     items: ReadListItem[],
     searchText: string,
-    referenceToReads: Map<string, ReadItem[]>
+    referenceToReads: Map<string, ReadItem[]>,
+    searchMode: 'reference' | 'read'
 ): ReadListItem[] {
     if (!searchText) {
         return items;
@@ -520,23 +543,41 @@ function filterItems(
     for (const item of items) {
         if (item.type === 'reference') {
             const refMatches = item.referenceName.toLowerCase().includes(searchLower);
-            const reads = referenceToReads.get(item.referenceName) || [];
 
-            // If reference matches, show all reads; otherwise filter reads
-            const matchingReads = refMatches
-                ? reads
-                : reads.filter((read) => read.readId.toLowerCase().includes(searchLower));
+            // In reference mode, only match reference names
+            if (searchMode === 'reference') {
+                if (refMatches) {
+                    filtered.push(item);
+                }
+            } else {
+                // In read mode, check individual reads
+                const reads = referenceToReads.get(item.referenceName) || [];
+                const matchingReads = reads.filter((read) =>
+                    read.readId.toLowerCase().includes(searchLower)
+                );
 
-            if (matchingReads.length > 0) {
-                filtered.push({
-                    ...item,
-                    readCount: matchingReads.length,
-                });
+                if (matchingReads.length > 0) {
+                    filtered.push({
+                        ...item,
+                        readCount: matchingReads.length,
+                    });
+                }
             }
         } else {
-            // For flat list (POD5-only), just filter by read ID
-            if (item.readId.toLowerCase().includes(searchLower)) {
-                filtered.push(item);
+            // For flat list (POD5-only)
+            if (searchMode === 'reference') {
+                // Search in reference name if available
+                if (
+                    item.referenceName &&
+                    item.referenceName.toLowerCase().includes(searchLower)
+                ) {
+                    filtered.push(item);
+                }
+            } else {
+                // Search in read ID
+                if (item.readId.toLowerCase().includes(searchLower)) {
+                    filtered.push(item);
+                }
             }
         }
     }
@@ -612,7 +653,8 @@ function rebuildItemsList(
     expandedReferences: Set<string>,
     searchText: string,
     sortBy: 'name' | 'reads' = 'name',
-    sortOrder: 'asc' | 'desc' = 'asc'
+    sortOrder: 'asc' | 'desc' = 'asc',
+    searchMode: 'reference' | 'read' = 'reference'
 ): ReadListItem[] {
     const items: ReadListItem[] = [];
     const searchLower = searchText.toLowerCase();
@@ -639,15 +681,27 @@ function rebuildItemsList(
     for (const [referenceName, reads] of references) {
         const refMatches = referenceName.toLowerCase().includes(searchLower);
 
-        // Filter reads only if reference name doesn't match
-        // If reference matches, show ALL reads under it
-        const filteredReads =
-            searchText && !refMatches
-                ? reads.filter((read) => read.readId.toLowerCase().includes(searchLower))
-                : reads;
+        let filteredReads: ReadItem[];
+        let shouldInclude: boolean;
 
-        // Skip reference if no matches at all
-        if (searchText && filteredReads.length === 0 && !refMatches) {
+        if (!searchText) {
+            // No search - show all
+            filteredReads = reads;
+            shouldInclude = true;
+        } else if (searchMode === 'reference') {
+            // Reference mode - only match reference names
+            filteredReads = reads;
+            shouldInclude = refMatches;
+        } else {
+            // Read mode - match read IDs
+            filteredReads = reads.filter((read) =>
+                read.readId.toLowerCase().includes(searchLower)
+            );
+            shouldInclude = filteredReads.length > 0;
+        }
+
+        // Skip reference if no matches
+        if (!shouldInclude) {
             continue;
         }
 
