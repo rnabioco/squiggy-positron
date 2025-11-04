@@ -1,5 +1,13 @@
 # Squiggy Release Notes
 
+## v0.1.10-alpha (2025-01-04)
+
+UX improvement with search mode toggle for better reference navigation.
+
+### Improvements
+
+- **Search Mode Toggle**: Added toggle button in reads explorer search bar to switch between reference name search (default) and read ID search. This fixes an issue where searching for reference names would clear the panel in lazy-loading mode, and provides a cleaner UX by separating the two search use cases.
+
 ## v0.1.9-alpha (2025-11-04)
 
 Performance and UX improvements with optimized data loading and enhanced reads explorer.
