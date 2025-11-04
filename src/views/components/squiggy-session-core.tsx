@@ -24,6 +24,8 @@ export const SessionCore: React.FC = () => {
         sampleNames: [],
     });
 
+    const [isDemoExpanded, setIsDemoExpanded] = React.useState<boolean>(false);
+
     // Handle messages from extension
     React.useEffect(() => {
         const messageHandler = (event: MessageEvent) => {
@@ -74,19 +76,30 @@ export const SessionCore: React.FC = () => {
     return (
         <div className="session-container">
             {/* Demo Session Card */}
-            <div className="demo-card">
-                <h3 className="demo-title">
-                    <span className="icon">🚀</span> Try Squiggy with Demo Data
-                </h3>
-                <p className="demo-description">
-                    Explore 180 yeast tRNA reads with base annotations
-                </p>
-                <button className="btn btn-primary btn-full" onClick={handleLoadDemo}>
-                    <span className="icon">▶</span> Load Demo Session
-                </button>
-                <div className="demo-info">
-                    <span className="icon">ℹ️</span> Uses packaged test data - no files needed!
+            <div className={`demo-card ${!isDemoExpanded ? 'collapsed' : ''}`}>
+                <div
+                    className="demo-title"
+                    onClick={() => setIsDemoExpanded(!isDemoExpanded)}
+                    style={{ cursor: 'pointer' }}
+                >
+                    <span className="icon">{isDemoExpanded ? '▼' : '▶'}</span>
+                    <span className="icon">🚀</span>
+                    <span>Try Demo Data</span>
                 </div>
+                {isDemoExpanded && (
+                    <>
+                        <p className="demo-description">
+                            Explore 180 yeast tRNA reads with base annotations
+                        </p>
+                        <button className="btn btn-primary btn-full" onClick={handleLoadDemo}>
+                            <span className="icon">▶</span> Load Demo Session
+                        </button>
+                        <div className="demo-info">
+                            <span className="icon">ℹ️</span> Uses packaged test data - no files
+                            needed!
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Current Session Status */}
@@ -108,47 +121,36 @@ export const SessionCore: React.FC = () => {
 
             {/* Session Actions */}
             <div className="section">
-                <h4 className="section-title">Session Actions</h4>
-                <button
-                    className="btn btn-full"
-                    onClick={handleSave}
-                    disabled={!state.hasSamples}
-                >
-                    <span className="icon">💾</span> Save Session
-                </button>
-                <button
-                    className="btn btn-secondary btn-full"
-                    onClick={handleRestore}
-                    disabled={!state.hasSavedSession}
-                >
-                    <span className="icon">📜</span> Restore Session
-                </button>
-            </div>
-
-            {/* Import/Export */}
-            <div className="section">
-                <h4 className="section-title">Import/Export</h4>
-                <button
-                    className="btn btn-secondary btn-full"
-                    onClick={handleExport}
-                    disabled={!state.hasSamples}
-                >
-                    <span className="icon">📤</span> Export to File
-                </button>
-                <button className="btn btn-secondary btn-full" onClick={handleImport}>
-                    <span className="icon">📥</span> Import from File
-                </button>
-            </div>
-
-            {/* Cleanup */}
-            <div className="section">
-                <button
-                    className="btn btn-secondary btn-full"
-                    onClick={handleClear}
-                    disabled={!state.hasSavedSession}
-                >
-                    <span className="icon">🗑️</span> Clear Saved Session
-                </button>
+                <h4 className="section-title">Actions</h4>
+                <div className="btn-grid">
+                    <button className="btn" onClick={handleSave} disabled={!state.hasSamples}>
+                        <span className="icon">💾</span> Save Positron
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={handleRestore}
+                        disabled={!state.hasSavedSession}
+                    >
+                        <span className="icon">📜</span> Restore
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={handleExport}
+                        disabled={!state.hasSamples}
+                    >
+                        <span className="icon">📄</span> Export JSON
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleImport}>
+                        <span className="icon">📥</span> Import
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={handleClear}
+                        disabled={!state.hasSavedSession}
+                    >
+                        <span className="icon">🗑️</span> Clear
+                    </button>
+                </div>
             </div>
         </div>
     );

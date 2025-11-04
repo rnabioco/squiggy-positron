@@ -66,8 +66,11 @@ export async function saveSessionCommand(
             // Save to workspace state
             await SessionStateManager.saveSession(sessionState, context);
 
+            // Get workspace name for better feedback
+            const workspaceName = vscode.workspace.name || 'this workspace';
+
             vscode.window.showInformationMessage(
-                `Session ${sessionName ? `"${sessionName}" ` : ''}saved successfully`
+                `Session ${sessionName ? `"${sessionName}" ` : ''}saved to ${workspaceName} workspace state`
             );
         }
     } catch (error) {
