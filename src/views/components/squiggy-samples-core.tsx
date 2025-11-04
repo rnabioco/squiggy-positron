@@ -11,17 +11,17 @@ import { SampleItem } from '../../types/messages';
 interface SamplesState {
     samples: SampleItem[];
     selectedSamples: Set<string>;
-    maxReads: number | null;  // null = use default (min of available)
+    maxReads: number | null; // null = use default (min of available)
     minAvailableReads: number;
     maxAvailableReads: number;
-    sessionFastaPath: string | null;  // Session-level FASTA file path
+    sessionFastaPath: string | null; // Session-level FASTA file path
 }
 
 export const SamplesCore: React.FC = () => {
     const [state, setState] = useState<SamplesState>({
         samples: [],
         selectedSamples: new Set(),
-        maxReads: null,  // null means use default
+        maxReads: null, // null means use default
         minAvailableReads: 1,
         maxAvailableReads: 100,
         sessionFastaPath: null,
@@ -34,13 +34,27 @@ export const SamplesCore: React.FC = () => {
             console.log('SamplesCore received message:', message);
 
             switch (message.type) {
-                case 'updateSamples':
+                case 'updateSamples': {
                     console.log('Updating samples:', message.samples);
-                    setState((prev) => ({
-                        ...prev,
-                        samples: message.samples,
-                    }));
+                    setState((prev) => {
+                        // Auto-select newly added samples
+                        const samples = (message as any).samples as SampleItem[];
+                        const newSampleNames = new Set(samples.map((s: SampleItem) => s.name));
+                        const updatedSelected = new Set(prev.selectedSamples);
+                        newSampleNames.forEach((name: string) => {
+                            if (!prev.selectedSamples.has(name)) {
+                                updatedSelected.add(name);
+                            }
+                        });
+
+                        return {
+                            ...prev,
+                            samples,
+                            selectedSamples: updatedSelected,
+                        };
+                    });
                     break;
+                }
 
                 case 'clearSamples':
                     console.log('Clearing samples');
@@ -102,11 +116,16 @@ export const SamplesCore: React.FC = () => {
             return;
         }
 
-        console.log('Starting comparison with samples:', selectedNames, 'maxReads:', state.maxReads);
+        console.log(
+            'Starting comparison with samples:',
+            selectedNames,
+            'maxReads:',
+            state.maxReads
+        );
         vscode.postMessage({
             type: 'startComparison',
             sampleNames: selectedNames,
-            maxReads: state.maxReads,  // null means use default
+            maxReads: state.maxReads, // null means use default
         });
     };
 
@@ -142,101 +161,10 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Visual feedback is handled by CSS :hover state
-    };
-
-    const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Get file paths from dataTransfer using webkitGetAsEntry for full paths
-        const items = e.dataTransfer.items;
-        const filePaths: string[] = [];
-
-        if (items) {
-            try {
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    if (item.kind === 'file') {
-                        // Use webkitGetAsEntry to get FileSystemEntry with fullPath
-                        const entry = (item as any).webkitGetAsEntry?.();
-                        if (entry) {
-                            const paths = await getFullPathsFromEntry(entry);
-                            filePaths.push(...paths);
-                        } else {
-                            // Fallback if webkitGetAsEntry not available
-                            const file = item.getAsFile();
-                            if (file && file.name) {
-                                filePaths.push(file.name);
-                            }
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Error extracting file paths:', error);
-                vscode.postMessage({
-                    type: 'filesDropped',
-                    filePaths: [],
-                });
-                return;
-            }
-        }
-
-        console.log('Files dropped with full paths:', filePaths);
+    const handleLoadSamplesClick = () => {
+        console.log('🎯 DEBUG: Load Samples button clicked');
         vscode.postMessage({
-            type: 'filesDropped',
-            filePaths,
-        });
-    };
-
-    // Helper function to recursively extract full paths from FileSystemEntry
-    const getFullPathsFromEntry = async (entry: any): Promise<string[]> => {
-        const paths: string[] = [];
-
-        if (entry.isFile) {
-            // File entry - has fullPath property
-            paths.push(entry.fullPath);
-        } else if (entry.isDirectory) {
-            // Directory entry - recursively read contents
-            try {
-                const reader = entry.createReader();
-                const entries = await readAllDirectoryEntries(reader);
-
-                for (const e of entries) {
-                    const subPaths = await getFullPathsFromEntry(e);
-                    paths.push(...subPaths);
-                }
-            } catch (error) {
-                console.error('Error reading directory:', error);
-            }
-        }
-
-        return paths;
-    };
-
-    // Helper to read all entries from a DirectoryReader
-    const readAllDirectoryEntries = async (reader: any): Promise<any[]> => {
-        const entries: any[] = [];
-
-        return new Promise((resolve, reject) => {
-            const readEntries = () => {
-                reader.readEntries(
-                    (batch: any[]) => {
-                        if (batch.length > 0) {
-                            entries.push(...batch);
-                            readEntries();  // Continue reading
-                        } else {
-                            resolve(entries);  // Done reading
-                        }
-                    },
-                    (error: Error) => reject(error)
-                );
-            };
-
-            readEntries();
+            type: 'requestLoadSamples',
         });
     };
 
@@ -307,26 +235,32 @@ export const SamplesCore: React.FC = () => {
                     )}
                 </div>
 
-                {/* Drop Zone */}
-                <div
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
+                {/* Load Button */}
+                <button
+                    onClick={handleLoadSamplesClick}
                     style={{
-                        border: '2px dashed var(--vscode-widget-border)',
-                        borderRadius: '4px',
-                        padding: '20px',
-                        textAlign: 'center',
-                        backgroundColor: 'var(--vscode-input-background)',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontStyle: 'italic',
-                        marginBottom: '12px',
+                        width: '100%',
+                        padding: '6px 8px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
                         cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
+                        marginBottom: '12px',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
                     }}
                 >
-                    Drag POD5 + BAM file pairs here
-                    <br />
-                    (or use "Load Sample (Multi-Sample Comparison)")
-                </div>
+                    Load Samples
+                </button>
             </div>
         );
     }
@@ -406,24 +340,32 @@ export const SamplesCore: React.FC = () => {
                 )}
             </div>
 
-            {/* Drop Zone for Adding More Samples */}
-            <div
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                style={{
-                    border: '2px dashed var(--vscode-widget-border)',
-                    borderRadius: '4px',
-                    padding: '12px',
-                    textAlign: 'center',
-                    backgroundColor: 'var(--vscode-input-background)',
-                    color: 'var(--vscode-descriptionForeground)',
-                    fontSize: '0.85em',
-                    fontStyle: 'italic',
-                    marginBottom: '12px',
-                    cursor: 'pointer',
-                }}
-            >
-                Drag more POD5 + BAM pairs here to add samples
+            {/* Load More Samples Button */}
+            <div style={{ marginBottom: '12px' }}>
+                <button
+                    onClick={handleLoadSamplesClick}
+                    style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
+                    }}
+                >
+                    Load More Samples
+                </button>
             </div>
 
             {/* Samples List */}
@@ -615,7 +557,9 @@ export const SamplesCore: React.FC = () => {
                             type="range"
                             min={state.minAvailableReads}
                             max={state.maxAvailableReads}
-                            value={state.maxReads === null ? state.maxAvailableReads : state.maxReads}
+                            value={
+                                state.maxReads === null ? state.maxAvailableReads : state.maxReads
+                            }
                             onChange={(e) => handleMaxReadsChange(parseInt(e.target.value))}
                             style={{
                                 width: '100%',

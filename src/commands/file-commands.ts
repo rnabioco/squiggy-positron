@@ -184,9 +184,7 @@ export function registerFileCommands(
                     state.samplesProvider.updateSessionFasta(fastaPath);
                 }
 
-                vscode.window.showInformationMessage(
-                    `FASTA set: ${path.basename(fastaPath)}`
-                );
+                vscode.window.showInformationMessage(`FASTA set: ${path.basename(fastaPath)}`);
             }
         })
     );
@@ -199,6 +197,34 @@ export function registerFileCommands(
                 await loadSamplesFromDropped(context, state, fileQueue);
             }
         )
+    );
+
+    // Load samples via file picker (from UI button)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadSamplesFromUI', async () => {
+            const fileUris = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                filters: { 'Sequence Files': ['pod5', 'bam'], 'All Files': ['*'] },
+                title: 'Select POD5 and BAM files to load',
+            });
+
+            if (!fileUris || fileUris.length === 0) {
+                return;
+            }
+
+            const filePaths = fileUris.map((uri) => uri.fsPath);
+
+            // Delegate to the samples panel's file handling logic
+            const samplesProvider = state.samplesProvider;
+            if (samplesProvider) {
+                // The samples panel will handle categorizing and matching files
+                // We need to access its private method via message or use the same logic
+                // For now, use the setFilesForLoading approach
+                // Actually, we need to call a public method on samplesProvider
+                // Let's create a new public method that handles file paths directly
+                await loadSamplesFromFilePicker(context, state, filePaths);
+            }
+        })
     );
 }
 
@@ -889,4 +915,117 @@ async function loadSamplesFromDropped(
     } else {
         vscode.window.showErrorMessage(`Failed to load samples: ${message}`);
     }
+}
+
+/**
+ * Load samples from file picker (reuses the same logic as drag-and-drop)
+ */
+async function loadSamplesFromFilePicker(
+    context: vscode.ExtensionContext,
+    state: ExtensionState,
+    filePaths: string[]
+): Promise<void> {
+    // Categorize files by extension (reuse same logic as drag-and-drop handler)
+    const pod5Files: string[] = [];
+    const bamFiles: string[] = [];
+
+    for (const filePath of filePaths) {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.pod5') {
+            pod5Files.push(filePath);
+        } else if (ext === '.bam') {
+            bamFiles.push(filePath);
+        }
+    }
+
+    if (pod5Files.length === 0) {
+        vscode.window.showWarningMessage('No POD5 files selected');
+        return;
+    }
+
+    // Auto-match POD5 files to BAM files using stem matching
+    const fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+    for (const pod5Path of pod5Files) {
+        const pod5Basename = path.basename(pod5Path, '.pod5');
+        const pod5Stem = extractStem(pod5Basename);
+
+        // Try to find matching BAM file
+        let matchedBam: string | undefined;
+
+        // First try: exact basename match
+        for (const bamPath of bamFiles) {
+            const bamBasename = path.basename(bamPath);
+            if (bamBasename.startsWith(pod5Basename)) {
+                matchedBam = bamPath;
+                break;
+            }
+        }
+
+        // Second try: stem match
+        if (!matchedBam) {
+            for (const bamPath of bamFiles) {
+                const bamBasename = path.basename(bamPath, '.bam');
+                if (extractStem(bamBasename) === pod5Stem) {
+                    matchedBam = bamPath;
+                    break;
+                }
+            }
+        }
+
+        fileQueue.push({
+            pod5Path,
+            bamPath: matchedBam,
+            sampleName: pod5Stem,
+        });
+    }
+
+    // Prompt user to confirm and customize sample names
+    const confirmed: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+    for (let i = 0; i < fileQueue.length; i++) {
+        const item = fileQueue[i];
+        const suggestion = item.sampleName;
+
+        const customName = await vscode.window.showInputBox({
+            prompt: `Sample ${i + 1}/${fileQueue.length}: Enter name for ${path.basename(item.pod5Path)}`,
+            value: suggestion,
+            validateInput: (value) => {
+                if (!value.trim()) {
+                    return 'Sample name cannot be empty';
+                }
+                if (
+                    confirmed.filter((c) => c.sampleName === value).length > 0 ||
+                    fileQueue.slice(i + 1).filter((f) => f.sampleName === value).length > 0
+                ) {
+                    return 'Sample name already used';
+                }
+                return null;
+            },
+        });
+
+        if (customName === undefined) {
+            // User cancelled
+            return;
+        }
+
+        confirmed.push({
+            ...item,
+            sampleName: customName.trim(),
+        });
+    }
+
+    // Load samples using the same logic as dropped files
+    await loadSamplesFromDropped(context, state, confirmed);
+}
+
+/**
+ * Extract stem from filename (everything before first non-word character)
+ */
+function extractStem(filename: string): string {
+    // Remove extension first
+    const withoutExt = filename.replace(/\.[^.]*$/, '');
+    // Extract stem: everything up to first non-alphanumeric non-underscore
+    const match = withoutExt.match(/^([a-zA-Z0-9_]+)/);
+    return match ? match[1] : withoutExt;
 }

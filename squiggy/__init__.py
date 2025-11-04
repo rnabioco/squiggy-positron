@@ -740,11 +740,15 @@ def plot_delta_comparison(
                 )
                 available_reads_per_sample.append(available)
             except Exception as e:
-                print(f"Warning: Could not determine available reads for '{sample.name}': {e}")
+                print(
+                    f"Warning: Could not determine available reads for '{sample.name}': {e}"
+                )
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
-        max_reads = min(available_reads_per_sample) if available_reads_per_sample else 100
+        max_reads = (
+            min(available_reads_per_sample) if available_reads_per_sample else 100
+        )
         max_reads = min(max_reads, 100)  # Cap at 100 for performance
 
     # Extract aligned reads from both samples using the proper utility function
@@ -892,7 +896,7 @@ def plot_signal_overlay_comparison(
         reference_name = references[0]["name"]
 
     # Validate all samples have same reference
-    for i, sample in enumerate(samples[1:], start=1):
+    for _i, sample in enumerate(samples[1:], start=1):
         if not sample.bam_info or "references" not in sample.bam_info:
             raise ValueError(
                 f"Sample '{sample.name}' BAM must contain reference information"
@@ -921,11 +925,15 @@ def plot_signal_overlay_comparison(
                 )
                 available_reads_per_sample.append(available)
             except Exception as e:
-                print(f"Warning: Could not determine available reads for '{sample.name}': {e}")
+                print(
+                    f"Warning: Could not determine available reads for '{sample.name}': {e}"
+                )
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
-        max_reads = min(available_reads_per_sample) if available_reads_per_sample else 100
+        max_reads = (
+            min(available_reads_per_sample) if available_reads_per_sample else 100
+        )
         max_reads = min(max_reads, 100)  # Cap at 100 for performance
 
     # Extract aligned reads for each sample
@@ -951,17 +959,21 @@ def plot_signal_overlay_comparison(
 
         agg_stats = calculate_aggregate_signal(reads, norm_method)
 
-        plot_data.append({
-            "name": sample.name,
-            "positions": agg_stats.get("positions", np.arange(len(agg_stats.get("mean_signal", [])))),
-            "signal": agg_stats.get("mean_signal", np.array([])),
-        })
+        plot_data.append(
+            {
+                "name": sample.name,
+                "positions": agg_stats.get(
+                    "positions", np.arange(len(agg_stats.get("mean_signal", [])))
+                ),
+                "signal": agg_stats.get("mean_signal", np.array([])),
+            }
+        )
 
-        coverage_data[sample.name] = agg_stats.get("coverage", [1] * len(agg_stats.get("mean_signal", [])))
+        coverage_data[sample.name] = agg_stats.get(
+            "coverage", [1] * len(agg_stats.get("mean_signal", []))
+        )
 
     # Get reference sequence
-    from .utils import get_reference_sequence_for_read
-
     reference_sequence = ""
     if plot_data:
         # Use first read from first sample to get reference sequence

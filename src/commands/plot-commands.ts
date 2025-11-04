@@ -137,7 +137,9 @@ export function registerPlotCommands(
                 }
 
                 if (sampleNames.length < 2) {
-                    vscode.window.showErrorMessage('Signal overlay comparison requires at least 2 samples');
+                    vscode.window.showErrorMessage(
+                        'Signal overlay comparison requires at least 2 samples'
+                    );
                     return;
                 }
 
@@ -354,7 +356,11 @@ async function plotMotifAggregateAll(
  * Plot signal overlay comparison between multiple samples
  * Phase 1 - Default multi-sample comparison visualization
  */
-async function plotSignalOverlayComparison(sampleNames: string[], state: ExtensionState, maxReads?: number | null): Promise<void> {
+async function plotSignalOverlayComparison(
+    sampleNames: string[],
+    state: ExtensionState,
+    maxReads?: number | null
+): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
             if (!state.squiggyAPI) {
@@ -371,7 +377,12 @@ async function plotSignalOverlayComparison(sampleNames: string[], state: Extensi
 
             // Generate signal overlay plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateSignalOverlayComparison(sampleNames, normalization, theme, maxReads);
+                await state.squiggyAPI.generateSignalOverlayComparison(
+                    sampleNames,
+                    normalization,
+                    theme,
+                    maxReads
+                );
             } else if (state.pythonBackend) {
                 // Subprocess backend not yet implemented for overlay plots
                 throw new Error(
@@ -390,7 +401,11 @@ async function plotSignalOverlayComparison(sampleNames: string[], state: Extensi
  * Plot delta comparison between two or more samples
  * Phase 4 - Multi-sample comparison feature (optional, 2-sample only)
  */
-async function plotDeltaComparison(sampleNames: string[], state: ExtensionState, maxReads?: number | null): Promise<void> {
+async function plotDeltaComparison(
+    sampleNames: string[],
+    state: ExtensionState,
+    maxReads?: number | null
+): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
             if (!state.squiggyAPI) {
@@ -407,7 +422,12 @@ async function plotDeltaComparison(sampleNames: string[], state: ExtensionState,
 
             // Generate delta plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateDeltaPlot(sampleNames, normalization, theme, maxReads);
+                await state.squiggyAPI.generateDeltaPlot(
+                    sampleNames,
+                    normalization,
+                    theme,
+                    maxReads
+                );
             } else if (state.pythonBackend) {
                 // Subprocess backend not yet implemented for delta plots
                 throw new Error(

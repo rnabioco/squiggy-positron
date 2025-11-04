@@ -516,7 +516,8 @@ squiggy.remove_sample('${escapedName}')
         const sampleNamesJson = JSON.stringify(sampleNames);
 
         // Build maxReads parameter if provided
-        const maxReadsParam = maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+        const maxReadsParam =
+            maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
 
         const code = `
 import squiggy
@@ -552,7 +553,8 @@ squiggy.plot_signal_overlay_comparison(
         const sampleNamesJson = JSON.stringify(sampleNames);
 
         // Build maxReads parameter if provided
-        const maxReadsParam = maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+        const maxReadsParam =
+            maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
 
         const code = `
 import squiggy

@@ -57,7 +57,7 @@ export class ExtensionState {
     // Multi-sample state (Phase 4)
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
-    private _sessionFastaPath: string | null = null;  // Session-level FASTA for all comparisons
+    private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;

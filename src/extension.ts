@@ -100,7 +100,11 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         samplesProvider.onDidRequestComparison((sampleNames) => {
             const maxReads = samplesProvider.getPendingMaxReads();
-            vscode.commands.executeCommand('squiggy.plotSignalOverlayComparison', sampleNames, maxReads);
+            vscode.commands.executeCommand(
+                'squiggy.plotSignalOverlayComparison',
+                sampleNames,
+                maxReads
+            );
         })
     );
 

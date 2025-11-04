@@ -38,7 +38,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
     getPendingMaxReads(): number | null {
         const value = this._pendingMaxReads;
-        this._pendingMaxReads = null;  // Clear after reading
+        this._pendingMaxReads = null; // Clear after reading
         return value;
     }
 
@@ -100,6 +100,10 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
             case 'requestSetSessionFasta':
                 await vscode.commands.executeCommand('squiggy.setSessionFasta');
+                break;
+
+            case 'requestLoadSamples':
+                await vscode.commands.executeCommand('squiggy.loadSamplesFromUI');
                 break;
 
             case 'setSessionFasta':
@@ -212,7 +216,9 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
      * Handle dropped files - parse and auto-match POD5/BAM pairs
      */
     private async handleFilesDropped(filePaths: string[]): Promise<void> {
+        console.log('🎯 DEBUG: handleFilesDropped called with paths:', filePaths);
         if (filePaths.length === 0) {
+            console.log('🎯 DEBUG: No file paths provided');
             return;
         }
 
@@ -252,7 +258,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             // Prompt user to confirm sample names before loading
             const confirmed = await this.confirmSampleNames(fileQueue);
             if (confirmed.length === 0) {
-                return;  // User cancelled
+                return; // User cancelled
             }
 
             // Load samples via command

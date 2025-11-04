@@ -951,6 +951,20 @@ def extract_reads_for_reference(
                     np.array(read.query_qualities) if read.query_qualities else None
                 )
 
+                # Calculate soft-clipped bases at the start and end of the read
+                # This tells us how many bases in the raw signal to skip
+                cigar = read.cigartuples
+                query_start_offset = 0  # Bases to skip at start due to soft clipping
+                query_end_offset = 0  # Bases to skip at end due to soft clipping
+
+                if cigar:
+                    # Check for soft clip at start (operation code 4)
+                    if cigar[0][0] == 4:
+                        query_start_offset = cigar[0][1]
+                    # Check for soft clip at end (operation code 4)
+                    if cigar[-1][0] == 4:
+                        query_end_offset = cigar[-1][1]
+
                 reads_info.append(
                     {
                         "read_id": read.query_name,
@@ -960,6 +974,8 @@ def extract_reads_for_reference(
                         "move_table": moves,
                         "stride": stride,
                         "quality_scores": quality_scores,
+                        "query_start_offset": query_start_offset,  # Soft-clipped bases at start
+                        "query_end_offset": query_end_offset,  # Soft-clipped bases at end
                     }
                 )
 
@@ -1027,19 +1043,44 @@ def calculate_aggregate_signal(reads_data, normalization_method):
     position_reads = {}  # Track which reads cover each position
 
     for read in reads_data:
-        read_id = read.get("read_id", str(id(read)))  # Use read_id if available, else use object id
+        read_id = read.get(
+            "read_id", str(id(read))
+        )  # Use read_id if available, else use object id
         # Normalize the signal
         signal = normalize_signal(read["signal"], normalization_method)
         stride = read["stride"]
-        moves = read["move_table"]
+        moves = np.array(read["move_table"], dtype=np.uint8)
         ref_start = read["reference_start"]
 
-        # Map signal to reference positions using move table
-        ref_pos = ref_start
-        sig_idx = 0
+        # Soft-clipped bases: the move table includes moves for ALL signal samples
+        # We need to skip signal samples corresponding to soft-clipped query bases
+        query_start_offset = read.get("query_start_offset", 0)
+        query_end_offset = read.get("query_end_offset", 0)
 
-        for move in moves:
-            if sig_idx < len(signal):
+        # Find indices in move table where move=1 (these correspond to query bases)
+        query_base_move_indices = np.where(moves == 1)[0]
+
+        if len(query_base_move_indices) == 0:
+            # No aligned bases, skip this read
+            continue
+
+        # The first query_start_offset indices are soft-clipped at the start
+        # The last query_end_offset indices are soft-clipped at the end
+        aligned_query_base_indices = query_base_move_indices[
+            query_start_offset : len(query_base_move_indices) - query_end_offset
+        ]
+        aligned_set = set(aligned_query_base_indices)  # For O(1) lookup
+
+        # Map signal to reference positions using move table
+        # Only process aligned (non-soft-clipped) query bases
+        ref_pos = ref_start
+
+        for move_idx in range(len(moves)):
+            move = moves[move_idx]
+            sig_idx = move_idx * stride
+
+            # Only process if this move index corresponds to an aligned query base
+            if move_idx in aligned_set and sig_idx < len(signal):
                 # Add signal value at this reference position
                 if ref_pos not in position_signals:
                     position_signals[ref_pos] = []
@@ -1047,7 +1088,7 @@ def calculate_aggregate_signal(reads_data, normalization_method):
                 position_signals[ref_pos].append(signal[sig_idx])
                 position_reads[ref_pos].add(read_id)
 
-            sig_idx += stride
+            # Advance reference position only on move=1
             if move == 1:
                 ref_pos += 1
 
@@ -1063,7 +1104,9 @@ def calculate_aggregate_signal(reads_data, normalization_method):
         mean_signals.append(np.mean(values))
         std_signals.append(np.std(values))
         median_signals.append(np.median(values))
-        coverages.append(len(position_reads[pos]))  # Count unique reads, not signal samples
+        coverages.append(
+            len(position_reads[pos])
+        )  # Count unique reads, not signal samples
 
     return {
         "positions": np.array(positions),

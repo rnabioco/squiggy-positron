@@ -11,7 +11,6 @@ from typing import Any
 import numpy as np
 from bokeh.layouts import gridplot
 from bokeh.models import HoverTool, NumeralTickFormatter
-from bokeh.plotting import figure
 
 from ..constants import (
     MULTI_READ_COLORS,
@@ -28,13 +27,14 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
     """
     Plot strategy for overlaying signals from multiple samples
 
-    Creates a visualization of raw signals from 2+ samples overlaid on the same axes,
-    with each sample assigned a distinct color from the Okabe-Ito palette. Includes:
-    - Overlaid signal lines for all samples (color-coded)
+    Creates a visualization of aligned signals from 2+ samples overlaid on the same axes,
+    with each sample assigned a distinct color from the Okabe-Ito palette. Only shows
+    signal from regions with alignment data (respects soft-clipped boundaries). Includes:
+    - Overlaid signal lines for all samples (color-coded, aligned regions only)
     - Interactive legend to toggle samples on/off
     - Reference nucleotide sequence displayed below x-axis
     - Base coloring using standard nucleotide colors
-    - Coverage track showing read count per position per sample
+    - Aligned coverage track showing read count per position per sample (aligned reads only)
 
     Attributes:
         theme: Theme enum (LIGHT or DARK) for plot styling
@@ -113,9 +113,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
             required_keys = ["name", "positions", "signal"]
             missing = [k for k in required_keys if k not in sample]
             if missing:
-                raise ValueError(
-                    f"Sample {i} missing keys: {missing}"
-                )
+                raise ValueError(f"Sample {i} missing keys: {missing}")
 
             # Validate array lengths match
             positions = sample["positions"]
@@ -143,9 +141,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
         for sample in samples:
             sample_name = sample["name"]
             if sample_name not in coverage:
-                raise ValueError(
-                    f"Missing coverage data for sample '{sample_name}'"
-                )
+                raise ValueError(f"Missing coverage data for sample '{sample_name}'")
 
     def create_plot(
         self, data: dict[str, Any], options: dict[str, Any]
@@ -175,6 +171,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
         # Prepare plot data for each sample
         plot_data = []
         positions = None
+        downsampled_coverage_data = {}
 
         for i, sample in enumerate(samples):
             sample_positions = np.array(sample["positions"])
@@ -182,34 +179,44 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
 
             # Apply normalization if requested
             if normalization != NormalizationMethod.NONE:
-                sample_signal = normalize_signal(
-                    sample_signal, method=normalization
-                )
+                sample_signal = normalize_signal(sample_signal, method=normalization)
 
             # Apply downsampling if requested
             if downsample > 1:
                 sample_positions = sample_positions[::downsample]
                 sample_signal = sample_signal[::downsample]
 
-            plot_data.append({
-                "name": sample["name"],
-                "positions": sample_positions,
-                "signal": sample_signal,
-                "color": MULTI_READ_COLORS[i % len(MULTI_READ_COLORS)],
-            })
+            plot_data.append(
+                {
+                    "name": sample["name"],
+                    "positions": sample_positions,
+                    "signal": sample_signal,
+                    "color": MULTI_READ_COLORS[i % len(MULTI_READ_COLORS)],
+                }
+            )
+
+            # Also downsample coverage data for this sample
+            sample_name = sample["name"]
+            if sample_name in coverage_data:
+                coverage = np.array(coverage_data[sample_name])
+                if downsample > 1:
+                    coverage = coverage[::downsample]
+                downsampled_coverage_data[sample_name] = coverage
+            else:
+                downsampled_coverage_data[sample_name] = coverage_data.get(
+                    sample_name, []
+                )
 
             # Store positions from first sample (should be same for all)
             if positions is None:
                 positions = sample_positions
 
         # Create signal overlay track
-        p_signal = self._create_signal_track(
-            plot_data, reference_sequence
-        )
+        p_signal = self._create_signal_track(plot_data, reference_sequence)
 
-        # Create coverage track
+        # Create coverage track (use downsampled coverage data)
         p_coverage = self._create_coverage_track(
-            positions, coverage_data, plot_data, downsample
+            positions, downsampled_coverage_data, plot_data, downsample=1
         )
 
         # Link x-axes for synchronized zoom/pan
@@ -262,11 +269,9 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
 
         # Add base annotations (reference sequence display)
         if plot_data and reference_sequence:
-            positions = plot_data[0]["positions"]
+            plot_data[0]["positions"]
             # Get signal range for positioning annotations
-            all_signals = np.concatenate(
-                [s["signal"] for s in plot_data]
-            )
+            all_signals = np.concatenate([s["signal"] for s in plot_data])
             signal_min = np.min(all_signals)
             signal_max = np.max(all_signals)
 
@@ -312,12 +317,14 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
         downsample: int,
     ) -> Any:
         """
-        Create coverage track showing read count per position per sample
+        Create aligned coverage track showing read count per aligned position per sample
+
+        Shows only reads that have alignment data at each position (excludes soft-clipped regions).
 
         Args:
-            positions: Reference positions (x-axis)
-            coverage_data: Dict mapping sample names to coverage arrays
-            plot_data: List of dicts with sample info (for colors)
+            positions: Reference positions (x-axis) - used for axis range
+            coverage_data: Dict mapping sample names to coverage arrays (aligned reads only)
+            plot_data: List of dicts with sample info (for colors and positions)
             downsample: Downsampling factor
 
         Returns:
@@ -325,9 +332,9 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
         """
         # Create figure
         p = self.theme_manager.create_figure(
-            title="Coverage Comparison",
+            title="Aligned Coverage Comparison",
             x_label="Position",
-            y_label="Read Count",
+            y_label="Aligned Read Count",
             width=1000,
             height=250,
         )
@@ -337,12 +344,13 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
             sample_name = sample_info["name"]
             coverage = coverage_data.get(sample_name, [])
 
-            # Apply downsampling if needed
-            if downsample > 1:
-                coverage = coverage[::downsample]
+            # Use sample's own positions from plot_data instead of first sample's positions
+            # This ensures coverage array length matches positions array length
+            sample_positions = sample_info["positions"]
 
+            # Coverage is already downsampled in create_plot(), no need to downsample again
             p.line(
-                positions,
+                sample_positions,
                 coverage,
                 line_width=2,
                 line_color=sample_info["color"],
@@ -352,7 +360,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
 
             # Add scatter for individual points
             p.scatter(
-                positions,
+                sample_positions,
                 coverage,
                 size=4,
                 color=sample_info["color"],

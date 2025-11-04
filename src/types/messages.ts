@@ -154,7 +154,7 @@ export interface SelectSampleMessage extends BaseMessage {
 export interface StartComparisonMessage extends BaseMessage {
     type: 'startComparison';
     sampleNames: string[];
-    maxReads?: number | null;  // null means use default
+    maxReads?: number | null; // null means use default
 }
 
 export interface UnloadSampleMessage extends BaseMessage {
@@ -175,6 +175,10 @@ export interface RequestSetSessionFastaMessage extends BaseMessage {
     type: 'requestSetSessionFasta';
 }
 
+export interface RequestLoadSamplesMessage extends BaseMessage {
+    type: 'requestLoadSamples';
+}
+
 export interface SetSessionFastaMessage extends BaseMessage {
     type: 'setSessionFasta';
     fastaPath: string | null;
@@ -191,9 +195,13 @@ export type SamplesIncomingMessage =
     | UnloadSampleMessage
     | FilesDroppedMessage
     | RequestSetSessionFastaMessage
+    | RequestLoadSamplesMessage
     | SetSessionFastaMessage
     | ReadyMessage;
-export type SamplesOutgoingMessage = UpdateSamplesMessage | ClearSamplesMessage | UpdateSessionFastaMessage;
+export type SamplesOutgoingMessage =
+    | UpdateSamplesMessage
+    | ClearSamplesMessage
+    | UpdateSessionFastaMessage;
 
 // ========== Union Types for Message Handlers ==========
 
