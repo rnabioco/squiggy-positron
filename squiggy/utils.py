@@ -865,6 +865,39 @@ def get_reference_sequence_for_read(bam_file, read_id):
         raise ValueError(f"Error extracting reference sequence: {str(e)}") from e
 
 
+def get_available_reads_for_reference(bam_file, reference_name):
+    """Count total reads available for a reference in a BAM file
+
+    Args:
+        bam_file: Path to BAM file with alignments
+        reference_name: Name of reference sequence to count reads for
+
+    Returns:
+        Integer count of reads mapping to the reference
+
+    Raises:
+        ValueError: If BAM file cannot be read or reference not found
+    """
+    try:
+        count = 0
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if read.is_unmapped:
+                    continue
+
+                # Check if read maps to the specified reference
+                ref_name = bam.get_reference_name(read.reference_id)
+                if ref_name == reference_name:
+                    count += 1
+
+        return count
+
+    except Exception as e:
+        raise ValueError(
+            f"Error counting reads for reference '{reference_name}': {str(e)}"
+        ) from e
+
+
 def extract_reads_for_reference(
     pod5_file, bam_file, reference_name, max_reads=100, random_sample=True
 ):
@@ -918,6 +951,20 @@ def extract_reads_for_reference(
                     np.array(read.query_qualities) if read.query_qualities else None
                 )
 
+                # Calculate soft-clipped bases at the start and end of the read
+                # This tells us how many bases in the raw signal to skip
+                cigar = read.cigartuples
+                query_start_offset = 0  # Bases to skip at start due to soft clipping
+                query_end_offset = 0  # Bases to skip at end due to soft clipping
+
+                if cigar:
+                    # Check for soft clip at start (operation code 4)
+                    if cigar[0][0] == 4:
+                        query_start_offset = cigar[0][1]
+                    # Check for soft clip at end (operation code 4)
+                    if cigar[-1][0] == 4:
+                        query_end_offset = cigar[-1][1]
+
                 reads_info.append(
                     {
                         "read_id": read.query_name,
@@ -927,6 +974,8 @@ def extract_reads_for_reference(
                         "move_table": moves,
                         "stride": stride,
                         "quality_scores": quality_scores,
+                        "query_start_offset": query_start_offset,  # Soft-clipped bases at start
+                        "query_end_offset": query_end_offset,  # Soft-clipped bases at end
                     }
                 )
 
@@ -985,32 +1034,61 @@ def calculate_aggregate_signal(reads_data, normalization_method):
             - mean_signal: Mean signal at each position
             - std_signal: Standard deviation at each position
             - median_signal: Median signal at each position
-            - coverage: Number of reads covering each position
+            - coverage: Number of unique reads covering each position
     """
     from .normalization import normalize_signal
 
-    # Build a dict mapping reference positions to signal values
+    # Build a dict mapping reference positions to signal values and read IDs
     position_signals = {}
+    position_reads = {}  # Track which reads cover each position
 
     for read in reads_data:
+        read_id = read.get(
+            "read_id", str(id(read))
+        )  # Use read_id if available, else use object id
         # Normalize the signal
         signal = normalize_signal(read["signal"], normalization_method)
         stride = read["stride"]
-        moves = read["move_table"]
+        moves = np.array(read["move_table"], dtype=np.uint8)
         ref_start = read["reference_start"]
 
-        # Map signal to reference positions using move table
-        ref_pos = ref_start
-        sig_idx = 0
+        # Soft-clipped bases: the move table includes moves for ALL signal samples
+        # We need to skip signal samples corresponding to soft-clipped query bases
+        query_start_offset = read.get("query_start_offset", 0)
+        query_end_offset = read.get("query_end_offset", 0)
 
-        for move in moves:
-            if sig_idx < len(signal):
+        # Find indices in move table where move=1 (these correspond to query bases)
+        query_base_move_indices = np.where(moves == 1)[0]
+
+        if len(query_base_move_indices) == 0:
+            # No aligned bases, skip this read
+            continue
+
+        # The first query_start_offset indices are soft-clipped at the start
+        # The last query_end_offset indices are soft-clipped at the end
+        aligned_query_base_indices = query_base_move_indices[
+            query_start_offset : len(query_base_move_indices) - query_end_offset
+        ]
+        aligned_set = set(aligned_query_base_indices)  # For O(1) lookup
+
+        # Map signal to reference positions using move table
+        # Only process aligned (non-soft-clipped) query bases
+        ref_pos = ref_start
+
+        for move_idx in range(len(moves)):
+            move = moves[move_idx]
+            sig_idx = move_idx * stride
+
+            # Only process if this move index corresponds to an aligned query base
+            if move_idx in aligned_set and sig_idx < len(signal):
                 # Add signal value at this reference position
                 if ref_pos not in position_signals:
                     position_signals[ref_pos] = []
+                    position_reads[ref_pos] = set()
                 position_signals[ref_pos].append(signal[sig_idx])
+                position_reads[ref_pos].add(read_id)
 
-            sig_idx += stride
+            # Advance reference position only on move=1
             if move == 1:
                 ref_pos += 1
 
@@ -1026,7 +1104,9 @@ def calculate_aggregate_signal(reads_data, normalization_method):
         mean_signals.append(np.mean(values))
         std_signals.append(np.std(values))
         median_signals.append(np.median(values))
-        coverages.append(len(values))
+        coverages.append(
+            len(position_reads[pos])
+        )  # Count unique reads, not signal samples
 
     return {
         "positions": np.array(positions),

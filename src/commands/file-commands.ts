@@ -166,6 +166,67 @@ export function registerFileCommands(
         })
     );
 
+    // Set session-level FASTA file for all comparisons
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.setSessionFasta', async () => {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { 'FASTA Files': ['fasta', 'fa', 'fna'] },
+                title: 'Select FASTA File for Comparisons',
+            });
+
+            if (fileUri && fileUri[0]) {
+                const fastaPath = fileUri[0].fsPath;
+                state.setSessionFasta(fastaPath);
+
+                // Notify samples panel of FASTA change
+                if (state.samplesProvider) {
+                    state.samplesProvider.updateSessionFasta(fastaPath);
+                }
+
+                vscode.window.showInformationMessage(`FASTA set: ${path.basename(fastaPath)}`);
+            }
+        })
+    );
+
+    // Load samples from dropped files
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.loadSamplesFromDropped',
+            async (fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]) => {
+                await loadSamplesFromDropped(context, state, fileQueue);
+            }
+        )
+    );
+
+    // Load samples via file picker (from UI button)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadSamplesFromUI', async () => {
+            const fileUris = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                filters: { 'Sequence Files': ['pod5', 'bam'], 'All Files': ['*'] },
+                title: 'Select POD5 and BAM files to load',
+            });
+
+            if (!fileUris || fileUris.length === 0) {
+                return;
+            }
+
+            const filePaths = fileUris.map((uri) => uri.fsPath);
+
+            // Delegate to the samples panel's file handling logic
+            const samplesProvider = state.samplesProvider;
+            if (samplesProvider) {
+                // The samples panel will handle categorizing and matching files
+                // We need to access its private method via message or use the same logic
+                // For now, use the setFilesForLoading approach
+                // Actually, we need to call a public method on samplesProvider
+                // Let's create a new public method that handles file paths directly
+                await loadSamplesFromFilePicker(context, state, filePaths);
+            }
+        })
+    );
+
     // Internal commands for lazy loading
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.internal.loadMoreReads', async () => {
@@ -850,4 +911,214 @@ async function loadTestMultiReadDataset(
         console.error('[loadTestMultiReadDataset] Error:', error);
         handleError(error, ErrorContext.POD5_LOAD);
     }
+}
+
+/**
+ * Load multiple samples from dropped files
+ * Handles batch loading of POD5/BAM pairs with smart file matching
+ */
+async function loadSamplesFromDropped(
+    context: vscode.ExtensionContext,
+    state: ExtensionState,
+    fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
+): Promise<void> {
+    if (fileQueue.length === 0) {
+        return;
+    }
+
+    // Check if squiggy is available
+    if (!(await ensureSquiggyAvailable(state))) {
+        return;
+    }
+
+    const results = {
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+    };
+
+    for (let i = 0; i < fileQueue.length; i++) {
+        const { pod5Path, bamPath, sampleName } = fileQueue[i];
+        const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
+
+        try {
+            await safeExecuteWithProgress(
+                async () => {
+                    // Validate files exist
+                    try {
+                        await fs.access(pod5Path);
+                    } catch {
+                        throw new Error(`POD5 file not found: ${pod5Path}`);
+                    }
+
+                    if (bamPath) {
+                        try {
+                            await fs.access(bamPath);
+                        } catch {
+                            throw new Error(`BAM file not found: ${bamPath}`);
+                        }
+                    }
+
+                    // Load via Python API
+                    const result = await state.squiggyAPI!.loadSample(
+                        sampleName,
+                        pod5Path,
+                        bamPath,
+                        state.sessionFastaPath || undefined
+                    );
+
+                    // Update extension state
+                    state.addSample({
+                        name: sampleName,
+                        pod5Path,
+                        bamPath,
+                        fastaPath: state.sessionFastaPath || undefined,
+                        readCount: result.numReads,
+                        hasBam: !!bamPath,
+                        hasFasta: !!state.sessionFastaPath,
+                    });
+
+                    results.successful++;
+                },
+                ErrorContext.POD5_LOAD,
+                progressMsg
+            );
+        } catch (error) {
+            console.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
+            results.failed++;
+        }
+    }
+
+    // Refresh samples panel with all loaded samples
+    if (state.samplesProvider) {
+        state.samplesProvider.refresh();
+    }
+
+    // Show summary
+    let message = `Loaded ${results.successful} sample(s)`;
+    if (results.failed > 0) {
+        message += `, ${results.failed} failed`;
+    }
+    if (results.skipped > 0) {
+        message += `, ${results.skipped} skipped`;
+    }
+
+    if (results.successful > 0) {
+        vscode.window.showInformationMessage(message);
+    } else {
+        vscode.window.showErrorMessage(`Failed to load samples: ${message}`);
+    }
+}
+
+/**
+ * Load samples from file picker (reuses the same logic as drag-and-drop)
+ */
+async function loadSamplesFromFilePicker(
+    context: vscode.ExtensionContext,
+    state: ExtensionState,
+    filePaths: string[]
+): Promise<void> {
+    // Categorize files by extension (reuse same logic as drag-and-drop handler)
+    const pod5Files: string[] = [];
+    const bamFiles: string[] = [];
+
+    for (const filePath of filePaths) {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.pod5') {
+            pod5Files.push(filePath);
+        } else if (ext === '.bam') {
+            bamFiles.push(filePath);
+        }
+    }
+
+    if (pod5Files.length === 0) {
+        vscode.window.showWarningMessage('No POD5 files selected');
+        return;
+    }
+
+    // Auto-match POD5 files to BAM files using stem matching
+    const fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+    for (const pod5Path of pod5Files) {
+        const pod5Basename = path.basename(pod5Path, '.pod5');
+        const pod5Stem = extractStem(pod5Basename);
+
+        // Try to find matching BAM file
+        let matchedBam: string | undefined;
+
+        // First try: exact basename match
+        for (const bamPath of bamFiles) {
+            const bamBasename = path.basename(bamPath);
+            if (bamBasename.startsWith(pod5Basename)) {
+                matchedBam = bamPath;
+                break;
+            }
+        }
+
+        // Second try: stem match
+        if (!matchedBam) {
+            for (const bamPath of bamFiles) {
+                const bamBasename = path.basename(bamPath, '.bam');
+                if (extractStem(bamBasename) === pod5Stem) {
+                    matchedBam = bamPath;
+                    break;
+                }
+            }
+        }
+
+        fileQueue.push({
+            pod5Path,
+            bamPath: matchedBam,
+            sampleName: pod5Stem,
+        });
+    }
+
+    // Prompt user to confirm and customize sample names
+    const confirmed: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+    for (let i = 0; i < fileQueue.length; i++) {
+        const item = fileQueue[i];
+        const suggestion = item.sampleName;
+
+        const customName = await vscode.window.showInputBox({
+            prompt: `Sample ${i + 1}/${fileQueue.length}: Enter name for ${path.basename(item.pod5Path)}`,
+            value: suggestion,
+            validateInput: (value) => {
+                if (!value.trim()) {
+                    return 'Sample name cannot be empty';
+                }
+                if (
+                    confirmed.filter((c) => c.sampleName === value).length > 0 ||
+                    fileQueue.slice(i + 1).filter((f) => f.sampleName === value).length > 0
+                ) {
+                    return 'Sample name already used';
+                }
+                return null;
+            },
+        });
+
+        if (customName === undefined) {
+            // User cancelled
+            return;
+        }
+
+        confirmed.push({
+            ...item,
+            sampleName: customName.trim(),
+        });
+    }
+
+    // Load samples using the same logic as dropped files
+    await loadSamplesFromDropped(context, state, confirmed);
+}
+
+/**
+ * Extract stem from filename (everything before first non-word character)
+ */
+function extractStem(filename: string): string {
+    // Remove extension first
+    const withoutExt = filename.replace(/\.[^.]*$/, '');
+    // Extract stem: everything up to first non-alphanumeric non-underscore
+    const match = withoutExt.match(/^([a-zA-Z0-9_]+)/);
+    return match ? match[1] : withoutExt;
 }
