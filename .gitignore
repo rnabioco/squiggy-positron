@@ -62,3 +62,6 @@ positron/
 remora/
 squigualiser/
 TASK.md
+
+# Private test data (not for public repo)
+tests/data/private-*

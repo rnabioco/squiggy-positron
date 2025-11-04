@@ -11,6 +11,9 @@ from .plot_strategies.base import PlotStrategy
 from .plot_strategies.delta import DeltaPlotStrategy
 from .plot_strategies.eventalign import EventAlignPlotStrategy
 from .plot_strategies.overlay import OverlayPlotStrategy
+from .plot_strategies.signal_overlay_comparison import (
+    SignalOverlayComparisonStrategy,
+)
 from .plot_strategies.single_read import SingleReadPlotStrategy
 from .plot_strategies.stacked import StackedPlotStrategy
 
@@ -43,6 +46,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
         PlotMode.EVENTALIGN: EventAlignPlotStrategy,
         PlotMode.AGGREGATE: AggregatePlotStrategy,
         PlotMode.DELTA: DeltaPlotStrategy,
+        PlotMode.SIGNAL_OVERLAY_COMPARISON: SignalOverlayComparisonStrategy,
     }
 
     strategy_class = strategy_map.get(plot_mode)
