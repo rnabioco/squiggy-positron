@@ -12,8 +12,9 @@ Complete guide to using the Squiggy Positron extension for nanopore signal visua
 - [Plotting Reads](#plotting-reads)
 - [Plot Customization](#plot-customization)
 - [Base Modifications](#base-modifications)
+- [Aggregate Plots](#aggregate-plots) (NEW!)
 - [Exporting Plots](#exporting-plots)
-- [Multi-Sample Comparison](#multi-sample-comparison) (NEW!)
+- [Multi-Sample Comparison](#multi-sample-comparison)
 - [Common Errors](#common-errors)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 
@@ -91,8 +92,9 @@ Click the Squiggy icon in the Activity Bar (left sidebar) to open the extension 
 - **Files** - POD5/BAM file information
 - **Search** - Filter reads by ID or reference
 - **Reads** - Hierarchical read list
-- **Plot Options** - Visualization settings
+- **Advanced Plotting** - Visualization settings and analysis type
 - **Base Modifications** - Modification filtering (when BAM loaded)
+- **Samples** - Manage multiple samples for comparison
 
 ## Sample Data
 
@@ -203,13 +205,24 @@ Use the Search panel to filter reads:
 1. Click any read in the Reads panel
 2. Plot appears in the main panel
 
-### Multiple Reads (coming soon)
+### Multiple Reads
 
-Currently, plotting multiple reads simultaneously is not supported but is planned for future releases.
+See the [Aggregate Plots](#aggregate-plots) section for multi-read visualization.
 
 ## Plot Customization
 
-### Plot Mode
+### Analysis Type
+
+**Single Read** (default):
+- Visualize individual read signal traces
+- Choose between Standard or Event-Aligned view modes
+
+**Aggregate** (requires BAM):
+- Multi-read statistics across a reference region
+- Dynamic panels for modifications, pileup, dwell time, signal, and quality
+- See [Aggregate Plots](#aggregate-plots) section for details
+
+### View Mode (Single Read only)
 
 **SINGLE** (default):
 - Shows raw signal trace
@@ -293,6 +306,86 @@ Common modification types:
 - Bases colored by modification confidence
 - Higher probability = warmer color
 - Useful for identifying high-confidence modifications
+
+## Aggregate Plots
+
+Aggregate plots visualize statistics across multiple reads aligned to the same reference region. This is useful for identifying patterns, modifications, and signal characteristics across a population of reads.
+
+### Requirements
+
+- **BAM file** with alignments must be loaded
+- Reads must be aligned to reference sequences
+
+### Creating Aggregate Plots
+
+1. In the **Advanced Plotting** panel, select **Analysis Type: Aggregate**
+2. Choose a **Reference** sequence from the dropdown
+3. Set **Maximum Reads** to include (default: 100)
+4. Select which panels to display (see below)
+5. Click **Generate Aggregate Plot** button
+
+### Available Panels
+
+You can toggle individual panels on/off before generating the plot:
+
+#### Base Modifications Panel
+- **Heatmap visualization** of modification patterns
+- Y-axis: Modification types (5mC, 6mA, pseudouridine, etc.)
+- X-axis: Reference positions
+- **Opacity**: Represents `frequency × probability`
+  - Frequency: Fraction of reads with this modification at this position
+  - Probability: Mean confidence when modification is called
+  - Normalized to [0.2, 1.0] range for visibility
+- **Hover tooltips** show:
+  - Frequency (fraction of reads modified)
+  - Mean probability (confidence)
+  - Read counts (modified / total coverage)
+  - Standard deviation
+- **Filtering**: Integrates with Base Modifications panel
+  - Set probability thresholds
+  - Enable/disable specific modification types
+
+#### Pileup Panel
+- **Base coverage** at each reference position
+- Bar chart showing read depth
+- Reference sequence labels on bars (if motif search used, motif bases highlighted)
+
+#### Dwell Time Panel
+- **Mean dwell time** (milliseconds) at each base position
+- Confidence bands showing ±1 standard deviation
+- **Auto-scaling y-axis**: Adapts to data range after zoom
+- Only available when BAM contains move tables (`mv` tag)
+
+#### Signal Panel (default)
+- **Mean signal** (picoamperes) at each reference position
+- Confidence bands showing ±1 standard deviation
+- Normalization applied (Z-score, Median, MAD, or None)
+
+#### Quality Panel (default)
+- **Mean quality scores** at each base position
+- Confidence bands showing ±1 standard deviation
+
+### Interpretation
+
+**Modification Heatmap:**
+- Dark/opaque rectangles: High frequency AND high confidence
+- Faint rectangles: Low frequency OR low confidence
+- No rectangle: Modification not detected or filtered out
+
+**Dwell Time:**
+- Peaks indicate positions where polymerase pauses
+- May correlate with modifications or difficult-to-sequence regions
+
+**Signal Patterns:**
+- Consistent signal = uniform base calling
+- High variance (wide bands) = heterogeneous reads or difficult regions
+
+### Tips
+
+- Start with fewer reads (50-100) for faster rendering
+- Use motif search to focus on specific sequences of interest
+- Combine modification filters with aggregate plots to focus on high-confidence calls
+- Export as HTML to preserve interactivity for presentations
 
 ## Exporting Plots
 
