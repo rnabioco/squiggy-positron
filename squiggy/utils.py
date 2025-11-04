@@ -924,7 +924,7 @@ def extract_reads_for_reference(
                 try:
                     from .alignment import _parse_alignment
 
-                    aligned_read = _parse_alignment(read, None)
+                    aligned_read = _parse_alignment(read)
                     if aligned_read:
                         modifications = aligned_read.modifications
                 except Exception as e:
