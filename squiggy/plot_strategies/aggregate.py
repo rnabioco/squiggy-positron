@@ -257,7 +257,7 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Create figure with categorical y-axis
         fig = self.theme_manager.create_figure(
-            title="Base Modifications (Mean Probability)",
+            title="Base Modifications (Frequency × Probability)",
             x_label="",  # Shared with other panels
             y_label="Modification",
             height=150,
@@ -270,7 +270,10 @@ class AggregatePlotStrategy(PlotStrategy):
             "y": [],  # Modification type (human-readable)
             "mod_code": [],  # Raw mod code
             "prob": [],  # Mean probability
-            "count": [],  # Number of reads
+            "count": [],  # Number of reads with modification
+            "coverage": [],  # Total reads covering position
+            "frequency": [],  # Fraction of reads with modification
+            "opacity": [],  # Combined frequency × probability for visualization
             "std": [],  # Std dev
             "color": [],  # Color based on mod type
         }
@@ -281,11 +284,23 @@ class AggregatePlotStrategy(PlotStrategy):
             mod_name = MODIFICATION_CODES.get(mod_code, str(mod_code))
 
             for pos, stats in mod_stats[mod_code].items():
+                frequency = stats.get("frequency", 0.0)
+                mean_prob = stats["mean"]
+
+                # Opacity = frequency × mean_probability
+                # This makes modifications visible only if they're both:
+                # 1. Present in many reads (high frequency)
+                # 2. Called with high confidence (high probability)
+                opacity = frequency * mean_prob
+
                 heatmap_data["x"].append(pos)
                 heatmap_data["y"].append(mod_name)
                 heatmap_data["mod_code"].append(str(mod_code))
-                heatmap_data["prob"].append(stats["mean"])
+                heatmap_data["prob"].append(mean_prob)
                 heatmap_data["count"].append(stats["count"])
+                heatmap_data["coverage"].append(stats.get("total_coverage", 0))
+                heatmap_data["frequency"].append(frequency)
+                heatmap_data["opacity"].append(opacity)
                 heatmap_data["std"].append(stats["std"])
 
                 # Get color for this modification type
@@ -303,7 +318,7 @@ class AggregatePlotStrategy(PlotStrategy):
             height=0.9,  # 90% of row height
             source=source,
             fill_color="color",
-            fill_alpha="prob",  # Probability controls transparency
+            fill_alpha="opacity",  # Opacity = frequency × probability
             line_color=None,
         )
 
@@ -313,8 +328,9 @@ class AggregatePlotStrategy(PlotStrategy):
             tooltips=[
                 ("Position", "@x"),
                 ("Modification", "@y"),
+                ("Frequency", "@frequency{0.3f}"),
                 ("Mean Probability", "@prob{0.3f}"),
-                ("Reads", "@count"),
+                ("Reads", "@count / @coverage"),
                 ("Std Dev", "@std{0.3f}"),
             ],
             mode="mouse",

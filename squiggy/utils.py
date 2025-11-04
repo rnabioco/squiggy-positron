@@ -1042,24 +1042,42 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
 
             position_mods[pos][mod_code].append(mod.probability)
 
+    # Calculate total coverage per position (all reads, not just modified ones)
+    position_coverage = {}
+    for read in reads_data:
+        ref_positions = read.get("ref_positions", [])
+        for pos in ref_positions:
+            if pos not in position_coverage:
+                position_coverage[pos] = 0
+            position_coverage[pos] += 1
+
     # Calculate statistics per position/mod_type
     mod_stats = {}
     all_positions = set()
 
     for pos, mod_dict in position_mods.items():
         all_positions.add(pos)
+        total_coverage = position_coverage.get(pos, 0)
+
         for mod_code, probabilities in mod_dict.items():
             if mod_code not in mod_stats:
                 mod_stats[mod_code] = {}
 
             # Calculate statistics
             probs_array = np.array(probabilities)
+            mod_count = len(probabilities)
+
+            # Calculate modification frequency (fraction of reads with this mod)
+            frequency = mod_count / total_coverage if total_coverage > 0 else 0.0
+
             mod_stats[mod_code][pos] = {
                 "probabilities": probabilities,
                 "mean": float(np.mean(probs_array)),
                 "median": float(np.median(probs_array)),
                 "std": float(np.std(probs_array)),
-                "count": len(probabilities),
+                "count": mod_count,
+                "total_coverage": total_coverage,
+                "frequency": float(frequency),
             }
 
     result = {
