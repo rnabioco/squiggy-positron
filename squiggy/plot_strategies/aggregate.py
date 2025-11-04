@@ -139,6 +139,8 @@ class AggregatePlotStrategy(PlotStrategy):
                 - show_dwell_time: bool to show dwell time panel (default: True)
                 - show_signal: bool to show signal panel (default: True)
                 - show_quality: bool to show quality panel (default: True)
+                - motif_positions: Optional set of genomic positions to highlight
+                  as motif matches (displayed in bold, larger font)
 
         Returns:
             Tuple of (html_string, bokeh_gridplot)
@@ -165,33 +167,24 @@ class AggregatePlotStrategy(PlotStrategy):
         show_dwell_time = options.get("show_dwell_time", True)
         show_signal = options.get("show_signal", True)
         show_quality = options.get("show_quality", True)
+        motif_positions = options.get("motif_positions", None)
 
         # Build panel list dynamically based on available data and visibility options
         # Panel order: modifications, pileup, dwell time, signal, quality
         panels = []
         all_figs = []  # Keep track of all figures for x-range linking
 
-        # Debug: Check modification panel conditions
-        print(f"DEBUG: Modification panel check:")
-        print(f"  - show_modifications: {show_modifications}")
-        print(f"  - modification_stats exists: {modification_stats is not None}")
-        if modification_stats:
-            print(f"  - modification_stats.get('mod_stats'): {modification_stats.get('mod_stats') is not None}")
-            if modification_stats.get('mod_stats'):
-                print(f"  - Number of mod types: {len(modification_stats['mod_stats'])}")
-
         # Create modification heatmap if data exists and panel is enabled
         if show_modifications and modification_stats and modification_stats.get("mod_stats"):
-            print("DEBUG: Creating modification heatmap panel")
             p_mods = self._create_modification_heatmap(modification_stats=modification_stats)
             panels.append([p_mods])
             all_figs.append(p_mods)
-        else:
-            print("DEBUG: Skipping modification heatmap panel")
 
         # Create pileup track if enabled
         if show_pileup:
-            p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
+            p_pileup = self._create_pileup_track(
+                pileup_stats=pileup_stats, motif_positions=motif_positions
+            )
             panels.append([p_pileup])
             all_figs.append(p_pileup)
 
@@ -409,8 +402,14 @@ class AggregatePlotStrategy(PlotStrategy):
 
         return fig
 
-    def _create_pileup_track(self, pileup_stats: dict):
-        """Create base call pileup track"""
+    def _create_pileup_track(self, pileup_stats: dict, motif_positions: set = None):
+        """
+        Create base call pileup track with optional motif highlighting
+
+        Args:
+            pileup_stats: Dictionary containing pileup statistics
+            motif_positions: Optional set of genomic positions to highlight as motif matches
+        """
         fig = self.theme_manager.create_figure(
             title="Base Call Pileup",
             x_label="Reference Position",
@@ -480,7 +479,14 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Add reference base labels above bars (if available)
         if reference_bases and pileup_data["ref_base"]:
-            label_data = {
+            # Separate motif and non-motif positions for different styling
+            motif_label_data = {
+                "x": [],
+                "y": [],
+                "text": [],
+                "color": [],
+            }
+            regular_label_data = {
                 "x": [],
                 "y": [],
                 "text": [],
@@ -494,23 +500,42 @@ class AggregatePlotStrategy(PlotStrategy):
                     # Use base color if available, otherwise use 'N' (gray) for IUPAC codes
                     base_color = base_colors.get(ref_base, base_colors.get("N", "#808080"))
 
-                    label_data["x"].append(pos)
-                    label_data["y"].append(1.05)  # Position just above bars (y=1.0)
-                    label_data["text"].append(ref_base)
-                    label_data["color"].append(base_color)
+                    # Determine if this position is part of a motif
+                    is_motif = motif_positions and pos in motif_positions
 
-            # Add text labels
-            if label_data["x"]:
-                label_source = ColumnDataSource(data=label_data)
+                    target_data = motif_label_data if is_motif else regular_label_data
+                    target_data["x"].append(pos)
+                    target_data["y"].append(1.05)  # Position just above bars (y=1.0)
+                    target_data["text"].append(ref_base)
+                    target_data["color"].append(base_color)
+
+            # Add regular (non-motif) text labels
+            if regular_label_data["x"]:
+                regular_source = ColumnDataSource(data=regular_label_data)
                 fig.text(
                     x="x",
                     y="y",
                     text="text",
-                    source=label_source,
+                    source=regular_source,
                     text_color="color",
                     text_align="center",
                     text_baseline="bottom",
                     text_font_size="10pt",
+                )
+
+            # Add motif-highlighted text labels (bold and slightly larger)
+            if motif_label_data["x"]:
+                motif_source = ColumnDataSource(data=motif_label_data)
+                fig.text(
+                    x="x",
+                    y="y",
+                    text="text",
+                    source=motif_source,
+                    text_color="color",
+                    text_align="center",
+                    text_baseline="bottom",
+                    text_font_size="12pt",
+                    text_font_style="bold",
                 )
 
         # Set y-axis range (extend to accommodate labels)

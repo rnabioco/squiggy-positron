@@ -1210,20 +1210,23 @@ def calculate_aggregate_signal(reads_data, normalization_method):
     }
 
 
-def calculate_base_pileup(reads_data, bam_file=None, reference_name=None):
+def calculate_base_pileup(
+    reads_data, bam_file=None, reference_name=None, fasta_file=None
+):
     """Calculate IGV-style base pileup at each reference position
 
     Args:
         reads_data: List of read dicts from extract_reads_for_reference()
-        bam_file: Optional path to BAM file (for extracting reference sequence)
+        bam_file: Optional path to BAM file (for extracting reference sequence from MD tag)
         reference_name: Optional reference name (for extracting reference sequence)
+        fasta_file: Optional path to FASTA file (preferred source for reference sequence)
 
     Returns:
         Dict with keys:
             - positions: Array of reference positions
             - counts: Dict mapping each position to dict of base counts
                      e.g., {pos: {'A': 10, 'C': 2, 'G': 5, 'T': 8}}
-            - reference_bases: Dict mapping position to reference base (if BAM provided)
+            - reference_bases: Dict mapping position to reference base (from FASTA or BAM)
     """
     position_bases = {}
 
@@ -1255,29 +1258,60 @@ def calculate_base_pileup(reads_data, bam_file=None, reference_name=None):
         "counts": {pos: position_bases[pos] for pos in positions},
     }
 
-    # Extract reference bases if BAM file is provided
-    if bam_file and reference_name and reads_data:
-        try:
-            # Get reference sequence from any read (they all map to same reference)
-            first_read = reads_data[0]
-            ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
-                bam_file, first_read["read_id"]
-            )
+    # Extract reference bases from FASTA (preferred) or BAM
+    if reference_name and reads_data and positions:
+        reference_bases = {}
 
-            if ref_seq and ref_start is not None:
-                # Create dict mapping position to reference base
-                reference_bases = {}
+        # Try FASTA first (most accurate)
+        if fasta_file:
+            try:
+                import pysam
+
+                fasta = pysam.FastaFile(str(fasta_file))
+                # Get the range of positions we need
+                min_pos = int(min(positions))
+                max_pos = int(max(positions))
+
+                # Fetch reference sequence for the region
+                ref_seq = fasta.fetch(reference_name, min_pos, max_pos + 1)
+
+                # Map each position to its reference base
                 for pos in positions:
-                    # Calculate index in reference sequence
-                    idx = pos - ref_start
+                    idx = int(pos) - min_pos
                     if 0 <= idx < len(ref_seq):
                         reference_bases[pos] = ref_seq[idx].upper()
 
+                fasta.close()
+
                 if reference_bases:
                     result["reference_bases"] = reference_bases
-        except Exception:
-            # If we can't get reference sequence, just skip it
-            pass
+                    return result
+            except Exception:
+                # FASTA failed, fall back to BAM
+                pass
+
+        # Fall back to BAM file (uses MD tag or query sequence)
+        if bam_file and not reference_bases:
+            try:
+                # Get reference sequence from any read (they all map to same reference)
+                first_read = reads_data[0]
+                ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+                    bam_file, first_read["read_id"]
+                )
+
+                if ref_seq and ref_start is not None:
+                    # Create dict mapping position to reference base
+                    for pos in positions:
+                        # Calculate index in reference sequence
+                        idx = pos - ref_start
+                        if 0 <= idx < len(ref_seq):
+                            reference_bases[pos] = ref_seq[idx].upper()
+
+                    if reference_bases:
+                        result["reference_bases"] = reference_bases
+            except Exception:
+                # If we can't get reference sequence, just skip it
+                pass
 
     return result
 

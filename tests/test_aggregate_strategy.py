@@ -400,7 +400,7 @@ class TestAggregateTracks:
         assert "Base Quality Scores" in quality_track.title.text
 
     def test_pileup_track_y_range(self, sample_data):
-        """Test that pileup track y-axis ranges from 0 to 1"""
+        """Test that pileup track y-axis ranges from 0 to 1.15 (extended for labels)"""
         strategy = AggregatePlotStrategy(Theme.LIGHT)
 
         _, grid = strategy.create_plot(sample_data, {})
@@ -409,7 +409,7 @@ class TestAggregateTracks:
         # Panel order: pileup (0), signal (1), quality (2)
         pileup_track, _, _ = grid.children[0]
         assert pileup_track.y_range.start == 0
-        assert pileup_track.y_range.end == 1
+        assert pileup_track.y_range.end == 1.15
 
     def test_tracks_have_linked_x_ranges(self, sample_data):
         """Test that all three tracks have synchronized x-ranges"""
