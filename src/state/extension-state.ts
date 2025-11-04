@@ -149,6 +149,7 @@ export class ExtensionState {
         this._filePanelProvider?.clearPOD5();
         this._filePanelProvider?.clearBAM();
         this._filePanelProvider?.clearFASTA?.();
+        this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
         // Clear Python kernel state if using Positron
@@ -603,7 +604,13 @@ squiggy.close_fasta()
             const pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
             this._currentPod5File = pod5Path;
 
-            // Update file panel
+            // Get first 1000 read IDs for reads view (lazy loading)
+            const readIds = await this._squiggyAPI.getReadIds(0, 1000);
+            if (readIds.length > 0) {
+                this._readsViewPane?.setReads(readIds);
+            }
+
+            // Update file panel and plot options
             if (this._filePanelProvider) {
                 const fs = await import('fs/promises');
                 const stats = await fs.stat(pod5Path);
@@ -613,12 +620,36 @@ squiggy.close_fasta()
                     size: stats.size,
                 });
             }
+            this._plotOptionsProvider?.updatePod5Status(true);
         }
 
         // Load BAM if present
         if (resolvedBamPath) {
             const bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
             this._currentBamFile = resolvedBamPath;
+
+            // Get references only (lazy loading - don't fetch reads yet)
+            const references = await this._squiggyAPI.getReferences();
+            const referenceToReads: Record<string, string[]> = {};
+
+            // Build reference count map by getting length for each reference
+            for (const ref of references) {
+                const readCount = (await this._squiggyAPI.client.getVariable(
+                    `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                )) as number;
+                referenceToReads[ref] = new Array(readCount); // Placeholder
+            }
+
+            // Update reads view with references if POD5 was loaded
+            if (resolvedPod5Paths.length > 0 && Object.keys(referenceToReads).length > 0) {
+                const referenceList = Object.entries(referenceToReads).map(
+                    ([referenceName, reads]) => ({
+                        referenceName,
+                        readCount: Array.isArray(reads) ? reads.length : 0,
+                    })
+                );
+                this._readsViewPane?.setReferencesOnly(referenceList);
+            }
 
             // Update file panel
             if (this._filePanelProvider) {
@@ -628,7 +659,7 @@ squiggy.close_fasta()
                 this._filePanelProvider.setBAM({
                     path: resolvedBamPath,
                     numReads: bamResult.numReads,
-                    numRefs: 0, // TODO: Get this from BAM info if needed
+                    numRefs: Object.keys(referenceToReads).length,
                     size: stats.size,
                     hasMods: bamResult.hasModifications,
                     hasEvents: bamResult.hasEventAlignment,
@@ -638,6 +669,11 @@ squiggy.close_fasta()
             // Update plot options BAM status
             if (this._plotOptionsProvider) {
                 this._plotOptionsProvider.updateBamStatus(true);
+            }
+
+            // Update plot options with available references for aggregate plots
+            if (references.length > 0) {
+                this._plotOptionsProvider?.updateReferences(references);
             }
         }
 

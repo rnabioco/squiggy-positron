@@ -372,7 +372,8 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        signal_track, _, _ = grid.children[0]
+        # Panel order: pileup (0), signal (1), quality (2)
+        signal_track, _, _ = grid.children[1]
         assert "Aggregate Signal" in signal_track.title.text
         assert "chr1:1000-1020" in signal_track.title.text
         assert "15 reads" in signal_track.title.text
@@ -384,7 +385,8 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        pileup_track, _, _ = grid.children[1]
+        # Panel order: pileup (0), signal (1), quality (2)
+        pileup_track, _, _ = grid.children[0]
         assert "Base Call Pileup" in pileup_track.title.text
 
     def test_quality_track_has_title(self, sample_data):
@@ -404,7 +406,8 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        pileup_track, _, _ = grid.children[1]
+        # Panel order: pileup (0), signal (1), quality (2)
+        pileup_track, _, _ = grid.children[0]
         assert pileup_track.y_range.start == 0
         assert pileup_track.y_range.end == 1.15
 
@@ -415,8 +418,9 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figures from (figure, row, col) tuples
-        signal_track, _, _ = grid.children[0]
-        pileup_track, _, _ = grid.children[1]
+        # Panel order: pileup (0), signal (1), quality (2)
+        pileup_track, _, _ = grid.children[0]
+        signal_track, _, _ = grid.children[1]
         quality_track, _, _ = grid.children[2]
 
         # All should reference the same x_range object

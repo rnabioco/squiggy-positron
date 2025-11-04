@@ -253,15 +253,33 @@ if '_squiggy_plot_error' in globals():
      * @param maxReads - Maximum number of reads to sample (default 100)
      * @param normalization - Normalization method (ZNORM, MAD, etc.)
      * @param theme - Color theme (LIGHT or DARK)
+     * @param showModifications - Show modifications heatmap panel (default true)
+     * @param showPileup - Show base pileup panel (default true)
+     * @param showDwellTime - Show dwell time track panel (default true)
+     * @param showSignal - Show signal track panel (default true)
+     * @param showQuality - Show quality track panel (default true)
      */
     async generateAggregatePlot(
         referenceName: string,
         maxReads: number = 100,
         normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
+        theme: string = 'LIGHT',
+        showModifications: boolean = true,
+        modificationThreshold: number = 0.5,
+        enabledModTypes: string[] = [],
+        showPileup: boolean = true,
+        showDwellTime: boolean = true,
+        showSignal: boolean = true,
+        showQuality: boolean = true
     ): Promise<void> {
         // Escape single quotes in reference name for Python string
         const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        // Build modification filter dict if modifications are enabled
+        const modFilterDict =
+            enabledModTypes.length > 0
+                ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                : 'None';
 
         const code = `
 import squiggy
@@ -271,7 +289,13 @@ squiggy.plot_aggregate(
     reference_name='${escapedRefName}',
     max_reads=${maxReads},
     normalization='${normalization}',
-    theme='${theme}'
+    theme='${theme}',
+    show_modifications=${showModifications ? 'True' : 'False'},
+    mod_filter=${modFilterDict},
+    show_pileup=${showPileup ? 'True' : 'False'},
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_signal=${showSignal ? 'True' : 'False'},
+    show_quality=${showQuality ? 'True' : 'False'}
 )
 `;
 

@@ -7,10 +7,15 @@ with synchronized tracks showing signal statistics, base pileup, and quality.
 
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
-from bokeh.models import Band, ColumnDataSource, HoverTool
+from bokeh.models import Band, ColumnDataSource, FactorRange, HoverTool
 from bokeh.resources import CDN
 
-from ..constants import NormalizationMethod, Theme
+from ..constants import (
+    MODIFICATION_CODES,
+    MODIFICATION_COLORS,
+    NormalizationMethod,
+    Theme,
+)
 from ..rendering import ThemeManager
 from .base import PlotStrategy
 
@@ -19,11 +24,13 @@ class AggregatePlotStrategy(PlotStrategy):
     """
     Strategy for aggregate multi-read visualization
 
-    This strategy plots aggregate statistics across multiple reads with three
+    This strategy plots aggregate statistics across multiple reads with up to five
     synchronized tracks:
-    1. Mean signal with confidence bands
+    1. Base modifications heatmap (optional, if modifications present)
     2. Base call pileup (stacked proportions)
-    3. Quality scores by position
+    3. Dwell time per base with confidence bands (optional, if data available)
+    4. Mean signal with confidence bands
+    5. Quality scores by position
 
     Example:
         >>> from squiggy.plot_strategies.aggregate import AggregatePlotStrategy
@@ -125,11 +132,18 @@ class AggregatePlotStrategy(PlotStrategy):
                 - aggregate_stats (required): signal statistics
                 - pileup_stats (required): base call pileup
                 - quality_stats (required): quality scores
+                - modification_stats (optional): modification probabilities
+                - dwell_stats (optional): dwell time statistics
                 - reference_name (required): reference identifier
                 - num_reads (required): number of reads
 
             options: Plot options dictionary containing:
                 - normalization: NormalizationMethod enum (default: NONE)
+                - show_modifications: bool to show modifications panel (default: True)
+                - show_pileup: bool to show pileup panel (default: True)
+                - show_dwell_time: bool to show dwell time panel (default: True)
+                - show_signal: bool to show signal panel (default: True)
+                - show_quality: bool to show quality panel (default: True)
                 - motif_positions: Optional set of genomic positions to highlight
                   as motif matches (displayed in bold, larger font)
 
@@ -146,34 +160,82 @@ class AggregatePlotStrategy(PlotStrategy):
         aggregate_stats = data["aggregate_stats"]
         pileup_stats = data["pileup_stats"]
         quality_stats = data["quality_stats"]
+        modification_stats = data.get("modification_stats")
+        dwell_stats = data.get("dwell_stats")
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
 
         # Extract options
         normalization = options.get("normalization", NormalizationMethod.NONE)
+        show_modifications = options.get("show_modifications", True)
+        show_pileup = options.get("show_pileup", True)
+        show_dwell_time = options.get("show_dwell_time", True)
+        show_signal = options.get("show_signal", True)
+        show_quality = options.get("show_quality", True)
         motif_positions = options.get("motif_positions", None)
 
-        # Create three synchronized tracks
-        p_signal = self._create_signal_track(
-            aggregate_stats=aggregate_stats,
-            reference_name=reference_name,
-            num_reads=num_reads,
-            normalization=normalization,
-        )
+        # Build panel list dynamically based on available data and visibility options
+        # Panel order: modifications, pileup, dwell time, signal, quality
+        panels = []
+        all_figs = []  # Keep track of all figures for x-range linking
 
-        p_pileup = self._create_pileup_track(
-            pileup_stats=pileup_stats, motif_positions=motif_positions
-        )
+        # Create modification heatmap if data exists and panel is enabled
+        if (
+            show_modifications
+            and modification_stats
+            and modification_stats.get("mod_stats")
+        ):
+            p_mods = self._create_modification_heatmap(
+                modification_stats=modification_stats
+            )
+            panels.append([p_mods])
+            all_figs.append(p_mods)
 
-        p_quality = self._create_quality_track(quality_stats=quality_stats)
+        # Create pileup track if enabled
+        if show_pileup:
+            p_pileup = self._create_pileup_track(
+                pileup_stats=pileup_stats, motif_positions=motif_positions
+            )
+            panels.append([p_pileup])
+            all_figs.append(p_pileup)
+
+        # Create dwell time track if data exists and panel is enabled
+        if (
+            show_dwell_time
+            and dwell_stats
+            and len(dwell_stats.get("positions", [])) > 0
+        ):
+            p_dwell = self._create_dwell_time_track(dwell_stats=dwell_stats)
+            panels.append([p_dwell])
+            all_figs.append(p_dwell)
+
+        # Create signal track if enabled
+        if show_signal:
+            p_signal = self._create_signal_track(
+                aggregate_stats=aggregate_stats,
+                reference_name=reference_name,
+                num_reads=num_reads,
+                normalization=normalization,
+            )
+            panels.append([p_signal])
+            all_figs.append(p_signal)
+
+        # Create quality track if enabled
+        if show_quality:
+            p_quality = self._create_quality_track(quality_stats=quality_stats)
+            panels.append([p_quality])
+            all_figs.append(p_quality)
 
         # Link x-axes for synchronized zoom/pan
-        p_pileup.x_range = p_signal.x_range
-        p_quality.x_range = p_signal.x_range
+        # Use first figure as base for x_range
+        if all_figs:
+            base_x_range = all_figs[0].x_range
+            for fig in all_figs[1:]:
+                fig.x_range = base_x_range
 
         # Create gridplot
         grid = gridplot(
-            [[p_signal], [p_pileup], [p_quality]],
+            panels,
             sizing_mode="stretch_width",
             toolbar_location="right",
         )
@@ -187,6 +249,134 @@ class AggregatePlotStrategy(PlotStrategy):
     # Private Methods: Track Creation
     # =========================================================================
 
+    def _create_modification_heatmap(self, modification_stats: dict):
+        """Create modification probability heatmap track
+
+        Args:
+            modification_stats: Dict with mod_stats and positions from
+                                calculate_modification_statistics()
+
+        Returns:
+            Bokeh figure with modification heatmap
+        """
+        mod_stats = modification_stats["mod_stats"]
+
+        # Get all modification types and sort them for consistent ordering
+        mod_types = sorted(mod_stats.keys(), key=str)
+
+        # Get unique modification names for categorical y-axis
+        unique_mod_names = sorted(
+            {MODIFICATION_CODES.get(mod_code, str(mod_code)) for mod_code in mod_types}
+        )
+
+        # Create figure with categorical y-axis
+        fig = self.theme_manager.create_figure(
+            title="Base Modifications (Frequency × Probability)",
+            x_label="",  # Shared with other panels
+            y_label="Modification",
+            height=150,
+            y_range=FactorRange(factors=unique_mod_names),
+        )
+
+        # Prepare data for heatmap
+        heatmap_data = {
+            "x": [],  # Position
+            "y": [],  # Modification type (human-readable)
+            "mod_code": [],  # Raw mod code
+            "prob": [],  # Mean probability
+            "count": [],  # Number of reads with modification
+            "coverage": [],  # Total reads covering position
+            "frequency": [],  # Fraction of reads with modification
+            "opacity": [],  # Combined frequency × probability for visualization
+            "std": [],  # Std dev
+            "color": [],  # Color based on mod type
+        }
+
+        # Build heatmap data
+        # First collect all opacity values to find the range
+        all_opacities = []
+        for mod_code in mod_types:
+            for _pos, stats in mod_stats[mod_code].items():
+                frequency = stats.get("frequency", 0.0)
+                mean_prob = stats["mean"]
+                opacity = frequency * mean_prob
+                all_opacities.append(opacity)
+
+        # Calculate min/max for normalization (clip to reasonable range)
+        # Ensure max_opacity is never zero to avoid division by zero
+        max_opacity = max(all_opacities) if all_opacities else 1.0
+
+        # Handle edge case: all modifications have 0 probability/frequency
+        if max_opacity <= 0.0:
+            max_opacity = 1.0
+
+        min_opacity = 0.2  # Minimum visible opacity
+
+        for mod_code in mod_types:
+            # Get human-readable name
+            mod_name = MODIFICATION_CODES.get(mod_code, str(mod_code))
+
+            for pos, stats in mod_stats[mod_code].items():
+                frequency = stats.get("frequency", 0.0)
+                mean_prob = stats["mean"]
+
+                # Opacity = frequency × mean_probability
+                # Scale to [min_opacity, 1.0] range for visibility
+                raw_opacity = frequency * mean_prob
+                opacity = min_opacity + (raw_opacity / max_opacity) * (
+                    1.0 - min_opacity
+                )
+
+                heatmap_data["x"].append(pos)
+                heatmap_data["y"].append(mod_name)
+                heatmap_data["mod_code"].append(str(mod_code))
+                heatmap_data["prob"].append(mean_prob)
+                heatmap_data["count"].append(stats["count"])
+                heatmap_data["coverage"].append(stats.get("total_coverage", 0))
+                heatmap_data["frequency"].append(frequency)
+                heatmap_data["opacity"].append(opacity)
+                heatmap_data["std"].append(stats["std"])
+
+                # Get color for this modification type
+                color = MODIFICATION_COLORS.get(mod_code, "#808080")
+                heatmap_data["color"].append(color)
+
+        # Create data source
+        source = ColumnDataSource(data=heatmap_data)
+
+        # Create rectangles for heatmap
+        rects = fig.rect(
+            x="x",
+            y="y",
+            width=1.0,  # One position wide
+            height=0.9,  # 90% of row height
+            source=source,
+            fill_color="color",
+            fill_alpha="opacity",  # Opacity = frequency × probability
+            line_color=None,
+        )
+
+        # Add hover tool
+        hover = HoverTool(
+            renderers=[rects],
+            tooltips=[
+                ("Position", "@x"),
+                ("Modification", "@y"),
+                ("Frequency", "@frequency{0.3f}"),
+                ("Mean Probability", "@prob{0.3f}"),
+                ("Reads", "@count / @coverage"),
+                ("Std Dev", "@std{0.3f}"),
+            ],
+            mode="mouse",
+        )
+        fig.add_tools(hover)
+
+        # Hide x-axis labels (will use shared x-axis from other panels)
+        fig.xaxis.major_label_text_font_size = "0pt"
+        fig.xaxis.major_tick_line_color = None
+
+        return fig
+
     def _create_signal_track(
         self,
         aggregate_stats: dict,
@@ -199,7 +389,7 @@ class AggregatePlotStrategy(PlotStrategy):
             title=f"Aggregate Signal - {reference_name} ({num_reads} reads)",
             x_label="Reference Position",
             y_label=f"Signal ({normalization.value})",
-            height=300,
+            height=200,
         )
 
         positions = aggregate_stats["positions"]
@@ -274,7 +464,7 @@ class AggregatePlotStrategy(PlotStrategy):
             title="Base Call Pileup",
             x_label="Reference Position",
             y_label="Base Proportion",
-            height=250,
+            height=300,
         )
 
         positions = pileup_stats["positions"]
@@ -471,5 +661,85 @@ class AggregatePlotStrategy(PlotStrategy):
             mode="mouse",
         )
         fig.add_tools(hover)
+
+        return fig
+
+    def _create_dwell_time_track(self, dwell_stats: dict):
+        """Create dwell time track with confidence bands"""
+        fig = self.theme_manager.create_figure(
+            title="Dwell Time per Base",
+            x_label="Reference Position",
+            y_label="Mean Dwell Time (ms)",
+            height=200,
+        )
+
+        positions = dwell_stats["positions"]
+        mean_dwell = dwell_stats["mean_dwell"]
+        std_dwell = dwell_stats["std_dwell"]
+        coverage = dwell_stats["coverage"]
+
+        # Create confidence band
+        upper = mean_dwell + std_dwell
+        lower = mean_dwell - std_dwell
+
+        # Data source
+        source = ColumnDataSource(
+            data={
+                "x": positions,
+                "mean": mean_dwell,
+                "upper": upper,
+                "lower": lower,
+                "std": std_dwell,
+                "coverage": coverage,
+            }
+        )
+
+        # Add confidence band
+        band_color = self.theme_manager.get_quality_band_color()
+        band = Band(
+            base="x",
+            lower="lower",
+            upper="upper",
+            source=source,
+            level="underlay",
+            fill_alpha=0.2,
+            fill_color=band_color,
+            line_width=0,
+        )
+        fig.add_layout(band)
+
+        # Add mean line
+        mean_line = fig.line(
+            "x",
+            "mean",
+            source=source,
+            line_width=2,
+            color=band_color,
+        )
+
+        # Add hover tool
+        hover = HoverTool(
+            renderers=[mean_line],
+            tooltips=[
+                ("Position", "@x"),
+                ("Mean Dwell", "@mean{0.2f} ms"),
+                ("Std Dev", "@std{0.2f} ms"),
+                ("Coverage", "@coverage"),
+            ],
+            mode="mouse",
+        )
+        fig.add_tools(hover)
+
+        # Set initial y-range with some padding
+        # Note: Bokeh doesn't have built-in auto-scale on zoom for y-axis
+        # Users can use the box zoom or reset tools to adjust view
+        import numpy as np
+
+        if len(mean_dwell) > 0:
+            y_min = np.min(lower)
+            y_max = np.max(upper)
+            y_padding = (y_max - y_min) * 0.1
+            fig.y_range.start = max(0, y_min - y_padding)
+            fig.y_range.end = y_max + y_padding
 
         return fig

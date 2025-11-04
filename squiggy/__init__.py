@@ -366,29 +366,46 @@ def plot_aggregate(
     max_reads: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
+    show_modifications: bool = True,
+    mod_filter: dict | None = None,
+    show_pileup: bool = True,
+    show_dwell_time: bool = True,
+    show_signal: bool = True,
+    show_quality: bool = True,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
 
-    Creates a three-track plot showing:
-    1. Aggregate signal (mean ± std dev across reads)
+    Creates up to five synchronized tracks:
+    1. Modifications heatmap (optional, if BAM has MM/ML tags)
     2. Base pileup (IGV-style stacked bar chart)
-    3. Quality scores by position
+    3. Dwell time per base (mean ± std dev)
+    4. Aggregate signal (mean ± std dev across reads)
+    5. Quality scores by position
 
     Args:
         reference_name: Name of reference sequence from BAM file
         max_reads: Maximum number of reads to sample for aggregation (default 100)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
+        show_modifications: Show modifications heatmap panel (default True)
+        mod_filter: Dictionary mapping modification codes to minimum probability thresholds
+                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications shown.
+        show_pileup: Show base pileup panel (default True)
+        show_dwell_time: Show dwell time panel (default True)
+        show_signal: Show signal panel (default True)
+        show_quality: Show quality panel (default True)
 
     Returns:
-        Bokeh HTML string with three synchronized tracks
+        Bokeh HTML string with synchronized tracks
 
     Examples:
         >>> import squiggy
         >>> squiggy.load_pod5('data.pod5')
         >>> squiggy.load_bam('alignments.bam')
         >>> html = squiggy.plot_aggregate('chr1', max_reads=50)
+        >>> # Filter modifications by type and probability
+        >>> html = squiggy.plot_aggregate('chr1', mod_filter={'m': 0.8, 'a': 0.7})
         >>> # Extension displays this automatically
 
     Raises:
@@ -399,6 +416,8 @@ def plot_aggregate(
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,
+        calculate_dwell_time_statistics,
+        calculate_modification_statistics,
         calculate_quality_by_position,
         extract_reads_for_reference,
     )
@@ -439,17 +458,30 @@ def plot_aggregate(
         fasta_file=_squiggy_session.fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
+    modification_stats = calculate_modification_statistics(
+        reads_data, mod_filter=mod_filter
+    )
+    dwell_stats = calculate_dwell_time_statistics(reads_data)
 
     # Prepare data for AggregatePlotStrategy
     data = {
         "aggregate_stats": aggregate_stats,
         "pileup_stats": pileup_stats,
         "quality_stats": quality_stats,
+        "modification_stats": modification_stats,
+        "dwell_stats": dwell_stats,
         "reference_name": reference_name,
         "num_reads": num_reads,
     }
 
-    options = {"normalization": norm_method}
+    options = {
+        "normalization": norm_method,
+        "show_modifications": show_modifications,
+        "show_pileup": show_pileup,
+        "show_dwell_time": show_dwell_time,
+        "show_signal": show_signal,
+        "show_quality": show_quality,
+    }
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)

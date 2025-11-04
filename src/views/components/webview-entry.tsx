@@ -36,7 +36,7 @@ if (root) {
     } else if (title.includes('Reads')) {
         console.log('✓ Rendering ReadsCore component');
         ReactDOM.render(<ReadsCore />, root);
-    } else if (title.includes('Plot Options')) {
+    } else if (title.includes('Advanced Plotting')) {
         console.log('✓ Rendering PlotOptionsCore component');
         ReactDOM.render(<PlotOptionsCore />, root);
     } else if (title.includes('Modifications')) {
