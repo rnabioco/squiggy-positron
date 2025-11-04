@@ -296,18 +296,19 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     </List>
 
                     {/* Sticky header overlay */}
-                    {stickyHeaderIndex !== null && items[stickyHeaderIndex]?.type === 'reference' && (
-                        <div className="reference-group-sticky-overlay">
-                            <ReferenceGroupComponent
-                                item={items[stickyHeaderIndex] as any}
-                                isEvenRow={stickyHeaderIndex % 2 === 0}
-                                nameColumnWidth={nameColumnWidth}
-                                detailsColumnWidth={detailsColumnWidth}
-                                onToggle={onToggleReference}
-                                onPlotAggregate={onPlotAggregate}
-                            />
-                        </div>
-                    )}
+                    {stickyHeaderIndex !== null &&
+                        items[stickyHeaderIndex]?.type === 'reference' && (
+                            <div className="reference-group-sticky-overlay">
+                                <ReferenceGroupComponent
+                                    item={items[stickyHeaderIndex] as any}
+                                    isEvenRow={stickyHeaderIndex % 2 === 0}
+                                    nameColumnWidth={nameColumnWidth}
+                                    detailsColumnWidth={detailsColumnWidth}
+                                    onToggle={onToggleReference}
+                                    onPlotAggregate={onPlotAggregate}
+                                />
+                            </div>
+                        )}
                 </div>
             ) : (
                 <div className="reads-empty-state">

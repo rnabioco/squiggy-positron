@@ -91,9 +91,7 @@ async function refreshPOD5Only(state: ExtensionState): Promise<void> {
     }
 
     // Get total read count
-    const totalReads = await state.squiggyAPI.client.getVariable(
-        'len(_squiggy_session.read_ids)'
-    );
+    const totalReads = await state.squiggyAPI.client.getVariable('len(_squiggy_session.read_ids)');
 
     // Reset pagination context
     state.pod5LoadContext = {
