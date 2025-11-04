@@ -19,17 +19,25 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     focusedIndex,
     nameColumnWidth,
     detailsColumnWidth,
+    hasReferences,
+    sortBy,
+    sortOrder,
     onPlotRead,
     onPlotAggregate,
     onSelectRead,
     onToggleReference,
     onUpdateColumnWidths,
     onLoadMore,
+    onSort,
 }) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const listRef = React.useRef<any>(null);
     const [containerHeight, setContainerHeight] = React.useState(600);
     const [localFocusedIndex, setLocalFocusedIndex] = React.useState<number | null>(focusedIndex);
+
+    // Track scroll position for sticky headers
+    const [scrollTop, setScrollTop] = React.useState(0);
+    const [stickyHeaderIndex, setStickyHeaderIndex] = React.useState<number | null>(null);
 
     // Track if we've already triggered load more to prevent duplicate requests
     const loadMoreTriggeredRef = React.useRef(false);
@@ -38,6 +46,39 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     React.useEffect(() => {
         loadMoreTriggeredRef.current = false;
     }, [items.length]);
+
+    // Calculate which reference header should be sticky based on scroll position
+    React.useEffect(() => {
+        // Find the reference header that should be sticky
+        let currentReferenceIndex: number | null = null;
+        const scrollOffset = scrollTop;
+        const firstVisibleIndex = Math.floor(scrollOffset / CONSTANTS.ROW_HEIGHT);
+
+        // Look backwards from the first visible item to find the owning reference
+        for (let i = firstVisibleIndex; i >= 0; i--) {
+            if (items[i]?.type === 'reference') {
+                // Check if this reference is expanded
+                if ((items[i] as any).isExpanded) {
+                    // Check if we're scrolled past this reference header
+                    const referenceTop = i * CONSTANTS.ROW_HEIGHT;
+                    if (scrollOffset > referenceTop) {
+                        currentReferenceIndex = i;
+                    }
+                }
+                break;
+            }
+        }
+
+        setStickyHeaderIndex(currentReferenceIndex);
+    }, [scrollTop, items]);
+
+    // Handle scroll events from react-window
+    const handleScroll = React.useCallback(
+        ({ scrollOffset }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
+            setScrollTop(scrollOffset);
+        },
+        []
+    );
 
     // Handle infinite scroll - trigger load more when near bottom
     const handleItemsRendered = React.useCallback(
@@ -222,15 +263,25 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     Name
                 </div>
                 <ColumnResizer onResize={handleColumnResize} />
-                <div className="reads-header-column" style={{ width: `${detailsColumnWidth}px` }}>
-                    Details
+                <div
+                    className={`reads-header-column ${hasReferences ? 'reads-sortable' : ''}`}
+                    style={{ width: `${detailsColumnWidth}px` }}
+                    onClick={() => hasReferences && onSort('reads')}
+                    title={hasReferences ? 'Click to sort by read count' : ''}
+                >
+                    Reads
+                    {hasReferences && sortBy === 'reads' && (
+                        <span className={`sort-indicator ${sortOrder}`}>
+                            {sortOrder === 'asc' ? '▲' : '▼'}
+                        </span>
+                    )}
                 </div>
                 <div className="reads-header-column reads-header-actions">Actions</div>
             </div>
 
             {/* Virtualized list */}
             {items.length > 0 ? (
-                <div tabIndex={0} style={{ outline: 'none', flex: 1 }}>
+                <div tabIndex={0} style={{ outline: 'none', flex: 1, position: 'relative' }}>
                     <List
                         ref={listRef}
                         height={Math.max(100, containerHeight - 32)} // Subtract header height
@@ -239,9 +290,24 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                         width="100%"
                         overscanCount={CONSTANTS.OVERSCAN_COUNT}
                         onItemsRendered={handleItemsRendered}
+                        onScroll={handleScroll}
                     >
                         {Row}
                     </List>
+
+                    {/* Sticky header overlay */}
+                    {stickyHeaderIndex !== null && items[stickyHeaderIndex]?.type === 'reference' && (
+                        <div className="reference-group-sticky-overlay">
+                            <ReferenceGroupComponent
+                                item={items[stickyHeaderIndex] as any}
+                                isEvenRow={stickyHeaderIndex % 2 === 0}
+                                nameColumnWidth={nameColumnWidth}
+                                detailsColumnWidth={detailsColumnWidth}
+                                onToggle={onToggleReference}
+                                onPlotAggregate={onPlotAggregate}
+                            />
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="reads-empty-state">

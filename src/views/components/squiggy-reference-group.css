@@ -13,7 +13,7 @@
     font-weight: 600;
 }
 
-/* Tiger striping for reference groups */
+/* Tiger striping for reference groups - ensure background is opaque when sticky */
 .reference-group.even-row {
     background-color: var(--vscode-list-inactiveSelectionBackground, rgba(128, 128, 128, 0.04));
 }
@@ -104,4 +104,14 @@
 
 .reference-group-action-button:active {
     opacity: 0.8;
+}
+
+/* Sticky header overlay */
+.reference-group-sticky-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    pointer-events: all;
 }

@@ -58,6 +58,10 @@ export interface ReadsViewState {
     // Expansion state (for reference groups)
     expandedReferences: Set<string>;
 
+    // Sorting (for reference groups)
+    sortBy: 'name' | 'reads';
+    sortOrder: 'asc' | 'desc';
+
     // Column widths
     nameColumnWidth: number;
     detailsColumnWidth: number;
@@ -105,7 +109,11 @@ export interface ReadsInstanceProps extends ReadsViewProps {
     focusedIndex: number | null;
     nameColumnWidth: number;
     detailsColumnWidth: number;
+    hasReferences: boolean;
+    sortBy: 'name' | 'reads';
+    sortOrder: 'asc' | 'desc';
     onUpdateColumnWidths: (nameWidth: number, detailsWidth: number) => void;
+    onSort: (column: 'name' | 'reads') => void;
 }
 
 export interface ReadItemProps {
