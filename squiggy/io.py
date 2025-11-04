@@ -961,6 +961,59 @@ def _build_ref_mapping_immediate(bam_path: Path) -> dict[str, list[str]]:
     return dict(mapping)
 
 
+def get_reads_for_reference_paginated(
+    reference_name: str, offset: int = 0, limit: int | None = None
+) -> list[str]:
+    """
+    Get reads for a specific reference with pagination support
+
+    This function enables lazy loading of reads by reference for the UI.
+    Returns a slice of read IDs for the specified reference, supporting
+    incremental data fetching.
+
+    Args:
+        reference_name: Name of reference sequence (e.g., 'chr1', 'contig_42')
+        offset: Starting index in the read list (default: 0)
+        limit: Maximum number of reads to return (default: None = all remaining)
+
+    Returns:
+        List of read IDs for the specified reference, sliced by offset/limit
+
+    Raises:
+        RuntimeError: If no BAM file is loaded in the session
+        KeyError: If reference_name is not found in the BAM file
+
+    Examples:
+        >>> from squiggy import load_bam, load_pod5
+        >>> from squiggy.io import get_reads_for_reference_paginated
+        >>> load_pod5('reads.pod5')
+        >>> load_bam('alignments.bam')
+        >>> # Get first 500 reads for chr1
+        >>> reads = get_reads_for_reference_paginated('chr1', offset=0, limit=500)
+        >>> len(reads)
+        500
+        >>> # Get next 500 reads
+        >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
+    """
+    if _squiggy_session.ref_mapping is None:
+        raise RuntimeError(
+            "No BAM file loaded. Call load_bam() before accessing reference reads."
+        )
+
+    if reference_name not in _squiggy_session.ref_mapping:
+        available_refs = list(_squiggy_session.ref_mapping.keys())
+        raise KeyError(
+            f"Reference '{reference_name}' not found. "
+            f"Available references: {available_refs[:5]}..."
+        )
+
+    all_reads = _squiggy_session.ref_mapping[reference_name]
+
+    if limit is None:
+        return all_reads[offset:]
+    return all_reads[offset : offset + limit]
+
+
 def load_fasta(file_path: str) -> None:
     """
     Load a FASTA file into the global kernel session
@@ -969,8 +1022,11 @@ def load_fasta(file_path: str) -> None:
     FASTA reference sequences available for subsequent motif search and
     analysis calls.
 
+    If a FASTA index (.fai) doesn't exist, it will be automatically created
+    using pysam.faidx().
+
     Args:
-        file_path: Path to FASTA file (must be indexed with .fai)
+        file_path: Path to FASTA file (index will be created if missing)
 
     Returns:
         None (mutates global _squiggy_session)
@@ -978,7 +1034,7 @@ def load_fasta(file_path: str) -> None:
     Examples:
         >>> from squiggy import load_fasta
         >>> from squiggy.io import _squiggy_session
-        >>> load_fasta('genome.fa')
+        >>> load_fasta('genome.fa')  # Creates .fai index if needed
         >>> print(_squiggy_session.fasta_info['references'])
         >>> # Use with motif search
         >>> from squiggy.motif import search_motif
@@ -990,13 +1046,18 @@ def load_fasta(file_path: str) -> None:
     if not os.path.exists(abs_path):
         raise FileNotFoundError(f"FASTA file not found: {abs_path}")
 
-    # Check for index
+    # Check for index, create if missing
     fai_path = abs_path + ".fai"
     if not os.path.exists(fai_path):
-        raise FileNotFoundError(
-            f"FASTA index not found: {fai_path}. "
-            f"Create index with: samtools faidx {abs_path}"
-        )
+        logger.info(f"FASTA index not found, creating: {fai_path}")
+        try:
+            pysam.faidx(abs_path)
+            logger.info(f"Successfully created FASTA index: {fai_path}")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create FASTA index for {abs_path}. "
+                f"Error: {e}. You can also create it manually with: samtools faidx {abs_path}"
+            ) from e
 
     # Open FASTA file to get metadata
     fasta = pysam.FastaFile(abs_path)
