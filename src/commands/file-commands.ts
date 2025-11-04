@@ -127,17 +127,20 @@ export function registerFileCommands(
                 // Execute Python code to get test data paths
                 const getPathsCode = `
 import squiggy
-import json
 paths = {
     'pod5': squiggy.get_test_data_path('yeast_trna_reads.pod5'),
     'bam': squiggy.get_test_data_path('yeast_trna_mappings.bam'),
     'fasta': squiggy.get_test_data_path('yeast_trna.fa')
 }
-json.dumps(paths)
                 `.trim();
 
-                const result = await state.squiggyAPI?.executeCode(getPathsCode);
-                const paths = JSON.parse(result || '{}');
+                // Use the client directly to execute and get variable
+                await state.positronClient?.executeSilent(getPathsCode);
+                const paths = (await state.positronClient?.getVariable('paths')) as {
+                    pod5: string;
+                    bam: string;
+                    fasta: string;
+                };
                 pod5Path = paths.pod5;
                 bamPath = paths.bam;
                 fastaPath = paths.fasta;
@@ -686,17 +689,20 @@ async function loadTestMultiReadDataset(
         // Execute Python code to get test data paths
         const getPathsCode = `
 import squiggy
-import json
 paths = {
     'pod5': squiggy.get_test_data_path('yeast_trna_reads.pod5'),
     'bam': squiggy.get_test_data_path('yeast_trna_mappings.bam'),
     'fasta': squiggy.get_test_data_path('yeast_trna.fa')
 }
-json.dumps(paths)
         `.trim();
 
-        const result = await state.squiggyAPI?.executeCode(getPathsCode);
-        const paths = JSON.parse(result || '{}');
+        // Use the client directly to execute and get variable
+        await state.positronClient?.executeSilent(getPathsCode);
+        const paths = (await state.positronClient?.getVariable('paths')) as {
+            pod5: string;
+            bam: string;
+            fasta: string;
+        };
         pod5Path = paths.pod5;
         bamPath = paths.bam;
         fastaPath = paths.fasta;
