@@ -363,6 +363,7 @@ def plot_aggregate(
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
     show_modifications: bool = True,
+    mod_filter: dict | None = None,
     show_pileup: bool = True,
     show_dwell_time: bool = True,
     show_signal: bool = True,
@@ -384,6 +385,8 @@ def plot_aggregate(
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
         show_modifications: Show modifications heatmap panel (default True)
+        mod_filter: Dictionary mapping modification codes to minimum probability thresholds
+                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications shown.
         show_pileup: Show base pileup panel (default True)
         show_dwell_time: Show dwell time panel (default True)
         show_signal: Show signal panel (default True)
@@ -397,6 +400,8 @@ def plot_aggregate(
         >>> squiggy.load_pod5('data.pod5')
         >>> squiggy.load_bam('alignments.bam')
         >>> html = squiggy.plot_aggregate('chr1', max_reads=50)
+        >>> # Filter modifications by type and probability
+        >>> html = squiggy.plot_aggregate('chr1', mod_filter={'m': 0.8, 'a': 0.7})
         >>> # Extension displays this automatically
 
     Raises:
@@ -449,7 +454,7 @@ def plot_aggregate(
         fasta_file=_squiggy_session.fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
-    modification_stats = calculate_modification_statistics(reads_data)
+    modification_stats = calculate_modification_statistics(reads_data, mod_filter=mod_filter)
     dwell_stats = calculate_dwell_time_statistics(reads_data)
 
     # Prepare data for AggregatePlotStrategy
