@@ -10,7 +10,7 @@ from bokeh.layouts import gridplot
 from bokeh.models import Band, ColumnDataSource, HoverTool
 from bokeh.resources import CDN
 
-from ..constants import NormalizationMethod, Theme
+from ..constants import MODIFICATION_CODES, MODIFICATION_COLORS, NormalizationMethod, Theme
 from ..rendering import ThemeManager
 from .base import PlotStrategy
 
@@ -19,11 +19,12 @@ class AggregatePlotStrategy(PlotStrategy):
     """
     Strategy for aggregate multi-read visualization
 
-    This strategy plots aggregate statistics across multiple reads with three
+    This strategy plots aggregate statistics across multiple reads with up to four
     synchronized tracks:
-    1. Mean signal with confidence bands
+    1. Base modifications heatmap (optional, if modifications present)
     2. Base call pileup (stacked proportions)
-    3. Quality scores by position
+    3. Mean signal with confidence bands
+    4. Quality scores by position
 
     Example:
         >>> from squiggy.plot_strategies.aggregate import AggregatePlotStrategy
@@ -125,6 +126,7 @@ class AggregatePlotStrategy(PlotStrategy):
                 - aggregate_stats (required): signal statistics
                 - pileup_stats (required): base call pileup
                 - quality_stats (required): quality scores
+                - modification_stats (optional): modification probabilities
                 - reference_name (required): reference identifier
                 - num_reads (required): number of reads
 
@@ -144,31 +146,46 @@ class AggregatePlotStrategy(PlotStrategy):
         aggregate_stats = data["aggregate_stats"]
         pileup_stats = data["pileup_stats"]
         quality_stats = data["quality_stats"]
+        modification_stats = data.get("modification_stats")
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
 
         # Extract options
         normalization = options.get("normalization", NormalizationMethod.NONE)
 
-        # Create three synchronized tracks
+        # Create modification heatmap if modification data exists
+        panels = []
+        if modification_stats and modification_stats.get("mod_stats"):
+            p_mods = self._create_modification_heatmap(modification_stats=modification_stats)
+            panels.append([p_mods])
+
+        # Create pileup track
+        p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
+        panels.append([p_pileup])
+
+        # Create signal track
         p_signal = self._create_signal_track(
             aggregate_stats=aggregate_stats,
             reference_name=reference_name,
             num_reads=num_reads,
             normalization=normalization,
         )
+        panels.append([p_signal])
 
-        p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
-
+        # Create quality track
         p_quality = self._create_quality_track(quality_stats=quality_stats)
+        panels.append([p_quality])
 
         # Link x-axes for synchronized zoom/pan
-        p_pileup.x_range = p_signal.x_range
-        p_quality.x_range = p_signal.x_range
+        # Use pileup as base (it's always present)
+        if modification_stats and modification_stats.get("mod_stats"):
+            p_mods.x_range = p_pileup.x_range
+        p_signal.x_range = p_pileup.x_range
+        p_quality.x_range = p_pileup.x_range
 
         # Create gridplot
         grid = gridplot(
-            [[p_signal], [p_pileup], [p_quality]],
+            panels,
             sizing_mode="stretch_width",
             toolbar_location="right",
         )
@@ -182,6 +199,95 @@ class AggregatePlotStrategy(PlotStrategy):
     # Private Methods: Track Creation
     # =========================================================================
 
+    def _create_modification_heatmap(self, modification_stats: dict):
+        """Create modification probability heatmap track
+
+        Args:
+            modification_stats: Dict with mod_stats and positions from
+                                calculate_modification_statistics()
+
+        Returns:
+            Bokeh figure with modification heatmap
+        """
+        fig = self.theme_manager.create_figure(
+            title="Base Modifications (Mean Probability)",
+            x_label="",  # Shared with other panels
+            y_label="Modification",
+            height=150,
+        )
+
+        mod_stats = modification_stats["mod_stats"]
+
+        # Prepare data for heatmap
+        heatmap_data = {
+            "x": [],  # Position
+            "y": [],  # Modification type (human-readable)
+            "mod_code": [],  # Raw mod code
+            "prob": [],  # Mean probability
+            "count": [],  # Number of reads
+            "std": [],  # Std dev
+            "color": [],  # Color based on mod type
+        }
+
+        # Get all modification types and sort them for consistent ordering
+        mod_types = sorted(mod_stats.keys(), key=str)
+
+        # Build heatmap data
+        for mod_code in mod_types:
+            # Get human-readable name
+            mod_name = MODIFICATION_CODES.get(mod_code, str(mod_code))
+
+            for pos, stats in mod_stats[mod_code].items():
+                heatmap_data["x"].append(pos)
+                heatmap_data["y"].append(mod_name)
+                heatmap_data["mod_code"].append(str(mod_code))
+                heatmap_data["prob"].append(stats["mean"])
+                heatmap_data["count"].append(stats["count"])
+                heatmap_data["std"].append(stats["std"])
+
+                # Get color for this modification type
+                color = MODIFICATION_COLORS.get(mod_code, "#808080")
+                heatmap_data["color"].append(color)
+
+        # Create data source
+        source = ColumnDataSource(data=heatmap_data)
+
+        # Create rectangles for heatmap
+        rects = fig.rect(
+            x="x",
+            y="y",
+            width=1.0,  # One position wide
+            height=0.9,  # 90% of row height
+            source=source,
+            fill_color="color",
+            fill_alpha="prob",  # Probability controls transparency
+            line_color=None,
+        )
+
+        # Set categorical y-axis
+        unique_mod_names = sorted(set(heatmap_data["y"]))
+        fig.y_range.factors = unique_mod_names
+
+        # Add hover tool
+        hover = HoverTool(
+            renderers=[rects],
+            tooltips=[
+                ("Position", "@x"),
+                ("Modification", "@y"),
+                ("Mean Probability", "@prob{0.3f}"),
+                ("Reads", "@count"),
+                ("Std Dev", "@std{0.3f}"),
+            ],
+            mode="mouse",
+        )
+        fig.add_tools(hover)
+
+        # Hide x-axis labels (will use shared x-axis from other panels)
+        fig.xaxis.major_label_text_font_size = "0pt"
+        fig.xaxis.major_tick_line_color = None
+
+        return fig
+
     def _create_signal_track(
         self,
         aggregate_stats: dict,
@@ -194,7 +300,7 @@ class AggregatePlotStrategy(PlotStrategy):
             title=f"Aggregate Signal - {reference_name} ({num_reads} reads)",
             x_label="Reference Position",
             y_label=f"Signal ({normalization.value})",
-            height=300,
+            height=200,
         )
 
         positions = aggregate_stats["positions"]
@@ -263,7 +369,7 @@ class AggregatePlotStrategy(PlotStrategy):
             title="Base Call Pileup",
             x_label="Reference Position",
             y_label="Base Proportion",
-            height=250,
+            height=300,
         )
 
         positions = pileup_stats["positions"]

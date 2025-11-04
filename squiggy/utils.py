@@ -888,6 +888,7 @@ def extract_reads_for_reference(
             - move_table: Move table array
             - stride: Stride value from move table
             - quality_scores: Per-base quality scores
+            - modifications: List of ModificationAnnotation objects
     """
     import random
 
@@ -918,6 +919,18 @@ def extract_reads_for_reference(
                     np.array(read.query_qualities) if read.query_qualities else None
                 )
 
+                # Extract modifications using _parse_alignment
+                modifications = []
+                try:
+                    from .alignment import _parse_alignment
+
+                    aligned_read = _parse_alignment(read, None)
+                    if aligned_read:
+                        modifications = aligned_read.modifications
+                except Exception as e:
+                    # Modifications are optional, don't fail if extraction fails
+                    pass
+
                 reads_info.append(
                     {
                         "read_id": read.query_name,
@@ -927,6 +940,7 @@ def extract_reads_for_reference(
                         "move_table": moves,
                         "stride": stride,
                         "quality_scores": quality_scores,
+                        "modifications": modifications,
                     }
                 )
 
@@ -970,6 +984,73 @@ def extract_reads_for_reference(
         raise ValueError(
             f"Error extracting reads for reference {reference_name}: {str(e)}"
         ) from e
+
+
+def calculate_modification_statistics(reads_data):
+    """Calculate aggregate modification statistics across multiple reads
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+
+    Returns:
+        Dict with keys:
+            - mod_stats: Dict mapping mod_code -> position -> statistics
+                {
+                    'mod_code': {
+                        position: {
+                            'probabilities': [float],  # All probabilities at this position
+                            'mean': float,
+                            'median': float,
+                            'std': float,
+                            'count': int
+                        }
+                    }
+                }
+            - positions: Sorted list of all positions with modifications
+    """
+    # Map genomic_pos -> mod_code -> list of probabilities
+    position_mods = {}
+
+    for read in reads_data:
+        modifications = read.get("modifications", [])
+        for mod in modifications:
+            if mod.genomic_pos is None:
+                continue
+
+            pos = mod.genomic_pos
+            mod_code = mod.mod_code
+
+            if pos not in position_mods:
+                position_mods[pos] = {}
+            if mod_code not in position_mods[pos]:
+                position_mods[pos][mod_code] = []
+
+            position_mods[pos][mod_code].append(mod.probability)
+
+    # Calculate statistics per position/mod_type
+    mod_stats = {}
+    all_positions = set()
+
+    for pos, mod_dict in position_mods.items():
+        all_positions.add(pos)
+        for mod_code, probabilities in mod_dict.items():
+            if mod_code not in mod_stats:
+                mod_stats[mod_code] = {}
+
+            # Calculate statistics
+            probs_array = np.array(probabilities)
+            mod_stats[mod_code][pos] = {
+                "probabilities": probabilities,
+                "mean": float(np.mean(probs_array)),
+                "median": float(np.median(probs_array)),
+                "std": float(np.std(probs_array)),
+                "count": len(probabilities),
+            }
+
+    return {
+        "mod_stats": mod_stats,
+        "positions": sorted(all_positions),
+    }
 
 
 def calculate_aggregate_signal(reads_data, normalization_method):

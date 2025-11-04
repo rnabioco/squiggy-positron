@@ -395,6 +395,7 @@ def plot_aggregate(
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,
+        calculate_modification_statistics,
         calculate_quality_by_position,
         extract_reads_for_reference,
     )
@@ -432,12 +433,14 @@ def plot_aggregate(
         reads_data, bam_file=_squiggy_session.bam_path, reference_name=reference_name
     )
     quality_stats = calculate_quality_by_position(reads_data)
+    modification_stats = calculate_modification_statistics(reads_data)
 
     # Prepare data for AggregatePlotStrategy
     data = {
         "aggregate_stats": aggregate_stats,
         "pileup_stats": pileup_stats,
         "quality_stats": quality_stats,
+        "modification_stats": modification_stats,
         "reference_name": reference_name,
         "num_reads": num_reads,
     }
