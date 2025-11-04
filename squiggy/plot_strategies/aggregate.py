@@ -602,4 +602,15 @@ class AggregatePlotStrategy(PlotStrategy):
         )
         fig.add_tools(hover)
 
+        # Set initial y-range with some padding
+        # Note: Bokeh doesn't have built-in auto-scale on zoom for y-axis
+        # Users can use the box zoom or reset tools to adjust view
+        import numpy as np
+        if len(mean_dwell) > 0:
+            y_min = np.min(lower)
+            y_max = np.max(upper)
+            y_padding = (y_max - y_min) * 0.1
+            fig.y_range.start = max(0, y_min - y_padding)
+            fig.y_range.end = y_max + y_padding
+
         return fig
