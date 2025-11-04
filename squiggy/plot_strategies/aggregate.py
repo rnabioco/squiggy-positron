@@ -134,6 +134,11 @@ class AggregatePlotStrategy(PlotStrategy):
 
             options: Plot options dictionary containing:
                 - normalization: NormalizationMethod enum (default: NONE)
+                - show_modifications: bool to show modifications panel (default: True)
+                - show_pileup: bool to show pileup panel (default: True)
+                - show_dwell_time: bool to show dwell time panel (default: True)
+                - show_signal: bool to show signal panel (default: True)
+                - show_quality: bool to show quality panel (default: True)
 
         Returns:
             Tuple of (html_string, bokeh_gridplot)
@@ -155,49 +160,57 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Extract options
         normalization = options.get("normalization", NormalizationMethod.NONE)
+        show_modifications = options.get("show_modifications", True)
+        show_pileup = options.get("show_pileup", True)
+        show_dwell_time = options.get("show_dwell_time", True)
+        show_signal = options.get("show_signal", True)
+        show_quality = options.get("show_quality", True)
 
-        # Build panel list dynamically based on available data
+        # Build panel list dynamically based on available data and visibility options
         # Panel order: modifications, pileup, dwell time, signal, quality
         panels = []
         all_figs = []  # Keep track of all figures for x-range linking
 
-        # Create modification heatmap if modification data exists
-        if modification_stats and modification_stats.get("mod_stats"):
+        # Create modification heatmap if data exists and panel is enabled
+        if show_modifications and modification_stats and modification_stats.get("mod_stats"):
             p_mods = self._create_modification_heatmap(modification_stats=modification_stats)
             panels.append([p_mods])
             all_figs.append(p_mods)
 
-        # Create pileup track (always present)
-        p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
-        panels.append([p_pileup])
-        all_figs.append(p_pileup)
+        # Create pileup track if enabled
+        if show_pileup:
+            p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
+            panels.append([p_pileup])
+            all_figs.append(p_pileup)
 
-        # Create dwell time track if data exists
-        if dwell_stats and len(dwell_stats.get("positions", [])) > 0:
+        # Create dwell time track if data exists and panel is enabled
+        if show_dwell_time and dwell_stats and len(dwell_stats.get("positions", [])) > 0:
             p_dwell = self._create_dwell_time_track(dwell_stats=dwell_stats)
             panels.append([p_dwell])
             all_figs.append(p_dwell)
 
-        # Create signal track (always present)
-        p_signal = self._create_signal_track(
-            aggregate_stats=aggregate_stats,
-            reference_name=reference_name,
-            num_reads=num_reads,
-            normalization=normalization,
-        )
-        panels.append([p_signal])
-        all_figs.append(p_signal)
+        # Create signal track if enabled
+        if show_signal:
+            p_signal = self._create_signal_track(
+                aggregate_stats=aggregate_stats,
+                reference_name=reference_name,
+                num_reads=num_reads,
+                normalization=normalization,
+            )
+            panels.append([p_signal])
+            all_figs.append(p_signal)
 
-        # Create quality track (always present)
-        p_quality = self._create_quality_track(quality_stats=quality_stats)
-        panels.append([p_quality])
-        all_figs.append(p_quality)
+        # Create quality track if enabled
+        if show_quality:
+            p_quality = self._create_quality_track(quality_stats=quality_stats)
+            panels.append([p_quality])
+            all_figs.append(p_quality)
 
         # Link x-axes for synchronized zoom/pan
-        # Use pileup as base (it's always present)
-        base_x_range = p_pileup.x_range
-        for fig in all_figs:
-            if fig is not p_pileup:
+        # Use first figure as base for x_range
+        if all_figs:
+            base_x_range = all_figs[0].x_range
+            for fig in all_figs[1:]:
                 fig.x_range = base_x_range
 
         # Create gridplot
