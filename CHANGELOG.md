@@ -1,5 +1,22 @@
 # Squiggy Release Notes
 
+## v0.1.11-alpha (2025-11-04)
+
+Session management improvements with demo session support and enhanced code quality.
+
+### Features
+
+- **Session Management Panel**: Added new "Session Manager" panel with demo session support for quick onboarding and testing (#81)
+
+### Documentation
+
+- **React-First UI Guidelines**: Added comprehensive React-first UI development guidance to CLAUDE.md for consistent panel implementation
+
+### Internal
+
+- **CI Configuration**: Disabled Codecov PR comments to reduce notification noise
+- **Release Process**: Added quality checks (linting and formatting) to release workflow
+
 ## v0.1.10-alpha (2025-11-04)
 
 UX improvement with search mode toggle for better reference navigation.
