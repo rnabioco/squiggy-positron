@@ -28,6 +28,8 @@ export const ReadsCore: React.FC = () => {
         selectedReadIds: new Set<string>(),
         focusedIndex: null,
         expandedReferences: new Set<string>(),
+        sortBy: 'name',
+        sortOrder: 'asc',
         nameColumnWidth: CONSTANTS.DEFAULT_NAME_WIDTH,
         detailsColumnWidth: CONSTANTS.DEFAULT_DETAILS_WIDTH,
     });
@@ -59,23 +61,46 @@ export const ReadsCore: React.FC = () => {
                     if (message.groupedByReference) {
                         // For grouped reads, message.reads contains reference headers
                         // Populate the referenceToReads map for expansion logic
-                        if (message.referenceToReads) {
+                        // Only update if referenceToReads has data (don't overwrite with empty)
+                        if (message.referenceToReads && message.referenceToReads.length > 0) {
                             referenceToReadsRef.current = new Map(message.referenceToReads);
                         }
 
-                        setState((prev) => ({
-                            ...prev,
-                            items: message.reads,
-                            hasReferences: true,
-                            totalReadCount: message.referenceToReads
-                                ? message.referenceToReads.reduce(
-                                      (sum: number, [_, reads]: [string, ReadItem[]]) =>
-                                          sum + reads.length,
-                                      0
-                                  )
-                                : 0,
-                            filteredItems: message.reads,
-                        }));
+                        setState((prev) => {
+                            let filteredItems: ReadListItem[];
+
+                            // If we have full reference data, rebuild from scratch
+                            if (referenceToReadsRef.current.size > 0) {
+                                filteredItems = rebuildItemsList(
+                                    referenceToReadsRef.current,
+                                    prev.expandedReferences,
+                                    prev.searchText,
+                                    prev.sortBy,
+                                    prev.sortOrder
+                                );
+                            } else {
+                                // In lazy-loading mode, use incoming reference headers with current sort
+                                filteredItems = sortReferenceHeaders(
+                                    message.reads,
+                                    prev.sortBy,
+                                    prev.sortOrder
+                                );
+                            }
+
+                            return {
+                                ...prev,
+                                items: message.reads,
+                                hasReferences: true,
+                                totalReadCount: message.referenceToReads
+                                    ? message.referenceToReads.reduce(
+                                          (sum: number, [_, reads]: [string, ReadItem[]]) =>
+                                              sum + reads.length,
+                                          0
+                                      )
+                                    : 0,
+                                filteredItems,
+                            };
+                        });
                     } else {
                         // Flat list of reads
                         setState((prev) => ({
@@ -149,16 +174,27 @@ export const ReadsCore: React.FC = () => {
         // Store full data for expansion
         referenceToReadsRef.current = new Map(referenceToReads);
 
-        setState((prev) => ({
-            ...prev,
-            items,
-            hasReferences: true,
-            totalReadCount: referenceToReads.reduce((sum, [_, reads]) => sum + reads.length, 0),
-            filteredItems: items,
-            selectedReadIds: new Set(),
-            focusedIndex: null,
-            expandedReferences: new Set(),
-        }));
+        setState((prev) => {
+            // Rebuild items with sorting applied
+            const filteredItems = rebuildItemsList(
+                referenceToReadsRef.current,
+                new Set<string>(), // No references expanded initially
+                '', // No search text initially
+                prev.sortBy,
+                prev.sortOrder
+            );
+
+            return {
+                ...prev,
+                items,
+                hasReferences: true,
+                totalReadCount: referenceToReads.reduce((sum, [_, reads]) => sum + reads.length, 0),
+                filteredItems,
+                selectedReadIds: new Set(),
+                focusedIndex: null,
+                expandedReferences: new Set(),
+            };
+        });
     };
 
     const handleSetReferencesOnly = (
@@ -238,7 +274,9 @@ export const ReadsCore: React.FC = () => {
                 const newItems = rebuildItemsList(
                     referenceToReadsRef.current,
                     prev.expandedReferences,
-                    prev.searchText
+                    prev.searchText,
+                    prev.sortBy,
+                    prev.sortOrder
                 );
                 return {
                     ...prev,
@@ -312,12 +350,46 @@ export const ReadsCore: React.FC = () => {
             const newItems = rebuildItemsList(
                 referenceToReadsRef.current,
                 expandedReferences,
-                prev.searchText
+                prev.searchText,
+                prev.sortBy,
+                prev.sortOrder
             );
 
             return {
                 ...prev,
                 expandedReferences,
+                filteredItems: newItems,
+            };
+        });
+    };
+
+    const handleSort = (column: 'name' | 'reads') => {
+        setState((prev) => {
+            // If clicking same column, toggle order; otherwise switch column (start with asc)
+            const newSortBy = column;
+            const newSortOrder =
+                prev.sortBy === column && prev.sortOrder === 'asc' ? 'desc' : 'asc';
+
+            let newItems: ReadListItem[];
+
+            // If we have full reference data, rebuild from scratch
+            if (referenceToReadsRef.current.size > 0) {
+                newItems = rebuildItemsList(
+                    referenceToReadsRef.current,
+                    prev.expandedReferences,
+                    prev.searchText,
+                    newSortBy,
+                    newSortOrder
+                );
+            } else {
+                // In lazy-loading mode, just re-sort the existing reference headers
+                newItems = sortReferenceHeaders(prev.filteredItems, newSortBy, newSortOrder);
+            }
+
+            return {
+                ...prev,
+                sortBy: newSortBy,
+                sortOrder: newSortOrder,
                 filteredItems: newItems,
             };
         });
@@ -412,6 +484,9 @@ export const ReadsCore: React.FC = () => {
                 focusedIndex={state.focusedIndex}
                 nameColumnWidth={state.nameColumnWidth}
                 detailsColumnWidth={state.detailsColumnWidth}
+                hasReferences={state.hasReferences}
+                sortBy={state.sortBy}
+                sortOrder={state.sortOrder}
                 onPlotRead={handlePlotRead}
                 onPlotAggregate={handlePlotAggregate}
                 onSelectRead={handleSelectRead}
@@ -419,6 +494,7 @@ export const ReadsCore: React.FC = () => {
                 onSearch={handleSearch}
                 onLoadMore={handleLoadMore}
                 onUpdateColumnWidths={handleUpdateColumnWidths}
+                onSort={handleSort}
             />
         </div>
     );
@@ -469,17 +545,98 @@ function filterItems(
 }
 
 /**
+ * Sort reference headers in place (for lazy-loading mode)
+ * Preserves expanded state and child reads
+ */
+function sortReferenceHeaders(
+    items: ReadListItem[],
+    sortBy: 'name' | 'reads',
+    sortOrder: 'asc' | 'desc'
+): ReadListItem[] {
+    const result: ReadListItem[] = [];
+    const referenceBlocks: Array<{ header: ReferenceGroupItem; reads: ReadItem[] }> = [];
+
+    // Group items into reference blocks (header + its expanded reads)
+    let currentBlock: { header: ReferenceGroupItem; reads: ReadItem[] } | null = null;
+
+    for (const item of items) {
+        if (item.type === 'reference') {
+            // Save previous block if exists
+            if (currentBlock) {
+                referenceBlocks.push(currentBlock);
+            }
+            // Start new block
+            currentBlock = { header: item, reads: [] };
+        } else {
+            // Add read to current block
+            if (currentBlock) {
+                currentBlock.reads.push(item);
+            }
+        }
+    }
+
+    // Don't forget the last block
+    if (currentBlock) {
+        referenceBlocks.push(currentBlock);
+    }
+
+    // Sort the blocks
+    referenceBlocks.sort((a, b) => {
+        let comparison = 0;
+
+        if (sortBy === 'reads') {
+            // Sort by read count
+            comparison = a.header.readCount - b.header.readCount;
+        } else {
+            // Sort by name
+            comparison = a.header.referenceName.localeCompare(b.header.referenceName);
+        }
+
+        return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    // Flatten back to list
+    for (const block of referenceBlocks) {
+        result.push(block.header);
+        result.push(...block.reads);
+    }
+
+    return result;
+}
+
+/**
  * Rebuild items list with expansion state
  */
 function rebuildItemsList(
     referenceToReads: Map<string, ReadItem[]>,
     expandedReferences: Set<string>,
-    searchText: string
+    searchText: string,
+    sortBy: 'name' | 'reads' = 'name',
+    sortOrder: 'asc' | 'desc' = 'asc'
 ): ReadListItem[] {
     const items: ReadListItem[] = [];
     const searchLower = searchText.toLowerCase();
 
-    for (const [referenceName, reads] of referenceToReads.entries()) {
+    // Convert Map to array and sort
+    let references = Array.from(referenceToReads.entries());
+
+    // Apply sorting
+    references.sort(([refA, readsA], [refB, readsB]) => {
+        let comparison = 0;
+
+        if (sortBy === 'reads') {
+            // Sort by read count
+            comparison = readsA.length - readsB.length;
+        } else {
+            // Sort by name (alphabetical)
+            comparison = refA.localeCompare(refB);
+        }
+
+        // Apply sort order
+        return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    for (const [referenceName, reads] of references) {
         const refMatches = referenceName.toLowerCase().includes(searchLower);
 
         // Filter reads only if reference name doesn't match
