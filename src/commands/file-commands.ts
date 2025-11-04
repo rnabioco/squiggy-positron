@@ -165,6 +165,103 @@ export function registerFileCommands(
             await loadTestMultiReadDataset(context, state);
         })
     );
+
+    // Internal commands for lazy loading
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.internal.loadMoreReads', async () => {
+            await loadMoreReads(state);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.internal.expandReference',
+            async (referenceName: string, offset: number, limit: number) => {
+                await expandReference(referenceName, offset, limit, state);
+            }
+        )
+    );
+}
+
+/**
+ * Load more reads for POD5 pagination
+ */
+async function loadMoreReads(state: ExtensionState): Promise<void> {
+    if (!state.usePositron || !state.squiggyAPI || !state.currentPod5File) {
+        return;
+    }
+
+    // Track POD5 pagination context
+    if (!state.pod5LoadContext) {
+        // Initialize context if not present
+        const totalReads = await state.squiggyAPI.client.getVariable(
+            'len(squiggy.io._squiggy_session.read_ids)'
+        );
+        state.pod5LoadContext = {
+            currentOffset: 1000, // Initial load was 1000
+            pageSize: 500,
+            totalReads: totalReads as number,
+        };
+    }
+
+    const { currentOffset, pageSize, totalReads } = state.pod5LoadContext;
+
+    if (currentOffset >= totalReads) {
+        // All reads loaded
+        return;
+    }
+
+    try {
+        // Show loading state
+        state.readsViewPane?.setLoading(true, 'Loading more reads...');
+
+        // Fetch next batch
+        const nextBatch = await state.squiggyAPI.getReadIds(currentOffset, pageSize);
+
+        // Send to React
+        state.readsViewPane?.appendReads(nextBatch);
+
+        // Update context
+        state.pod5LoadContext.currentOffset += nextBatch.length;
+    } finally {
+        state.readsViewPane?.setLoading(false);
+    }
+}
+
+/**
+ * Expand reference and fetch reads (BAM lazy loading)
+ */
+async function expandReference(
+    referenceName: string,
+    offset: number,
+    limit: number,
+    state: ExtensionState
+): Promise<void> {
+    if (!state.usePositron || !state.squiggyAPI || !state.currentBamFile) {
+        return;
+    }
+
+    try {
+        // Show loading state
+        state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
+
+        // Fetch reads for this reference with pagination
+        const result = await state.squiggyAPI.getReadsForReferencePaginated(
+            referenceName,
+            offset,
+            limit
+        );
+
+        // Send to React
+        state.readsViewPane?.setReadsForReference(
+            referenceName,
+            result.readIds,
+            offset,
+            result.totalCount
+        );
+    } finally {
+        state.readsViewPane?.setLoading(false);
+    }
 }
 
 /**
@@ -320,11 +417,15 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 hasProbabilities = result.hasProbabilities;
                 hasEventAlignment = result.hasEventAlignment || false;
 
-                // Get references and build mapping (lazy loading)
+                // Get references only (lazy loading - don't fetch reads yet)
                 const references = await state.squiggyAPI.getReferences();
+
+                // Build reference count map by getting length for each reference
                 for (const ref of references) {
-                    const reads = await state.squiggyAPI.getReadsForReference(ref);
-                    referenceToReads[ref] = reads;
+                    const readCount = await state.squiggyAPI.client.getVariable(
+                        `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                    );
+                    referenceToReads[ref] = new Array(readCount as number); // Placeholder
                 }
             } else if (state.pythonBackend) {
                 // Use subprocess backend
@@ -363,24 +464,16 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 hasEvents: hasEventAlignment,
             });
 
-            // Update reads view to show reads grouped by reference
+            // Update reads view to show references only (lazy loading mode)
             if (Object.keys(referenceToReads).length > 0) {
-                const refMap = new Map<string, string[]>(Object.entries(referenceToReads));
+                const references = Object.entries(referenceToReads).map(
+                    ([referenceName, reads]) => ({
+                        referenceName,
+                        readCount: Array.isArray(reads) ? reads.length : 0,
+                    })
+                );
 
-                // Convert to ReadItem[] with reference info
-                const readItemsMap = new Map<string, any[]>();
-                for (const [ref, reads] of refMap.entries()) {
-                    readItemsMap.set(
-                        ref,
-                        reads.map((readId) => ({
-                            type: 'read' as const,
-                            readId,
-                            referenceName: ref,
-                            indentLevel: 1,
-                        }))
-                    );
-                }
-                state.readsViewPane?.setReadsGrouped(readItemsMap);
+                state.readsViewPane?.setReferencesOnly(references);
             }
 
             // Update modifications panel and context

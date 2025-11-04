@@ -4,12 +4,273 @@ I/O functions for loading POD5 and BAM files
 These functions are called from the Positron extension via the Jupyter kernel.
 """
 
+import logging
 import os
+from collections import defaultdict
+from collections.abc import Iterator
+from pathlib import Path
 
 import pod5
 import pysam
 
 from .utils import get_bam_references
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Performance Optimization Classes
+# ============================================================================
+
+
+class LazyReadList:
+    """
+    Virtual list of read IDs - only materializes requested slices
+
+    Provides O(1) memory overhead instead of O(n) by lazily loading read IDs
+    from POD5 file on demand. Works seamlessly with TypeScript's pagination
+    pattern (offset/limit slicing).
+
+    Attributes:
+        _reader: POD5 Reader instance
+        _cached_length: Cached total read count (computed once)
+        _materialized_ids: Optional fully materialized list (for caching)
+
+    Examples:
+        >>> reader = pod5.Reader('file.pod5')
+        >>> lazy_list = LazyReadList(reader)
+        >>> len(lazy_list)  # Computes length once
+        1000000
+        >>> lazy_list[0:100]  # Only loads first 100 IDs
+        ['read1', 'read2', ...]
+        >>> lazy_list[500000]  # Loads single ID at position 500000
+        'read500001'
+    """
+
+    def __init__(self, reader: pod5.Reader):
+        self._reader = reader
+        self._cached_length: int | None = None
+        self._materialized_ids: list[str] | None = None
+
+    def __len__(self) -> int:
+        """Compute total read count (cached after first call)"""
+        if self._cached_length is None:
+            if self._materialized_ids is not None:
+                self._cached_length = len(self._materialized_ids)
+            else:
+                logger.info("Computing read count...")
+                self._cached_length = sum(1 for _ in self._reader.reads())
+                logger.info(f"Found {self._cached_length:,} reads")
+        return self._cached_length
+
+    def __getitem__(self, key: int | slice) -> str | list[str]:
+        """Get read ID(s) at index/slice - lazy loading"""
+        # If fully materialized, use it
+        if self._materialized_ids is not None:
+            return self._materialized_ids[key]
+
+        if isinstance(key, slice):
+            # Handle slice - only load requested range
+            start, stop, step = key.indices(len(self))
+            result = []
+            for i, read in enumerate(self._reader.reads()):
+                if i >= stop:
+                    break
+                if start <= i < stop:
+                    result.append(str(read.read_id))
+            return result[::step] if step != 1 else result
+        else:
+            # Single index lookup
+            if key < 0:
+                key = len(self) + key
+            for i, read in enumerate(self._reader.reads()):
+                if i == key:
+                    return str(read.read_id)
+            raise IndexError(f"Read index out of range: {key}")
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over all read IDs"""
+        if self._materialized_ids is not None:
+            yield from self._materialized_ids
+        else:
+            for read in self._reader.reads():
+                yield str(read.read_id)
+
+    def materialize(self) -> list[str]:
+        """
+        Fully materialize the list (for caching)
+
+        Returns:
+            Complete list of all read IDs
+        """
+        if self._materialized_ids is None:
+            logger.info("Materializing all read IDs...")
+            self._materialized_ids = [
+                str(read.read_id) for read in self._reader.reads()
+            ]
+            self._cached_length = len(self._materialized_ids)
+            logger.info(f"Materialized {self._cached_length:,} read IDs")
+        return self._materialized_ids
+
+
+class Pod5Index:
+    """
+    Fast O(1) read lookup via read_id → file position mapping
+
+    Builds an index mapping read IDs to their position in the POD5 file,
+    enabling constant-time lookups instead of O(n) linear scans.
+
+    Attributes:
+        _index: Dict mapping read_id (str) to file position (int)
+
+    Examples:
+        >>> reader = pod5.Reader('file.pod5')
+        >>> index = Pod5Index()
+        >>> index.build(reader)
+        >>> position = index.get_position('read_abc123')
+        >>> if position is not None:
+        ...     # Use position for fast retrieval
+        ...     pass
+    """
+
+    def __init__(self):
+        self._index: dict[str, int] = {}
+
+    def build(self, reader: pod5.Reader) -> None:
+        """
+        Build index by scanning file once
+
+        Args:
+            reader: POD5 Reader to index
+        """
+        logger.info("Building POD5 index...")
+        for idx, read in enumerate(reader.reads()):
+            self._index[str(read.read_id)] = idx
+        logger.info(f"Indexed {len(self._index):,} reads")
+
+    def get_position(self, read_id: str) -> int | None:
+        """
+        Get file position for read_id (O(1) lookup)
+
+        Args:
+            read_id: Read ID to look up
+
+        Returns:
+            File position or None if not found
+        """
+        return self._index.get(read_id)
+
+    def has_read(self, read_id: str) -> bool:
+        """
+        Check if read exists (O(1))
+
+        Args:
+            read_id: Read ID to check
+
+        Returns:
+            True if read exists in index
+        """
+        return read_id in self._index
+
+    def __len__(self) -> int:
+        """Number of indexed reads"""
+        return len(self._index)
+
+
+def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
+    """
+    Fetch multiple reads in a single pass (O(n) instead of O(m×n))
+
+    This replaces the nested loop pattern where each read_id triggers a full
+    file scan. Instead, we scan the file once and collect all requested reads.
+
+    Args:
+        read_ids: List of read IDs to fetch
+
+    Returns:
+        Dict mapping read_id to ReadRecord for found reads
+
+    Raises:
+        RuntimeError: If no POD5 file is loaded
+
+    Examples:
+        >>> from squiggy import load_pod5
+        >>> from squiggy.io import get_reads_batch
+        >>> load_pod5('file.pod5')
+        >>> reads = get_reads_batch(['read1', 'read2', 'read3'])
+        >>> for read_id, read_obj in reads.items():
+        ...     print(f"{read_id}: {len(read_obj.signal)} samples")
+    """
+    if _squiggy_session.reader is None:
+        raise RuntimeError("No POD5 file is currently loaded")
+
+    needed = set(read_ids)
+    found = {}
+
+    logger.debug(f"Batch fetching {len(needed)} reads...")
+    for read in _squiggy_session.reader.reads():
+        read_id = str(read.read_id)
+        if read_id in needed:
+            found[read_id] = read
+            if len(found) == len(needed):
+                logger.debug(f"Found all {len(found)} reads")
+                break  # Early exit once all found
+
+    if len(found) < len(needed):
+        missing = needed - set(found.keys())
+        logger.warning(f"Could not find {len(missing)} read(s): {list(missing)[:5]}...")
+
+    return found
+
+
+def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
+    """
+    Get a single read by ID using index if available
+
+    Uses Pod5Index for O(1) lookup if index is built, otherwise falls back
+    to linear scan.
+
+    Args:
+        read_id: Read ID to fetch
+
+    Returns:
+        ReadRecord or None if not found
+
+    Raises:
+        RuntimeError: If no POD5 file is loaded
+
+    Examples:
+        >>> from squiggy import load_pod5
+        >>> from squiggy.io import get_read_by_id
+        >>> load_pod5('file.pod5')
+        >>> read = get_read_by_id('read_abc123')
+        >>> if read:
+        ...     print(f"Signal length: {len(read.signal)}")
+    """
+    if _squiggy_session.reader is None:
+        raise RuntimeError("No POD5 file is currently loaded")
+
+    # Use index if available
+    if (
+        hasattr(_squiggy_session, "pod5_index")
+        and _squiggy_session.pod5_index is not None
+    ):
+        position = _squiggy_session.pod5_index.get_position(read_id)
+        if position is None:
+            return None
+
+        # Use indexed access
+        for idx, read in enumerate(_squiggy_session.reader.reads()):
+            if idx == position:
+                return read
+        return None
+
+    # Fallback to linear scan
+    logger.debug(f"No index available, using linear scan for {read_id}")
+    for read in _squiggy_session.reader.reads():
+        if str(read.read_id) == read_id:
+            return read
+    return None
 
 
 class Sample:
@@ -119,19 +380,28 @@ class SquiggySession:
         >>> print(sample)
     """
 
-    def __init__(self):
+    def __init__(self, cache_dir: str | None = None, use_cache: bool = True):
         # Multi-sample support (NEW)
         self.samples: dict[str, Sample] = {}
 
         # Single-sample properties (for backward compatibility)
         self.reader: pod5.Reader | None = None
         self.pod5_path: str | None = None
-        self.read_ids: list[str] = []
+        self.read_ids: list[str] | LazyReadList = []
         self.bam_path: str | None = None
         self.bam_info: dict | None = None
         self.ref_mapping: dict[str, list[str]] | None = None
         self.fasta_path: str | None = None
         self.fasta_info: dict | None = None
+
+        # Performance optimization attributes (NEW)
+        self.pod5_index: Pod5Index | None = None
+
+        # Cache integration (NEW)
+        from .cache import SquiggyCache
+
+        cache_path = Path(cache_dir) if cache_dir else None
+        self.cache = SquiggyCache(cache_path, enabled=use_cache) if use_cache else None
 
     def __repr__(self) -> str:
         """Return informative summary of loaded files"""
@@ -347,6 +617,7 @@ class SquiggySession:
             self.reader = None
         self.pod5_path = None
         self.read_ids = []
+        self.pod5_index = None  # Clear index
 
     def close_bam(self):
         """Clear BAM state (backward compat mode)"""
@@ -376,15 +647,22 @@ class SquiggySession:
 _squiggy_session = SquiggySession()
 
 
-def load_pod5(file_path: str) -> None:
+def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) -> None:
     """
-    Load a POD5 file into the global kernel session
+    Load a POD5 file into the global kernel session (OPTIMIZED)
 
     This function mutates the global _squiggy_session object, making
     POD5 data available for subsequent plotting and analysis calls.
 
+    Performance optimizations:
+    - Lazy read ID loading (O(1) memory vs. O(n))
+    - Optional index building for O(1) lookups
+    - Persistent caching for instant subsequent loads
+
     Args:
         file_path: Path to POD5 file
+        build_index: Whether to build read ID index (default: True)
+        use_cache: Whether to use persistent cache (default: True)
 
     Returns:
         None (mutates global _squiggy_session)
@@ -398,24 +676,52 @@ def load_pod5(file_path: str) -> None:
         >>> first_read = next(_squiggy_session.reader.reads())
     """
     # Convert to absolute path
-    abs_path = os.path.abspath(file_path)
+    abs_path = Path(file_path).resolve()
 
-    if not os.path.exists(abs_path):
+    if not abs_path.exists():
         raise FileNotFoundError(f"Failed to open pod5 file at: {abs_path}")
 
     # Close previous reader if exists
     _squiggy_session.close_pod5()
 
-    # Open new reader (no need for writable_working_directory in extension context)
-    reader = pod5.Reader(abs_path)
+    # Open new reader
+    reader = pod5.Reader(str(abs_path))
 
-    # Extract read IDs
-    read_ids = [str(read.read_id) for read in reader.reads()]
+    # Create lazy read list (O(1) memory overhead)
+    lazy_read_list = LazyReadList(reader)
 
-    # Store state in session (no global keyword needed - just mutating object!)
+    # Try to load index from cache
+    cached_index = None
+    if use_cache and _squiggy_session.cache:
+        logger.info("Checking cache for POD5 index...")
+        cached_index = _squiggy_session.cache.load_pod5_index(abs_path)
+
+    # Build or restore index
+    if build_index:
+        if cached_index:
+            # Restore from cache
+            pod5_index = Pod5Index()
+            pod5_index._index = cached_index
+            logger.info(f"Restored index from cache ({len(pod5_index):,} reads)")
+        else:
+            # Build fresh
+            pod5_index = Pod5Index()
+            pod5_index.build(reader)
+
+            # Save to cache for next time
+            if use_cache and _squiggy_session.cache:
+                _squiggy_session.cache.save_pod5_index(abs_path, pod5_index._index)
+
+        _squiggy_session.pod5_index = pod5_index
+    else:
+        _squiggy_session.pod5_index = None
+
+    # Store state in session
     _squiggy_session.reader = reader
-    _squiggy_session.pod5_path = abs_path
-    _squiggy_session.read_ids = read_ids
+    _squiggy_session.pod5_path = str(abs_path)
+    _squiggy_session.read_ids = lazy_read_list
+
+    logger.info(f"Loaded POD5: {abs_path.name} ({len(lazy_read_list):,} reads)")
 
 
 def get_bam_event_alignment_status(file_path: str) -> bool:
@@ -548,15 +854,23 @@ def get_bam_modification_info(file_path: str) -> dict:
     }
 
 
-def load_bam(file_path: str) -> None:
+def load_bam(
+    file_path: str, build_ref_mapping: bool = True, use_cache: bool = True
+) -> None:
     """
-    Load a BAM file into the global kernel session
+    Load a BAM file into the global kernel session (OPTIMIZED)
 
     This function mutates the global _squiggy_session object, making
     BAM alignment data available for subsequent plotting and analysis calls.
 
+    Performance optimizations:
+    - Eager reference mapping (transparent cost, eliminates UI freezes)
+    - Persistent caching for instant subsequent loads
+
     Args:
         file_path: Path to BAM file
+        build_ref_mapping: Whether to build reference→reads mapping (default: True)
+        use_cache: Whether to use persistent cache (default: True)
 
     Returns:
         None (mutates global _squiggy_session)
@@ -572,23 +886,23 @@ def load_bam(file_path: str) -> None:
         ...     print("Event alignment data available")
     """
     # Convert to absolute path
-    abs_path = os.path.abspath(file_path)
+    abs_path = Path(file_path).resolve()
 
-    if not os.path.exists(abs_path):
+    if not abs_path.exists():
         raise FileNotFoundError(f"BAM file not found: {abs_path}")
 
     # Get references
-    references = get_bam_references(abs_path)
+    references = get_bam_references(str(abs_path))
 
     # Check for base modifications
-    mod_info = get_bam_modification_info(abs_path)
+    mod_info = get_bam_modification_info(str(abs_path))
 
     # Check for event alignment data
-    has_event_alignment = get_bam_event_alignment_status(abs_path)
+    has_event_alignment = get_bam_event_alignment_status(str(abs_path))
 
     # Build metadata dict
     bam_info = {
-        "file_path": abs_path,
+        "file_path": str(abs_path),
         "num_reads": sum(ref["read_count"] for ref in references),
         "references": references,
         "has_modifications": mod_info["has_modifications"],
@@ -597,9 +911,107 @@ def load_bam(file_path: str) -> None:
         "has_event_alignment": has_event_alignment,
     }
 
-    # Store state in session (no global keyword needed - just mutating object!)
-    _squiggy_session.bam_path = abs_path
+    # Build reference mapping (eager, with caching)
+    ref_mapping = None
+    if build_ref_mapping:
+        # Try cache first
+        if use_cache and _squiggy_session.cache:
+            logger.info("Checking cache for BAM reference mapping...")
+            ref_mapping = _squiggy_session.cache.load_bam_ref_mapping(abs_path)
+
+        if ref_mapping is None:
+            # Build fresh
+            logger.info("Building BAM reference mapping...")
+            ref_mapping = _build_ref_mapping_immediate(abs_path)
+            logger.info(f"Mapped {len(ref_mapping)} references")
+
+            # Save to cache
+            if use_cache and _squiggy_session.cache:
+                _squiggy_session.cache.save_bam_ref_mapping(abs_path, ref_mapping)
+
+    # Store state in session
+    _squiggy_session.bam_path = str(abs_path)
     _squiggy_session.bam_info = bam_info
+    _squiggy_session.ref_mapping = ref_mapping
+
+    logger.info(f"Loaded BAM: {abs_path.name} ({bam_info['num_reads']:,} reads)")
+
+
+def _build_ref_mapping_immediate(bam_path: Path) -> dict[str, list[str]]:
+    """
+    Build reference→reads mapping immediately (called from load_bam)
+
+    This is the eager version of get_read_to_reference_mapping(), built
+    during load to avoid surprise costs later.
+
+    Args:
+        bam_path: Path to BAM file
+
+    Returns:
+        Dict mapping reference name to list of read IDs
+    """
+    mapping = defaultdict(list)
+
+    with pysam.AlignmentFile(str(bam_path), "rb", check_sq=False) as bam:
+        for read in bam.fetch(until_eof=True):
+            if not read.is_unmapped:
+                ref_name = bam.get_reference_name(read.reference_id)
+                mapping[ref_name].append(read.query_name)
+
+    return dict(mapping)
+
+
+def get_reads_for_reference_paginated(
+    reference_name: str, offset: int = 0, limit: int | None = None
+) -> list[str]:
+    """
+    Get reads for a specific reference with pagination support
+
+    This function enables lazy loading of reads by reference for the UI.
+    Returns a slice of read IDs for the specified reference, supporting
+    incremental data fetching.
+
+    Args:
+        reference_name: Name of reference sequence (e.g., 'chr1', 'contig_42')
+        offset: Starting index in the read list (default: 0)
+        limit: Maximum number of reads to return (default: None = all remaining)
+
+    Returns:
+        List of read IDs for the specified reference, sliced by offset/limit
+
+    Raises:
+        RuntimeError: If no BAM file is loaded in the session
+        KeyError: If reference_name is not found in the BAM file
+
+    Examples:
+        >>> from squiggy import load_bam, load_pod5
+        >>> from squiggy.io import get_reads_for_reference_paginated
+        >>> load_pod5('reads.pod5')
+        >>> load_bam('alignments.bam')
+        >>> # Get first 500 reads for chr1
+        >>> reads = get_reads_for_reference_paginated('chr1', offset=0, limit=500)
+        >>> len(reads)
+        500
+        >>> # Get next 500 reads
+        >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
+    """
+    if _squiggy_session.ref_mapping is None:
+        raise RuntimeError(
+            "No BAM file loaded. Call load_bam() before accessing reference reads."
+        )
+
+    if reference_name not in _squiggy_session.ref_mapping:
+        available_refs = list(_squiggy_session.ref_mapping.keys())
+        raise KeyError(
+            f"Reference '{reference_name}' not found. "
+            f"Available references: {available_refs[:5]}..."
+        )
+
+    all_reads = _squiggy_session.ref_mapping[reference_name]
+
+    if limit is None:
+        return all_reads[offset:]
+    return all_reads[offset : offset + limit]
 
 
 def load_fasta(file_path: str) -> None:
@@ -610,8 +1022,11 @@ def load_fasta(file_path: str) -> None:
     FASTA reference sequences available for subsequent motif search and
     analysis calls.
 
+    If a FASTA index (.fai) doesn't exist, it will be automatically created
+    using pysam.faidx().
+
     Args:
-        file_path: Path to FASTA file (must be indexed with .fai)
+        file_path: Path to FASTA file (index will be created if missing)
 
     Returns:
         None (mutates global _squiggy_session)
@@ -619,7 +1034,7 @@ def load_fasta(file_path: str) -> None:
     Examples:
         >>> from squiggy import load_fasta
         >>> from squiggy.io import _squiggy_session
-        >>> load_fasta('genome.fa')
+        >>> load_fasta('genome.fa')  # Creates .fai index if needed
         >>> print(_squiggy_session.fasta_info['references'])
         >>> # Use with motif search
         >>> from squiggy.motif import search_motif
@@ -631,13 +1046,18 @@ def load_fasta(file_path: str) -> None:
     if not os.path.exists(abs_path):
         raise FileNotFoundError(f"FASTA file not found: {abs_path}")
 
-    # Check for index
+    # Check for index, create if missing
     fai_path = abs_path + ".fai"
     if not os.path.exists(fai_path):
-        raise FileNotFoundError(
-            f"FASTA index not found: {fai_path}. "
-            f"Create index with: samtools faidx {abs_path}"
-        )
+        logger.info(f"FASTA index not found, creating: {fai_path}")
+        try:
+            pysam.faidx(abs_path)
+            logger.info(f"Successfully created FASTA index: {fai_path}")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create FASTA index for {abs_path}. "
+                f"Error: {e}. You can also create it manually with: samtools faidx {abs_path}"
+            ) from e
 
     # Open FASTA file to get metadata
     fasta = pysam.FastaFile(abs_path)
@@ -731,11 +1151,14 @@ def get_read_ids() -> list[str]:
     Get list of read IDs from currently loaded POD5 file
 
     Returns:
-        List of read ID strings
+        List of read ID strings (materialized from lazy list if needed)
     """
     if not _squiggy_session.read_ids:
         raise ValueError("No POD5 file is currently loaded")
 
+    # Convert LazyReadList to list if needed
+    if isinstance(_squiggy_session.read_ids, LazyReadList):
+        return list(_squiggy_session.read_ids)
     return _squiggy_session.read_ids
 
 

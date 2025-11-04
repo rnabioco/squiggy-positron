@@ -24,19 +24,40 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     onSelectRead,
     onToggleReference,
     onUpdateColumnWidths,
+    onLoadMore,
 }) => {
-    console.log('ReadsInstance render, items:', items.length, 'first item:', items[0]);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const listRef = React.useRef<any>(null);
     const [containerHeight, setContainerHeight] = React.useState(600);
     const [localFocusedIndex, setLocalFocusedIndex] = React.useState<number | null>(focusedIndex);
+
+    // Track if we've already triggered load more to prevent duplicate requests
+    const loadMoreTriggeredRef = React.useRef(false);
+
+    // Reset trigger when items change
+    React.useEffect(() => {
+        loadMoreTriggeredRef.current = false;
+    }, [items.length]);
+
+    // Handle infinite scroll - trigger load more when near bottom
+    const handleItemsRendered = React.useCallback(
+        ({ visibleStopIndex }: { visibleStartIndex: number; visibleStopIndex: number }) => {
+            const itemsRemaining = items.length - visibleStopIndex;
+
+            // Trigger load more when within 50 items of the end
+            if (itemsRemaining < 50 && !loadMoreTriggeredRef.current) {
+                loadMoreTriggeredRef.current = true;
+                onLoadMore();
+            }
+        },
+        [items.length, onLoadMore]
+    );
 
     // Measure container height
     React.useEffect(() => {
         const updateHeight = () => {
             if (containerRef.current) {
                 const height = containerRef.current.clientHeight;
-                console.log('Container height:', height);
                 if (height > 100) {
                     // Only update if we got a reasonable height
                     setContainerHeight(height);
@@ -161,7 +182,6 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
         const item = items[index];
         const isFocused = index === localFocusedIndex;
-        console.log('Rendering row', index, 'item:', item);
 
         if (item.type === 'reference') {
             return (
@@ -218,6 +238,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                         itemSize={CONSTANTS.ROW_HEIGHT}
                         width="100%"
                         overscanCount={CONSTANTS.OVERSCAN_COUNT}
+                        onItemsRendered={handleItemsRendered}
                     >
                         {Row}
                     </List>

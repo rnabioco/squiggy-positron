@@ -54,6 +54,13 @@ export class ExtensionState {
     private _currentFastaFile?: string;
     private _currentPlotReadIds?: string[];
 
+    // Lazy loading context
+    private _pod5LoadContext?: {
+        currentOffset: number;
+        pageSize: number;
+        totalReads: number;
+    };
+
     // Multi-sample state (Phase 4)
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
@@ -259,6 +266,18 @@ squiggy.close_fasta()
 
     get extensionContext(): vscode.ExtensionContext | undefined {
         return this._extensionContext;
+    }
+
+    get pod5LoadContext():
+        | { currentOffset: number; pageSize: number; totalReads: number }
+        | undefined {
+        return this._pod5LoadContext;
+    }
+
+    set pod5LoadContext(
+        value: { currentOffset: number; pageSize: number; totalReads: number } | undefined
+    ) {
+        this._pod5LoadContext = value;
     }
 
     // ========== Multi-Sample Management (Phase 4) ==========
