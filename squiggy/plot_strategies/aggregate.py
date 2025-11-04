@@ -279,6 +279,19 @@ class AggregatePlotStrategy(PlotStrategy):
         }
 
         # Build heatmap data
+        # First collect all opacity values to find the range
+        all_opacities = []
+        for mod_code in mod_types:
+            for pos, stats in mod_stats[mod_code].items():
+                frequency = stats.get("frequency", 0.0)
+                mean_prob = stats["mean"]
+                opacity = frequency * mean_prob
+                all_opacities.append(opacity)
+
+        # Calculate min/max for normalization (clip to reasonable range)
+        max_opacity = max(all_opacities) if all_opacities else 1.0
+        min_opacity = 0.2  # Minimum visible opacity
+
         for mod_code in mod_types:
             # Get human-readable name
             mod_name = MODIFICATION_CODES.get(mod_code, str(mod_code))
@@ -288,10 +301,9 @@ class AggregatePlotStrategy(PlotStrategy):
                 mean_prob = stats["mean"]
 
                 # Opacity = frequency × mean_probability
-                # This makes modifications visible only if they're both:
-                # 1. Present in many reads (high frequency)
-                # 2. Called with high confidence (high probability)
-                opacity = frequency * mean_prob
+                # Scale to [min_opacity, 1.0] range for visibility
+                raw_opacity = frequency * mean_prob
+                opacity = min_opacity + (raw_opacity / max_opacity) * (1.0 - min_opacity)
 
                 heatmap_data["x"].append(pos)
                 heatmap_data["y"].append(mod_name)
