@@ -1,5 +1,20 @@
 # Squiggy Release Notes
 
+## v0.1.9-alpha (2025-11-04)
+
+Performance and UX improvements with optimized data loading and enhanced reads explorer.
+
+### Improvements
+
+- **Reads Explorer UX**: Added sortable "Reads" column, sticky reference headers when scrolling, and proper refresh functionality that queries backend state
+- **POD5/BAM Loading Performance**: 30-40x speedup in data loading through optimized reference mapping and batch processing (#73)
+- **Aggregate Plot Annotations**: Added reference base annotations to aggregate plots for better context (#74)
+- **Documentation**: Renamed all documentation files to lowercase convention and fixed internal cross-references
+
+### Fixes
+
+- **Downsampling Default**: Changed default downsampling factor to 5 for better signal quality preservation
+
 ## v0.1.8-alpha (2025-11-03)
 
 Multi-sample comparison feature with delta visualization and improved documentation.
