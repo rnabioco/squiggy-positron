@@ -54,9 +54,7 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
                 className="reference-group-column reference-group-details"
                 style={{ width: `${detailsColumnWidth}px` }}
             >
-                <span className="reference-group-count">
-                    {item.readCount} read{item.readCount !== 1 ? 's' : ''}
-                </span>
+                <span className="reference-group-count">{item.readCount}</span>
             </div>
 
             {/* Actions column - Aggregate plot button */}

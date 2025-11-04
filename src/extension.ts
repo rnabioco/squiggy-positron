@@ -13,9 +13,11 @@ import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { SamplesPanelProvider } from './views/squiggy-samples-panel';
+import { SessionPanelProvider } from './views/squiggy-session-panel';
 import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
+import { registerSessionCommands } from './commands/session-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 
 // Global extension state
@@ -29,6 +31,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await state.initializeBackends(context);
 
     // Create and register UI panel providers
+    const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
     const filePanelProvider = new FilePanelProvider(context.extensionUri);
     const readsViewPane = new ReadsViewPane(context.extensionUri);
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
@@ -37,6 +40,10 @@ export async function activate(context: vscode.ExtensionContext) {
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
 
     context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            SessionPanelProvider.viewType,
+            sessionPanelProvider
+        ),
         vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider),
         vscode.window.registerWebviewViewProvider(ReadsViewPane.viewType, readsViewPane),
         vscode.window.registerWebviewViewProvider(
@@ -137,6 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
     registerFileCommands(context, state);
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
+    registerSessionCommands(context, state);
 
     // Extension activated silently - no welcome message needed
 }

@@ -1,5 +1,45 @@
 # Squiggy Release Notes
 
+## v0.1.11-alpha (2025-11-04)
+
+Session management improvements with demo session support and enhanced code quality.
+
+### Features
+
+- **Session Management Panel**: Added new "Session Manager" panel with demo session support for quick onboarding and testing (#81)
+
+### Documentation
+
+- **React-First UI Guidelines**: Added comprehensive React-first UI development guidance to CLAUDE.md for consistent panel implementation
+
+### Internal
+
+- **CI Configuration**: Disabled Codecov PR comments to reduce notification noise
+- **Release Process**: Added quality checks (linting and formatting) to release workflow
+
+## v0.1.10-alpha (2025-11-04)
+
+UX improvement with search mode toggle for better reference navigation.
+
+### Improvements
+
+- **Search Mode Toggle**: Added toggle button in reads explorer search bar to switch between reference name search (default) and read ID search. This fixes an issue where searching for reference names would clear the panel in lazy-loading mode, and provides a cleaner UX by separating the two search use cases.
+
+## v0.1.9-alpha (2025-11-04)
+
+Performance and UX improvements with optimized data loading and enhanced reads explorer.
+
+### Improvements
+
+- **Reads Explorer UX**: Added sortable "Reads" column, sticky reference headers when scrolling, and proper refresh functionality that queries backend state
+- **POD5/BAM Loading Performance**: 30-40x speedup in data loading through optimized reference mapping and batch processing (#73)
+- **Aggregate Plot Annotations**: Added reference base annotations to aggregate plots for better context (#74)
+- **Documentation**: Renamed all documentation files to lowercase convention and fixed internal cross-references
+
+### Fixes
+
+- **Downsampling Default**: Changed default downsampling factor to 5 for better signal quality preservation
+
 ## v0.1.8-alpha (2025-11-03)
 
 Multi-sample comparison feature with delta visualization and improved documentation.

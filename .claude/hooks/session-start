@@ -1,0 +1,38 @@
+#!/bin/bash
+# SessionStart hook for Squiggy Positron development environment
+# Automatically installs dependencies when starting a new Claude Code session
+
+set -e
+
+echo "🚀 Setting up Squiggy development environment..."
+
+# Install npm dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing npm dependencies..."
+    npm install
+else
+    echo "✅ npm dependencies already installed"
+fi
+
+# Install Python dependencies
+# Check if squiggy is installed in editable mode
+if ! /usr/bin/python3.12 -c "import squiggy" 2>/dev/null; then
+    echo "🐍 Installing Python dependencies with Python 3.12..."
+    /usr/bin/python3.12 -m pip install --break-system-packages -q -e ".[dev,export]"
+else
+    echo "✅ Python dependencies already installed"
+fi
+
+# Set environment variables for the session
+# Use Python 3.12 by default for this project
+echo "export PYTHON=/usr/bin/python3.12" >> "$CLAUDE_ENV_FILE"
+echo "alias python=python3.12" >> "$CLAUDE_ENV_FILE"
+echo "alias pytest='python3.12 -m pytest'" >> "$CLAUDE_ENV_FILE"
+
+echo "✅ Development environment ready!"
+echo ""
+echo "Available commands:"
+echo "  npm run compile  - Build extension"
+echo "  npm test         - Run TypeScript tests"
+echo "  pytest           - Run Python tests"
+echo "  npm run lint     - Lint all code"

@@ -87,9 +87,19 @@ Read the current `CHANGELOG.md` file. Add a new release section at the top with:
 
 Only include sections that have content. Skip empty sections.
 
-Use today's date in YYYY-MM-DD format.
+**IMPORTANT**: Get today's date by running `date +%Y-%m-%d` to ensure the correct date format (YYYY-MM-DD). Do not manually type the date to avoid errors.
 
-## Step 5: Update Version Numbers
+## Step 5: Run Quality Checks
+
+Before updating version numbers, run quality checks to ensure the release is ready:
+
+```bash
+pixi run check
+```
+
+This runs all linting and formatting checks for both Python and TypeScript. If there are any failures, fix them before proceeding with the release.
+
+## Step 6: Update Version Numbers
 
 Update the version in `package.json`:
 1. Edit `package.json`: Update `"version": "NEW_VERSION"`
@@ -101,14 +111,14 @@ This will automatically update:
 - `package.json` viewsContainers title (sidebar)
 - `package-lock.json` (version)
 
-## Step 6: Stage Changes
+## Step 7: Stage Changes
 
 Stage all modified files with git:
 ```bash
 git add package.json package-lock.json squiggy/__init__.py pyproject.toml CHANGELOG.md
 ```
 
-## Step 7: Show Summary
+## Step 8: Show Summary
 
 Display a summary showing:
 - Old version → New version
@@ -125,7 +135,7 @@ Show the staged diff:
 git diff --cached
 ```
 
-## Step 8: Prompt to Create Commit and Tag
+## Step 9: Prompt to Create Commit and Tag
 
 Use the AskUserQuestion tool to ask the user:
 

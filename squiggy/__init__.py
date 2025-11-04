@@ -23,7 +23,7 @@ Example usage in Jupyter notebook:
     >>> show(Div(text=html))
 """
 
-__version__ = "0.1.8"
+__version__ = "0.1.11"
 
 # Standard library
 import numpy as np
@@ -42,6 +42,8 @@ from .constants import (
 
 # I/O functions
 from .io import (
+    LazyReadList,
+    Pod5Index,
     Sample,
     SquiggySession,
     close_all_samples,
@@ -53,8 +55,11 @@ from .io import (
     get_bam_modification_info,
     get_common_reads,
     get_current_files,
+    get_read_by_id,
     get_read_ids,
     get_read_to_reference_mapping,
+    get_reads_batch,
+    get_reads_for_reference_paginated,
     get_sample,
     get_unique_reads,
     list_samples,
@@ -154,12 +159,8 @@ def plot_read(
     if position_label_interval is None:
         position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
-    # Get read data
-    read_obj = None
-    for read in _squiggy_session.reader.reads():
-        if str(read.read_id) == read_id:
-            read_obj = read
-            break
+    # Get read data (optimized with index if available)
+    read_obj = get_read_by_id(read_id)
 
     if read_obj is None:
         raise ValueError(f"Read not found: {read_id}")
@@ -285,19 +286,22 @@ def plot_reads(
     norm_method = NormalizationMethod[normalization.upper()]
     theme_enum = Theme[theme.upper()]
 
-    # Collect read data
-    reads_data = []
-    for read_id in read_ids:
-        read_obj = None
-        for read in _squiggy_session.reader.reads():
-            if str(read.read_id) == read_id:
-                read_obj = read
-                break
+    # Collect read data (optimized batch fetching - single O(n) pass)
+    read_objs = get_reads_batch(read_ids)
 
-        if read_obj is None:
-            raise ValueError(f"Read not found: {read_id}")
+    # Verify all reads were found
+    missing = set(read_ids) - set(read_objs.keys())
+    if missing:
+        if len(missing) == 1:
+            raise ValueError(f"Read not found: {list(missing)[0]}")
+        else:
+            raise ValueError(f"Reads not found: {list(missing)}")
 
-        reads_data.append((read_id, read_obj.signal, read_obj.run_info.sample_rate))
+    # Build reads_data list in original order
+    reads_data = [
+        (read_id, read_objs[read_id].signal, read_objs[read_id].run_info.sample_rate)
+        for read_id in read_ids
+    ]
 
     # Prepare data and options based on mode
     if plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
@@ -1053,6 +1057,12 @@ __all__ = [
     # Session management
     "SquiggySession",
     "Sample",
+    # Performance optimization classes
+    "LazyReadList",
+    "Pod5Index",
+    "get_reads_batch",
+    "get_read_by_id",
+    "get_reads_for_reference_paginated",
     # Data structures
     "AlignedRead",
     "BaseAnnotation",

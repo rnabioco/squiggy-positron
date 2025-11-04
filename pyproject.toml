@@ -1,6 +1,6 @@
 [project]
 name = "squiggy"
-version = "0.1.8"
+version = "0.1.11"
 description = "Nanopore squiggle visualization tool for POD5 files"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -89,6 +89,11 @@ packages = ["squiggy"]
 [tool.setuptools.package-data]
 squiggy = [
   "data/*.pod5",
+  "data/*.bam",
+  "data/*.bai",
+  "data/*.fa",
+  "data/*.fai",
+  "data/*.fasta",
   "data/*.png",
   "data/*.ico",
   "data/*.icns",
