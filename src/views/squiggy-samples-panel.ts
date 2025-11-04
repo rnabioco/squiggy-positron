@@ -6,12 +6,14 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { BaseWebviewProvider } from './base-webview-provider';
 import {
     SamplesIncomingMessage,
     UpdateSamplesMessage,
     SampleItem,
     ClearSamplesMessage,
+    UpdateSessionFastaMessage,
 } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
 // SampleInfo and formatFileSize unused - reserved for future features
@@ -91,6 +93,18 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 }
                 break;
             }
+
+            case 'filesDropped':
+                await this.handleFilesDropped(message.filePaths);
+                break;
+
+            case 'requestSetSessionFasta':
+                await vscode.commands.executeCommand('squiggy.setSessionFasta');
+                break;
+
+            case 'setSessionFasta':
+                this._state.setSessionFasta(message.fastaPath);
+                break;
         }
     }
 
@@ -181,5 +195,200 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
      */
     public clearSelection(): void {
         this._selectedSamples.clear();
+    }
+
+    /**
+     * Update session FASTA and notify webview
+     */
+    public updateSessionFasta(fastaPath: string | null): void {
+        const message: UpdateSessionFastaMessage = {
+            type: 'updateSessionFasta',
+            fastaPath,
+        };
+        this.postMessage(message);
+    }
+
+    /**
+     * Handle dropped files - parse and auto-match POD5/BAM pairs
+     */
+    private async handleFilesDropped(filePaths: string[]): Promise<void> {
+        if (filePaths.length === 0) {
+            return;
+        }
+
+        try {
+            // Separate files by extension
+            const filesByExt = this.categorizeFiles(filePaths);
+
+            if (filesByExt.pod5Files.length === 0) {
+                vscode.window.showWarningMessage('No POD5 files found in dropped files');
+                return;
+            }
+
+            // Auto-match POD5 files to BAM files
+            const fileQueue = this.matchFilePairs(filesByExt.pod5Files, filesByExt.bamFiles);
+
+            if (fileQueue.length === 0) {
+                vscode.window.showWarningMessage('No valid file pairs to load');
+                return;
+            }
+
+            // If FASTA files found and no session FASTA set, offer to set one
+            if (filesByExt.fastaFiles.length > 0 && !this._state.sessionFastaPath) {
+                const setFasta = await vscode.window.showQuickPick(
+                    ['Yes, set default FASTA', 'No, skip for now'],
+                    {
+                        placeHolder: `Found FASTA file: ${path.basename(filesByExt.fastaFiles[0])}`,
+                        canPickMany: false,
+                    }
+                );
+
+                if (setFasta === 'Yes, set default FASTA') {
+                    this._state.setSessionFasta(filesByExt.fastaFiles[0]);
+                    this.updateSessionFasta(filesByExt.fastaFiles[0]);
+                }
+            }
+
+            // Prompt user to confirm sample names before loading
+            const confirmed = await this.confirmSampleNames(fileQueue);
+            if (confirmed.length === 0) {
+                return;  // User cancelled
+            }
+
+            // Load samples via command
+            await vscode.commands.executeCommand('squiggy.loadSamplesFromDropped', confirmed);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error handling dropped files: ${error}`);
+        }
+    }
+
+    /**
+     * Categorize files by extension
+     */
+    private categorizeFiles(filePaths: string[]): {
+        pod5Files: string[];
+        bamFiles: string[];
+        fastaFiles: string[];
+    } {
+        const pod5Files: string[] = [];
+        const bamFiles: string[] = [];
+        const fastaFiles: string[] = [];
+
+        for (const filePath of filePaths) {
+            const ext = path.extname(filePath).toLowerCase();
+
+            if (ext === '.pod5') {
+                pod5Files.push(filePath);
+            } else if (ext === '.bam') {
+                bamFiles.push(filePath);
+            } else if (['.fasta', '.fa', '.fna'].includes(ext)) {
+                fastaFiles.push(filePath);
+            }
+        }
+
+        return { pod5Files, bamFiles, fastaFiles };
+    }
+
+    /**
+     * Match POD5 files to BAM files using intelligent pattern matching
+     */
+    private matchFilePairs(
+        pod5Files: string[],
+        bamFiles: string[]
+    ): { pod5Path: string; bamPath?: string; sampleName: string }[] {
+        const pairs = [];
+
+        for (const pod5Path of pod5Files) {
+            const pod5Basename = path.basename(pod5Path, '.pod5');
+            const pod5Stem = this.extractStem(pod5Basename);
+
+            // Try to find matching BAM file
+            let matchedBam: string | undefined;
+
+            // First try: exact basename match
+            for (const bamPath of bamFiles) {
+                const bamBasename = path.basename(bamPath);
+                if (bamBasename.startsWith(pod5Basename)) {
+                    matchedBam = bamPath;
+                    break;
+                }
+            }
+
+            // Second try: stem match (e.g., "cys_subset" matches "cys_subset.aln.bam")
+            if (!matchedBam) {
+                for (const bamPath of bamFiles) {
+                    const bamBasename = path.basename(bamPath, '.bam');
+                    if (this.extractStem(bamBasename) === pod5Stem) {
+                        matchedBam = bamPath;
+                        break;
+                    }
+                }
+            }
+
+            pairs.push({
+                pod5Path,
+                bamPath: matchedBam,
+                sampleName: pod5Stem,
+            });
+        }
+
+        return pairs;
+    }
+
+    /**
+     * Extract stem from filename (everything before first non-word character)
+     * e.g., "cys_subset" from "cys_subset.pod5" or "cys_subset.aln.bam"
+     */
+    private extractStem(filename: string): string {
+        // Remove extension first
+        const withoutExt = filename.replace(/\.[^.]*$/, '');
+        // Extract stem: everything up to first non-alphanumeric non-underscore
+        const match = withoutExt.match(/^([a-zA-Z0-9_]+)/);
+        return match ? match[1] : withoutExt;
+    }
+
+    /**
+     * Prompt user to confirm and customize sample names
+     */
+    private async confirmSampleNames(
+        fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
+    ): Promise<{ pod5Path: string; bamPath?: string; sampleName: string }[]> {
+        const confirmed: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+        for (let i = 0; i < fileQueue.length; i++) {
+            const item = fileQueue[i];
+            const suggestion = item.sampleName;
+
+            // Show input box with suggested name
+            const customName = await vscode.window.showInputBox({
+                prompt: `Sample ${i + 1}/${fileQueue.length}: Enter name for ${path.basename(item.pod5Path)}`,
+                value: suggestion,
+                validateInput: (value) => {
+                    if (!value.trim()) {
+                        return 'Sample name cannot be empty';
+                    }
+                    // Check for duplicate names in current queue
+                    if (
+                        confirmed.filter((c) => c.sampleName === value).length > 0 ||
+                        fileQueue.slice(i + 1).filter((f) => f.sampleName === value).length > 0
+                    ) {
+                        return 'Sample name already used';
+                    }
+                    return null;
+                },
+            });
+
+            if (customName === undefined) {
+                // User cancelled
+                return [];
+            }
+
+            confirmed.push({
+                ...item,
+                sampleName: customName.trim(),
+            });
+        }
+
+        return confirmed;
     }
 }

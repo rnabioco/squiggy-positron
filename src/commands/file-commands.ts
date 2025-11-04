@@ -165,6 +165,41 @@ export function registerFileCommands(
             await loadTestMultiReadDataset(context, state);
         })
     );
+
+    // Set session-level FASTA file for all comparisons
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.setSessionFasta', async () => {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { 'FASTA Files': ['fasta', 'fa', 'fna'] },
+                title: 'Select FASTA File for Comparisons',
+            });
+
+            if (fileUri && fileUri[0]) {
+                const fastaPath = fileUri[0].fsPath;
+                state.setSessionFasta(fastaPath);
+
+                // Notify samples panel of FASTA change
+                if (state.samplesProvider) {
+                    state.samplesProvider.updateSessionFasta(fastaPath);
+                }
+
+                vscode.window.showInformationMessage(
+                    `FASTA set: ${path.basename(fastaPath)}`
+                );
+            }
+        })
+    );
+
+    // Load samples from dropped files
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.loadSamplesFromDropped',
+            async (fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]) => {
+                await loadSamplesFromDropped(context, state, fileQueue);
+            }
+        )
+    );
 }
 
 /**
@@ -756,5 +791,102 @@ async function loadTestMultiReadDataset(
     } catch (error) {
         console.error('[loadTestMultiReadDataset] Error:', error);
         handleError(error, ErrorContext.POD5_LOAD);
+    }
+}
+
+/**
+ * Load multiple samples from dropped files
+ * Handles batch loading of POD5/BAM pairs with smart file matching
+ */
+async function loadSamplesFromDropped(
+    context: vscode.ExtensionContext,
+    state: ExtensionState,
+    fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
+): Promise<void> {
+    if (fileQueue.length === 0) {
+        return;
+    }
+
+    // Check if squiggy is available
+    if (!(await ensureSquiggyAvailable(state))) {
+        return;
+    }
+
+    const results = {
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+    };
+
+    for (let i = 0; i < fileQueue.length; i++) {
+        const { pod5Path, bamPath, sampleName } = fileQueue[i];
+        const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
+
+        try {
+            await safeExecuteWithProgress(
+                async () => {
+                    // Validate files exist
+                    try {
+                        await fs.access(pod5Path);
+                    } catch {
+                        throw new Error(`POD5 file not found: ${pod5Path}`);
+                    }
+
+                    if (bamPath) {
+                        try {
+                            await fs.access(bamPath);
+                        } catch {
+                            throw new Error(`BAM file not found: ${bamPath}`);
+                        }
+                    }
+
+                    // Load via Python API
+                    const result = await state.squiggyAPI!.loadSample(
+                        sampleName,
+                        pod5Path,
+                        bamPath,
+                        state.sessionFastaPath || undefined
+                    );
+
+                    // Update extension state
+                    state.addSample({
+                        name: sampleName,
+                        pod5Path,
+                        bamPath,
+                        fastaPath: state.sessionFastaPath || undefined,
+                        readCount: result.numReads,
+                        hasBam: !!bamPath,
+                        hasFasta: !!state.sessionFastaPath,
+                    });
+
+                    results.successful++;
+                },
+                ErrorContext.POD5_LOAD,
+                progressMsg
+            );
+        } catch (error) {
+            console.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
+            results.failed++;
+        }
+    }
+
+    // Refresh samples panel with all loaded samples
+    if (state.samplesProvider) {
+        state.samplesProvider.refresh();
+    }
+
+    // Show summary
+    let message = `Loaded ${results.successful} sample(s)`;
+    if (results.failed > 0) {
+        message += `, ${results.failed} failed`;
+    }
+    if (results.skipped > 0) {
+        message += `, ${results.skipped} skipped`;
+    }
+
+    if (results.successful > 0) {
+        vscode.window.showInformationMessage(message);
+    } else {
+        vscode.window.showErrorMessage(`Failed to load samples: ${message}`);
     }
 }
