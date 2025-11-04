@@ -72,15 +72,15 @@ export function registerPlotCommands(
         })
     );
 
-    // Plot motif aggregate
+    // Plot motif aggregate all
     context.subscriptions.push(
         vscode.commands.registerCommand(
-            'squiggy.plotMotifAggregate',
+            'squiggy.plotMotifAggregateAll',
             async (params?: {
                 fastaFile: string;
                 motif: string;
-                matchIndex: number;
-                window: number;
+                upstream: number;
+                downstream: number;
             }) => {
                 // Validate that all required files are loaded
                 if (!state.currentPod5File) {
@@ -105,12 +105,58 @@ export function registerPlotCommands(
                 // Validate params were provided
                 if (!params) {
                     vscode.window.showErrorMessage(
-                        'Please select a motif match from the Motif Explorer panel'
+                        'Please select a motif and window from the Motif Explorer panel'
                     );
                     return;
                 }
 
-                await plotMotifAggregate(params, state);
+                await plotMotifAggregateAll(params, state);
+            }
+        )
+    );
+
+    // Plot delta comparison - Phase 4
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotDeltaComparison',
+            async (sampleNames?: string[]) => {
+                // If no sample names provided, prompt user to select
+                if (!sampleNames || sampleNames.length === 0) {
+                    // Get list of loaded samples
+                    const loadedSamples = state.getAllSampleNames();
+
+                    if (loadedSamples.length < 2) {
+                        vscode.window.showErrorMessage(
+                            'Delta comparison requires at least 2 loaded samples. ' +
+                                'Use "Load Sample" to add samples for comparison.'
+                        );
+                        return;
+                    }
+
+                    // Let user select samples to compare
+                    const selected = await vscode.window.showQuickPick(loadedSamples, {
+                        canPickMany: true,
+                        placeHolder: 'Select 2 or more samples to compare',
+                        matchOnDetail: true,
+                    });
+
+                    if (!selected || selected.length < 2) {
+                        vscode.window.showWarningMessage(
+                            'Please select at least 2 samples for comparison'
+                        );
+                        return;
+                    }
+
+                    sampleNames = selected;
+                }
+
+                // Validate we have at least 2 samples
+                if (sampleNames.length < 2) {
+                    vscode.window.showErrorMessage('Delta comparison requires at least 2 samples');
+                    return;
+                }
+
+                await plotDeltaComparison(sampleNames, state);
             }
         )
     );
@@ -221,12 +267,12 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
 /**
  * Generate and display motif-centered aggregate plot
  */
-async function plotMotifAggregate(
+async function plotMotifAggregateAll(
     params: {
         fastaFile: string;
         motif: string;
-        matchIndex: number;
-        window: number;
+        upstream: number;
+        downstream: number;
     },
     state: ExtensionState
 ): Promise<void> {
@@ -246,21 +292,21 @@ async function plotMotifAggregate(
 
             // Get max reads from config
             const config = vscode.workspace.getConfiguration('squiggy');
-            const maxReads = config.get<number>('aggregateSampleSize', 100);
+            const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
 
             if (state.usePositron && state.squiggyAPI) {
                 // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generateMotifAggregatePlot(
+                await state.squiggyAPI.generateMotifAggregateAllPlot(
                     params.fastaFile,
                     params.motif,
-                    params.matchIndex,
-                    params.window,
-                    maxReads,
+                    params.upstream,
+                    params.downstream,
+                    maxReadsPerMotif,
                     normalization,
                     theme
                 );
             } else if (state.pythonBackend) {
-                // Subprocess backend not yet implemented for motif aggregate
+                // Subprocess backend not yet implemented for motif aggregate all
                 throw new Error(
                     'Motif aggregate plots are only available with Positron runtime. Please use Positron IDE.'
                 );
@@ -269,6 +315,42 @@ async function plotMotifAggregate(
             }
         },
         ErrorContext.MOTIF_PLOT,
-        `Generating motif aggregate plot for ${params.motif} (match ${params.matchIndex + 1})...`
+        `Generating aggregate plot for all ${params.motif} matches (-${params.upstream}bp to +${params.downstream}bp)...`
+    );
+}
+
+/**
+ * Plot delta comparison between two or more samples
+ * Phase 4 - Multi-sample comparison feature
+ */
+async function plotDeltaComparison(sampleNames: string[], state: ExtensionState): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            // Get plot options
+            const options = state.plotOptionsProvider?.getOptions();
+            const normalization = options?.normalization || 'ZNORM';
+
+            // Detect theme from VSCode settings
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Generate delta plot
+            if (state.usePositron && state.positronClient) {
+                await state.squiggyAPI.generateDeltaPlot(sampleNames, normalization, theme);
+            } else if (state.pythonBackend) {
+                // Subprocess backend not yet implemented for delta plots
+                throw new Error(
+                    'Delta comparison plots are only available with Positron runtime. Please use Positron IDE.'
+                );
+            } else {
+                throw new Error('No backend available');
+            }
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Comparing samples: ${sampleNames.join(', ')}...`
     );
 }

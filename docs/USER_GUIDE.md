@@ -13,6 +13,7 @@ Complete guide to using the Squiggy Positron extension for nanopore signal visua
 - [Plot Customization](#plot-customization)
 - [Base Modifications](#base-modifications)
 - [Exporting Plots](#exporting-plots)
+- [Multi-Sample Comparison](#multi-sample-comparison) (NEW!)
 - [Common Errors](#common-errors)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 
@@ -404,6 +405,87 @@ Common modification types:
 4. Enable "Color by dwell time"
 5. Identify slow-translocation regions
 6. Export specific regions for analysis
+
+## Multi-Sample Comparison
+
+The multi-sample comparison feature allows you to load 2-6+ POD5 datasets simultaneously and compare them with delta tracks showing differences in signal and statistics.
+
+### Quick Start
+
+**Step 1: Load Multiple Samples**
+
+```
+Command Palette → "Load Sample (Multi-Sample Comparison)"
+├─ Sample name: "v5.0"
+├─ Select POD5: data/v5.0.pod5
+└─ (Optional) Select BAM: data/v5.0.bam
+```
+
+Repeat for each sample you want to load.
+
+**Step 2: View Samples**
+
+In the sidebar, find the **"Sample Comparison Manager"** panel showing all loaded samples with:
+- Read counts
+- File paths
+- Status badges (BAM/FASTA loaded)
+- Unload buttons
+
+**Step 3: Run Comparison**
+
+1. Check the checkboxes next to 2+ samples
+2. Click **"Start Comparison"** button
+3. Delta plot appears in the **Plots** pane
+
+### Use Cases
+
+- **Basecaller Comparison**: Compare guppy v3.0 vs v5.0 vs v6.0
+- **Model Evaluation**: Test different pre-trained models on same data
+- **QC Between Runs**: Compare signal quality across sequencing runs
+- **Protocol Optimization**: Evaluate different library prep methods
+
+### Understanding Delta Plots
+
+The delta plot shows: **Signal B - Signal A**
+
+**Color Coding**:
+- 🔴 **Red**: Sample B has higher signal
+- 🔵 **Blue**: Sample A has higher signal
+- ⚫ **Gray**: No significant difference
+- **Bands**: Show confidence/variability
+
+### Python API
+
+For notebook-based analysis:
+
+```python
+from squiggy import load_sample, compare_samples, plot_delta_comparison
+
+# Load samples
+load_sample("v5.0", "/data/v5.0.pod5")
+load_sample("v6.0", "/data/v6.0.pod5")
+
+# Compare read overlap
+comparison = compare_samples(["v5.0", "v6.0"])
+print(f"Common reads: {len(comparison['common_reads'])}")
+
+# Generate delta plot
+plot_delta_comparison(
+    sample_names=["v5.0", "v6.0"],
+    normalization="ZNORM",
+    theme="LIGHT"
+)
+```
+
+### Advanced Topics
+
+For comprehensive documentation on multi-sample comparison including:
+- Sample management and requirements
+- Interpreting results
+- Troubleshooting
+- Performance tips
+
+See the **[Multi-Sample Comparison Guide](MULTI_SAMPLE_COMPARISON.md)**.
 
 ## Common Errors
 

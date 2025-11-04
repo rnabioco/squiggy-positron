@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- White circle background -->
+  <circle cx="100" cy="100" r="95" fill="white" stroke="#333" stroke-width="3"/>
+
+  <!-- Googly eyes - cross-eyed and moved outward -->
+  <!-- Left eye (moved left, pupil looking inward/right) -->
+  <circle cx="65" cy="60" r="18" fill="white" stroke="#333" stroke-width="2"/>
+  <circle cx="71" cy="66" r="8" fill="#333"/>
+
+  <!-- Right eye (moved right, pupil looking inward/left) -->
+  <circle cx="135" cy="60" r="18" fill="white" stroke="#333" stroke-width="2"/>
+  <circle cx="129" cy="66" r="8" fill="#333"/>
+
+  <!-- Stronger green EKG/Signal squiggle through the middle -->
+  <path d="M 20,120 L 50,120 L 60,80 L 70,160 L 80,100 L 90,120 L 110,120 L 120,90 L 130,150 L 140,110 L 150,120 L 180,120"
+        fill="none"
+        stroke="#4CAF50"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

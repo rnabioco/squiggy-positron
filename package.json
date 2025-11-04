@@ -2,8 +2,9 @@
   "name": "squiggy-positron",
   "displayName": "Squiggy",
   "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files. Requires: uv pip install squiggy-positron",
-  "version": "0.1.7-alpha",
+  "version": "0.1.8-alpha",
   "publisher": "rnabioco",
+  "icon": "resources/icon-128.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/rnabioco/squiggy-positron.git"
@@ -104,14 +105,35 @@
         "category": "Squiggy",
         "icon": "$(graph-scatter)",
         "enablement": "squiggy.packageInstalled"
+      },
+      {
+        "command": "squiggy.loadSample",
+        "title": "Load Sample (Multi-Sample Comparison)",
+        "category": "Squiggy",
+        "icon": "$(folder-opened)",
+        "enablement": "squiggy.packageInstalled"
+      },
+      {
+        "command": "squiggy.loadTestMultiReadDataset",
+        "title": "Load Test Multi-Read Dataset",
+        "category": "Squiggy",
+        "icon": "$(database)",
+        "enablement": "squiggy.packageInstalled"
+      },
+      {
+        "command": "squiggy.plotDeltaComparison",
+        "title": "Plot Delta Comparison",
+        "category": "Squiggy",
+        "icon": "$(compare)",
+        "enablement": "squiggy.packageInstalled"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "squiggy-sidebar",
-          "title": "Squiggy v0.1.7-alpha",
-          "icon": "resources/icon.svg"
+          "title": "Squiggy v0.1.8-alpha",
+          "icon": "resources/icon-sidebar.svg"
         }
       ]
     },
@@ -144,6 +166,11 @@
           "name": "Motif Explorer",
           "type": "webview",
           "visibility": "collapsed"
+        },
+        {
+          "id": "squiggyComparisonSamples",
+          "name": "Sample Comparison Manager",
+          "type": "webview"
         }
       ]
     },
@@ -233,7 +260,7 @@
     "@eslint/js": "^9.39.0",
     "@jest/globals": "^30.2.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "22.x",
     "@types/react": "18.3.1",
     "@types/react-dom": "18.3.1",
     "@types/react-window": "^1.8.5",
@@ -250,7 +277,7 @@
     "style-loader": "^3.3.2",
     "ts-jest": "^29.4.5",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.3.3",
+    "typescript": "^5.7.2",
     "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4"
   },

@@ -9,12 +9,12 @@ import pytest
 def clean_squiggy_state():
     """Automatically clean squiggy global state before and after each test."""
     # Clean state before test
-    from squiggy import close_bam, close_pod5
+    from squiggy import close_all_samples, close_bam, close_pod5
     from squiggy.io import _squiggy_session
 
     close_pod5()
     close_bam()
-    # Also clean session
+    # Also clean all samples
     _squiggy_session.close_all()
 
     yield
@@ -22,7 +22,7 @@ def clean_squiggy_state():
     # Clean state after test
     close_pod5()
     close_bam()
-    _squiggy_session.close_all()
+    close_all_samples()
 
 
 @pytest.fixture

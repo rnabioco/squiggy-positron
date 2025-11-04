@@ -61,9 +61,9 @@ Analyze the commits and categorize them into:
 
 Generate a concise summary for each category (1-2 lines per item max).
 
-## Step 4: Update NEWS.md
+## Step 4: Update CHANGELOG.md
 
-Read the current `NEWS.md` file. Add a new release section at the top with:
+Read the current `CHANGELOG.md` file. Add a new release section at the top with:
 
 ```markdown
 # Squiggy [VERSION] ([DATE])
@@ -105,7 +105,7 @@ This will automatically update:
 
 Stage all modified files with git:
 ```bash
-git add package.json package-lock.json squiggy/__init__.py pyproject.toml NEWS.md
+git add package.json package-lock.json squiggy/__init__.py pyproject.toml CHANGELOG.md
 ```
 
 ## Step 7: Show Summary
@@ -117,7 +117,7 @@ Display a summary showing:
   - `package-lock.json` (version)
   - `squiggy/__init__.py` (__version__)
   - `pyproject.toml` (version)
-  - `NEWS.md`
+  - `CHANGELOG.md`
 - Changes staged with git
 
 Show the staged diff:
@@ -201,8 +201,8 @@ git push origin main v[VERSION]
 - Do NOT create GitHub release manually - GitHub Actions (.github/workflows/release.yml) handles this automatically when tags are pushed
 - Be concise in the changelog - focus on user-facing changes
 - Skip internal/testing changes in the changelog unless they're significant
-- Preserve existing NEWS.md content below the new release section
-- Use consistent formatting that matches existing NEWS.md style (if it has content)
+- Preserve existing CHANGELOG.md content below the new release section
+- Use consistent formatting that matches existing CHANGELOG.md style (if it has content)
 - Use annotated tags (`git tag -a`) not lightweight tags
 
 ## Error Handling

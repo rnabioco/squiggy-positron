@@ -721,14 +721,14 @@ if '_squiggy_motif_matches_json' in globals():
     }
 
     /**
-     * Generate motif-centered aggregate plot
+     * Generate aggregate plot for all motif matches with asymmetric windows
      */
-    async generateMotifAggregatePlot(
+    async generateMotifAggregateAllPlot(
         fastaFile: string,
         motif: string,
-        matchIndex: number,
-        window: number = 50,
-        maxReads: number = 100,
+        upstream: number = 10,
+        downstream: number = 10,
+        maxReadsPerMotif: number = 100,
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT'
     ): Promise<void> {
@@ -737,13 +737,13 @@ if '_squiggy_motif_matches_json' in globals():
         const code = `
 import squiggy
 
-# Generate motif aggregate plot
-html = squiggy.plot_motif_aggregate(
+# Generate aggregate plot across all motif matches
+html = squiggy.plot_motif_aggregate_all(
     fasta_file=${JSON.stringify(fastaFile)},
     motif=${JSON.stringify(motif)},
-    match_index=${matchIndex},
-    window=${window},
-    max_reads=${maxReads},
+    upstream=${upstream},
+    downstream=${downstream},
+    max_reads_per_motif=${maxReadsPerMotif},
     normalization=${JSON.stringify(normalization)},
     theme=${JSON.stringify(theme)}
 )

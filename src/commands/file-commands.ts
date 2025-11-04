@@ -151,6 +151,20 @@ export function registerFileCommands(
             vscode.window.showInformationMessage('Test data loaded successfully!');
         })
     );
+
+    // Load sample (for multi-sample comparison) - Phase 4
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadSample', async () => {
+            await loadSampleForComparison(context, state);
+        })
+    );
+
+    // Load test multi-read datasets for comparison
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadTestMultiReadDataset', async () => {
+            await loadTestMultiReadDataset(context, state);
+        })
+    );
 }
 
 /**
@@ -511,5 +525,217 @@ squiggy.close_fasta()
         vscode.window.showInformationMessage('FASTA file closed');
     } catch (error) {
         handleError(error, ErrorContext.FASTA_CLOSE);
+    }
+}
+
+/**
+ * Load a sample (POD5 + optional BAM/FASTA) for multi-sample comparison
+ * Phase 4 - Multi-sample comparison feature
+ */
+async function loadSampleForComparison(
+    context: vscode.ExtensionContext,
+    state: ExtensionState
+): Promise<void> {
+    // Prompt for sample name
+    const sampleName = await vscode.window.showInputBox({
+        placeHolder: 'e.g., model_v4.2, basecaller_v5.0',
+        prompt: 'Enter a name for this sample',
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Sample name cannot be empty';
+            }
+            if (state.getSample(value)) {
+                return 'Sample name already exists';
+            }
+            return '';
+        },
+    });
+
+    if (!sampleName) {
+        return; // User cancelled
+    }
+
+    // Select POD5 file
+    const pod5Uris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { 'POD5 Files': ['pod5'] },
+        title: 'Select POD5 file for sample',
+    });
+
+    if (!pod5Uris || !pod5Uris[0]) {
+        return; // User cancelled
+    }
+
+    const pod5Path = pod5Uris[0].fsPath;
+
+    // Optionally select BAM file
+    const bamUris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { 'BAM Files': ['bam'] },
+        title: 'Select BAM file (optional)',
+    });
+
+    const bamPath = bamUris?.[0]?.fsPath;
+
+    // Optionally select FASTA file
+    const fastaUris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { 'FASTA Files': ['fa', 'fasta', 'fna'] },
+        title: 'Select FASTA file (optional)',
+    });
+
+    const fastaPath = fastaUris?.[0]?.fsPath;
+
+    // Ensure squiggy is available
+    if (!(await ensureSquiggyAvailable(state))) {
+        vscode.window.showErrorMessage('Squiggy package not available');
+        return;
+    }
+
+    // Load sample via API
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            const result = await state.squiggyAPI.loadSample(
+                sampleName,
+                pod5Path,
+                bamPath,
+                fastaPath
+            );
+
+            // Update extension state
+            state.addSample({
+                name: sampleName,
+                pod5Path,
+                bamPath,
+                fastaPath,
+                readCount: result.numReads,
+                hasBam: !!bamPath,
+                hasFasta: !!fastaPath,
+            });
+
+            // Reveal and refresh samples panel
+            await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            state.samplesProvider?.refresh();
+
+            vscode.window.showInformationMessage(
+                `Sample '${sampleName}' loaded with ${result.numReads} reads`
+            );
+        },
+        ErrorContext.POD5_LOAD,
+        `Loading sample '${sampleName}'`
+    );
+}
+
+/**
+ * Load test multi-read datasets for comparison testing
+ * Loads the same test data twice with different sample names for comparison
+ */
+async function loadTestMultiReadDataset(
+    context: vscode.ExtensionContext,
+    state: ExtensionState
+): Promise<void> {
+    // Ensure squiggy is available
+    if (!(await ensureSquiggyAvailable(state))) {
+        vscode.window.showErrorMessage('Squiggy package not available');
+        return;
+    }
+
+    const pod5Path = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna_reads.pod5');
+    const bamPath = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna_mappings.bam');
+    const fastaPath = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna.fa');
+
+    // Load two samples for comparison (using same data with different names)
+    const samples = [
+        { name: 'Sample_A', pod5Path, bamPath, fastaPath },
+        { name: 'Sample_B', pod5Path, bamPath, fastaPath },
+    ];
+
+    try {
+        console.log('[loadTestMultiReadDataset] Starting to load samples...');
+        console.log('[loadTestMultiReadDataset] state.squiggyAPI:', state.squiggyAPI);
+        console.log('[loadTestMultiReadDataset] state.samplesProvider:', state.samplesProvider);
+
+        for (const sample of samples) {
+            // Skip if already loaded
+            if (state.getSample(sample.name)) {
+                console.log(
+                    `[loadTestMultiReadDataset] Sample '${sample.name}' already loaded, skipping`
+                );
+                continue;
+            }
+
+            console.log(`[loadTestMultiReadDataset] Loading sample '${sample.name}'...`);
+
+            await safeExecuteWithProgress(
+                async () => {
+                    if (!state.squiggyAPI) {
+                        throw new Error('SquiggyAPI not initialized');
+                    }
+
+                    console.log(
+                        `[loadTestMultiReadDataset] Calling loadSample for '${sample.name}'...`
+                    );
+                    const result = await state.squiggyAPI.loadSample(
+                        sample.name,
+                        sample.pod5Path,
+                        sample.bamPath,
+                        sample.fastaPath
+                    );
+                    console.log(`[loadTestMultiReadDataset] loadSample result:`, result);
+
+                    // Update extension state
+                    const sampleInfo = {
+                        name: sample.name,
+                        pod5Path: sample.pod5Path,
+                        bamPath: sample.bamPath,
+                        fastaPath: sample.fastaPath,
+                        readCount: result.numReads,
+                        hasBam: true,
+                        hasFasta: true,
+                    };
+                    console.log(`[loadTestMultiReadDataset] Adding sample to state:`, sampleInfo);
+                    state.addSample(sampleInfo);
+                    console.log(
+                        `[loadTestMultiReadDataset] Sample added. Total samples:`,
+                        state.getAllSampleNames()
+                    );
+                },
+                ErrorContext.POD5_LOAD,
+                `Loading sample '${sample.name}'`
+            );
+        }
+
+        // Reveal and refresh samples panel
+        console.log('[loadTestMultiReadDataset] Refreshing samples panel...');
+        console.log('[loadTestMultiReadDataset] All samples in state:', state.getAllSampleNames());
+
+        // Show the samples panel in the sidebar (this creates the webview if not already visible)
+        console.log('[loadTestMultiReadDataset] Focusing Sample Comparison Manager panel...');
+        try {
+            await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
+            console.log('[loadTestMultiReadDataset] Focus command completed');
+        } catch (error) {
+            console.error('[loadTestMultiReadDataset] Error focusing panel:', error);
+        }
+
+        // Longer delay to ensure webview is created before refreshing
+        console.log('[loadTestMultiReadDataset] Waiting for panel to initialize...');
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        console.log('[loadTestMultiReadDataset] Calling refresh...');
+        state.samplesProvider?.refresh();
+
+        vscode.window.showInformationMessage(
+            `Test multi-read datasets loaded: ${samples.map((s) => s.name).join(', ')}. ` +
+                `Please ensure the "Sample Comparison Manager" panel is expanded in the Squiggy sidebar.`
+        );
+    } catch (error) {
+        console.error('[loadTestMultiReadDataset] Error:', error);
+        handleError(error, ErrorContext.POD5_LOAD);
     }
 }
