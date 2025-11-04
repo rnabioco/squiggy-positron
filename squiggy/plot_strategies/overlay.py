@@ -100,9 +100,11 @@ class OverlayPlotStrategy(PlotStrategy):
         # Extract data
         reads_data = data["reads"]
 
+        from ..constants import DEFAULT_DOWNSAMPLE
+
         # Extract options with defaults
         normalization = options.get("normalization", NormalizationMethod.NONE)
-        downsample = options.get("downsample", 1)
+        downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
         show_signal_points = options.get("show_signal_points", False)
 
         # Create figure

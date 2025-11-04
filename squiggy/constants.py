@@ -2,61 +2,18 @@
 
 from enum import Enum
 
-# Application metadata
-APP_NAME = "Squiggy"
-APP_VERSION = "0.1.0"
-APP_DESCRIPTION = "Nanopore Squiggle Viewer"
-
-# Window settings
-DEFAULT_WINDOW_WIDTH = 1200
-DEFAULT_WINDOW_HEIGHT = 800
-PLOT_MIN_WIDTH = 800
-PLOT_MIN_HEIGHT = 600
-
-# Splitter proportions (read list : plot area)
-SPLITTER_RATIO = (1, 3)
-
-# Plot settings
-PLOT_DPI = 100
-PLOT_WIDTH = 10
-PLOT_HEIGHT = 6
-SIGNAL_LINE_COLOR = "#000000"
-SIGNAL_LINE_WIDTH = 0.5
+# ==============================================================================
+# Signal Processing Settings
+# ==============================================================================
 
 # Signal downsampling settings
-DEFAULT_DOWNSAMPLE_FACTOR = 10  # Sample every Nth point (10 = 10% of data)
-MIN_POINTS_FOR_DOWNSAMPLING = (
-    10000  # Only downsample if signal has more than this many points
-)
+DEFAULT_DOWNSAMPLE = 5  # Default downsampling factor for all plot functions
 
-# Bokeh plot visual constants
-# Plot dimensions (heights in pixels)
-DEFAULT_PLOT_HEIGHT = 400  # Default single plot height
-AGGREGATE_SIGNAL_HEIGHT = 300  # Aggregate signal track height
-AGGREGATE_PILEUP_HEIGHT = 250  # Aggregate pileup track height
-AGGREGATE_QUALITY_HEIGHT = 200  # Aggregate quality track height
-MODIFICATION_TRACK_HEIGHT = 80  # Modification track height
+# ==============================================================================
+# Base Annotation Settings
+# ==============================================================================
 
-# Line rendering
-SIGNAL_LINE_WIDTH_THIN = 1  # Thin line width for multi-read plots
-SIGNAL_LINE_WIDTH_THICK = 2  # Thick line width for single-read plots
-
-# Alpha/transparency values
-SIGNAL_LINE_ALPHA_DEFAULT = 0.8  # Default line alpha (single read)
-SIGNAL_LINE_ALPHA_OVERLAY = 0.7  # Line alpha for overlay plots
-SIGNAL_LINE_ALPHA_STACKED = 1.0  # Line alpha for stacked plots (full opacity)
-SIGNAL_BAND_ALPHA = 0.3  # Alpha for confidence/error bands
-SIGNAL_POINT_ALPHA_DEFAULT = 0.5  # Alpha for signal points
-
-# Point rendering
-SIGNAL_POINT_SIZE_DEFAULT = 3  # Point size for signal scatter plots
-
-# Layout and spacing
-PLOT_COLUMN_SPACING = 0  # Spacing between columns in gridplot
-BASE_POSITION_HALF_WIDTH = 0.5  # Half-width for base annotation positioning
-STACKED_OFFSET_MULTIPLIER = 1.2  # Vertical spacing multiplier for stacked reads
-
-# Base colors for visualization
+# Base colors for visualization (light mode)
 # Using Okabe-Ito colorblind-friendly palette
 BASE_COLORS = {
     "A": "#009E73",  # Green (purine)
@@ -67,19 +24,25 @@ BASE_COLORS = {
     "N": "#808080",  # Gray (unknown)
 }
 
+# Base colors for dark mode (adjusted for better visibility)
+BASE_COLORS_DARK = {
+    "A": "#00d9a3",  # Brighter green (purine)
+    "C": "#fff34d",  # Brighter yellow (pyrimidine)
+    "G": "#4da6ff",  # Brighter blue (purine)
+    "T": "#ff8c42",  # Brighter orange (pyrimidine)
+    "U": "#ff8c42",  # Same as T
+    "N": "#999999",  # Lighter gray (unknown)
+}
+
 # Base annotation settings
 BASE_ANNOTATION_ALPHA = 0.2
-BASE_LABEL_SIZE = 8
-SIGNAL_PERCENTILE_LOW = 2.5
-SIGNAL_PERCENTILE_HIGH = 97.5
-
-# Signal point visualization
-SIGNAL_POINT_SIZE = 6  # Point size in pixels
-SIGNAL_POINT_ALPHA = 0.6  # Point transparency
-SIGNAL_POINT_COLOR = "#E74C3C"  # Light red for contrast with signal line
 
 # Position label settings
-DEFAULT_POSITION_LABEL_INTERVAL = 10  # Show position label every N bases
+DEFAULT_POSITION_LABEL_INTERVAL = 100  # Show position label every N bases
+
+# ==============================================================================
+# Plot Modes and Normalization
+# ==============================================================================
 
 
 # Plot modes
@@ -104,15 +67,20 @@ class NormalizationMethod(Enum):
     MAD = "mad"  # Median absolute deviation
 
 
-# Multi-read plotting settings
-MAX_OVERLAY_READS = 10  # Maximum reads to overlay
-STACKED_VERTICAL_SPACING = 20  # Vertical spacing between stacked reads (in pA)
+# ==============================================================================
+# File I/O Settings
+# ==============================================================================
 
-# Aggregate mode settings
-DEFAULT_AGGREGATE_SAMPLE_SIZE = 100  # Default number of reads to sample for aggregate
-MIN_AGGREGATE_SAMPLE_SIZE = 10  # Minimum reads for aggregate mode
-MAX_AGGREGATE_SAMPLE_SIZE = 10000  # Maximum reads for aggregate mode
-AGGREGATE_CONFIDENCE_LEVEL = 1  # Standard deviations for confidence bands (±1 std dev)
+# BAM file I/O settings
+BAM_SAMPLE_SIZE = 100  # Number of reads to sample when checking BAM features
+
+# Motif window settings
+DEFAULT_MOTIF_WINDOW_UPSTREAM = 10  # Bases upstream of motif center
+DEFAULT_MOTIF_WINDOW_DOWNSTREAM = 10  # Bases downstream of motif center
+
+# ==============================================================================
+# Multi-Read Plot Settings
+# ==============================================================================
 
 # Color palette for multi-read plots (colorblind-friendly)
 MULTI_READ_COLORS = [
@@ -127,6 +95,10 @@ MULTI_READ_COLORS = [
     "#56B4E9",  # Light blue
     "#D55E00",  # Red-orange
 ]
+
+# ==============================================================================
+# Theme Settings
+# ==============================================================================
 
 
 # Theme modes
@@ -182,16 +154,6 @@ DARK_THEME = {
     # Aggregate plot band colors
     "signal_band": "#0072B2",  # Darker blue for signal confidence bands
     "quality_band": "#FF8C00",  # Dark orange for quality bands
-}
-
-# Base colors for dark mode (adjusted for better visibility)
-BASE_COLORS_DARK = {
-    "A": "#00d9a3",  # Brighter green (purine)
-    "C": "#fff34d",  # Brighter yellow (pyrimidine)
-    "G": "#4da6ff",  # Brighter blue (purine)
-    "T": "#ff8c42",  # Brighter orange (pyrimidine)
-    "U": "#ff8c42",  # Same as T
-    "N": "#999999",  # Lighter gray (unknown)
 }
 
 # ==============================================================================
@@ -263,17 +225,6 @@ MODIFICATION_COLORS = {
     "default": "#000000",  # Black
 }
 
-# Modification overlay settings
-DEFAULT_MOD_OVERLAY_OPACITY = 0.6  # Default opacity for modification shading (0-1)
-MOD_OVERLAY_MIN_OPACITY = 0.1  # Minimum overlay opacity
-MOD_OVERLAY_MAX_OPACITY = 0.9  # Maximum overlay opacity
-
-# Modification threshold settings
-DEFAULT_MOD_THRESHOLD = 0.5  # Default probability threshold (tau)
-MOD_THRESHOLD_MIN = 0.0  # Minimum threshold
-MOD_THRESHOLD_MAX = 1.0  # Maximum threshold
-MOD_THRESHOLD_STEP = 0.05  # Threshold slider step size
-
 # ==============================================================================
 # Delta Comparison Plot Settings
 # ==============================================================================
@@ -289,7 +240,3 @@ DELTA_NEUTRAL_COLOR = "#95A5A6"  # Gray for near-zero deltas
 DELTA_ZERO_LINE_COLOR = "#34495E"  # Dark gray for zero reference line
 DELTA_BAND_ALPHA = 0.3  # Alpha for delta confidence bands
 DELTA_LINE_WIDTH = 1.5  # Line width for delta tracks
-
-# Delta calculation settings
-DELTA_PERCENTILE_LOW = 2.5  # Lower percentile for delta band calculation
-DELTA_PERCENTILE_HIGH = 97.5  # Upper percentile for delta band calculation

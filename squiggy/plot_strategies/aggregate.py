@@ -130,6 +130,8 @@ class AggregatePlotStrategy(PlotStrategy):
 
             options: Plot options dictionary containing:
                 - normalization: NormalizationMethod enum (default: NONE)
+                - motif_positions: Optional set of genomic positions to highlight
+                  as motif matches (displayed in bold, larger font)
 
         Returns:
             Tuple of (html_string, bokeh_gridplot)
@@ -149,6 +151,7 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Extract options
         normalization = options.get("normalization", NormalizationMethod.NONE)
+        motif_positions = options.get("motif_positions", None)
 
         # Create three synchronized tracks
         p_signal = self._create_signal_track(
@@ -158,7 +161,9 @@ class AggregatePlotStrategy(PlotStrategy):
             normalization=normalization,
         )
 
-        p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
+        p_pileup = self._create_pileup_track(
+            pileup_stats=pileup_stats, motif_positions=motif_positions
+        )
 
         p_quality = self._create_quality_track(quality_stats=quality_stats)
 
@@ -257,8 +262,14 @@ class AggregatePlotStrategy(PlotStrategy):
 
         return fig
 
-    def _create_pileup_track(self, pileup_stats: dict):
-        """Create base call pileup track"""
+    def _create_pileup_track(self, pileup_stats: dict, motif_positions: set = None):
+        """
+        Create base call pileup track with optional motif highlighting
+
+        Args:
+            pileup_stats: Dictionary containing pileup statistics
+            motif_positions: Optional set of genomic positions to highlight as motif matches
+        """
         fig = self.theme_manager.create_figure(
             title="Base Call Pileup",
             x_label="Reference Position",
@@ -326,9 +337,70 @@ class AggregatePlotStrategy(PlotStrategy):
                 legend_label=base,
             )
 
-        # Set y-axis range
+        # Add reference base labels above bars (if available)
+        if reference_bases and pileup_data["ref_base"]:
+            # Separate motif and non-motif positions for different styling
+            motif_label_data = {
+                "x": [],
+                "y": [],
+                "text": [],
+                "color": [],
+            }
+            regular_label_data = {
+                "x": [],
+                "y": [],
+                "text": [],
+                "color": [],
+            }
+
+            for pos, ref_base in zip(
+                pileup_data["x"], pileup_data["ref_base"], strict=True
+            ):
+                if ref_base:
+                    # Use base color if available, otherwise use 'N' (gray) for IUPAC codes
+                    base_color = base_colors.get(ref_base, base_colors.get("N", "#808080"))
+
+                    # Determine if this position is part of a motif
+                    is_motif = motif_positions and pos in motif_positions
+
+                    target_data = motif_label_data if is_motif else regular_label_data
+                    target_data["x"].append(pos)
+                    target_data["y"].append(1.05)  # Position just above bars (y=1.0)
+                    target_data["text"].append(ref_base)
+                    target_data["color"].append(base_color)
+
+            # Add regular (non-motif) text labels
+            if regular_label_data["x"]:
+                regular_source = ColumnDataSource(data=regular_label_data)
+                fig.text(
+                    x="x",
+                    y="y",
+                    text="text",
+                    source=regular_source,
+                    text_color="color",
+                    text_align="center",
+                    text_baseline="bottom",
+                    text_font_size="10pt",
+                )
+
+            # Add motif-highlighted text labels (bold and slightly larger)
+            if motif_label_data["x"]:
+                motif_source = ColumnDataSource(data=motif_label_data)
+                fig.text(
+                    x="x",
+                    y="y",
+                    text="text",
+                    source=motif_source,
+                    text_color="color",
+                    text_align="center",
+                    text_baseline="bottom",
+                    text_font_size="12pt",
+                    text_font_style="bold",
+                )
+
+        # Set y-axis range (extend to accommodate labels)
         fig.y_range.start = 0
-        fig.y_range.end = 1
+        fig.y_range.end = 1.15  # Extended from 1.0 to fit labels above bars
 
         # Configure legend
         self.theme_manager.configure_legend(fig)
