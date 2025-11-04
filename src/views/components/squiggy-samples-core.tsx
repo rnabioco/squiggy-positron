@@ -45,6 +45,9 @@ export const SamplesCore: React.FC = () => {
                     setState({
                         samples: [],
                         selectedSamples: new Set(),
+                        maxReads: null,
+                        minAvailableReads: 1,
+                        maxAvailableReads: 100,
                     });
                     break;
 
