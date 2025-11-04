@@ -246,7 +246,7 @@ class TestPlotReadsFunction:
         load_pod5(str(sample_pod5_file))
 
         # Nonexistent read IDs should raise ValueError from plot_read
-        with pytest.raises(ValueError, match="Read not found"):
+        with pytest.raises(ValueError, match="Read.*not found"):
             plot_reads(["NONEXISTENT_1", "NONEXISTENT_2"])
 
     def test_plot_reads_overlay_mode(self, sample_pod5_file):
