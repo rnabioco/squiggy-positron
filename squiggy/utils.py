@@ -1018,14 +1018,16 @@ def calculate_aggregate_signal(reads_data, normalization_method):
             - mean_signal: Mean signal at each position
             - std_signal: Standard deviation at each position
             - median_signal: Median signal at each position
-            - coverage: Number of reads covering each position
+            - coverage: Number of unique reads covering each position
     """
     from .normalization import normalize_signal
 
-    # Build a dict mapping reference positions to signal values
+    # Build a dict mapping reference positions to signal values and read IDs
     position_signals = {}
+    position_reads = {}  # Track which reads cover each position
 
     for read in reads_data:
+        read_id = read.get("read_id", str(id(read)))  # Use read_id if available, else use object id
         # Normalize the signal
         signal = normalize_signal(read["signal"], normalization_method)
         stride = read["stride"]
@@ -1041,7 +1043,9 @@ def calculate_aggregate_signal(reads_data, normalization_method):
                 # Add signal value at this reference position
                 if ref_pos not in position_signals:
                     position_signals[ref_pos] = []
+                    position_reads[ref_pos] = set()
                 position_signals[ref_pos].append(signal[sig_idx])
+                position_reads[ref_pos].add(read_id)
 
             sig_idx += stride
             if move == 1:
@@ -1059,7 +1063,7 @@ def calculate_aggregate_signal(reads_data, normalization_method):
         mean_signals.append(np.mean(values))
         std_signals.append(np.std(values))
         median_signals.append(np.median(values))
-        coverages.append(len(values))
+        coverages.append(len(position_reads[pos]))  # Count unique reads, not signal samples
 
     return {
         "positions": np.array(positions),
