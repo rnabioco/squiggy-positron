@@ -10,11 +10,13 @@ import {
     PlotOptionsIncomingMessage,
     UpdatePlotOptionsMessage,
     UpdateBamStatusMessage,
+    UpdateReferencesMessage,
 } from '../types/messages';
 
 export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyPlotOptions';
 
+    private _plotType: 'SINGLE' | 'AGGREGATE' = 'SINGLE';
     private _plotMode: string = 'SINGLE';
     private _normalization: string = 'ZNORM';
     private _showDwellTime: boolean = false;
@@ -24,12 +26,34 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showSignalPoints: boolean = false;
     private _hasBamFile: boolean = false;
 
+    // Aggregate-specific state
+    private _aggregateReference: string = '';
+    private _aggregateMaxReads: number = 100;
+    private _showModifications: boolean = true;
+    private _showPileup: boolean = true;
+    private _showSignal: boolean = true;
+    private _showQuality: boolean = true;
+    private _availableReferences: string[] = [];
+
     // Event emitter for when options change that should trigger refresh
     private _onDidChangeOptions = new vscode.EventEmitter<void>();
     public readonly onDidChangeOptions = this._onDidChangeOptions.event;
 
+    // Event emitter for when user requests aggregate plot generation
+    private _onDidRequestAggregatePlot = new vscode.EventEmitter<{
+        reference: string;
+        maxReads: number;
+        normalization: string;
+        showModifications: boolean;
+        showPileup: boolean;
+        showDwellTime: boolean;
+        showSignal: boolean;
+        showQuality: boolean;
+    }>();
+    public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
+
     protected getTitle(): string {
-        return 'Squiggy Plot Options';
+        return 'Advanced Plotting';
     }
 
     protected async handleMessage(message: PlotOptionsIncomingMessage): Promise<void> {
@@ -40,6 +64,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
 
         if (message.type === 'optionsChanged') {
             // Update internal state
+            if (message.options.plotType !== undefined) {
+                this._plotType = message.options.plotType;
+            }
             this._plotMode = message.options.mode;
             this._normalization = message.options.normalization;
             this._showDwellTime = message.options.showDwellTime;
@@ -48,8 +75,47 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._downsample = message.options.downsample;
             this._showSignalPoints = message.options.showSignalPoints;
 
+            // Update aggregate-specific options if present
+            if (message.options.aggregateReference !== undefined) {
+                this._aggregateReference = message.options.aggregateReference;
+            }
+            if (message.options.aggregateMaxReads !== undefined) {
+                this._aggregateMaxReads = message.options.aggregateMaxReads;
+            }
+            if (message.options.showModifications !== undefined) {
+                this._showModifications = message.options.showModifications;
+            }
+            if (message.options.showPileup !== undefined) {
+                this._showPileup = message.options.showPileup;
+            }
+            if (message.options.showSignal !== undefined) {
+                this._showSignal = message.options.showSignal;
+            }
+            if (message.options.showQuality !== undefined) {
+                this._showQuality = message.options.showQuality;
+            }
+
             // Fire change event
             this._onDidChangeOptions.fire();
+        }
+
+        if (message.type === 'requestReferences') {
+            // Request will be handled by extension.ts which listens to this event
+            this._onDidChangeOptions.fire();
+        }
+
+        if (message.type === 'generateAggregatePlot') {
+            // Fire event for extension.ts to handle
+            this._onDidRequestAggregatePlot.fire({
+                reference: message.reference,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+                showModifications: message.showModifications,
+                showPileup: message.showPileup,
+                showDwellTime: message.showDwellTime,
+                showSignal: message.showSignal,
+                showQuality: message.showQuality,
+            });
         }
     }
 
@@ -64,6 +130,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         const updateMessage: UpdatePlotOptionsMessage = {
             type: 'updatePlotOptions',
             options: {
+                plotType: this._plotType,
                 mode: this._plotMode as any,
                 normalization: this._normalization as any,
                 showDwellTime: this._showDwellTime,
@@ -71,6 +138,12 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 scaleDwellTime: this._scaleDwellTime,
                 downsample: this._downsample,
                 showSignalPoints: this._showSignalPoints,
+                aggregateReference: this._aggregateReference,
+                aggregateMaxReads: this._aggregateMaxReads,
+                showModifications: this._showModifications,
+                showPileup: this._showPileup,
+                showSignal: this._showSignal,
+                showQuality: this._showQuality,
             },
         };
         this.postMessage(updateMessage);
@@ -81,6 +154,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      */
     public getOptions() {
         return {
+            plotType: this._plotType,
             mode: this._plotMode,
             normalization: this._normalization,
             showDwellTime: this._showDwellTime,
@@ -88,6 +162,12 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             scaleDwellTime: this._scaleDwellTime,
             downsample: this._downsample,
             showSignalPoints: this._showSignalPoints,
+            aggregateReference: this._aggregateReference,
+            aggregateMaxReads: this._aggregateMaxReads,
+            showModifications: this._showModifications,
+            showPileup: this._showPileup,
+            showSignal: this._showSignal,
+            showQuality: this._showQuality,
         };
     }
 
@@ -107,11 +187,32 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._plotMode = 'SINGLE';
             this._updateConfig('defaultPlotMode', 'SINGLE');
         }
+        // If BAM unloaded and currently in AGGREGATE plot type, switch to SINGLE
+        if (!hasBam && this._plotType === 'AGGREGATE') {
+            this._plotType = 'SINGLE';
+        }
 
         // Update webview
         const message: UpdateBamStatusMessage = {
             type: 'updateBamStatus',
             hasBam: this._hasBamFile,
+        };
+        this.postMessage(message);
+    }
+
+    /**
+     * Update available references for aggregate plots
+     */
+    public updateReferences(references: string[]) {
+        this._availableReferences = references;
+        if (references.length > 0 && !this._aggregateReference) {
+            this._aggregateReference = references[0];
+        }
+
+        // Update webview
+        const message: UpdateReferencesMessage = {
+            type: 'updateReferences',
+            references: this._availableReferences,
         };
         this.postMessage(message);
     }

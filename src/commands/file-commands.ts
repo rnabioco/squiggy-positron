@@ -408,6 +408,12 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
             // Update plot options to show EVENTALIGN mode and set as default
             state.plotOptionsProvider?.updateBamStatus(true);
+
+            // Update plot options with available references for aggregate plots
+            const references = Object.keys(referenceToReads);
+            if (references.length > 0) {
+                state.plotOptionsProvider?.updateReferences(references);
+            }
         },
         ErrorContext.BAM_LOAD,
         'Opening BAM file...'
