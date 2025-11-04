@@ -85,3 +85,6 @@ indent-style = "space"
 packages = ["squiggy"]
 # Package imports as 'squiggy' even though PyPI name is 'squiggy-positron'
 # This maintains compatibility with existing code
+
+[tool.setuptools.package-data]
+squiggy = ["data/*.pod5", "data/*.bam", "data/*.bai", "data/*.fa"]
