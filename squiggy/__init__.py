@@ -953,11 +953,11 @@ def plot_signal_overlay_comparison(
 
         plot_data.append({
             "name": sample.name,
-            "positions": agg_stats.get("positions", np.arange(len(agg_stats.get("signal", [])))),
-            "signal": agg_stats.get("signal", np.array([])),
+            "positions": agg_stats.get("positions", np.arange(len(agg_stats.get("mean_signal", [])))),
+            "signal": agg_stats.get("mean_signal", np.array([])),
         })
 
-        coverage_data[sample.name] = agg_stats.get("coverage", [1] * len(agg_stats.get("signal", [])))
+        coverage_data[sample.name] = agg_stats.get("coverage", [1] * len(agg_stats.get("mean_signal", [])))
 
     # Get reference sequence
     from .utils import get_reference_sequence_for_read
@@ -975,7 +975,7 @@ def plot_signal_overlay_comparison(
                 max_reads=1,
             )
             if reads:
-                reference_sequence = reads[0].reference_sequence or ""
+                reference_sequence = reads[0].get("reference_sequence", "") or ""
         except Exception as e:
             # If we can't get reference sequence, continue without it
             print(f"Warning: Could not retrieve reference sequence: {e}")
