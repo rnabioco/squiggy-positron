@@ -55,6 +55,9 @@ class PlotMode(Enum):
     EVENTALIGN = "eventalign"  # Event-aligned with base annotations
     AGGREGATE = "aggregate"  # Multi-read aggregate with pileup statistics
     DELTA = "delta"  # Delta track comparing two samples
+    SIGNAL_OVERLAY_COMPARISON = (
+        "signal_overlay_comparison"  # Multi-sample signal overlay
+    )
 
 
 # Normalization methods

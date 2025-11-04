@@ -61,6 +61,17 @@ export interface PlotAggregateMessage extends BaseMessage {
     referenceName: string;
 }
 
+export interface LoadMoreReadsMessage extends BaseMessage {
+    type: 'loadMore';
+}
+
+export interface ExpandReferenceMessage extends BaseMessage {
+    type: 'expandReference';
+    referenceName: string;
+    offset: number;
+    limit: number;
+}
+
 export interface UpdateReadsMessage extends BaseMessage {
     type: 'updateReads';
     reads: ReadListItem[];
@@ -68,8 +79,42 @@ export interface UpdateReadsMessage extends BaseMessage {
     referenceToReads?: [string, ReadItem[]][]; // Map of reference name to read items
 }
 
-export type ReadsViewIncomingMessage = PlotReadMessage | PlotAggregateMessage | ReadyMessage;
-export type ReadsViewOutgoingMessage = UpdateReadsMessage;
+export interface SetReferencesOnlyMessage extends BaseMessage {
+    type: 'setReferencesOnly';
+    references: { referenceName: string; readCount: number }[];
+}
+
+export interface AppendReadsMessage extends BaseMessage {
+    type: 'appendReads';
+    reads: ReadItem[];
+}
+
+export interface SetReadsForReferenceMessage extends BaseMessage {
+    type: 'setReadsForReference';
+    referenceName: string;
+    reads: ReadItem[];
+    offset: number;
+    totalCount: number;
+}
+
+export interface SetLoadingMessage extends BaseMessage {
+    type: 'setLoading';
+    isLoading: boolean;
+    message?: string;
+}
+
+export type ReadsViewIncomingMessage =
+    | PlotReadMessage
+    | PlotAggregateMessage
+    | LoadMoreReadsMessage
+    | ExpandReferenceMessage
+    | ReadyMessage;
+export type ReadsViewOutgoingMessage =
+    | UpdateReadsMessage
+    | SetReferencesOnlyMessage
+    | AppendReadsMessage
+    | SetReadsForReferenceMessage
+    | SetLoadingMessage;
 
 // ========== Plot Options Messages ==========
 
@@ -190,6 +235,7 @@ export interface SelectSampleMessage extends BaseMessage {
 export interface StartComparisonMessage extends BaseMessage {
     type: 'startComparison';
     sampleNames: string[];
+    maxReads?: number | null; // null means use default
 }
 
 export interface UnloadSampleMessage extends BaseMessage {
@@ -201,12 +247,87 @@ export interface ClearSamplesMessage extends BaseMessage {
     type: 'clearSamples';
 }
 
+export interface FilesDroppedMessage extends BaseMessage {
+    type: 'filesDropped';
+    filePaths: string[];
+}
+
+export interface RequestSetSessionFastaMessage extends BaseMessage {
+    type: 'requestSetSessionFasta';
+}
+
+export interface RequestLoadSamplesMessage extends BaseMessage {
+    type: 'requestLoadSamples';
+}
+
+export interface SetSessionFastaMessage extends BaseMessage {
+    type: 'setSessionFasta';
+    fastaPath: string | null;
+}
+
+export interface UpdateSessionFastaMessage extends BaseMessage {
+    type: 'updateSessionFasta';
+    fastaPath: string | null;
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | StartComparisonMessage
     | UnloadSampleMessage
+    | FilesDroppedMessage
+    | RequestSetSessionFastaMessage
+    | RequestLoadSamplesMessage
+    | SetSessionFastaMessage
     | ReadyMessage;
-export type SamplesOutgoingMessage = UpdateSamplesMessage | ClearSamplesMessage;
+export type SamplesOutgoingMessage =
+    | UpdateSamplesMessage
+    | ClearSamplesMessage
+    | UpdateSessionFastaMessage;
+
+// ========== Session Manager Messages ==========
+
+export interface LoadDemoMessage extends BaseMessage {
+    type: 'loadDemo';
+}
+
+export interface SaveSessionMessage extends BaseMessage {
+    type: 'save';
+}
+
+export interface RestoreSessionMessage extends BaseMessage {
+    type: 'restore';
+}
+
+export interface ExportSessionMessage extends BaseMessage {
+    type: 'export';
+}
+
+export interface ImportSessionMessage extends BaseMessage {
+    type: 'import';
+}
+
+export interface ClearSessionMessage extends BaseMessage {
+    type: 'clear';
+}
+
+export interface UpdateSessionMessage extends BaseMessage {
+    type: 'updateSession';
+    hasSamples: boolean;
+    hasSavedSession: boolean;
+    sampleCount: number;
+    sampleNames: string[];
+}
+
+export type SessionPanelIncomingMessage =
+    | ReadyMessage
+    | LoadDemoMessage
+    | SaveSessionMessage
+    | RestoreSessionMessage
+    | ExportSessionMessage
+    | ImportSessionMessage
+    | ClearSessionMessage;
+
+export type SessionPanelOutgoingMessage = UpdateSessionMessage;
 
 // ========== Union Types for Message Handlers ==========
 
@@ -215,11 +336,13 @@ export type IncomingWebviewMessage =
     | ReadsViewIncomingMessage
     | PlotOptionsIncomingMessage
     | ModificationsIncomingMessage
-    | SamplesIncomingMessage;
+    | SamplesIncomingMessage
+    | SessionPanelIncomingMessage;
 
 export type OutgoingWebviewMessage =
     | FilePanelOutgoingMessage
     | ReadsViewOutgoingMessage
     | PlotOptionsOutgoingMessage
     | ModificationsOutgoingMessage
-    | SamplesOutgoingMessage;
+    | SamplesOutgoingMessage
+    | SessionPanelOutgoingMessage;

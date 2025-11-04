@@ -23,7 +23,7 @@ Example usage in Jupyter notebook:
     >>> show(Div(text=html))
 """
 
-__version__ = "0.1.8"
+__version__ = "0.1.11"
 
 # Standard library
 import numpy as np
@@ -42,6 +42,8 @@ from .constants import (
 
 # I/O functions
 from .io import (
+    LazyReadList,
+    Pod5Index,
     Sample,
     SquiggySession,
     close_all_samples,
@@ -53,8 +55,11 @@ from .io import (
     get_bam_modification_info,
     get_common_reads,
     get_current_files,
+    get_read_by_id,
     get_read_ids,
     get_read_to_reference_mapping,
+    get_reads_batch,
+    get_reads_for_reference_paginated,
     get_sample,
     get_unique_reads,
     list_samples,
@@ -154,12 +159,8 @@ def plot_read(
     if position_label_interval is None:
         position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
-    # Get read data
-    read_obj = None
-    for read in _squiggy_session.reader.reads():
-        if str(read.read_id) == read_id:
-            read_obj = read
-            break
+    # Get read data (optimized with index if available)
+    read_obj = get_read_by_id(read_id)
 
     if read_obj is None:
         raise ValueError(f"Read not found: {read_id}")
@@ -285,19 +286,22 @@ def plot_reads(
     norm_method = NormalizationMethod[normalization.upper()]
     theme_enum = Theme[theme.upper()]
 
-    # Collect read data
-    reads_data = []
-    for read_id in read_ids:
-        read_obj = None
-        for read in _squiggy_session.reader.reads():
-            if str(read.read_id) == read_id:
-                read_obj = read
-                break
+    # Collect read data (optimized batch fetching - single O(n) pass)
+    read_objs = get_reads_batch(read_ids)
 
-        if read_obj is None:
-            raise ValueError(f"Read not found: {read_id}")
+    # Verify all reads were found
+    missing = set(read_ids) - set(read_objs.keys())
+    if missing:
+        if len(missing) == 1:
+            raise ValueError(f"Read not found: {list(missing)[0]}")
+        else:
+            raise ValueError(f"Reads not found: {list(missing)}")
 
-        reads_data.append((read_id, read_obj.signal, read_obj.run_info.sample_rate))
+    # Build reads_data list in original order
+    reads_data = [
+        (read_id, read_objs[read_id].signal, read_objs[read_id].run_info.sample_rate)
+        for read_id in read_ids
+    ]
 
     # Prepare data and options based on mode
     if plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
@@ -683,6 +687,7 @@ def plot_delta_comparison(
     reference_name: str = "Default",
     normalization: str = "NONE",
     theme: str = "LIGHT",
+    max_reads: int | None = None,
 ) -> str:
     """
     Generate delta comparison plot between two or more samples
@@ -697,6 +702,7 @@ def plot_delta_comparison(
         reference_name: Optional reference name for plot title (default: "Default")
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
+        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
 
     Returns:
         Bokeh HTML string with delta comparison visualization
@@ -756,6 +762,31 @@ def plot_delta_comparison(
 
     reference_name = references[0]["name"]
 
+    # Determine max_reads if not provided
+    if max_reads is None:
+        # Calculate available reads per sample and use minimum
+        from .utils import get_available_reads_for_reference
+
+        available_reads_per_sample = []
+        for sample in [sample_a, sample_b]:
+            try:
+                available = get_available_reads_for_reference(
+                    bam_file=sample.bam_path,
+                    reference_name=reference_name,
+                )
+                available_reads_per_sample.append(available)
+            except Exception as e:
+                print(
+                    f"Warning: Could not determine available reads for '{sample.name}': {e}"
+                )
+                available_reads_per_sample.append(100)  # Fallback
+
+        # Use minimum available, capped at 100
+        max_reads = (
+            min(available_reads_per_sample) if available_reads_per_sample else 100
+        )
+        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
     # Extract aligned reads from both samples using the proper utility function
     from .utils import extract_reads_for_reference
 
@@ -763,7 +794,7 @@ def plot_delta_comparison(
         pod5_file=sample_a.pod5_path,
         bam_file=sample_a.bam_path,
         reference_name=reference_name,
-        max_reads=100,
+        max_reads=max_reads,
         random_sample=True,
     )
 
@@ -771,7 +802,7 @@ def plot_delta_comparison(
         pod5_file=sample_b.pod5_path,
         bam_file=sample_b.bam_path,
         reference_name=reference_name,
-        max_reads=100,
+        max_reads=max_reads,
         random_sample=True,
     )
 
@@ -816,6 +847,208 @@ def plot_delta_comparison(
     return html
 
 
+def plot_signal_overlay_comparison(
+    sample_names: list[str],
+    reference_name: str | None = None,
+    normalization: str = "ZNORM",
+    theme: str = "LIGHT",
+    max_reads: int | None = None,
+) -> str:
+    """
+    Generate signal overlay comparison plot for multiple samples
+
+    Creates a visualization overlaying raw signals from 2+ samples, each with
+    distinct color from Okabe-Ito palette. Includes:
+    1. Signal Overlay Track: All sample signals overlaid with color per sample
+    2. Coverage Track: Read count per position for each sample
+    3. Reference Display: Nucleotide sequence annotations below signal track
+
+    Args:
+        sample_names: List of sample names to compare (minimum 2 required)
+        reference_name: Optional reference name (auto-detected from first sample's BAM)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD) - default ZNORM
+        theme: Color theme (LIGHT, DARK)
+        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
+
+    Returns:
+        Bokeh HTML string with signal overlay comparison visualization
+
+    Example:
+        >>> import squiggy
+        >>> squiggy.load_sample('alanine', 'ala_subset.pod5', 'ala_subset.aln.bam')
+        >>> squiggy.load_sample('arginine', 'arg_subset.pod5', 'arg_subset.aln.bam')
+        >>> html = squiggy.plot_signal_overlay_comparison(
+        ...     ['alanine', 'arginine'],
+        ...     normalization='ZNORM'
+        ... )
+        >>> # Extension displays this automatically
+
+    Raises:
+        ValueError: If fewer than 2 samples provided, samples not found, or missing BAM files
+    """
+    from .constants import NormalizationMethod, PlotMode, Theme
+    from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
+    from .utils import extract_reads_for_reference
+
+    # Validate input
+    if len(sample_names) < 2:
+        raise ValueError(
+            f"Signal overlay comparison requires at least 2 samples, got {len(sample_names)}"
+        )
+
+    # Get samples
+    samples = []
+    for name in sample_names:
+        sample = _squiggy_session.get_sample(name)
+        if sample is None:
+            raise ValueError(f"Sample '{name}' not found")
+        samples.append(sample)
+
+    # Validate all samples have POD5 and BAM loaded
+    for sample in samples:
+        if sample.pod5_reader is None:
+            raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
+        if sample.bam_path is None:
+            raise ValueError(
+                f"Sample '{sample.name}' must have BAM file loaded. "
+                "BAM files are required to align signals to reference positions."
+            )
+
+    # Parse parameters
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
+
+    # Determine reference name
+    if reference_name is None:
+        # Get first reference from first sample's BAM
+        if not samples[0].bam_info or "references" not in samples[0].bam_info:
+            raise ValueError("BAM file must contain reference information")
+
+        references = samples[0].bam_info["references"]
+        if not references:
+            raise ValueError("No references found in BAM file")
+
+        reference_name = references[0]["name"]
+
+    # Validate all samples have same reference
+    for _i, sample in enumerate(samples[1:], start=1):
+        if not sample.bam_info or "references" not in sample.bam_info:
+            raise ValueError(
+                f"Sample '{sample.name}' BAM must contain reference information"
+            )
+
+        refs = sample.bam_info["references"]
+        ref_names = [r["name"] for r in refs]
+
+        if reference_name not in ref_names:
+            raise ValueError(
+                f"Sample '{sample.name}' aligns to different references. "
+                f"Expected '{reference_name}', but found: {ref_names}"
+            )
+
+    # Determine max_reads if not provided
+    if max_reads is None:
+        # Calculate available reads per sample and use minimum
+        from .utils import get_available_reads_for_reference
+
+        available_reads_per_sample = []
+        for sample in samples:
+            try:
+                available = get_available_reads_for_reference(
+                    bam_file=sample.bam_path,
+                    reference_name=reference_name,
+                )
+                available_reads_per_sample.append(available)
+            except Exception as e:
+                print(
+                    f"Warning: Could not determine available reads for '{sample.name}': {e}"
+                )
+                available_reads_per_sample.append(100)  # Fallback
+
+        # Use minimum available, capped at 100
+        max_reads = (
+            min(available_reads_per_sample) if available_reads_per_sample else 100
+        )
+        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
+    # Extract aligned reads for each sample
+    plot_data = []
+    coverage_data = {}
+
+    for sample in samples:
+        reads = extract_reads_for_reference(
+            pod5_file=sample.pod5_path,
+            bam_file=sample.bam_path,
+            reference_name=reference_name,
+            max_reads=max_reads,
+            random_sample=True,
+        )
+
+        if not reads:
+            raise ValueError(
+                f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
+            )
+
+        # Calculate aggregate signal and coverage for this sample
+        from .utils import calculate_aggregate_signal
+
+        agg_stats = calculate_aggregate_signal(reads, norm_method)
+
+        plot_data.append(
+            {
+                "name": sample.name,
+                "positions": agg_stats.get(
+                    "positions", np.arange(len(agg_stats.get("mean_signal", [])))
+                ),
+                "signal": agg_stats.get("mean_signal", np.array([])),
+            }
+        )
+
+        coverage_data[sample.name] = agg_stats.get(
+            "coverage", [1] * len(agg_stats.get("mean_signal", []))
+        )
+
+    # Get reference sequence
+    reference_sequence = ""
+    if plot_data:
+        # Use first read from first sample to get reference sequence
+        try:
+            # Get first read from plot data
+            first_sample = samples[0]
+            reads = extract_reads_for_reference(
+                pod5_file=first_sample.pod5_path,
+                bam_file=first_sample.bam_path,
+                reference_name=reference_name,
+                max_reads=1,
+            )
+            if reads:
+                reference_sequence = reads[0].get("reference_sequence", "") or ""
+        except Exception as e:
+            # If we can't get reference sequence, continue without it
+            print(f"Warning: Could not retrieve reference sequence: {e}")
+
+    # Prepare data for plot strategy
+    data = {
+        "samples": plot_data,
+        "reference_sequence": reference_sequence,
+        "coverage": coverage_data,
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.SIGNAL_OVERLAY_COMPARISON, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .utils import _route_to_plots_pane
+
+    _route_to_plots_pane(grid)
+
+    return html
+
+
 __all__ = [
     # Version
     "__version__",
@@ -834,6 +1067,7 @@ __all__ = [
     "plot_aggregate",
     "plot_motif_aggregate_all",
     "plot_delta_comparison",  # Phase 3 - NEW
+    "plot_signal_overlay_comparison",  # Phase 1 - NEW multi-sample comparison
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
@@ -855,6 +1089,12 @@ __all__ = [
     # Session management
     "SquiggySession",
     "Sample",
+    # Performance optimization classes
+    "LazyReadList",
+    "Pod5Index",
+    "get_reads_batch",
+    "get_read_by_id",
+    "get_reads_for_reference_paginated",
     # Data structures
     "AlignedRead",
     "BaseAnnotation",

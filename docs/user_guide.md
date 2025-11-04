@@ -578,7 +578,7 @@ For comprehensive documentation on multi-sample comparison including:
 - Troubleshooting
 - Performance tips
 
-See the **[Multi-Sample Comparison Guide](MULTI_SAMPLE_COMPARISON.md)**.
+See the **[Multi-Sample Comparison Guide](multi_sample_comparison.md)**.
 
 ## Common Errors
 
