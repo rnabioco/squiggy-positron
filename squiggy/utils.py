@@ -929,6 +929,7 @@ def extract_reads_for_reference(
                         modifications = aligned_read.modifications
                 except Exception as e:
                     # Modifications are optional, don't fail if extraction fails
+                    print(f"DEBUG: Failed to extract modifications from read {read.query_name}: {e}")
                     pass
 
                 reads_info.append(
@@ -1047,10 +1048,20 @@ def calculate_modification_statistics(reads_data):
                 "count": len(probabilities),
             }
 
-    return {
+    result = {
         "mod_stats": mod_stats,
         "positions": sorted(all_positions),
     }
+
+    # Debug output
+    if mod_stats:
+        print(f"DEBUG: Modification statistics calculated for {len(mod_stats)} modification types:")
+        for mod_code, positions in mod_stats.items():
+            print(f"  - {mod_code}: {len(positions)} positions")
+    else:
+        print("DEBUG: No modification statistics calculated (empty mod_stats)")
+
+    return result
 
 
 def calculate_dwell_time_statistics(reads_data):

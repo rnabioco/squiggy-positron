@@ -171,11 +171,23 @@ class AggregatePlotStrategy(PlotStrategy):
         panels = []
         all_figs = []  # Keep track of all figures for x-range linking
 
+        # Debug: Check modification panel conditions
+        print(f"DEBUG: Modification panel check:")
+        print(f"  - show_modifications: {show_modifications}")
+        print(f"  - modification_stats exists: {modification_stats is not None}")
+        if modification_stats:
+            print(f"  - modification_stats.get('mod_stats'): {modification_stats.get('mod_stats') is not None}")
+            if modification_stats.get('mod_stats'):
+                print(f"  - Number of mod types: {len(modification_stats['mod_stats'])}")
+
         # Create modification heatmap if data exists and panel is enabled
         if show_modifications and modification_stats and modification_stats.get("mod_stats"):
+            print("DEBUG: Creating modification heatmap panel")
             p_mods = self._create_modification_heatmap(modification_stats=modification_stats)
             panels.append([p_mods])
             all_figs.append(p_mods)
+        else:
+            print("DEBUG: Skipping modification heatmap panel")
 
         # Create pileup track if enabled
         if show_pileup:
