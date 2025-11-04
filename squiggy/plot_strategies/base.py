@@ -153,7 +153,7 @@ class PlotStrategy(ABC):
         self,
         signal: np.ndarray,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
-        downsample: int = 1,
+        downsample: int = None,
         seq_to_sig_map: list[int] | None = None,
     ) -> tuple[np.ndarray, list[int] | None]:
         """
@@ -182,6 +182,11 @@ class PlotStrategy(ABC):
             ... )
             >>> # Returns z-normalized signal downsampled by factor of 2
         """
+        from ..constants import DEFAULT_DOWNSAMPLE
+
+        if downsample is None:
+            downsample = DEFAULT_DOWNSAMPLE
+
         # Normalize
         if normalization != NormalizationMethod.NONE:
             signal = normalize_signal(signal, method=normalization)

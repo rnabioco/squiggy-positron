@@ -456,7 +456,7 @@ def validate_bam_reads_in_pod5(bam_file, pod5_file):
     }
 
 
-def downsample_signal(signal: np.ndarray, downsample_factor: int = 1) -> np.ndarray:
+def downsample_signal(signal: np.ndarray, downsample_factor: int = None) -> np.ndarray:
     """Downsample signal array by taking every Nth point
 
     Reduces the number of data points for faster plotting while preserving
@@ -464,11 +464,16 @@ def downsample_signal(signal: np.ndarray, downsample_factor: int = 1) -> np.ndar
 
     Args:
         signal: Raw signal array (numpy array)
-        downsample_factor: Factor by which to downsample (1 = no downsampling)
+        downsample_factor: Factor by which to downsample (None = use default, 1 = no downsampling)
 
     Returns:
         Downsampled signal array
     """
+    from .constants import DEFAULT_DOWNSAMPLE
+
+    if downsample_factor is None:
+        downsample_factor = DEFAULT_DOWNSAMPLE
+
     if downsample_factor <= 1:
         return signal
 

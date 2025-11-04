@@ -157,7 +157,7 @@ squiggy.get_read_to_reference_mapping()
         scaleDwellTime: boolean = false,
         minModProbability: number = 0.5,
         enabledModTypes: string[] = [],
-        downsample: number = 1,
+        downsample: number = 5,
         showSignalPoints: boolean = false
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
