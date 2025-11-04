@@ -438,10 +438,12 @@ def get_bam_event_alignment_status(file_path: str) -> bool:
         >>> if has_events:
         ...     print("BAM contains event alignment data")
     """
+    from .constants import BAM_SAMPLE_SIZE
+
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"BAM file not found: {file_path}")
 
-    max_reads_to_check = 100  # Sample first 100 reads
+    max_reads_to_check = BAM_SAMPLE_SIZE  # Sample first N reads
 
     try:
         bam = pysam.AlignmentFile(file_path, "rb", check_sq=False)
@@ -486,11 +488,13 @@ def get_bam_modification_info(file_path: str) -> dict:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"BAM file not found: {file_path}")
 
+    from .constants import BAM_SAMPLE_SIZE
+
     modification_types = set()
     has_modifications = False
     has_ml = False
     reads_checked = 0
-    max_reads_to_check = 100  # Sample first 100 reads
+    max_reads_to_check = BAM_SAMPLE_SIZE  # Sample first N reads
 
     try:
         bam = pysam.AlignmentFile(file_path, "rb", check_sq=False)

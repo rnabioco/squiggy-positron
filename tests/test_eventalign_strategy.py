@@ -319,6 +319,7 @@ class TestPrivateMethods:
         processed, seq_map = strategy._process_signal(
             signal=signal.copy(),
             normalization=NormalizationMethod.NONE,
+            downsample=1,  # Explicitly set to 1 to test no downsampling
         )
 
         np.testing.assert_array_equal(processed, signal)

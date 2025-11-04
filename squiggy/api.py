@@ -244,10 +244,10 @@ class Read:
         mode: str = "SINGLE",
         normalization: str = "ZNORM",
         theme: str = "LIGHT",
-        downsample: int = 1,
+        downsample: int = None,
         show_dwell_time: bool = False,
         show_labels: bool = True,
-        position_label_interval: int = 100,
+        position_label_interval: int = None,
         scale_dwell_time: bool = False,
         min_mod_probability: float = 0.5,
         enabled_mod_types: list | None = None,
@@ -280,6 +280,14 @@ class Read:
             >>> from bokeh.plotting import show
             >>> show(fig)
         """
+        from .constants import DEFAULT_DOWNSAMPLE, DEFAULT_POSITION_LABEL_INTERVAL
+
+        # Apply defaults if not specified
+        if downsample is None:
+            downsample = DEFAULT_DOWNSAMPLE
+        if position_label_interval is None:
+            position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
+
         # Parse parameters
         plot_mode = PlotMode[mode.upper()]
         norm_method = NormalizationMethod[normalization.upper()]

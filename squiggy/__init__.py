@@ -105,10 +105,10 @@ def plot_read(
     mode: str = "SINGLE",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: int = 1,
+    downsample: int = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
-    position_label_interval: int = 100,
+    position_label_interval: int = None,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
@@ -141,11 +141,18 @@ def plot_read(
         >>> with open('plot.html', 'w') as f:
         >>>     f.write(html)
     """
+    from .constants import DEFAULT_DOWNSAMPLE, DEFAULT_POSITION_LABEL_INTERVAL
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+
+    # Apply defaults if not specified
+    if downsample is None:
+        downsample = DEFAULT_DOWNSAMPLE
+    if position_label_interval is None:
+        position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
     # Get read data
     read_obj = None
@@ -227,7 +234,7 @@ def plot_reads(
     mode: str = "OVERLAY",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: int = 1,
+    downsample: int = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     scale_dwell_time: bool = False,
@@ -259,6 +266,7 @@ def plot_reads(
         >>> html = plot_reads(['read_001', 'read_002'], mode='STACKED')
         >>> html = plot_reads(['read_001', 'read_002'], mode='EVENTALIGN')
     """
+    from .constants import DEFAULT_DOWNSAMPLE
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
 
@@ -267,6 +275,10 @@ def plot_reads(
 
     if not read_ids:
         raise ValueError("No read IDs provided.")
+
+    # Apply defaults if not specified
+    if downsample is None:
+        downsample = DEFAULT_DOWNSAMPLE
 
     # Parse parameters
     plot_mode = PlotMode[mode.upper()]
@@ -417,7 +429,10 @@ def plot_aggregate(
     # Calculate aggregate statistics
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
     pileup_stats = calculate_base_pileup(
-        reads_data, bam_file=_squiggy_session.bam_path, reference_name=reference_name
+        reads_data,
+        bam_file=_squiggy_session.bam_path,
+        reference_name=reference_name,
+        fasta_file=_squiggy_session.fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
 
@@ -447,8 +462,8 @@ def plot_aggregate(
 def plot_motif_aggregate_all(
     fasta_file: str,
     motif: str,
-    upstream: int = 10,
-    downstream: int = 10,
+    upstream: int = None,
+    downstream: int = None,
     max_reads_per_motif: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
@@ -493,6 +508,10 @@ def plot_motif_aggregate_all(
     Raises:
         ValueError: If POD5/BAM not loaded or no motif matches found
     """
+    from .constants import (
+        DEFAULT_MOTIF_WINDOW_DOWNSTREAM,
+        DEFAULT_MOTIF_WINDOW_UPSTREAM,
+    )
     from .io import _squiggy_session
     from .motif import search_motif
     from .plot_factory import create_plot_strategy
@@ -502,6 +521,12 @@ def plot_motif_aggregate_all(
         calculate_quality_by_position,
         extract_reads_for_motif,
     )
+
+    # Apply defaults if not specified
+    if upstream is None:
+        upstream = DEFAULT_MOTIF_WINDOW_UPSTREAM
+    if downstream is None:
+        downstream = DEFAULT_MOTIF_WINDOW_DOWNSTREAM
 
     # Validate state
     if _squiggy_session.reader is None:
@@ -562,13 +587,26 @@ def plot_motif_aggregate_all(
     aggregate_stats = calculate_aggregate_signal(all_aligned_reads, norm_method)
 
     # Calculate base pileup across all reads
-    # Don't pass reference_name because reads are in motif-relative coordinates,
-    # not genomic coordinates - we can't extract reference sequence from BAM
     pileup_stats = calculate_base_pileup(
         all_aligned_reads,
-        bam_file=None,  # Don't try to extract reference sequence
+        bam_file=None,  # Reads are in motif-relative coordinates
         reference_name=None,
     )
+
+    # Add motif sequence as reference bases for display
+    # Center the motif in the coordinate system
+    motif_length = len(motif)
+    motif_center = 0  # Motif is centered at position 0 in motif-relative coordinates
+    motif_start = motif_center - motif_length // 2
+
+    # Create reference_bases dict mapping positions to motif letters
+    reference_bases = {}
+    for i, base in enumerate(motif.upper()):
+        pos = motif_start + i
+        reference_bases[pos] = base
+
+    # Add to pileup_stats
+    pileup_stats["reference_bases"] = reference_bases
 
     quality_stats = calculate_quality_by_position(all_aligned_reads)
 
@@ -587,7 +625,10 @@ def plot_motif_aggregate_all(
         "num_reads": num_reads,
     }
 
-    options = {"normalization": norm_method}
+    # Highlight motif positions (make them bold)
+    motif_positions_set = set(range(motif_start, motif_start + motif_length))
+
+    options = {"normalization": norm_method, "motif_positions": motif_positions_set}
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
