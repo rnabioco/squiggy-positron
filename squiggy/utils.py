@@ -865,6 +865,39 @@ def get_reference_sequence_for_read(bam_file, read_id):
         raise ValueError(f"Error extracting reference sequence: {str(e)}") from e
 
 
+def get_available_reads_for_reference(bam_file, reference_name):
+    """Count total reads available for a reference in a BAM file
+
+    Args:
+        bam_file: Path to BAM file with alignments
+        reference_name: Name of reference sequence to count reads for
+
+    Returns:
+        Integer count of reads mapping to the reference
+
+    Raises:
+        ValueError: If BAM file cannot be read or reference not found
+    """
+    try:
+        count = 0
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if read.is_unmapped:
+                    continue
+
+                # Check if read maps to the specified reference
+                ref_name = bam.get_reference_name(read.reference_id)
+                if ref_name == reference_name:
+                    count += 1
+
+        return count
+
+    except Exception as e:
+        raise ValueError(
+            f"Error counting reads for reference '{reference_name}': {str(e)}"
+        ) from e
+
+
 def extract_reads_for_reference(
     pod5_file, bam_file, reference_name, max_reads=100, random_sample=True
 ):

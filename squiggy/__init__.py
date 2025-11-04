@@ -789,6 +789,7 @@ def plot_signal_overlay_comparison(
     reference_name: str | None = None,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
+    max_reads: int | None = None,
 ) -> str:
     """
     Generate signal overlay comparison plot for multiple samples
@@ -804,6 +805,7 @@ def plot_signal_overlay_comparison(
         reference_name: Optional reference name (auto-detected from first sample's BAM)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD) - default ZNORM
         theme: Color theme (LIGHT, DARK)
+        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
 
     Returns:
         Bokeh HTML string with signal overlay comparison visualization
@@ -882,6 +884,27 @@ def plot_signal_overlay_comparison(
                 f"Expected '{reference_name}', but found: {ref_names}"
             )
 
+    # Determine max_reads if not provided
+    if max_reads is None:
+        # Calculate available reads per sample and use minimum
+        from .utils import get_available_reads_for_reference
+
+        available_reads_per_sample = []
+        for sample in samples:
+            try:
+                available = get_available_reads_for_reference(
+                    bam_file=sample.bam_path,
+                    reference_name=reference_name,
+                )
+                available_reads_per_sample.append(available)
+            except Exception as e:
+                print(f"Warning: Could not determine available reads for '{sample.name}': {e}")
+                available_reads_per_sample.append(100)  # Fallback
+
+        # Use minimum available, capped at 100
+        max_reads = min(available_reads_per_sample) if available_reads_per_sample else 100
+        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
     # Extract aligned reads for each sample
     plot_data = []
     coverage_data = {}
@@ -891,7 +914,7 @@ def plot_signal_overlay_comparison(
             pod5_file=sample.pod5_path,
             bam_file=sample.bam_path,
             reference_name=reference_name,
-            max_reads=100,
+            max_reads=max_reads,
             random_sample=True,
         )
 
