@@ -429,7 +429,10 @@ def plot_aggregate(
     # Calculate aggregate statistics
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
     pileup_stats = calculate_base_pileup(
-        reads_data, bam_file=_squiggy_session.bam_path, reference_name=reference_name
+        reads_data,
+        bam_file=_squiggy_session.bam_path,
+        reference_name=reference_name,
+        fasta_file=_squiggy_session.fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
 
