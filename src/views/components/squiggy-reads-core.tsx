@@ -567,10 +567,7 @@ function filterItems(
             // For flat list (POD5-only)
             if (searchMode === 'reference') {
                 // Search in reference name if available
-                if (
-                    item.referenceName &&
-                    item.referenceName.toLowerCase().includes(searchLower)
-                ) {
+                if (item.referenceName && item.referenceName.toLowerCase().includes(searchLower)) {
                     filtered.push(item);
                 }
             } else {
@@ -694,9 +691,7 @@ function rebuildItemsList(
             shouldInclude = refMatches;
         } else {
             // Read mode - match read IDs
-            filteredReads = reads.filter((read) =>
-                read.readId.toLowerCase().includes(searchLower)
-            );
+            filteredReads = reads.filter((read) => read.readId.toLowerCase().includes(searchLower));
             shouldInclude = filteredReads.length > 0;
         }
 
