@@ -179,7 +179,7 @@
         },
         {
           "id": "squiggyPlotOptions",
-          "name": "Plot Options",
+          "name": "Advanced Plotting",
           "type": "webview"
         },
         {

@@ -133,7 +133,34 @@ export interface UpdateBamStatusMessage extends BaseMessage {
     hasBam: boolean;
 }
 
+export interface UpdatePod5StatusMessage extends BaseMessage {
+    type: 'updatePod5Status';
+    hasPod5: boolean;
+}
+
+export interface RequestReferencesMessage extends BaseMessage {
+    type: 'requestReferences';
+}
+
+export interface UpdateReferencesMessage extends BaseMessage {
+    type: 'updateReferences';
+    references: string[];
+}
+
+export interface GenerateAggregatePlotMessage extends BaseMessage {
+    type: 'generateAggregatePlot';
+    reference: string;
+    maxReads: number;
+    normalization: string;
+    showModifications: boolean;
+    showPileup: boolean;
+    showDwellTime: boolean;
+    showSignal: boolean;
+    showQuality: boolean;
+}
+
 export interface PlotOptions {
+    plotType: 'SINGLE' | 'AGGREGATE';
     mode: 'SINGLE' | 'EVENTALIGN';
     normalization: 'ZNORM' | 'MAD' | 'MEDIAN' | 'NONE';
     showDwellTime: boolean;
@@ -141,10 +168,25 @@ export interface PlotOptions {
     scaleDwellTime: boolean;
     downsample: number;
     showSignalPoints: boolean;
+    // Aggregate-specific options
+    aggregateReference?: string;
+    aggregateMaxReads?: number;
+    showModifications?: boolean;
+    showPileup?: boolean;
+    showSignal?: boolean;
+    showQuality?: boolean;
 }
 
-export type PlotOptionsIncomingMessage = PlotOptionsChangedMessage | ReadyMessage;
-export type PlotOptionsOutgoingMessage = UpdatePlotOptionsMessage | UpdateBamStatusMessage;
+export type PlotOptionsIncomingMessage =
+    | PlotOptionsChangedMessage
+    | RequestReferencesMessage
+    | GenerateAggregatePlotMessage
+    | ReadyMessage;
+export type PlotOptionsOutgoingMessage =
+    | UpdatePlotOptionsMessage
+    | UpdateBamStatusMessage
+    | UpdatePod5StatusMessage
+    | UpdateReferencesMessage;
 
 // ========== Modifications Panel Messages ==========
 

@@ -137,6 +137,47 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Listen for aggregate plot generation requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
+            if (!state.squiggyAPI) {
+                vscode.window.showErrorMessage('API not available');
+                return;
+            }
+
+            try {
+                // Get current theme
+                const isDarkTheme =
+                    vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+                const theme = isDarkTheme ? 'DARK' : 'LIGHT';
+
+                // Get modification filters from Modifications panel
+                const modFilters = modificationsProvider.getFilters();
+
+                // Generate aggregate plot
+                await state.squiggyAPI.generateAggregatePlot(
+                    options.reference,
+                    options.maxReads,
+                    options.normalization,
+                    theme,
+                    options.showModifications,
+                    modFilters.minProbability,
+                    modFilters.enabledModTypes,
+                    options.showPileup,
+                    options.showDwellTime,
+                    options.showSignal,
+                    options.showQuality
+                );
+
+                vscode.window.showInformationMessage(
+                    `Generated aggregate plot for ${options.reference}`
+                );
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
+            }
+        })
+    );
+
     // Register kernel event listeners (session changes, restarts)
     registerKernelListeners(context, state);
 

@@ -921,6 +921,7 @@ def extract_reads_for_reference(
             - move_table: Move table array
             - stride: Stride value from move table
             - quality_scores: Per-base quality scores
+            - modifications: List of ModificationAnnotation objects
     """
     import random
 
@@ -951,6 +952,18 @@ def extract_reads_for_reference(
                     np.array(read.query_qualities) if read.query_qualities else None
                 )
 
+                # Extract modifications using _parse_alignment
+                modifications = []
+                try:
+                    from .alignment import _parse_alignment
+
+                    aligned_read = _parse_alignment(read)
+                    if aligned_read:
+                        modifications = aligned_read.modifications
+                except Exception:
+                    # Modifications are optional, don't fail if extraction fails
+                    pass
+
                 # Calculate soft-clipped bases at the start and end of the read
                 # This tells us how many bases in the raw signal to skip
                 cigar = read.cigartuples
@@ -974,6 +987,7 @@ def extract_reads_for_reference(
                         "move_table": moves,
                         "stride": stride,
                         "quality_scores": quality_scores,
+                        "modifications": modifications,
                         "query_start_offset": query_start_offset,  # Soft-clipped bases at start
                         "query_end_offset": query_end_offset,  # Soft-clipped bases at end
                     }
@@ -1019,6 +1033,189 @@ def extract_reads_for_reference(
         raise ValueError(
             f"Error extracting reads for reference {reference_name}: {str(e)}"
         ) from e
+
+
+def calculate_modification_statistics(reads_data, mod_filter=None):
+    """Calculate aggregate modification statistics across multiple reads
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+        mod_filter: Optional dict mapping mod_code -> minimum probability threshold
+                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications included.
+                   If specified, only modifications with probability >= threshold are included.
+
+    Returns:
+        Dict with keys:
+            - mod_stats: Dict mapping mod_code -> position -> statistics
+                {
+                    'mod_code': {
+                        position: {
+                            'probabilities': [float],  # All probabilities at this position
+                            'mean': float,
+                            'median': float,
+                            'std': float,
+                            'count': int
+                        }
+                    }
+                }
+            - positions: Sorted list of all positions with modifications
+    """
+    # Map genomic_pos -> mod_code -> list of probabilities
+    position_mods = {}
+
+    for read in reads_data:
+        modifications = read.get("modifications", [])
+        for mod in modifications:
+            if mod.genomic_pos is None:
+                continue
+
+            pos = mod.genomic_pos
+            mod_code = mod.mod_code
+
+            # Convert mod_code to string for consistent comparison with filter keys
+            mod_code_str = str(mod_code)
+
+            # Apply mod_filter if specified
+            if mod_filter is not None:
+                # Skip if mod_code not in filter (user disabled it)
+                if mod_code_str not in mod_filter:
+                    continue
+                # Skip if probability below threshold
+                if mod.probability < mod_filter[mod_code_str]:
+                    continue
+
+            if pos not in position_mods:
+                position_mods[pos] = {}
+            if mod_code not in position_mods[pos]:
+                position_mods[pos][mod_code] = []
+
+            position_mods[pos][mod_code].append(mod.probability)
+
+    # Calculate total coverage per position (all reads, not just modified ones)
+    position_coverage = {}
+    for read in reads_data:
+        ref_positions = read.get("ref_positions", [])
+        for pos in ref_positions:
+            if pos not in position_coverage:
+                position_coverage[pos] = 0
+            position_coverage[pos] += 1
+
+    # Calculate statistics per position/mod_type
+    mod_stats = {}
+    all_positions = set()
+
+    for pos, mod_dict in position_mods.items():
+        all_positions.add(pos)
+        total_coverage = position_coverage.get(pos, 0)
+
+        for mod_code, probabilities in mod_dict.items():
+            if mod_code not in mod_stats:
+                mod_stats[mod_code] = {}
+
+            # Calculate statistics
+            probs_array = np.array(probabilities)
+            mod_count = len(probabilities)
+
+            # Calculate modification frequency (fraction of reads with this mod)
+            frequency = mod_count / total_coverage if total_coverage > 0 else 0.0
+
+            mod_stats[mod_code][pos] = {
+                "probabilities": probabilities,
+                "mean": float(np.mean(probs_array)),
+                "median": float(np.median(probs_array)),
+                "std": float(np.std(probs_array)),
+                "count": mod_count,
+                "total_coverage": total_coverage,
+                "frequency": float(frequency),
+            }
+
+    result = {
+        "mod_stats": mod_stats,
+        "positions": sorted(all_positions),
+    }
+
+    return result
+
+
+def calculate_dwell_time_statistics(reads_data):
+    """Calculate aggregate dwell time statistics across multiple reads
+
+    Dwell time is calculated from move tables as the number of signal samples
+    per base divided by the sample rate, giving time in milliseconds.
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - mean_dwell: Mean dwell time (ms) at each position
+            - std_dwell: Standard deviation (ms) at each position
+            - median_dwell: Median dwell time (ms) at each position
+            - coverage: Number of reads covering each position
+    """
+    # Map reference position -> list of dwell times (in milliseconds)
+    position_dwells = {}
+
+    for read in reads_data:
+        stride = read["stride"]
+        moves = read["move_table"]
+        ref_start = read["reference_start"]
+        sample_rate = read.get("sample_rate", 4000)  # Default 4kHz
+
+        # Calculate dwell time for each base
+        signal_pos = 0
+        base_idx = 0
+
+        for move_idx, move in enumerate(moves):
+            if move == 1:
+                # This is a base boundary
+                # Find end of this base's signal
+                signal_end = signal_pos + stride  # Default
+
+                for j in range(move_idx + 1, len(moves)):
+                    if moves[j] == 1:
+                        signal_end = signal_pos + ((j - move_idx) * stride)
+                        break
+                else:
+                    signal_end = signal_pos + ((len(moves) - move_idx) * stride)
+
+                # Calculate dwell time in milliseconds
+                num_samples = signal_end - signal_pos
+                dwell_ms = (num_samples / sample_rate) * 1000.0
+
+                # Map to reference position
+                ref_pos = ref_start + base_idx
+
+                if ref_pos not in position_dwells:
+                    position_dwells[ref_pos] = []
+                position_dwells[ref_pos].append(dwell_ms)
+
+                base_idx += 1
+
+            signal_pos += stride
+
+    # Calculate statistics
+    positions = sorted(position_dwells.keys())
+    mean_dwell = []
+    std_dwell = []
+    median_dwell = []
+    coverage = []
+
+    for pos in positions:
+        dwells = np.array(position_dwells[pos])
+        mean_dwell.append(np.mean(dwells))
+        std_dwell.append(np.std(dwells))
+        median_dwell.append(np.median(dwells))
+        coverage.append(len(dwells))
+
+    return {
+        "positions": np.array(positions),
+        "mean_dwell": np.array(mean_dwell),
+        "std_dwell": np.array(std_dwell),
+        "median_dwell": np.array(median_dwell),
+        "coverage": np.array(coverage),
+    }
 
 
 def calculate_aggregate_signal(reads_data, normalization_method):

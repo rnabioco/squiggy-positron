@@ -439,6 +439,9 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
                 numReads,
                 size: stats.size,
             });
+
+            // Update plot options to enable controls
+            state.plotOptionsProvider?.updatePod5Status(true);
         },
         ErrorContext.POD5_LOAD,
         'Opening POD5 file...'
@@ -562,6 +565,12 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
             // Update plot options to show EVENTALIGN mode and set as default
             state.plotOptionsProvider?.updateBamStatus(true);
+
+            // Update plot options with available references for aggregate plots
+            const references = Object.keys(referenceToReads);
+            if (references.length > 0) {
+                state.plotOptionsProvider?.updateReferences(references);
+            }
         },
         ErrorContext.BAM_LOAD,
         'Opening BAM file...'
@@ -587,6 +596,7 @@ squiggy.close_pod5()
         // Clear UI
         state.filePanelProvider?.clearPOD5();
         state.readsViewPane?.setReads([]);
+        state.plotOptionsProvider?.updatePod5Status(false);
 
         vscode.window.showInformationMessage('POD5 file closed');
     } catch (error) {
