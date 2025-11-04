@@ -949,7 +949,7 @@ def plot_signal_overlay_comparison(
         # Calculate aggregate signal and coverage for this sample
         from .utils import calculate_aggregate_signal
 
-        agg_stats = calculate_aggregate_signal(reads)
+        agg_stats = calculate_aggregate_signal(reads, norm_method)
 
         plot_data.append({
             "name": sample.name,
