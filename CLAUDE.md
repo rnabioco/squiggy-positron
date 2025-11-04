@@ -282,7 +282,42 @@ export namespace runtime {
 **PlotOptionsView** - Webview for plot configuration (mode, normalization, x-axis scaling)
 **ModificationsPanelProvider** - Webview for base modification filtering (when BAM has MM/ML tags)
 
-All webview panels communicate with extension via `postMessage`. The Reads panel uses React components for interactive UI.
+All webview panels communicate with extension via `postMessage`.
+
+**🚨 IMPORTANT: React-First UI Development**
+
+When building new UI panels or refactoring existing ones:
+- **ALWAYS prefer React** for interactive panels with complex state or data display
+- Use React for: tables, lists, forms, filters, multi-step wizards, dynamic content
+- React provides better maintainability, testability, and type safety
+- Only use plain HTML/CSS for: static content panels, simple displays, embedded Bokeh plots
+
+**React Panel Pattern** (see `ReadsViewPane` as reference):
+```typescript
+// 1. Create React components in src/views/components/
+//    - my-panel-core.tsx (main logic)
+//    - my-panel-instance.tsx (webview host)
+//    - webview-entry.tsx (React entry point)
+
+// 2. Provider class creates webview and bundles React
+class MyPanelProvider implements vscode.WebviewViewProvider {
+    resolveWebviewView(webviewView: vscode.WebviewView) {
+        webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+        // Set up postMessage communication
+    }
+}
+
+// 3. Webpack bundles React components separately
+// See webpack.config.js for webview bundle configuration
+```
+
+**Benefits of React over custom HTML**:
+- Component reusability and composition
+- Type-safe props and state management
+- Efficient virtual DOM updates
+- Rich ecosystem (react-window for virtualization, etc.)
+- Jest testing with @testing-library/react
+- Better developer experience with TSX syntax
 
 ### Plot Display
 
@@ -408,10 +443,25 @@ Or use the `/test` slash command in Claude Code to run everything.
 4. Call from TypeScript via `runtime.execute()`
 
 **New UI Panel**:
-1. Create provider class in `src/views/`
-2. Register in `src/extension.ts`
-3. Add to `package.json` under `contributes.views`
-4. Implement webview HTML/CSS/JS
+1. **Decide on implementation approach**:
+   - **React** (preferred): For interactive content, forms, data tables, complex state
+   - **Plain HTML**: Only for static content or embedded visualizations (e.g., Bokeh plots)
+2. **If using React** (see `ReadsViewPane` as reference):
+   - Create React components in `src/views/components/`:
+     - `my-panel-core.tsx` - Main component logic
+     - `my-panel-instance.tsx` - Webview host wrapper
+     - `webview-entry.tsx` - Entry point with React 18 root
+   - Create provider class in `src/views/my-panel-provider.ts`
+   - Add webpack entry in `webpack.config.js` for webview bundle
+   - Use TypeScript interfaces in `src/types/` for message passing
+3. **If using plain HTML** (legacy panels, use sparingly):
+   - Create provider class in `src/views/`
+   - Generate HTML string in provider's `getHtmlForWebview()` method
+   - Include inline CSS/JS or reference bundled assets
+4. **Register panel**:
+   - Add to `package.json` under `contributes.views` or `contributes.viewsContainers`
+   - Register provider in `src/extension.ts` activation function
+   - Set up `postMessage` communication between extension and webview
 
 ## Code Style
 
