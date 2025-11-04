@@ -188,6 +188,7 @@ export class SessionStateManager {
         // This gets resolved by the extension when loading the session
         const pod5Path = '<package:squiggy>/data/yeast_trna_reads.pod5';
         const bamPath = '<package:squiggy>/data/yeast_trna_mappings.bam';
+        const fastaPath = '<package:squiggy>/data/yeast_trna.fa';
 
         return {
             version: SESSION_VERSION,
@@ -200,6 +201,7 @@ export class SessionStateManager {
                 Yeast_tRNA: {
                     pod5Paths: [pod5Path],
                     bamPath: bamPath,
+                    fastaPath: fastaPath,
                 },
             },
 

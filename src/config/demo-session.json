@@ -8,7 +8,8 @@
       "pod5Paths": [
         "<package:squiggy>/data/yeast_trna_reads.pod5"
       ],
-      "bamPath": "<package:squiggy>/data/yeast_trna_mappings.bam"
+      "bamPath": "<package:squiggy>/data/yeast_trna_mappings.bam",
+      "fastaPath": "<package:squiggy>/data/yeast_trna.fa"
     }
   },
   "plotOptions": {

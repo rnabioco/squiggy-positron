@@ -7,6 +7,8 @@ This directory contains demo data files bundled with the squiggy Python package.
 - **yeast_trna_reads.pod5** (1.7 MB) - 180 Oxford Nanopore reads from yeast tRNA
 - **yeast_trna_mappings.bam** (113 KB) - Alignments of the reads to reference
 - **yeast_trna_mappings.bam.bai** (1.5 KB) - BAM index file
+- **yeast_trna.fa** (507 bytes) - Reference sequence (yeast tRNA)
+- **yeast_trna.fa.fai** (129 bytes) - FASTA index file
 
 ## Usage
 
@@ -43,6 +45,6 @@ These files are a subset of the test data used in the squiggy test suite, locate
 
 ## Size
 
-Total size: ~1.9 MB
+Total size: ~1.9 MB (includes POD5, BAM, and FASTA files)
 
 These files are included in the Python package to provide users with an instant way to explore squiggy's capabilities without needing to download or provide their own nanopore data.
