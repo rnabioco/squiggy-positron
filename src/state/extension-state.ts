@@ -15,6 +15,20 @@ import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
 import { FilePanelProvider } from '../views/squiggy-file-panel';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
+import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
+
+/**
+ * Information about a loaded sample (POD5 + optional BAM/FASTA)
+ */
+export interface SampleInfo {
+    name: string;
+    pod5Path: string;
+    bamPath?: string;
+    fastaPath?: string;
+    readCount: number;
+    hasBam: boolean;
+    hasFasta: boolean;
+}
 
 /**
  * Centralized state manager for the extension
@@ -32,12 +46,17 @@ export class ExtensionState {
     private _plotOptionsProvider?: PlotOptionsViewProvider;
     private _filePanelProvider?: FilePanelProvider;
     private _modificationsProvider?: ModificationsPanelProvider;
+    private _samplesProvider?: SamplesPanelProvider;
 
     // File state
     private _currentPod5File?: string;
     private _currentBamFile?: string;
     private _currentFastaFile?: string;
     private _currentPlotReadIds?: string[];
+
+    // Multi-sample state (Phase 4)
+    private _loadedSamples: Map<string, SampleInfo> = new Map();
+    private _selectedSamplesForComparison: string[] = [];
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -89,12 +108,14 @@ export class ExtensionState {
         readsViewPane: ReadsViewPane,
         plotOptionsProvider: PlotOptionsViewProvider,
         filePanelProvider: FilePanelProvider,
-        modificationsProvider: ModificationsPanelProvider
+        modificationsProvider: ModificationsPanelProvider,
+        samplesProvider?: SamplesPanelProvider
     ): void {
         this._readsViewPane = readsViewPane;
         this._plotOptionsProvider = plotOptionsProvider;
         this._filePanelProvider = filePanelProvider;
         this._modificationsProvider = modificationsProvider;
+        this._samplesProvider = samplesProvider;
     }
 
     /**
@@ -184,6 +205,10 @@ squiggy.close_fasta()
         return this._modificationsProvider;
     }
 
+    get samplesProvider(): SamplesPanelProvider | undefined {
+        return this._samplesProvider;
+    }
+
     get currentPod5File(): string | undefined {
         return this._currentPod5File;
     }
@@ -234,5 +259,60 @@ squiggy.close_fasta()
 
     get extensionContext(): vscode.ExtensionContext | undefined {
         return this._extensionContext;
+    }
+
+    // ========== Multi-Sample Management (Phase 4) ==========
+
+    get loadedSamples(): Map<string, SampleInfo> {
+        return this._loadedSamples;
+    }
+
+    getSample(name: string): SampleInfo | undefined {
+        return this._loadedSamples.get(name);
+    }
+
+    addSample(sample: SampleInfo): void {
+        this._loadedSamples.set(sample.name, sample);
+    }
+
+    removeSample(name: string): void {
+        this._loadedSamples.delete(name);
+    }
+
+    getAllSampleNames(): string[] {
+        return Array.from(this._loadedSamples.keys());
+    }
+
+    get selectedSamplesForComparison(): string[] {
+        return this._selectedSamplesForComparison;
+    }
+
+    set selectedSamplesForComparison(value: string[]) {
+        this._selectedSamplesForComparison = value;
+    }
+
+    /**
+     * Add sample to comparison selection
+     */
+    addSampleToComparison(sampleName: string): void {
+        if (!this._selectedSamplesForComparison.includes(sampleName)) {
+            this._selectedSamplesForComparison.push(sampleName);
+        }
+    }
+
+    /**
+     * Remove sample from comparison selection
+     */
+    removeSampleFromComparison(sampleName: string): void {
+        this._selectedSamplesForComparison = this._selectedSamplesForComparison.filter(
+            (name) => name !== sampleName
+        );
+    }
+
+    /**
+     * Clear comparison selection
+     */
+    clearComparisonSelection(): void {
+        this._selectedSamplesForComparison = [];
     }
 }

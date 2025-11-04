@@ -8,6 +8,7 @@ plot strategy based on the plot mode.
 from .constants import PlotMode, Theme
 from .plot_strategies.aggregate import AggregatePlotStrategy
 from .plot_strategies.base import PlotStrategy
+from .plot_strategies.delta import DeltaPlotStrategy
 from .plot_strategies.eventalign import EventAlignPlotStrategy
 from .plot_strategies.overlay import OverlayPlotStrategy
 from .plot_strategies.single_read import SingleReadPlotStrategy
@@ -41,6 +42,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
         PlotMode.STACKED: StackedPlotStrategy,
         PlotMode.EVENTALIGN: EventAlignPlotStrategy,
         PlotMode.AGGREGATE: AggregatePlotStrategy,
+        PlotMode.DELTA: DeltaPlotStrategy,
     }
 
     strategy_class = strategy_map.get(plot_mode)

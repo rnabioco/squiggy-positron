@@ -6,11 +6,65 @@ import shutil
 import sys
 import tempfile
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pod5
 import pysam
+
+
+@dataclass
+class ModelProvenance:
+    """
+    Metadata about the basecalling model used to generate a dataset
+
+    Extracted from BAM file @PG headers, which contain information about
+    the basecalling process and model version.
+
+    Attributes:
+        model_name: Name of the basecalling model (e.g., "guppy", "dorado")
+        model_version: Version of the basecalling model
+        flow_cell_kit: Sequencing kit used
+        basecalling_model: Specific basecalling model identifier
+        command_line: Full command line used for basecalling
+    """
+
+    model_name: str | None = None
+    model_version: str | None = None
+    flow_cell_kit: str | None = None
+    basecalling_model: str | None = None
+    command_line: str | None = None
+
+    def __repr__(self) -> str:
+        """Return informative summary of model provenance"""
+        parts = []
+
+        if self.model_name:
+            parts.append(f"Model: {self.model_name}")
+
+        if self.model_version:
+            parts.append(f"v{self.model_version}")
+
+        if self.basecalling_model:
+            parts.append(f"({self.basecalling_model})")
+
+        if not parts:
+            return "<ModelProvenance: Unknown>"
+
+        return f"<ModelProvenance: {' '.join(parts)}>"
+
+    def matches(self, other: "ModelProvenance") -> bool:
+        """Check if two ModelProvenance instances describe the same model"""
+        if other is None:
+            return False
+
+        # Consider a match if both have same model_name and basecalling_model
+        # (version differences might be acceptable)
+        return (
+            self.model_name == other.model_name
+            and self.basecalling_model == other.basecalling_model
+        )
 
 
 @contextmanager
@@ -1103,7 +1157,15 @@ def calculate_quality_by_position(reads_data):
 
 
 def extract_reads_for_motif(
-    pod5_file, bam_file, fasta_file, motif, match_index=0, window=50, max_reads=100
+    pod5_file,
+    bam_file,
+    fasta_file,
+    motif,
+    match_index=0,
+    window=None,
+    upstream=None,
+    downstream=None,
+    max_reads=100,
 ):
     """Extract signal and alignment data for reads overlapping a motif match
 
@@ -1116,7 +1178,10 @@ def extract_reads_for_motif(
         fasta_file: Path to indexed FASTA file
         motif: IUPAC motif pattern (e.g., "DRACH")
         match_index: Which motif match to use (0-based index)
-        window: Number of bases around motif center to include (±window)
+        window: Number of bases around motif center to include (±window, symmetric).
+                Deprecated: use upstream/downstream for asymmetric windows.
+        upstream: Number of bases upstream (5') of motif center
+        downstream: Number of bases downstream (3') of motif center
         max_reads: Maximum number of reads to return
 
     Returns:
@@ -1129,6 +1194,15 @@ def extract_reads_for_motif(
         ValueError: If no motif matches found or match_index out of range
     """
     from .motif import search_motif
+
+    # Handle window parameter for backward compatibility
+    if window is not None and upstream is None and downstream is None:
+        upstream = window
+        downstream = window
+    elif upstream is None or downstream is None:
+        raise ValueError(
+            "Must provide either 'window' or both 'upstream' and 'downstream'"
+        )
 
     # Search for motif matches
     matches = list(search_motif(fasta_file, motif))
@@ -1144,13 +1218,12 @@ def extract_reads_for_motif(
     # Get the selected match
     motif_match = matches[match_index]
 
-    # Define window around motif center
+    # Define asymmetric window around motif center
     motif_center = motif_match.position + (motif_match.length // 2)
-    region_start = max(0, motif_center - window)
-    region_end = motif_center + window
+    region_start = max(0, motif_center - upstream)
+    region_end = motif_center + downstream
 
-    # Extract reads overlapping this region using existing function
-    # We'll use extract_reads_for_reference pattern but with region-based fetch
+    # Extract reads overlapping this region, clipping to window using BAM alignment
     import random
 
     reads_info = []
@@ -1171,24 +1244,74 @@ def extract_reads_for_motif(
                 stride = int(move_table[0])
                 moves = move_table[1:]
 
-                # Get quality scores
-                quality_scores = (
-                    np.array(read.query_qualities) if read.query_qualities else None
-                )
+                # Get BAM alignment: reference_position → query_position mapping
+                # aligned_pairs = [(query_pos, ref_pos), ...]
+                # query_pos = None for deletions, ref_pos = None for insertions
+                aligned_pairs = read.get_aligned_pairs()
 
-                # Store read info with ORIGINAL reference coordinates
-                # (we'll adjust them for motif-centered plotting later)
+                # Find read positions that map to our window [region_start, region_end]
+                # We need to clip the read to only include bases mapping to this window
+                read_positions_in_window = []
+                ref_positions_in_window = []
+
+                for query_pos, ref_pos in aligned_pairs:
+                    if ref_pos is not None and region_start <= ref_pos < region_end:
+                        if query_pos is not None:  # Skip deletions
+                            read_positions_in_window.append(query_pos)
+                            ref_positions_in_window.append(ref_pos)
+
+                # Skip reads with no alignment to our window
+                if not read_positions_in_window:
+                    continue
+
+                # Extract only the portion of sequence/quality that maps to window
+                min_read_pos = min(read_positions_in_window)
+                max_read_pos = max(read_positions_in_window)
+
+                # Clip sequence and quality scores to window
+                clipped_sequence = read.query_sequence[min_read_pos : max_read_pos + 1]
+                quality_scores = None
+                if read.query_qualities:
+                    quality_scores = np.array(
+                        read.query_qualities[min_read_pos : max_read_pos + 1]
+                    )
+
+                # Now clip signal using move table
+                # Walk move table to find signal indices corresponding to read positions
+                signal_start_idx = None
+                signal_end_idx = None
+                sig_idx = 0
+                for query_pos_walk in range(len(read.query_sequence)):
+                    if query_pos_walk == min_read_pos:
+                        signal_start_idx = sig_idx
+                    if query_pos_walk == max_read_pos:
+                        signal_end_idx = (
+                            sig_idx + stride
+                        )  # Include signal for last base
+                        break
+                    # Count signal samples for this base (number of 0s until next 1)
+                    if query_pos_walk < len(moves):
+                        sig_idx += stride
+
+                # Store read info with motif-relative coordinates
+                # Reference coordinates are now in [region_start, region_end] range
                 reads_info.append(
                     {
                         "read_id": read.query_name,
-                        "reference_start": read.reference_start,
-                        "reference_end": read.reference_end,
-                        "chrom": motif_match.chrom,  # Add chromosome name
-                        "sequence": read.query_sequence,
-                        "move_table": moves,
+                        "reference_start": min(ref_positions_in_window)
+                        - motif_center,  # Motif-relative
+                        "reference_end": max(ref_positions_in_window)
+                        + 1
+                        - motif_center,  # Motif-relative
+                        "chrom": motif_match.chrom,
+                        "sequence": clipped_sequence,
+                        "move_table": moves[
+                            min_read_pos : max_read_pos + 1
+                        ],  # Clipped to window
                         "stride": stride,
                         "quality_scores": quality_scores,
-                        "motif_center": motif_center,  # Add motif center for alignment
+                        "signal_start_idx": signal_start_idx,  # For POD5 signal extraction
+                        "signal_end_idx": signal_end_idx,
                     }
                 )
 
@@ -1196,7 +1319,7 @@ def extract_reads_for_motif(
         if len(reads_info) > max_reads:
             reads_info = random.sample(reads_info, max_reads)
 
-        # Extract signal data from POD5
+        # Extract signal data from POD5, clipping to the window
         read_id_set = {r["read_id"] for r in reads_info}
         signal_data = {}
 
@@ -1204,8 +1327,18 @@ def extract_reads_for_motif(
             for pod5_read in reader.reads():
                 read_id_str = str(pod5_read.read_id)
                 if read_id_str in read_id_set:
+                    # Find the corresponding read_info to get signal indices
+                    read_info = next(
+                        r for r in reads_info if r["read_id"] == read_id_str
+                    )
+                    start_idx = read_info.get("signal_start_idx", 0)
+                    end_idx = read_info.get("signal_end_idx", len(pod5_read.signal))
+
+                    # Extract only the signal for the window
                     signal_data[read_id_str] = {
-                        "signal": pod5_read.signal,
+                        "signal": pod5_read.signal[start_idx:end_idx]
+                        if start_idx is not None and end_idx is not None
+                        else pod5_read.signal,
                         "sample_rate": pod5_read.run_info.sample_rate,
                     }
                     if len(signal_data) == len(read_id_set):
@@ -1216,9 +1349,15 @@ def extract_reads_for_motif(
         for read_info in reads_info:
             read_id = read_info["read_id"]
             if read_id in signal_data:
+                # Remove temporary signal index fields
+                clean_read_info = {
+                    k: v
+                    for k, v in read_info.items()
+                    if k not in ["signal_start_idx", "signal_end_idx"]
+                }
                 result.append(
                     {
-                        **read_info,
+                        **clean_read_info,
                         **signal_data[read_id],
                     }
                 )
@@ -1259,6 +1398,93 @@ def align_reads_to_motif_center(reads_data, motif_center):
     return adjusted_reads
 
 
+def clip_reads_to_window(reads_data, window_start, window_end):
+    """Clip reads and their signals to a specific coordinate window
+
+    Trims the move table, sequence, and quality scores so that only signal
+    within [window_start, window_end] is retained. This is essential for
+    motif-centered plots to prevent reads extending beyond the ROI.
+
+    Args:
+        reads_data: List of read dicts with reference_start/end in motif-relative coords
+        window_start: Start of window (e.g., -10 for 10bp upstream)
+        window_end: End of window (e.g., +10 for 10bp downstream)
+
+    Returns:
+        List of clipped read dicts with trimmed move tables and sequences
+    """
+    clipped_reads = []
+
+    for read in reads_data:
+        ref_start = read["reference_start"]
+        ref_end = read["reference_end"]
+        moves = read["move_table"]
+        sequence = read["sequence"]
+        signal = read["signal"]
+        stride = read["stride"]
+        quality_scores = read.get("quality_scores")
+
+        # Skip reads entirely outside the window
+        if ref_end <= window_start or ref_start >= window_end:
+            continue
+
+        # Walk through move table to find signal/sequence indices
+        ref_pos = ref_start
+        seq_idx = 0
+        sig_idx = 0
+        start_seq_idx = None
+        start_sig_idx = None
+        start_move_idx = None
+        end_seq_idx = len(sequence)
+        end_sig_idx = len(signal)
+        end_move_idx = len(moves)
+        found_start = False
+
+        for i, move in enumerate(moves):
+            # Mark start position when we first reach the window
+            if not found_start and ref_pos >= window_start:
+                start_seq_idx = seq_idx
+                start_sig_idx = sig_idx
+                start_move_idx = i
+                found_start = True
+
+            # Mark end position when we exit the window
+            if ref_pos >= window_end:
+                end_seq_idx = seq_idx
+                end_sig_idx = sig_idx
+                end_move_idx = i
+                break
+
+            if move == 1:
+                seq_idx += 1
+                ref_pos += 1
+
+            sig_idx += stride
+
+        # If we never entered the window, use defaults
+        if start_seq_idx is None:
+            start_seq_idx = 0
+            start_sig_idx = 0
+            start_move_idx = 0
+
+        # Clip the data - use the exact same indices we found while walking the move table
+        clipped_read = read.copy()
+        clipped_read["reference_start"] = max(ref_start, window_start)
+        clipped_read["reference_end"] = min(ref_end, window_end)
+        clipped_read["sequence"] = sequence[start_seq_idx:end_seq_idx]
+        clipped_read["signal"] = signal[start_sig_idx:end_sig_idx]
+
+        # Clip move table using the same indices
+        clipped_read["move_table"] = moves[start_move_idx:end_move_idx]
+
+        if quality_scores is not None:
+            clipped_read["quality_scores"] = quality_scores[start_seq_idx:end_seq_idx]
+
+        clipped_reads.append(clipped_read)
+
+    return clipped_reads
+
+
 def _route_to_plots_pane(fig) -> None:
     """
     Route Bokeh figure to Positron Plots pane via bokeh.io.show()
@@ -1286,3 +1512,298 @@ def _route_to_plots_pane(fig) -> None:
     except Exception:
         # Silently fail if bokeh.io not available or not in Positron
         pass
+
+
+def extract_model_provenance(bam_file: str) -> ModelProvenance:
+    """
+    Extract basecalling model information from BAM file @PG headers
+
+    The @PG header record contains information about the program used to
+    generate the alignments. For ONT sequencing, this typically includes
+    basecalling information from guppy or dorado.
+
+    Args:
+        bam_file: Path to BAM file
+
+    Returns:
+        ModelProvenance object with extracted metadata
+
+    Examples:
+        >>> from squiggy.utils import extract_model_provenance
+        >>> provenance = extract_model_provenance('alignments.bam')
+        >>> print(provenance.model_name)
+        >>> print(provenance.basecalling_model)
+    """
+    if not os.path.exists(bam_file):
+        raise FileNotFoundError(f"BAM file not found: {bam_file}")
+
+    provenance = ModelProvenance()
+
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            # Get @PG header records
+            if bam.header and "PG" in bam.header:
+                pg_records = bam.header["PG"]
+
+                # PG records are a list of dicts
+                if not isinstance(pg_records, list):
+                    pg_records = [pg_records]
+
+                # Process each @PG record (usually the last one is the most relevant)
+                for pg in pg_records:
+                    # Extract program name
+                    if "PN" in pg:
+                        provenance.model_name = pg["PN"]
+
+                    # Extract version
+                    if "VN" in pg:
+                        provenance.model_version = pg["VN"]
+
+                    # Extract command line
+                    if "CL" in pg:
+                        provenance.command_line = pg["CL"]
+                        # Try to extract model info from command line
+                        # Common patterns: --model, -m, or model name in path
+                        cl = pg["CL"]
+                        if "--model" in cl or "-m " in cl:
+                            # Parse model identifier from command line
+                            parts = cl.split()
+                            for i, part in enumerate(parts):
+                                if part in ("--model", "-m") and i + 1 < len(parts):
+                                    provenance.basecalling_model = parts[i + 1]
+                                    break
+
+                    # Try to extract kit info from description
+                    if "DS" in pg:
+                        provenance.flow_cell_kit = pg["DS"]
+
+    except Exception as e:
+        # Return partial provenance if there's an error
+        print(f"Warning: Error extracting provenance from BAM: {e}")
+
+    return provenance
+
+
+def validate_sq_headers(bam_file_a: str, bam_file_b: str) -> dict:
+    """
+    Validate that two BAM files have matching reference sequences
+
+    Compares the SQ (sequence) headers from two BAM files to ensure they
+    have the same references. This is important for comparison analysis
+    to ensure reads can be meaningfully compared.
+
+    Args:
+        bam_file_a: Path to first BAM file
+        bam_file_b: Path to second BAM file
+
+    Returns:
+        Dict with validation results:
+            - is_valid (bool): True if references match
+            - references_a (list): References in file A
+            - references_b (list): References in file B
+            - missing_in_b (list): References in A but not B
+            - missing_in_a (list): References in B but not A
+            - matching_count (int): Number of matching references
+
+    Examples:
+        >>> from squiggy.utils import validate_sq_headers
+        >>> result = validate_sq_headers('align_a.bam', 'align_b.bam')
+        >>> if result['is_valid']:
+        ...     print("References match!")
+        ... else:
+        ...     print(f"Missing in B: {result['missing_in_b']}")
+    """
+    if not os.path.exists(bam_file_a):
+        raise FileNotFoundError(f"BAM file A not found: {bam_file_a}")
+
+    if not os.path.exists(bam_file_b):
+        raise FileNotFoundError(f"BAM file B not found: {bam_file_b}")
+
+    refs_a = []
+    refs_b = []
+
+    try:
+        # Get references from file A
+        with pysam.AlignmentFile(str(bam_file_a), "rb", check_sq=False) as bam:
+            refs_a = list(bam.references)
+
+        # Get references from file B
+        with pysam.AlignmentFile(str(bam_file_b), "rb", check_sq=False) as bam:
+            refs_b = list(bam.references)
+
+    except Exception as e:
+        raise ValueError(f"Error reading BAM files: {str(e)}") from e
+
+    # Find differences
+    refs_set_a = set(refs_a)
+    refs_set_b = set(refs_b)
+
+    missing_in_b = list(refs_set_a - refs_set_b)
+    missing_in_a = list(refs_set_b - refs_set_a)
+    matching = list(refs_set_a & refs_set_b)
+
+    is_valid = len(missing_in_a) == 0 and len(missing_in_b) == 0
+
+    return {
+        "is_valid": is_valid,
+        "references_a": refs_a,
+        "references_b": refs_b,
+        "missing_in_b": missing_in_b,
+        "missing_in_a": missing_in_a,
+        "matching_count": len(matching),
+    }
+
+
+# Phase 2: Comparison and Aggregation Functions
+
+
+def compare_read_sets(read_ids_a: list[str], read_ids_b: list[str]) -> dict:
+    """
+    Compare two sets of read IDs and find common/unique reads
+
+    Analyzes overlap between two read ID lists, useful for comparing
+    which reads were sequenced in each sample.
+
+    Args:
+        read_ids_a: List of read IDs from sample A
+        read_ids_b: List of read IDs from sample B
+
+    Returns:
+        Dict with comparison results:
+            - common_reads (set): Read IDs present in both
+            - unique_to_a (set): Read IDs only in A
+            - unique_to_b (set): Read IDs only in B
+            - common_count (int): Number of common reads
+            - unique_a_count (int): Number unique to A
+            - unique_b_count (int): Number unique to B
+            - overlap_percent_a (float): Percentage of A's reads in common
+            - overlap_percent_b (float): Percentage of B's reads in common
+
+    Examples:
+        >>> from squiggy.utils import compare_read_sets
+        >>> result = compare_read_sets(reads_a, reads_b)
+        >>> print(f"Common reads: {result['common_count']}")
+        >>> print(f"A unique: {result['unique_a_count']}")
+        >>> print(f"B unique: {result['unique_b_count']}")
+    """
+    set_a = set(read_ids_a)
+    set_b = set(read_ids_b)
+
+    common = set_a & set_b
+    unique_a = set_a - set_b
+    unique_b = set_b - set_a
+
+    # Calculate overlap percentages
+    overlap_percent_a = (len(common) / len(set_a) * 100) if set_a else 0
+    overlap_percent_b = (len(common) / len(set_b) * 100) if set_b else 0
+
+    return {
+        "common_reads": common,
+        "unique_to_a": unique_a,
+        "unique_to_b": unique_b,
+        "common_count": len(common),
+        "unique_a_count": len(unique_a),
+        "unique_b_count": len(unique_b),
+        "overlap_percent_a": overlap_percent_a,
+        "overlap_percent_b": overlap_percent_b,
+    }
+
+
+def calculate_delta_stats(
+    stats_a: dict, stats_b: dict, stat_names: list[str] | None = None
+) -> dict:
+    """
+    Calculate differences (deltas) between corresponding statistics
+
+    Computes delta values for statistics arrays, useful for visualizing
+    differences between two basecalling models or runs.
+
+    Args:
+        stats_a: Dictionary of statistics from sample A
+                (e.g., from calculate_aggregate_signal())
+        stats_b: Dictionary of statistics from sample B (same structure)
+        stat_names: List of stat keys to compute deltas for
+                   (default: all matching keys with array values)
+
+    Returns:
+        Dict with delta arrays:
+            - delta_{stat_name}: Array of differences (B - A)
+            - positions: Position array (if available)
+
+    Examples:
+        >>> from squiggy.utils import calculate_delta_stats
+        >>> delta = calculate_delta_stats(stats_a, stats_b, ['mean_signal'])
+        >>> print(f"Max delta: {np.max(np.abs(delta['delta_mean_signal']))}")
+    """
+    deltas = {}
+
+    # If no stat names provided, infer from matching keys
+    if stat_names is None:
+        stat_names = []
+        for key in stats_a.keys():
+            if key in stats_b and isinstance(stats_a[key], np.ndarray):
+                stat_names.append(key)
+
+    # Calculate deltas
+    for stat_name in stat_names:
+        if stat_name not in stats_a or stat_name not in stats_b:
+            continue
+
+        val_a = stats_a[stat_name]
+        val_b = stats_b[stat_name]
+
+        if isinstance(val_a, np.ndarray) and isinstance(val_b, np.ndarray):
+            # Ensure same length
+            min_len = min(len(val_a), len(val_b))
+            delta = val_b[:min_len] - val_a[:min_len]
+            deltas[f"delta_{stat_name}"] = delta
+
+    # Include positions if available
+    if "positions" in stats_a:
+        deltas["positions"] = stats_a["positions"]
+    elif "positions" in stats_b:
+        deltas["positions"] = stats_b["positions"]
+
+    return deltas
+
+
+def compare_signal_distributions(signal_a: np.ndarray, signal_b: np.ndarray) -> dict:
+    """
+    Compare signal distributions from two samples
+
+    Computes statistical measures to characterize differences in signal
+    distributions between two samples.
+
+    Args:
+        signal_a: Signal array from sample A
+        signal_b: Signal array from sample B
+
+    Returns:
+        Dict with distribution comparison:
+            - mean_a, mean_b: Mean signal
+            - median_a, median_b: Median signal
+            - std_a, std_b: Standard deviation
+            - min_a, min_b: Minimum signal
+            - max_a, max_b: Maximum signal
+            - mean_diff: Difference in means
+            - std_diff: Difference in standard deviations
+
+    Examples:
+        >>> from squiggy.utils import compare_signal_distributions
+        >>> result = compare_signal_distributions(signal_a, signal_b)
+        >>> print(f"Mean difference: {result['mean_diff']:.2f}")
+    """
+    return {
+        "mean_a": float(np.mean(signal_a)),
+        "mean_b": float(np.mean(signal_b)),
+        "median_a": float(np.median(signal_a)),
+        "median_b": float(np.median(signal_b)),
+        "std_a": float(np.std(signal_a)),
+        "std_b": float(np.std(signal_b)),
+        "min_a": float(np.min(signal_a)),
+        "min_b": float(np.min(signal_b)),
+        "max_a": float(np.max(signal_a)),
+        "max_b": float(np.max(signal_b)),
+        "mean_diff": float(np.mean(signal_b) - np.mean(signal_a)),
+        "std_diff": float(np.std(signal_b) - np.std(signal_a)),
+    }

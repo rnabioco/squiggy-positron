@@ -12,6 +12,7 @@ import { ReadsCore } from './squiggy-reads-core';
 import { FilesCore } from './squiggy-files-core';
 import { PlotOptionsCore } from './squiggy-plot-options-core';
 import { ModificationsCore } from './squiggy-modifications-core';
+import { SamplesCore } from './squiggy-samples-core';
 
 // Log to help with debugging
 console.log('Webview entry point loaded');
@@ -41,6 +42,14 @@ if (root) {
             console.log('✓ ModificationsCore rendered successfully');
         } catch (error) {
             console.error('✗ Error rendering ModificationsCore:', error);
+        }
+    } else if (title.includes('Sample')) {
+        console.log('✓ Rendering SamplesCore component');
+        try {
+            ReactDOM.render(<SamplesCore />, root);
+            console.log('✓ SamplesCore rendered successfully');
+        } catch (error) {
+            console.error('✗ Error rendering SamplesCore:', error);
         }
     } else {
         // Default to reads panel for backward compatibility

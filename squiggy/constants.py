@@ -91,6 +91,7 @@ class PlotMode(Enum):
     STACKED = "stacked"  # Multiple reads stacked vertically (squigualiser-style)
     EVENTALIGN = "eventalign"  # Event-aligned with base annotations
     AGGREGATE = "aggregate"  # Multi-read aggregate with pileup statistics
+    DELTA = "delta"  # Delta track comparing two samples
 
 
 # Normalization methods
@@ -272,3 +273,23 @@ DEFAULT_MOD_THRESHOLD = 0.5  # Default probability threshold (tau)
 MOD_THRESHOLD_MIN = 0.0  # Minimum threshold
 MOD_THRESHOLD_MAX = 1.0  # Maximum threshold
 MOD_THRESHOLD_STEP = 0.05  # Threshold slider step size
+
+# ==============================================================================
+# Delta Comparison Plot Settings
+# ==============================================================================
+
+# Delta plot dimensions
+DELTA_SIGNAL_HEIGHT = 300  # Delta signal track height
+DELTA_STATS_HEIGHT = 200  # Delta stats track height
+
+# Delta visualization colors
+DELTA_POSITIVE_COLOR = "#E74C3C"  # Red for positive deltas (B > A)
+DELTA_NEGATIVE_COLOR = "#3498DB"  # Blue for negative deltas (B < A)
+DELTA_NEUTRAL_COLOR = "#95A5A6"  # Gray for near-zero deltas
+DELTA_ZERO_LINE_COLOR = "#34495E"  # Dark gray for zero reference line
+DELTA_BAND_ALPHA = 0.3  # Alpha for delta confidence bands
+DELTA_LINE_WIDTH = 1.5  # Line width for delta tracks
+
+# Delta calculation settings
+DELTA_PERCENTILE_LOW = 2.5  # Lower percentile for delta band calculation
+DELTA_PERCENTILE_HIGH = 97.5  # Upper percentile for delta band calculation

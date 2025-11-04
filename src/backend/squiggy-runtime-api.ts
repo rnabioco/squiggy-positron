@@ -324,14 +324,14 @@ if '_squiggy_motif_matches_json' in globals():
     }
 
     /**
-     * Generate motif-centered aggregate plot
+     * Generate aggregate plot for all motif matches with asymmetric windows
      */
-    async generateMotifAggregatePlot(
+    async generateMotifAggregateAllPlot(
         fastaFile: string,
         motif: string,
-        matchIndex: number,
-        window: number = 50,
-        maxReads: number = 100,
+        upstream: number = 10,
+        downstream: number = 10,
+        maxReadsPerMotif: number = 100,
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT'
     ): Promise<void> {
@@ -341,13 +341,13 @@ if '_squiggy_motif_matches_json' in globals():
         const code = `
 import squiggy
 
-# Generate motif aggregate plot - will be automatically routed to Plots pane
-squiggy.plot_motif_aggregate(
+# Generate aggregate plot across all motif matches
+squiggy.plot_motif_aggregate_all(
     fasta_file='${escapedFastaPath}',
     motif='${escapedMotif}',
-    match_index=${matchIndex},
-    window=${window},
-    max_reads=${maxReads},
+    upstream=${upstream},
+    downstream=${downstream},
+    max_reads_per_motif=${maxReadsPerMotif},
     normalization='${normalization}',
     theme='${theme}'
 )
@@ -356,7 +356,180 @@ squiggy.plot_motif_aggregate(
         try {
             await this.client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate motif aggregate plot: ${error}`);
+            throw new Error(`Failed to generate motif aggregate all plot: ${error}`);
+        }
+    }
+
+    /**
+     * Load a sample (POD5 + optional BAM/FASTA pair) with a custom name
+     * Adds to the multi-sample session for later comparison
+     *
+     * @param sampleName - User-defined name for the sample
+     * @param pod5Path - Path to POD5 file
+     * @param bamPath - Optional path to BAM file
+     * @param fastaPath - Optional path to FASTA file
+     */
+    async loadSample(
+        sampleName: string,
+        pod5Path: string,
+        bamPath?: string,
+        fastaPath?: string
+    ): Promise<POD5LoadResult> {
+        // Escape single quotes in paths
+        const escapedSampleName = sampleName.replace(/'/g, "\\'");
+        const escapedPod5Path = pod5Path.replace(/'/g, "\\'");
+        const escapedBamPath = bamPath ? bamPath.replace(/'/g, "\\'") : null;
+        const escapedFastaPath = fastaPath ? fastaPath.replace(/'/g, "\\'") : null;
+
+        // Build Python code to load sample
+        let code = `
+import squiggy
+
+# Load sample with custom name
+squiggy.load_sample(
+    '${escapedSampleName}',
+    '${escapedPod5Path}'`;
+
+        if (escapedBamPath) {
+            code += `,\n    bam_path='${escapedBamPath}'`;
+        }
+        if (escapedFastaPath) {
+            code += `,\n    fasta_path='${escapedFastaPath}'`;
+        }
+
+        code += `\n)`;
+
+        try {
+            // Load sample silently
+            await this.client.executeSilent(code);
+
+            // Get read count for this sample
+            const numReads = await this.client.getVariable(
+                `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
+            );
+
+            return { numReads: numReads as number };
+        } catch (error) {
+            throw new Error(`Failed to load sample '${sampleName}': ${error}`);
+        }
+    }
+
+    /**
+     * List all loaded samples
+     *
+     * @returns Array of sample names currently loaded in the session
+     */
+    async listSamples(): Promise<string[]> {
+        try {
+            const sampleNames = await this.client.getVariable('_squiggy_session.list_samples()');
+            return (sampleNames as string[]) || [];
+        } catch (error) {
+            throw new Error(`Failed to list samples: ${error}`);
+        }
+    }
+
+    /**
+     * Get sample information
+     */
+    async getSampleInfo(sampleName: string): Promise<any> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            const code = `
+import json
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample:
+    _sample_info = {
+        'name': _sample.name,
+        'read_count': len(_sample.read_ids),
+        'pod5_path': _sample.pod5_path,
+        'has_bam': _sample.bam_path is not None,
+        'has_fasta': _sample.fasta_path is not None
+    }
+else:
+    _sample_info = None
+_sample_info_json = json.dumps(_sample_info)
+`;
+
+            await this.client.executeSilent(code);
+            const sampleInfo = await this.client.getVariable('_sample_info_json');
+
+            // Clean up temporary variables
+            await this.client
+                .executeSilent(
+                    `
+if '_sample' in globals():
+    del _sample
+if '_sample_info' in globals():
+    del _sample_info
+if '_sample_info_json' in globals():
+    del _sample_info_json
+`
+                )
+                .catch(() => {});
+
+            return sampleInfo ? JSON.parse(sampleInfo as string) : null;
+        } catch (error) {
+            throw new Error(`Failed to get sample info: ${error}`);
+        }
+    }
+
+    /**
+     * Remove a loaded sample from the session
+     *
+     * @param sampleName - Name of the sample to remove
+     */
+    async removeSample(sampleName: string): Promise<void> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            const code = `
+import squiggy
+squiggy.remove_sample('${escapedName}')
+`;
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to remove sample '${sampleName}': ${error}`);
+        }
+    }
+
+    /**
+     * Generate a delta comparison plot between two or more samples
+     * Shows differences in aggregate statistics between samples (B - A)
+     *
+     * @param sampleNames - Array of sample names to compare (minimum 2 required)
+     * @param normalization - Normalization method (ZNORM, MAD, MEDIAN, NONE)
+     * @param theme - Color theme (LIGHT or DARK)
+     */
+    async generateDeltaPlot(
+        sampleNames: string[],
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT'
+    ): Promise<void> {
+        // Validate input
+        if (!sampleNames || sampleNames.length < 2) {
+            throw new Error('Delta comparison requires at least 2 samples');
+        }
+
+        // Convert sample names to JSON for safe Python serialization
+        const sampleNamesJson = JSON.stringify(sampleNames);
+
+        const code = `
+import squiggy
+
+# Generate delta comparison plot - will be automatically routed to Plots pane
+squiggy.plot_delta_comparison(
+    sample_names=${sampleNamesJson},
+    normalization='${normalization}',
+    theme='${theme}'
+)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to generate delta comparison plot: ${error}`);
         }
     }
 }

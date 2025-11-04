@@ -317,36 +317,32 @@ class TestMotifUtilsIntegration:
     """Integration tests combining extract and align functions"""
 
     def test_extract_and_align_pipeline(self, test_data_paths):
-        """Test complete pipeline of extracting and aligning reads"""
-        # Extract reads
+        """Test that extracted reads are already in motif-relative coordinates"""
+        # Extract reads - they come back already clipped and in motif-relative coordinates
         reads, motif_match = extract_reads_for_motif(
             pod5_file=str(test_data_paths["pod5"]),
             bam_file=str(test_data_paths["bam"]),
             fasta_file=str(test_data_paths["fasta"]),
             motif="DRACH",
             match_index=0,
-            window=50,
+            upstream=50,
+            downstream=50,
             max_reads=10,
         )
 
-        # Calculate motif center
-        motif_center = motif_match.position + (len(motif_match.sequence) // 2)
+        # Verify reads are in motif-relative coordinates
+        assert len(reads) > 0
 
-        # Align to motif center
-        aligned_reads = align_reads_to_motif_center(reads, motif_center)
-
-        # Verify alignment
-        assert len(aligned_reads) == len(reads)
-
-        # All aligned reads should have coordinates relative to motif center
-        for read in aligned_reads:
-            # Reads should span around position 0 (the motif center)
-            assert read["reference_start"] <= 0  # Some portion before motif
-            assert read["reference_end"] >= 0  # Some portion after motif
+        # Reads should be clipped to the window [-50, +50]
+        for read in reads:
+            # Coordinates should be within the window
+            assert read["reference_start"] >= -50
+            assert read["reference_end"] <= 50
 
     def test_aligned_reads_span_window(self, test_data_paths):
-        """Test that aligned reads span the expected window"""
-        window = 30
+        """Test that reads are clipped to the specified window"""
+        upstream = 30
+        downstream = 30
 
         reads, motif_match = extract_reads_for_motif(
             pod5_file=str(test_data_paths["pod5"]),
@@ -354,16 +350,14 @@ class TestMotifUtilsIntegration:
             fasta_file=str(test_data_paths["fasta"]),
             motif="DRACH",
             match_index=0,
-            window=window,
+            upstream=upstream,
+            downstream=downstream,
             max_reads=10,
         )
 
-        motif_center = motif_match.position + (len(motif_match.sequence) // 2)
-        aligned_reads = align_reads_to_motif_center(reads, motif_center)
-
-        # At least some reads should overlap the window
-        if len(aligned_reads) > 0:
-            for read in aligned_reads:
-                # Read should overlap [-window, +window]
-                assert read["reference_end"] >= -window
-                assert read["reference_start"] <= window
+        # Reads should be clipped to the window
+        if len(reads) > 0:
+            for read in reads:
+                # Read should be within [-upstream, +downstream]
+                assert read["reference_start"] >= -upstream
+                assert read["reference_end"] <= downstream

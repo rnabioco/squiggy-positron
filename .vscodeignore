@@ -45,13 +45,12 @@ pixi.lock
 .git/**
 .github/**
 
-# Documentation and legacy (keep README and LICENSE)
+# Documentation and legacy (keep README, LICENSE, and CHANGELOG)
 docs/**
 legacy/**
 site/**
 mkdocs.yml
 CLAUDE.md
-NEWS.md
 
 # Positron source code (development only)
 positron/**

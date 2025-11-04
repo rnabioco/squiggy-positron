@@ -588,7 +588,7 @@ npm run package
 ### Release Process
 
 1. Update version in `package.json` and `squiggy/__init__.py`
-2. Update `NEWS.md` with release notes
+2. Update `CHANGELOG.md` with release notes
 3. Create and push tag: `git tag v0.2.0 && git push origin v0.2.0`
 4. GitHub Actions automatically:
    - Runs tests
