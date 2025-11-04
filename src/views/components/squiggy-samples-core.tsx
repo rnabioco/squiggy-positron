@@ -14,6 +14,7 @@ interface SamplesState {
     maxReads: number | null;  // null = use default (min of available)
     minAvailableReads: number;
     maxAvailableReads: number;
+    sessionFastaPath: string | null;  // Session-level FASTA file path
 }
 
 export const SamplesCore: React.FC = () => {
@@ -23,6 +24,7 @@ export const SamplesCore: React.FC = () => {
         maxReads: null,  // null means use default
         minAvailableReads: 1,
         maxAvailableReads: 100,
+        sessionFastaPath: null,
     });
 
     // Listen for messages from extension
@@ -48,7 +50,16 @@ export const SamplesCore: React.FC = () => {
                         maxReads: null,
                         minAvailableReads: 1,
                         maxAvailableReads: 100,
+                        sessionFastaPath: null,
                     });
+                    break;
+
+                case 'updateSessionFasta':
+                    console.log('Updating session FASTA:', message.fastaPath);
+                    setState((prev) => ({
+                        ...prev,
+                        sessionFastaPath: message.fastaPath,
+                    }));
                     break;
 
                 default:
@@ -114,6 +125,59 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
+    const handleSetSessionFasta = () => {
+        vscode.postMessage({
+            type: 'requestSetSessionFasta',
+        });
+    };
+
+    const handleClearSessionFasta = () => {
+        setState((prev) => ({
+            ...prev,
+            sessionFastaPath: null,
+        }));
+        vscode.postMessage({
+            type: 'setSessionFasta',
+            fastaPath: null,
+        });
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Visual feedback is handled by CSS :hover state
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Get file paths from dataTransfer
+        // Note: webviews can access file paths via webkitGetAsEntry
+        const items = e.dataTransfer.items;
+        const filePaths: string[] = [];
+
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    if (file) {
+                        // In VS Code webview, File.path is available
+                        const filePath = (file as any).path || file.name;
+                        filePaths.push(filePath);
+                    }
+                }
+            }
+        }
+
+        console.log('Files dropped:', filePaths);
+        vscode.postMessage({
+            type: 'filesDropped',
+            filePaths,
+        });
+    };
+
     // Unused utility functions - reserved for future file size display feature
     // const formatFileSize = (bytes: number): string => {
     //     if (bytes === 0) return '0 B';
@@ -136,12 +200,71 @@ export const SamplesCore: React.FC = () => {
                     padding: '10px',
                     fontFamily: 'var(--vscode-font-family)',
                     fontSize: 'var(--vscode-font-size)',
-                    color: 'var(--vscode-descriptionForeground)',
-                    fontStyle: 'italic',
+                    color: 'var(--vscode-foreground)',
                 }}
             >
-                No samples loaded. Use "Load Sample (Multi-Sample Comparison)" to add samples for
-                comparison.
+                {/* Session FASTA Button */}
+                <div style={{ marginBottom: '12px' }}>
+                    <button
+                        onClick={handleSetSessionFasta}
+                        style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            backgroundColor: 'var(--vscode-button-background)',
+                            color: 'var(--vscode-button-foreground)',
+                            border: 'none',
+                            borderRadius: '2px',
+                            cursor: 'pointer',
+                            fontSize: 'var(--vscode-font-size)',
+                            fontFamily: 'var(--vscode-font-family)',
+                            marginBottom: '4px',
+                        }}
+                        onMouseEnter={(e) => {
+                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                'var(--vscode-button-hoverBackground)';
+                        }}
+                        onMouseLeave={(e) => {
+                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                'var(--vscode-button-background)';
+                        }}
+                    >
+                        {state.sessionFastaPath ? '✓ FASTA Set' : 'Set FASTA for Comparisons'}
+                    </button>
+                    {state.sessionFastaPath && (
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                marginBottom: '8px',
+                                padding: '4px',
+                                wordBreak: 'break-word',
+                            }}
+                        >
+                            {state.sessionFastaPath.split('/').pop()}
+                        </div>
+                    )}
+                </div>
+
+                {/* Drop Zone */}
+                <div
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    style={{
+                        border: '2px dashed var(--vscode-widget-border)',
+                        borderRadius: '4px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        backgroundColor: 'var(--vscode-input-background)',
+                        color: 'var(--vscode-descriptionForeground)',
+                        fontStyle: 'italic',
+                        marginBottom: '12px',
+                        cursor: 'pointer',
+                    }}
+                >
+                    Drag POD5 + BAM file pairs here
+                    <br />
+                    (or use "Load Sample (Multi-Sample Comparison)")
+                </div>
             </div>
         );
     }
@@ -155,6 +278,92 @@ export const SamplesCore: React.FC = () => {
                 color: 'var(--vscode-foreground)',
             }}
         >
+            {/* Session FASTA Button */}
+            <div style={{ marginBottom: '12px' }}>
+                <button
+                    onClick={handleSetSessionFasta}
+                    style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
+                        marginBottom: '4px',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
+                    }}
+                >
+                    {state.sessionFastaPath ? '✓ FASTA Set' : 'Set FASTA for Comparisons'}
+                </button>
+                {state.sessionFastaPath && (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                padding: '4px',
+                                wordBreak: 'break-word',
+                                flex: 1,
+                            }}
+                        >
+                            {state.sessionFastaPath.split('/').pop()}
+                        </div>
+                        <button
+                            onClick={handleClearSessionFasta}
+                            style={{
+                                fontSize: '0.75em',
+                                padding: '2px 6px',
+                                backgroundColor: 'var(--vscode-button-background)',
+                                color: 'var(--vscode-button-foreground)',
+                                border: 'none',
+                                borderRadius: '2px',
+                                cursor: 'pointer',
+                            }}
+                            onMouseEnter={(e) => {
+                                (e.target as HTMLButtonElement).style.backgroundColor =
+                                    'var(--vscode-button-hoverBackground)';
+                            }}
+                            onMouseLeave={(e) => {
+                                (e.target as HTMLButtonElement).style.backgroundColor =
+                                    'var(--vscode-button-background)';
+                            }}
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Drop Zone for Adding More Samples */}
+            <div
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                style={{
+                    border: '2px dashed var(--vscode-widget-border)',
+                    borderRadius: '4px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--vscode-input-background)',
+                    color: 'var(--vscode-descriptionForeground)',
+                    fontSize: '0.85em',
+                    fontStyle: 'italic',
+                    marginBottom: '12px',
+                    cursor: 'pointer',
+                }}
+            >
+                Drag more POD5 + BAM pairs here to add samples
+            </div>
+
             {/* Samples List */}
             <div style={{ marginBottom: '20px' }}>
                 <div
