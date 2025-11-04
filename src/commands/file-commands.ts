@@ -109,21 +109,48 @@ export function registerFileCommands(
     );
 
     // Load test data
+    // Uses squiggy.get_test_data_path() to access bundled test data from the Python package
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.loadTestData', async () => {
-            const pod5Path = path.join(
-                context.extensionPath,
-                'tests',
-                'data',
-                'yeast_trna_reads.pod5'
-            );
-            const bamPath = path.join(
-                context.extensionPath,
-                'tests',
-                'data',
-                'yeast_trna_mappings.bam'
-            );
-            const fastaPath = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna.fa');
+            // Ensure squiggy is available
+            if (!(await ensureSquiggyAvailable(state))) {
+                vscode.window.showErrorMessage('Squiggy package not available');
+                return;
+            }
+
+            // Get test data paths from the Python package (bundled with squiggy-positron)
+            let pod5Path: string;
+            let bamPath: string;
+            let fastaPath: string;
+
+            try {
+                // Execute Python code to get test data paths
+                const getPathsCode = `
+import squiggy
+import json
+paths = {
+    'pod5': squiggy.get_test_data_path('yeast_trna_reads.pod5'),
+    'bam': squiggy.get_test_data_path('yeast_trna_mappings.bam'),
+    'fasta': squiggy.get_test_data_path('yeast_trna.fa')
+}
+json.dumps(paths)
+                `.trim();
+
+                const result = await state.squiggyAPI?.executeCode(getPathsCode);
+                const paths = JSON.parse(result || '{}');
+                pod5Path = paths.pod5;
+                bamPath = paths.bam;
+                fastaPath = paths.fasta;
+
+                console.log('[loadTestData] Got test data paths from Python package:', paths);
+            } catch (error) {
+                vscode.window.showErrorMessage(
+                    'Failed to get test data paths from squiggy package. ' +
+                        'Make sure squiggy-positron is installed: uv pip install squiggy-positron'
+                );
+                console.error('[loadTestData] Error getting test data paths:', error);
+                return;
+            }
 
             // Check if files are already loaded
             const pod5AlreadyLoaded = state.currentPod5File === pod5Path;
@@ -634,6 +661,10 @@ async function loadSampleForComparison(
 /**
  * Load test multi-read datasets for comparison testing
  * Loads the same test data twice with different sample names for comparison
+ *
+ * Uses squiggy.get_test_data_path() to access bundled test data from the Python package.
+ * This works even when the extension is packaged as .vsix since the test data is
+ * included in the squiggy-positron Python package.
  */
 async function loadTestMultiReadDataset(
     context: vscode.ExtensionContext,
@@ -645,9 +676,40 @@ async function loadTestMultiReadDataset(
         return;
     }
 
-    const pod5Path = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna_reads.pod5');
-    const bamPath = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna_mappings.bam');
-    const fastaPath = path.join(context.extensionPath, 'tests', 'data', 'yeast_trna.fa');
+    // Get test data paths from the Python package (bundled with squiggy-positron)
+    // This is more reliable than using extension paths since test data is in the Python package
+    let pod5Path: string;
+    let bamPath: string;
+    let fastaPath: string;
+
+    try {
+        // Execute Python code to get test data paths
+        const getPathsCode = `
+import squiggy
+import json
+paths = {
+    'pod5': squiggy.get_test_data_path('yeast_trna_reads.pod5'),
+    'bam': squiggy.get_test_data_path('yeast_trna_mappings.bam'),
+    'fasta': squiggy.get_test_data_path('yeast_trna.fa')
+}
+json.dumps(paths)
+        `.trim();
+
+        const result = await state.squiggyAPI?.executeCode(getPathsCode);
+        const paths = JSON.parse(result || '{}');
+        pod5Path = paths.pod5;
+        bamPath = paths.bam;
+        fastaPath = paths.fasta;
+
+        console.log('[loadTestMultiReadDataset] Got test data paths from Python package:', paths);
+    } catch (error) {
+        vscode.window.showErrorMessage(
+            'Failed to get test data paths from squiggy package. ' +
+                'Make sure squiggy-positron is installed: uv pip install squiggy-positron'
+        );
+        console.error('[loadTestMultiReadDataset] Error getting test data paths:', error);
+        return;
+    }
 
     // Load two samples for comparison (using same data with different names)
     const samples = [
