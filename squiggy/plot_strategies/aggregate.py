@@ -353,7 +353,9 @@ class AggregatePlotStrategy(PlotStrategy):
                 "color": [],
             }
 
-            for pos, ref_base in zip(pileup_data["x"], pileup_data["ref_base"]):
+            for pos, ref_base in zip(
+                pileup_data["x"], pileup_data["ref_base"], strict=True
+            ):
                 if ref_base and ref_base in base_colors:
                     # Determine if this position is part of a motif
                     is_motif = motif_positions and pos in motif_positions

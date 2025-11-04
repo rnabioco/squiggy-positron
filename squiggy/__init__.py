@@ -141,9 +141,9 @@ def plot_read(
         >>> with open('plot.html', 'w') as f:
         >>>     f.write(html)
     """
+    from .constants import DEFAULT_DOWNSAMPLE, DEFAULT_POSITION_LABEL_INTERVAL
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
-    from .constants import DEFAULT_DOWNSAMPLE, DEFAULT_POSITION_LABEL_INTERVAL
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
@@ -266,9 +266,9 @@ def plot_reads(
         >>> html = plot_reads(['read_001', 'read_002'], mode='STACKED')
         >>> html = plot_reads(['read_001', 'read_002'], mode='EVENTALIGN')
     """
+    from .constants import DEFAULT_DOWNSAMPLE
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
-    from .constants import DEFAULT_DOWNSAMPLE
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
@@ -505,10 +505,13 @@ def plot_motif_aggregate_all(
     Raises:
         ValueError: If POD5/BAM not loaded or no motif matches found
     """
+    from .constants import (
+        DEFAULT_MOTIF_WINDOW_DOWNSTREAM,
+        DEFAULT_MOTIF_WINDOW_UPSTREAM,
+    )
     from .io import _squiggy_session
     from .motif import search_motif
     from .plot_factory import create_plot_strategy
-    from .constants import DEFAULT_MOTIF_WINDOW_UPSTREAM, DEFAULT_MOTIF_WINDOW_DOWNSTREAM
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,
