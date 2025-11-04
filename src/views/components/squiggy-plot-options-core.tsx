@@ -98,12 +98,12 @@ export const PlotOptionsCore: React.FC = () => {
                             hasBam: message.hasBam,
                             // When BAM loads, switch to AGGREGATE/EVENTALIGN
                             // When BAM unloads, switch back to SINGLE
-                            plotMode: (message.hasBam
-                                ? 'EVENTALIGN'
-                                : 'SINGLE') as 'SINGLE' | 'EVENTALIGN',
-                            plotType: (message.hasBam
-                                ? 'AGGREGATE'
-                                : 'SINGLE') as 'SINGLE' | 'AGGREGATE',
+                            plotMode: (message.hasBam ? 'EVENTALIGN' : 'SINGLE') as
+                                | 'SINGLE'
+                                | 'EVENTALIGN',
+                            plotType: (message.hasBam ? 'AGGREGATE' : 'SINGLE') as
+                                | 'SINGLE'
+                                | 'AGGREGATE',
                         };
                         console.log('[PlotOptions React] New hasBam:', newOptions.hasBam);
                         console.log('[PlotOptions React] New plotType:', newOptions.plotType);
