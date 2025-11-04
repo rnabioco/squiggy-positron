@@ -7,7 +7,7 @@ with synchronized tracks showing signal statistics, base pileup, and quality.
 
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
-from bokeh.models import Band, ColumnDataSource, HoverTool
+from bokeh.models import Band, ColumnDataSource, FactorRange, HoverTool
 from bokeh.resources import CDN
 
 from ..constants import MODIFICATION_CODES, MODIFICATION_COLORS, NormalizationMethod, Theme
@@ -251,14 +251,25 @@ class AggregatePlotStrategy(PlotStrategy):
         Returns:
             Bokeh figure with modification heatmap
         """
+        mod_stats = modification_stats["mod_stats"]
+
+        # Get all modification types and sort them for consistent ordering
+        mod_types = sorted(mod_stats.keys(), key=str)
+
+        # Get unique modification names for categorical y-axis
+        unique_mod_names = sorted(set(
+            MODIFICATION_CODES.get(mod_code, str(mod_code))
+            for mod_code in mod_types
+        ))
+
+        # Create figure with categorical y-axis
         fig = self.theme_manager.create_figure(
             title="Base Modifications (Mean Probability)",
             x_label="",  # Shared with other panels
             y_label="Modification",
             height=150,
+            y_range=FactorRange(factors=unique_mod_names),
         )
-
-        mod_stats = modification_stats["mod_stats"]
 
         # Prepare data for heatmap
         heatmap_data = {
@@ -270,9 +281,6 @@ class AggregatePlotStrategy(PlotStrategy):
             "std": [],  # Std dev
             "color": [],  # Color based on mod type
         }
-
-        # Get all modification types and sort them for consistent ordering
-        mod_types = sorted(mod_stats.keys(), key=str)
 
         # Build heatmap data
         for mod_code in mod_types:
@@ -305,10 +313,6 @@ class AggregatePlotStrategy(PlotStrategy):
             fill_alpha="prob",  # Probability controls transparency
             line_color=None,
         )
-
-        # Set categorical y-axis
-        unique_mod_names = sorted(set(heatmap_data["y"]))
-        fig.y_range.factors = unique_mod_names
 
         # Add hover tool
         hover = HoverTool(
