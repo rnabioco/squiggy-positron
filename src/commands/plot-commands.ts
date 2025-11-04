@@ -115,7 +115,38 @@ export function registerPlotCommands(
         )
     );
 
-    // Plot delta comparison - Phase 4
+    // Plot signal overlay comparison - Phase 1 (Default multi-sample comparison)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotSignalOverlayComparison',
+            async (sampleNames?: string[], maxReads?: number | null) => {
+                // If no sample names provided, prompt user to select
+                if (!sampleNames || sampleNames.length === 0) {
+                    // Get list of loaded samples
+                    const loadedSamples = state.getAllSampleNames();
+
+                    if (loadedSamples.length < 2) {
+                        vscode.window.showErrorMessage(
+                            'Signal overlay comparison requires at least 2 loaded samples. ' +
+                                'Use "Load Sample" to add samples for comparison.'
+                        );
+                        return;
+                    }
+
+                    sampleNames = loadedSamples;
+                }
+
+                if (sampleNames.length < 2) {
+                    vscode.window.showErrorMessage('Signal overlay comparison requires at least 2 samples');
+                    return;
+                }
+
+                await plotSignalOverlayComparison(sampleNames, state, maxReads);
+            }
+        )
+    );
+
+    // Plot delta comparison - Phase 4 (Optional, 2-sample only)
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotDeltaComparison',
@@ -320,8 +351,44 @@ async function plotMotifAggregateAll(
 }
 
 /**
+ * Plot signal overlay comparison between multiple samples
+ * Phase 1 - Default multi-sample comparison visualization
+ */
+async function plotSignalOverlayComparison(sampleNames: string[], state: ExtensionState, maxReads?: number | null): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            // Get plot options
+            const options = state.plotOptionsProvider?.getOptions();
+            const normalization = options?.normalization || 'ZNORM';
+
+            // Detect theme from VSCode settings
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Generate signal overlay plot
+            if (state.usePositron && state.positronClient) {
+                await state.squiggyAPI.generateSignalOverlayComparison(sampleNames, normalization, theme, maxReads);
+            } else if (state.pythonBackend) {
+                // Subprocess backend not yet implemented for overlay plots
+                throw new Error(
+                    'Signal overlay comparison plots are only available with Positron runtime. Please use Positron IDE.'
+                );
+            } else {
+                throw new Error('No backend available');
+            }
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Comparing samples: ${sampleNames.join(', ')}...`
+    );
+}
+
+/**
  * Plot delta comparison between two or more samples
- * Phase 4 - Multi-sample comparison feature
+ * Phase 4 - Multi-sample comparison feature (optional, 2-sample only)
  */
 async function plotDeltaComparison(sampleNames: string[], state: ExtensionState, maxReads?: number | null): Promise<void> {
     await safeExecuteWithProgress(

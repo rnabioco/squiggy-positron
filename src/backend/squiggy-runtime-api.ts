@@ -501,6 +501,42 @@ squiggy.remove_sample('${escapedName}')
      * @param normalization - Normalization method (ZNORM, MAD, MEDIAN, NONE)
      * @param theme - Color theme (LIGHT or DARK)
      */
+    async generateSignalOverlayComparison(
+        sampleNames: string[],
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        maxReads?: number | null
+    ): Promise<void> {
+        // Validate input
+        if (!sampleNames || sampleNames.length < 2) {
+            throw new Error('Signal overlay comparison requires at least 2 samples');
+        }
+
+        // Convert sample names to JSON for safe Python serialization
+        const sampleNamesJson = JSON.stringify(sampleNames);
+
+        // Build maxReads parameter if provided
+        const maxReadsParam = maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+
+        const code = `
+import squiggy
+
+# Generate signal overlay comparison plot - will be automatically routed to Plots pane
+squiggy.plot_signal_overlay_comparison(
+    sample_names=${sampleNamesJson},
+    normalization='${normalization}',
+    theme='${theme}'${maxReadsParam}
+)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to generate signal overlay comparison plot: ${error}`);
+        }
+    }
+
     async generateDeltaPlot(
         sampleNames: string[],
         normalization: string = 'ZNORM',

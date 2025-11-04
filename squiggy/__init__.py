@@ -651,6 +651,7 @@ def plot_delta_comparison(
     reference_name: str = "Default",
     normalization: str = "NONE",
     theme: str = "LIGHT",
+    max_reads: int | None = None,
 ) -> str:
     """
     Generate delta comparison plot between two or more samples
@@ -665,6 +666,7 @@ def plot_delta_comparison(
         reference_name: Optional reference name for plot title (default: "Default")
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
+        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
 
     Returns:
         Bokeh HTML string with delta comparison visualization
@@ -724,6 +726,27 @@ def plot_delta_comparison(
 
     reference_name = references[0]["name"]
 
+    # Determine max_reads if not provided
+    if max_reads is None:
+        # Calculate available reads per sample and use minimum
+        from .utils import get_available_reads_for_reference
+
+        available_reads_per_sample = []
+        for sample in [sample_a, sample_b]:
+            try:
+                available = get_available_reads_for_reference(
+                    bam_file=sample.bam_path,
+                    reference_name=reference_name,
+                )
+                available_reads_per_sample.append(available)
+            except Exception as e:
+                print(f"Warning: Could not determine available reads for '{sample.name}': {e}")
+                available_reads_per_sample.append(100)  # Fallback
+
+        # Use minimum available, capped at 100
+        max_reads = min(available_reads_per_sample) if available_reads_per_sample else 100
+        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
     # Extract aligned reads from both samples using the proper utility function
     from .utils import extract_reads_for_reference
 
@@ -731,7 +754,7 @@ def plot_delta_comparison(
         pod5_file=sample_a.pod5_path,
         bam_file=sample_a.bam_path,
         reference_name=reference_name,
-        max_reads=100,
+        max_reads=max_reads,
         random_sample=True,
     )
 
@@ -739,7 +762,7 @@ def plot_delta_comparison(
         pod5_file=sample_b.pod5_path,
         bam_file=sample_b.bam_path,
         reference_name=reference_name,
-        max_reads=100,
+        max_reads=max_reads,
         random_sample=True,
     )
 
