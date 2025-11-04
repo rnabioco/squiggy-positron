@@ -688,11 +688,11 @@ Test coverage is automatically uploaded to Codecov.
    pixi run sync
    ```
 
-3. **Update NEWS.md** with release notes
+3. **Update CHANGELOG.md** with release notes
 
 4. **Commit and tag**:
    ```bash
-   git add package.json squiggy/__init__.py NEWS.md
+   git add package.json squiggy/__init__.py CHANGELOG.md
    git commit -m "Release v0.2.0"
    git tag v0.2.0
    git push origin main --tags
