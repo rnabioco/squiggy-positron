@@ -59,6 +59,7 @@ from .io import (
     get_read_ids,
     get_read_to_reference_mapping,
     get_reads_batch,
+    get_reads_for_reference_paginated,
     get_sample,
     get_unique_reads,
     list_samples,
@@ -812,6 +813,7 @@ __all__ = [
     "Pod5Index",
     "get_reads_batch",
     "get_read_by_id",
+    "get_reads_for_reference_paginated",
     # Data structures
     "AlignedRead",
     "BaseAnnotation",
