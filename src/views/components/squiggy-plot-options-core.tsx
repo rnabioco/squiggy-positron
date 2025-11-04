@@ -340,6 +340,18 @@ export const PlotOptionsCore: React.FC = () => {
                                 Base modifications
                             </label>
                         </div>
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginLeft: '22px',
+                                marginBottom: '12px',
+                                marginTop: '-4px',
+                            }}
+                        >
+                            Adjust filters in Modifications Explorer panel
+                        </div>
 
                         {/* Pileup Panel */}
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>

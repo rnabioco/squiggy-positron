@@ -478,9 +478,44 @@ class AggregatePlotStrategy(PlotStrategy):
                 legend_label=base,
             )
 
-        # Set y-axis range
+        # Add reference base labels above bars (if available)
+        if reference_bases and pileup_data["ref_base"]:
+            label_data = {
+                "x": [],
+                "y": [],
+                "text": [],
+                "color": [],
+            }
+
+            for pos, ref_base in zip(
+                pileup_data["x"], pileup_data["ref_base"], strict=True
+            ):
+                if ref_base:
+                    # Use base color if available, otherwise use 'N' (gray) for IUPAC codes
+                    base_color = base_colors.get(ref_base, base_colors.get("N", "#808080"))
+
+                    label_data["x"].append(pos)
+                    label_data["y"].append(1.05)  # Position just above bars (y=1.0)
+                    label_data["text"].append(ref_base)
+                    label_data["color"].append(base_color)
+
+            # Add text labels
+            if label_data["x"]:
+                label_source = ColumnDataSource(data=label_data)
+                fig.text(
+                    x="x",
+                    y="y",
+                    text="text",
+                    source=label_source,
+                    text_color="color",
+                    text_align="center",
+                    text_baseline="bottom",
+                    text_font_size="10pt",
+                )
+
+        # Set y-axis range (extend to accommodate labels)
         fig.y_range.start = 0
-        fig.y_range.end = 1
+        fig.y_range.end = 1.15  # Extended from 1.0 to fit labels above bars
 
         # Configure legend
         self.theme_manager.configure_legend(fig)

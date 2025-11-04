@@ -232,6 +232,8 @@ if '_squiggy_plot_error' in globals():
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT',
         showModifications: boolean = true,
+        modificationThreshold: number = 0.5,
+        enabledModTypes: string[] = [],
         showPileup: boolean = true,
         showDwellTime: boolean = true,
         showSignal: boolean = true,
@@ -239,6 +241,11 @@ if '_squiggy_plot_error' in globals():
     ): Promise<void> {
         // Escape single quotes in reference name for Python string
         const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        // Build modification filter dict if modifications are enabled
+        const modFilterDict = enabledModTypes.length > 0
+            ? `{${enabledModTypes.map(mt => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+            : 'None';
 
         const code = `
 import squiggy
@@ -250,6 +257,7 @@ squiggy.plot_aggregate(
     normalization='${normalization}',
     theme='${theme}',
     show_modifications=${showModifications ? 'True' : 'False'},
+    mod_filter=${modFilterDict},
     show_pileup=${showPileup ? 'True' : 'False'},
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},

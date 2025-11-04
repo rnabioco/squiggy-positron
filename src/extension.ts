@@ -138,6 +138,9 @@ export async function activate(context: vscode.ExtensionContext) {
                 const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
                 const theme = isDarkTheme ? 'DARK' : 'LIGHT';
 
+                // Get modification filters from Modifications panel
+                const modFilters = modificationsProvider.getFilters();
+
                 // Generate aggregate plot
                 await state.squiggyAPI.generateAggregatePlot(
                     options.reference,
@@ -145,6 +148,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     options.normalization,
                     theme,
                     options.showModifications,
+                    modFilters.minProbability,
+                    modFilters.enabledModTypes,
                     options.showPileup,
                     options.showDwellTime,
                     options.showSignal,
