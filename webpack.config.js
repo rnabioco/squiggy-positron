@@ -6,6 +6,8 @@ const path = require('path');
  * Creates two bundles:
  * 1. Extension bundle - Node.js environment (VSCode extension host)
  * 2. Webview bundle - Browser environment (React UI for reads panel)
+ *
+ * Note: Demo session data is bundled with the Python package, not the extension.
  */
 
 /** @type {import('webpack').Configuration} */

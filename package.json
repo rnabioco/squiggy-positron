@@ -112,6 +112,42 @@
         "title": "Plot Delta Comparison",
         "category": "Squiggy",
         "icon": "$(compare)"
+      },
+      {
+        "command": "squiggy.loadDemoSession",
+        "title": "Load Demo Session",
+        "category": "Squiggy",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "squiggy.saveSession",
+        "title": "Save Session",
+        "category": "Squiggy",
+        "icon": "$(save)"
+      },
+      {
+        "command": "squiggy.restoreSession",
+        "title": "Restore Session",
+        "category": "Squiggy",
+        "icon": "$(history)"
+      },
+      {
+        "command": "squiggy.exportSession",
+        "title": "Export Session to File",
+        "category": "Squiggy",
+        "icon": "$(export)"
+      },
+      {
+        "command": "squiggy.importSession",
+        "title": "Import Session from File",
+        "category": "Squiggy",
+        "icon": "$(import)"
+      },
+      {
+        "command": "squiggy.clearSession",
+        "title": "Clear Saved Session",
+        "category": "Squiggy",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -125,6 +161,11 @@
     },
     "views": {
       "squiggy-sidebar": [
+        {
+          "id": "squiggySessionPanel",
+          "name": "Session Manager",
+          "type": "webview"
+        },
         {
           "id": "squiggyFilePanel",
           "name": "File Explorer",
@@ -254,6 +295,7 @@
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "@vscode/vsce": "^3.6.2",
+    "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^6.9.1",
     "eslint": "^9.39.0",
     "globals": "^16.5.0",

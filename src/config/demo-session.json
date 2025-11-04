@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-01-01T00:00:00.000Z",
+  "sessionName": "Demo: Yeast tRNA Reads",
+  "isDemo": true,
+  "samples": {
+    "Yeast_tRNA": {
+      "pod5Paths": [
+        "<package:squiggy>/data/yeast_trna_reads.pod5"
+      ],
+      "bamPath": "<package:squiggy>/data/yeast_trna_mappings.bam",
+      "fastaPath": "<package:squiggy>/data/yeast_trna.fa"
+    }
+  },
+  "plotOptions": {
+    "mode": "EVENTALIGN",
+    "normalization": "ZNORM",
+    "showDwellTime": false,
+    "showBaseAnnotations": true,
+    "scaleDwellTime": false,
+    "downsample": 5,
+    "showSignalPoints": false
+  },
+  "ui": {
+    "expandedSamples": ["Yeast_tRNA"],
+    "selectedSamplesForComparison": []
+  }
+}

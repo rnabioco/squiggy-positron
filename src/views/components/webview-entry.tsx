@@ -13,6 +13,7 @@ import { FilesCore } from './squiggy-files-core';
 import { PlotOptionsCore } from './squiggy-plot-options-core';
 import { ModificationsCore } from './squiggy-modifications-core';
 import { SamplesCore } from './squiggy-samples-core';
+import { SessionCore } from './squiggy-session-core';
 
 // Log to help with debugging
 console.log('Webview entry point loaded');
@@ -26,7 +27,10 @@ if (root) {
     const title = document.title;
     console.log('Checking title:', title);
 
-    if (title.includes('File Explorer') || title.includes('Files')) {
+    if (title.includes('Session Manager') || title.includes('Session')) {
+        console.log('✓ Rendering SessionCore component');
+        ReactDOM.render(<SessionCore />, root);
+    } else if (title.includes('File Explorer') || title.includes('Files')) {
         console.log('✓ Rendering FilesCore component');
         ReactDOM.render(<FilesCore />, root);
     } else if (title.includes('Reads')) {
