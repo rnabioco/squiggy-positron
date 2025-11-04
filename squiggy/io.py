@@ -4,10 +4,10 @@ I/O functions for loading POD5 and BAM files
 These functions are called from the Positron extension via the Jupyter kernel.
 """
 
-import os
-from collections.abc import Iterator
-from collections import defaultdict
 import logging
+import os
+from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
 
 import pod5
