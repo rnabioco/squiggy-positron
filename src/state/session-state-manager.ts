@@ -7,7 +7,6 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import * as crypto from 'crypto';
 import { SessionState, ValidationResult } from '../types/squiggy-session-types';
 
@@ -18,10 +17,7 @@ export class SessionStateManager {
     /**
      * Save session to workspace state with metadata
      */
-    static async saveSession(
-        state: SessionState,
-        context: vscode.ExtensionContext
-    ): Promise<void> {
+    static async saveSession(state: SessionState, context: vscode.ExtensionContext): Promise<void> {
         // Get extension version from package.json
         const packageJson = context.extension?.packageJSON;
         const extensionVersion = packageJson?.version || 'unknown';
@@ -91,7 +87,7 @@ export class SessionStateManager {
                 size: stats.size,
                 lastModified: stats.mtime.toISOString(),
             };
-        } catch (error) {
+        } catch (_error) {
             // If file doesn't exist or can't be read, return empty
             return {};
         }
@@ -100,9 +96,7 @@ export class SessionStateManager {
     /**
      * Load session from workspace state
      */
-    static async loadSession(
-        context: vscode.ExtensionContext
-    ): Promise<SessionState | null> {
+    static async loadSession(context: vscode.ExtensionContext): Promise<SessionState | null> {
         const session = context.workspaceState.get<SessionState>(SESSION_STATE_KEY);
 
         if (!session) {
@@ -182,7 +176,7 @@ export class SessionStateManager {
      * not the extension. The actual paths will be resolved at runtime
      * by querying the Python package location.
      */
-    static getDemoSession(extensionUri: vscode.Uri): SessionState {
+    static getDemoSession(_extensionUri: vscode.Uri): SessionState {
         // Use placeholder paths - these will be resolved by Python at runtime
         // The format is: <package:squiggy>/data/filename
         // This gets resolved by the extension when loading the session

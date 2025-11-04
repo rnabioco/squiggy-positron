@@ -407,10 +407,7 @@ squiggy.close_fasta()
     /**
      * Restore extension state from SessionState
      */
-    async fromSessionState(
-        session: SessionState,
-        context: vscode.ExtensionContext
-    ): Promise<void> {
+    async fromSessionState(session: SessionState, context: vscode.ExtensionContext): Promise<void> {
         if (!this._extensionContext) {
             this._extensionContext = context;
         }
@@ -462,9 +459,7 @@ squiggy.close_fasta()
 
         // Show errors if any
         if (errors.length > 0) {
-            vscode.window.showWarningMessage(
-                `Session restored with errors:\n${errors.join('\n')}`
-            );
+            vscode.window.showWarningMessage(`Session restored with errors:\n${errors.join('\n')}`);
         } else {
             vscode.window.showInformationMessage('Session restored successfully');
         }
@@ -557,7 +552,10 @@ squiggy.close_fasta()
             }
             // Otherwise, resolve extension-relative paths
             else if (sampleData.fastaPath.includes('${extensionPath}')) {
-                resolvedPath = PathResolver.resolveExtensionPath(sampleData.fastaPath, extensionUri);
+                resolvedPath = PathResolver.resolveExtensionPath(
+                    sampleData.fastaPath,
+                    extensionUri
+                );
             }
 
             const resolution = await FileResolver.resolveFilePath(

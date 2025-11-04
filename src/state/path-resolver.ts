@@ -19,10 +19,7 @@ export class PathResolver {
      * @param positronClient Positron client to query Python
      * @returns Absolute file path or original if not a package path
      */
-    static async resolvePythonPackagePath(
-        filePath: string,
-        positronClient?: any
-    ): Promise<string> {
+    static async resolvePythonPackagePath(filePath: string, positronClient?: any): Promise<string> {
         // Check if this is a package path
         const packageMatch = filePath.match(/^<package:([^>]+)>\/(.+)$/);
         if (!packageMatch) {
