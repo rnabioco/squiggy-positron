@@ -10,7 +10,12 @@ from bokeh.layouts import gridplot
 from bokeh.models import Band, ColumnDataSource, FactorRange, HoverTool
 from bokeh.resources import CDN
 
-from ..constants import MODIFICATION_CODES, MODIFICATION_COLORS, NormalizationMethod, Theme
+from ..constants import (
+    MODIFICATION_CODES,
+    MODIFICATION_COLORS,
+    NormalizationMethod,
+    Theme,
+)
 from ..rendering import ThemeManager
 from .base import PlotStrategy
 
@@ -175,8 +180,14 @@ class AggregatePlotStrategy(PlotStrategy):
         all_figs = []  # Keep track of all figures for x-range linking
 
         # Create modification heatmap if data exists and panel is enabled
-        if show_modifications and modification_stats and modification_stats.get("mod_stats"):
-            p_mods = self._create_modification_heatmap(modification_stats=modification_stats)
+        if (
+            show_modifications
+            and modification_stats
+            and modification_stats.get("mod_stats")
+        ):
+            p_mods = self._create_modification_heatmap(
+                modification_stats=modification_stats
+            )
             panels.append([p_mods])
             all_figs.append(p_mods)
 
@@ -189,7 +200,11 @@ class AggregatePlotStrategy(PlotStrategy):
             all_figs.append(p_pileup)
 
         # Create dwell time track if data exists and panel is enabled
-        if show_dwell_time and dwell_stats and len(dwell_stats.get("positions", [])) > 0:
+        if (
+            show_dwell_time
+            and dwell_stats
+            and len(dwell_stats.get("positions", [])) > 0
+        ):
             p_dwell = self._create_dwell_time_track(dwell_stats=dwell_stats)
             panels.append([p_dwell])
             all_figs.append(p_dwell)
@@ -250,10 +265,9 @@ class AggregatePlotStrategy(PlotStrategy):
         mod_types = sorted(mod_stats.keys(), key=str)
 
         # Get unique modification names for categorical y-axis
-        unique_mod_names = sorted(set(
-            MODIFICATION_CODES.get(mod_code, str(mod_code))
-            for mod_code in mod_types
-        ))
+        unique_mod_names = sorted(
+            {MODIFICATION_CODES.get(mod_code, str(mod_code)) for mod_code in mod_types}
+        )
 
         # Create figure with categorical y-axis
         fig = self.theme_manager.create_figure(
@@ -282,7 +296,7 @@ class AggregatePlotStrategy(PlotStrategy):
         # First collect all opacity values to find the range
         all_opacities = []
         for mod_code in mod_types:
-            for pos, stats in mod_stats[mod_code].items():
+            for _pos, stats in mod_stats[mod_code].items():
                 frequency = stats.get("frequency", 0.0)
                 mean_prob = stats["mean"]
                 opacity = frequency * mean_prob
@@ -303,7 +317,9 @@ class AggregatePlotStrategy(PlotStrategy):
                 # Opacity = frequency × mean_probability
                 # Scale to [min_opacity, 1.0] range for visibility
                 raw_opacity = frequency * mean_prob
-                opacity = min_opacity + (raw_opacity / max_opacity) * (1.0 - min_opacity)
+                opacity = min_opacity + (raw_opacity / max_opacity) * (
+                    1.0 - min_opacity
+                )
 
                 heatmap_data["x"].append(pos)
                 heatmap_data["y"].append(mod_name)
@@ -526,7 +542,9 @@ class AggregatePlotStrategy(PlotStrategy):
             ):
                 if ref_base:
                     # Use base color if available, otherwise use 'N' (gray) for IUPAC codes
-                    base_color = base_colors.get(ref_base, base_colors.get("N", "#808080"))
+                    base_color = base_colors.get(
+                        ref_base, base_colors.get("N", "#808080")
+                    )
 
                     # Determine if this position is part of a motif
                     is_motif = motif_positions and pos in motif_positions
@@ -710,6 +728,7 @@ class AggregatePlotStrategy(PlotStrategy):
         # Note: Bokeh doesn't have built-in auto-scale on zoom for y-axis
         # Users can use the box zoom or reset tools to adjust view
         import numpy as np
+
         if len(mean_dwell) > 0:
             y_min = np.min(lower)
             y_max = np.max(upper)

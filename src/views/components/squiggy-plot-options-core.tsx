@@ -64,9 +64,12 @@ export const PlotOptionsCore: React.FC = () => {
                         scaleDwellTime: message.options.scaleDwellTime,
                         downsample: message.options.downsample,
                         showSignalPoints: message.options.showSignalPoints,
-                        aggregateReference: message.options.aggregateReference || prev.aggregateReference,
-                        aggregateMaxReads: message.options.aggregateMaxReads || prev.aggregateMaxReads,
-                        showModifications: message.options.showModifications ?? prev.showModifications,
+                        aggregateReference:
+                            message.options.aggregateReference || prev.aggregateReference,
+                        aggregateMaxReads:
+                            message.options.aggregateMaxReads || prev.aggregateMaxReads,
+                        showModifications:
+                            message.options.showModifications ?? prev.showModifications,
                         showPileup: message.options.showPileup ?? prev.showPileup,
                         showSignal: message.options.showSignal ?? prev.showSignal,
                         showQuality: message.options.showQuality ?? prev.showQuality,
@@ -436,223 +439,223 @@ export const PlotOptionsCore: React.FC = () => {
                 <>
                     {/* View Mode Section */}
                     <div style={{ marginBottom: '20px' }}>
-                <div
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: '8px',
-                        color: 'var(--vscode-foreground)',
-                    }}
-                >
-                    View Mode
-                </div>
-                <select
-                    value={options.plotMode}
-                    onChange={handlePlotModeChange}
-                    style={{
-                        width: '100%',
-                        padding: '4px',
-                        marginBottom: '10px',
-                        background: 'var(--vscode-input-background)',
-                        color: 'var(--vscode-input-foreground)',
-                        border: '1px solid var(--vscode-input-border)',
-                    }}
-                >
-                    <option value="SINGLE">Standard</option>
-                    <option value="EVENTALIGN" disabled={!options.hasBam}>
-                        Event-Aligned{!options.hasBam ? ' (requires BAM)' : ''}
-                    </option>
-                </select>
-            </div>
-
-            {/* Normalization Section */}
-            <div style={{ marginBottom: '20px' }}>
-                <div
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: '8px',
-                        color: 'var(--vscode-foreground)',
-                    }}
-                >
-                    Normalization
-                </div>
-                <select
-                    value={options.normalization}
-                    onChange={handleNormalizationChange}
-                    style={{
-                        width: '100%',
-                        padding: '4px',
-                        marginBottom: '10px',
-                        background: 'var(--vscode-input-background)',
-                        color: 'var(--vscode-input-foreground)',
-                        border: '1px solid var(--vscode-input-border)',
-                    }}
-                >
-                    <option value="NONE">None (raw signal)</option>
-                    <option value="ZNORM">Z-score</option>
-                    <option value="MEDIAN">Median-centered</option>
-                    <option value="MAD">Median Absolute Deviation</option>
-                </select>
-            </div>
-
-            {/* Display Options Section */}
-            <div style={{ marginBottom: '20px' }}>
-                <div
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: '8px',
-                        color: 'var(--vscode-foreground)',
-                    }}
-                >
-                    Display Options
-                </div>
-
-                {/* Base Annotations */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                    <input
-                        type="checkbox"
-                        id="showBaseAnnotations"
-                        checked={options.showBaseAnnotations}
-                        onChange={handleCheckboxChange('showBaseAnnotations')}
-                        style={{ marginRight: '6px' }}
-                    />
-                    <label htmlFor="showBaseAnnotations" style={{ fontSize: '0.9em' }}>
-                        Show base labels
-                    </label>
-                </div>
-                <div
-                    style={{
-                        fontSize: '0.85em',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontStyle: 'italic',
-                        marginTop: '-6px',
-                        marginBottom: '10px',
-                    }}
-                >
-                    Display base letters on signal (event-aligned mode)
-                </div>
-
-                {/* Dwell Time Color */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                    <input
-                        type="checkbox"
-                        id="showDwellTime"
-                        checked={options.showDwellTime}
-                        onChange={handleCheckboxChange('showDwellTime')}
-                        style={{ marginRight: '6px' }}
-                    />
-                    <label htmlFor="showDwellTime" style={{ fontSize: '0.9em' }}>
-                        Color by dwell time
-                    </label>
-                </div>
-                <div
-                    style={{
-                        fontSize: '0.85em',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontStyle: 'italic',
-                        marginTop: '-6px',
-                        marginBottom: '10px',
-                    }}
-                >
-                    Color bases by dwell time instead of base type
-                </div>
-
-                {/* Scale X-Axis */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                    <input
-                        type="checkbox"
-                        id="scaleDwellTime"
-                        checked={options.scaleDwellTime}
-                        onChange={handleCheckboxChange('scaleDwellTime')}
-                        style={{ marginRight: '6px' }}
-                    />
-                    <label htmlFor="scaleDwellTime" style={{ fontSize: '0.9em' }}>
-                        Scale x-axis by dwell time
-                    </label>
-                </div>
-                <div
-                    style={{
-                        fontSize: '0.85em',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontStyle: 'italic',
-                        marginTop: '-6px',
-                        marginBottom: '10px',
-                    }}
-                >
-                    X-axis shows cumulative dwell time instead of base positions
-                </div>
-
-                {/* Downsample Slider */}
-                <div style={{ marginBottom: '8px' }}>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            marginBottom: '4px',
-                            fontSize: '0.9em',
-                        }}
-                    >
-                        <span>Downsample signal:</span>
-                        <span
+                        <div
                             style={{
                                 fontWeight: 'bold',
-                                color: 'var(--vscode-input-foreground)',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
                             }}
                         >
-                            {getDownsampleLabel(options.downsample)}
-                        </span>
+                            View Mode
+                        </div>
+                        <select
+                            value={options.plotMode}
+                            onChange={handlePlotModeChange}
+                            style={{
+                                width: '100%',
+                                padding: '4px',
+                                marginBottom: '10px',
+                                background: 'var(--vscode-input-background)',
+                                color: 'var(--vscode-input-foreground)',
+                                border: '1px solid var(--vscode-input-border)',
+                            }}
+                        >
+                            <option value="SINGLE">Standard</option>
+                            <option value="EVENTALIGN" disabled={!options.hasBam}>
+                                Event-Aligned{!options.hasBam ? ' (requires BAM)' : ''}
+                            </option>
+                        </select>
                     </div>
-                    <input
-                        type="range"
-                        id="downsample"
-                        min="1"
-                        max="40"
-                        value={options.downsample}
-                        onChange={handleDownsampleChange}
-                        style={{ width: '100%', marginBottom: '4px' }}
-                    />
-                    <div
-                        style={{
-                            fontSize: '0.85em',
-                            color: 'var(--vscode-descriptionForeground)',
-                            fontStyle: 'italic',
-                        }}
-                    >
-                        Reduce signal points for faster rendering (1 = all points)
-                    </div>
-                </div>
 
-                {/* Signal Points */}
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginBottom: '8px',
-                        marginTop: '10px',
-                    }}
-                >
-                    <input
-                        type="checkbox"
-                        id="showSignalPoints"
-                        checked={options.showSignalPoints}
-                        onChange={handleCheckboxChange('showSignalPoints')}
-                        style={{ marginRight: '6px' }}
-                    />
-                    <label htmlFor="showSignalPoints" style={{ fontSize: '0.9em' }}>
-                        Show individual signal points
-                    </label>
-                </div>
-                <div
-                    style={{
-                        fontSize: '0.85em',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontStyle: 'italic',
-                        marginTop: '-6px',
-                        marginBottom: '10px',
-                    }}
-                >
-                    Display circles at each signal sample point
-                </div>
-            </div>
+                    {/* Normalization Section */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            Normalization
+                        </div>
+                        <select
+                            value={options.normalization}
+                            onChange={handleNormalizationChange}
+                            style={{
+                                width: '100%',
+                                padding: '4px',
+                                marginBottom: '10px',
+                                background: 'var(--vscode-input-background)',
+                                color: 'var(--vscode-input-foreground)',
+                                border: '1px solid var(--vscode-input-border)',
+                            }}
+                        >
+                            <option value="NONE">None (raw signal)</option>
+                            <option value="ZNORM">Z-score</option>
+                            <option value="MEDIAN">Median-centered</option>
+                            <option value="MAD">Median Absolute Deviation</option>
+                        </select>
+                    </div>
+
+                    {/* Display Options Section */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            Display Options
+                        </div>
+
+                        {/* Base Annotations */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showBaseAnnotations"
+                                checked={options.showBaseAnnotations}
+                                onChange={handleCheckboxChange('showBaseAnnotations')}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showBaseAnnotations" style={{ fontSize: '0.9em' }}>
+                                Show base labels
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Display base letters on signal (event-aligned mode)
+                        </div>
+
+                        {/* Dwell Time Color */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showDwellTime"
+                                checked={options.showDwellTime}
+                                onChange={handleCheckboxChange('showDwellTime')}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showDwellTime" style={{ fontSize: '0.9em' }}>
+                                Color by dwell time
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Color bases by dwell time instead of base type
+                        </div>
+
+                        {/* Scale X-Axis */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="scaleDwellTime"
+                                checked={options.scaleDwellTime}
+                                onChange={handleCheckboxChange('scaleDwellTime')}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="scaleDwellTime" style={{ fontSize: '0.9em' }}>
+                                Scale x-axis by dwell time
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            X-axis shows cumulative dwell time instead of base positions
+                        </div>
+
+                        {/* Downsample Slider */}
+                        <div style={{ marginBottom: '8px' }}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '4px',
+                                    fontSize: '0.9em',
+                                }}
+                            >
+                                <span>Downsample signal:</span>
+                                <span
+                                    style={{
+                                        fontWeight: 'bold',
+                                        color: 'var(--vscode-input-foreground)',
+                                    }}
+                                >
+                                    {getDownsampleLabel(options.downsample)}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                id="downsample"
+                                min="1"
+                                max="40"
+                                value={options.downsample}
+                                onChange={handleDownsampleChange}
+                                style={{ width: '100%', marginBottom: '4px' }}
+                            />
+                            <div
+                                style={{
+                                    fontSize: '0.85em',
+                                    color: 'var(--vscode-descriptionForeground)',
+                                    fontStyle: 'italic',
+                                }}
+                            >
+                                Reduce signal points for faster rendering (1 = all points)
+                            </div>
+                        </div>
+
+                        {/* Signal Points */}
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginBottom: '8px',
+                                marginTop: '10px',
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                id="showSignalPoints"
+                                checked={options.showSignalPoints}
+                                onChange={handleCheckboxChange('showSignalPoints')}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showSignalPoints" style={{ fontSize: '0.9em' }}>
+                                Show individual signal points
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Display circles at each signal sample point
+                        </div>
+                    </div>
                 </>
             )}
         </div>

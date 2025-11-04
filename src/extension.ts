@@ -135,7 +135,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
             try {
                 // Get current theme
-                const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+                const isDarkTheme =
+                    vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
                 const theme = isDarkTheme ? 'DARK' : 'LIGHT';
 
                 // Get modification filters from Modifications panel

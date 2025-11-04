@@ -243,9 +243,10 @@ if '_squiggy_plot_error' in globals():
         const escapedRefName = referenceName.replace(/'/g, "\\'");
 
         // Build modification filter dict if modifications are enabled
-        const modFilterDict = enabledModTypes.length > 0
-            ? `{${enabledModTypes.map(mt => `'${mt}': ${modificationThreshold}`).join(', ')}}`
-            : 'None';
+        const modFilterDict =
+            enabledModTypes.length > 0
+                ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                : 'None';
 
         const code = `
 import squiggy

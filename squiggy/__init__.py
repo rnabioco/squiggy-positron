@@ -454,7 +454,9 @@ def plot_aggregate(
         fasta_file=_squiggy_session.fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
-    modification_stats = calculate_modification_statistics(reads_data, mod_filter=mod_filter)
+    modification_stats = calculate_modification_statistics(
+        reads_data, mod_filter=mod_filter
+    )
     dwell_stats = calculate_dwell_time_statistics(reads_data)
 
     # Prepare data for AggregatePlotStrategy
