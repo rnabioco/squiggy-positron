@@ -210,7 +210,7 @@ export const PlotOptionsCore: React.FC = () => {
                 color: 'var(--vscode-foreground)',
             }}
         >
-            {/* Plot Type Section */}
+            {/* Analysis Type Section */}
             <div style={{ marginBottom: '20px' }}>
                 <div
                     style={{
@@ -219,7 +219,7 @@ export const PlotOptionsCore: React.FC = () => {
                         color: 'var(--vscode-foreground)',
                     }}
                 >
-                    Plot Type
+                    Analysis Type
                 </div>
                 <select
                     value={options.plotType}
@@ -434,7 +434,7 @@ export const PlotOptionsCore: React.FC = () => {
             {/* Single Read Controls - Only show when plotType is SINGLE */}
             {options.plotType === 'SINGLE' && (
                 <>
-                    {/* Plot Mode Section */}
+                    {/* View Mode Section */}
                     <div style={{ marginBottom: '20px' }}>
                 <div
                     style={{
@@ -443,7 +443,7 @@ export const PlotOptionsCore: React.FC = () => {
                         color: 'var(--vscode-foreground)',
                     }}
                 >
-                    Plot Mode
+                    View Mode
                 </div>
                 <select
                     value={options.plotMode}
@@ -457,7 +457,7 @@ export const PlotOptionsCore: React.FC = () => {
                         border: '1px solid var(--vscode-input-border)',
                     }}
                 >
-                    <option value="SINGLE">Single Read</option>
+                    <option value="SINGLE">Standard</option>
                     <option value="EVENTALIGN" disabled={!options.hasBam}>
                         Event-Aligned{!options.hasBam ? ' (requires BAM)' : ''}
                     </option>
