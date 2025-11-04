@@ -821,7 +821,6 @@ def get_test_data_path(filename: str = None) -> str:
     Raises:
         FileNotFoundError: If the specified filename does not exist
     """
-    import os
     from pathlib import Path
 
     # Get the package directory
