@@ -1053,6 +1053,87 @@ def calculate_modification_statistics(reads_data):
     }
 
 
+def calculate_dwell_time_statistics(reads_data):
+    """Calculate aggregate dwell time statistics across multiple reads
+
+    Dwell time is calculated from move tables as the number of signal samples
+    per base divided by the sample rate, giving time in milliseconds.
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - mean_dwell: Mean dwell time (ms) at each position
+            - std_dwell: Standard deviation (ms) at each position
+            - median_dwell: Median dwell time (ms) at each position
+            - coverage: Number of reads covering each position
+    """
+    # Map reference position -> list of dwell times (in milliseconds)
+    position_dwells = {}
+
+    for read in reads_data:
+        stride = read["stride"]
+        moves = read["move_table"]
+        ref_start = read["reference_start"]
+        sample_rate = read.get("sample_rate", 4000)  # Default 4kHz
+
+        # Calculate dwell time for each base
+        signal_pos = 0
+        base_idx = 0
+
+        for move_idx, move in enumerate(moves):
+            if move == 1:
+                # This is a base boundary
+                # Find end of this base's signal
+                signal_end = signal_pos + stride  # Default
+
+                for j in range(move_idx + 1, len(moves)):
+                    if moves[j] == 1:
+                        signal_end = signal_pos + ((j - move_idx) * stride)
+                        break
+                else:
+                    signal_end = signal_pos + ((len(moves) - move_idx) * stride)
+
+                # Calculate dwell time in milliseconds
+                num_samples = signal_end - signal_pos
+                dwell_ms = (num_samples / sample_rate) * 1000.0
+
+                # Map to reference position
+                ref_pos = ref_start + base_idx
+
+                if ref_pos not in position_dwells:
+                    position_dwells[ref_pos] = []
+                position_dwells[ref_pos].append(dwell_ms)
+
+                base_idx += 1
+
+            signal_pos += stride
+
+    # Calculate statistics
+    positions = sorted(position_dwells.keys())
+    mean_dwell = []
+    std_dwell = []
+    median_dwell = []
+    coverage = []
+
+    for pos in positions:
+        dwells = np.array(position_dwells[pos])
+        mean_dwell.append(np.mean(dwells))
+        std_dwell.append(np.std(dwells))
+        median_dwell.append(np.median(dwells))
+        coverage.append(len(dwells))
+
+    return {
+        "positions": np.array(positions),
+        "mean_dwell": np.array(mean_dwell),
+        "std_dwell": np.array(std_dwell),
+        "median_dwell": np.array(median_dwell),
+        "coverage": np.array(coverage),
+    }
+
+
 def calculate_aggregate_signal(reads_data, normalization_method):
     """Calculate aggregate signal statistics aligned to reference positions
 

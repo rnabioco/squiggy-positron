@@ -19,12 +19,13 @@ class AggregatePlotStrategy(PlotStrategy):
     """
     Strategy for aggregate multi-read visualization
 
-    This strategy plots aggregate statistics across multiple reads with up to four
+    This strategy plots aggregate statistics across multiple reads with up to five
     synchronized tracks:
     1. Base modifications heatmap (optional, if modifications present)
     2. Base call pileup (stacked proportions)
-    3. Mean signal with confidence bands
-    4. Quality scores by position
+    3. Dwell time per base with confidence bands (optional, if data available)
+    4. Mean signal with confidence bands
+    5. Quality scores by position
 
     Example:
         >>> from squiggy.plot_strategies.aggregate import AggregatePlotStrategy
@@ -127,6 +128,7 @@ class AggregatePlotStrategy(PlotStrategy):
                 - pileup_stats (required): base call pileup
                 - quality_stats (required): quality scores
                 - modification_stats (optional): modification probabilities
+                - dwell_stats (optional): dwell time statistics
                 - reference_name (required): reference identifier
                 - num_reads (required): number of reads
 
@@ -147,23 +149,36 @@ class AggregatePlotStrategy(PlotStrategy):
         pileup_stats = data["pileup_stats"]
         quality_stats = data["quality_stats"]
         modification_stats = data.get("modification_stats")
+        dwell_stats = data.get("dwell_stats")
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
 
         # Extract options
         normalization = options.get("normalization", NormalizationMethod.NONE)
 
-        # Create modification heatmap if modification data exists
+        # Build panel list dynamically based on available data
+        # Panel order: modifications, pileup, dwell time, signal, quality
         panels = []
+        all_figs = []  # Keep track of all figures for x-range linking
+
+        # Create modification heatmap if modification data exists
         if modification_stats and modification_stats.get("mod_stats"):
             p_mods = self._create_modification_heatmap(modification_stats=modification_stats)
             panels.append([p_mods])
+            all_figs.append(p_mods)
 
-        # Create pileup track
+        # Create pileup track (always present)
         p_pileup = self._create_pileup_track(pileup_stats=pileup_stats)
         panels.append([p_pileup])
+        all_figs.append(p_pileup)
 
-        # Create signal track
+        # Create dwell time track if data exists
+        if dwell_stats and len(dwell_stats.get("positions", [])) > 0:
+            p_dwell = self._create_dwell_time_track(dwell_stats=dwell_stats)
+            panels.append([p_dwell])
+            all_figs.append(p_dwell)
+
+        # Create signal track (always present)
         p_signal = self._create_signal_track(
             aggregate_stats=aggregate_stats,
             reference_name=reference_name,
@@ -171,17 +186,19 @@ class AggregatePlotStrategy(PlotStrategy):
             normalization=normalization,
         )
         panels.append([p_signal])
+        all_figs.append(p_signal)
 
-        # Create quality track
+        # Create quality track (always present)
         p_quality = self._create_quality_track(quality_stats=quality_stats)
         panels.append([p_quality])
+        all_figs.append(p_quality)
 
         # Link x-axes for synchronized zoom/pan
         # Use pileup as base (it's always present)
-        if modification_stats and modification_stats.get("mod_stats"):
-            p_mods.x_range = p_pileup.x_range
-        p_signal.x_range = p_pileup.x_range
-        p_quality.x_range = p_pileup.x_range
+        base_x_range = p_pileup.x_range
+        for fig in all_figs:
+            if fig is not p_pileup:
+                fig.x_range = base_x_range
 
         # Create gridplot
         grid = gridplot(
@@ -499,6 +516,74 @@ class AggregatePlotStrategy(PlotStrategy):
                 ("Position", "@x"),
                 ("Mean Quality", "@mean{0.1f}"),
                 ("Std Dev", "@std{0.1f}"),
+            ],
+            mode="mouse",
+        )
+        fig.add_tools(hover)
+
+        return fig
+
+    def _create_dwell_time_track(self, dwell_stats: dict):
+        """Create dwell time track with confidence bands"""
+        fig = self.theme_manager.create_figure(
+            title="Dwell Time per Base",
+            x_label="Reference Position",
+            y_label="Mean Dwell Time (ms)",
+            height=200,
+        )
+
+        positions = dwell_stats["positions"]
+        mean_dwell = dwell_stats["mean_dwell"]
+        std_dwell = dwell_stats["std_dwell"]
+        coverage = dwell_stats["coverage"]
+
+        # Create confidence band
+        upper = mean_dwell + std_dwell
+        lower = mean_dwell - std_dwell
+
+        # Data source
+        source = ColumnDataSource(
+            data={
+                "x": positions,
+                "mean": mean_dwell,
+                "upper": upper,
+                "lower": lower,
+                "std": std_dwell,
+                "coverage": coverage,
+            }
+        )
+
+        # Add confidence band
+        band_color = self.theme_manager.get_quality_band_color()
+        band = Band(
+            base="x",
+            lower="lower",
+            upper="upper",
+            source=source,
+            level="underlay",
+            fill_alpha=0.2,
+            fill_color=band_color,
+            line_width=0,
+        )
+        fig.add_layout(band)
+
+        # Add mean line
+        mean_line = fig.line(
+            "x",
+            "mean",
+            source=source,
+            line_width=2,
+            color=band_color,
+        )
+
+        # Add hover tool
+        hover = HoverTool(
+            renderers=[mean_line],
+            tooltips=[
+                ("Position", "@x"),
+                ("Mean Dwell", "@mean{0.2f} ms"),
+                ("Std Dev", "@std{0.2f} ms"),
+                ("Coverage", "@coverage"),
             ],
             mode="mouse",
         )
