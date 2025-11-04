@@ -1023,13 +1023,16 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
             pos = mod.genomic_pos
             mod_code = mod.mod_code
 
+            # Convert mod_code to string for consistent comparison with filter keys
+            mod_code_str = str(mod_code)
+
             # Apply mod_filter if specified
             if mod_filter is not None:
                 # Skip if mod_code not in filter (user disabled it)
-                if mod_code not in mod_filter:
+                if mod_code_str not in mod_filter:
                     continue
                 # Skip if probability below threshold
-                if mod.probability < mod_filter[mod_code]:
+                if mod.probability < mod_filter[mod_code_str]:
                     continue
 
             if pos not in position_mods:
