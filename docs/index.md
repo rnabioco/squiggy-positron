@@ -6,10 +6,10 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 
 ## Documentation
 
-- **[User Guide](USER_GUIDE.md)** - Complete guide to using the extension
-- **[Multi-Sample Comparison Guide](MULTI_SAMPLE_COMPARISON.md)** - Compare 2+ POD5 datasets with delta tracks (NEW!)
-- **[Quick Reference](QUICK_REFERENCE.md)** - Commands, shortcuts, and common workflows
-- **[Developer Guide](DEVELOPER.md)** - Setup and contribution guide
+- **[User Guide](user_guide.md)** - Complete guide to using the extension
+- **[Multi-Sample Comparison Guide](multi_sample_comparison.md)** - Compare 2+ POD5 datasets with delta tracks
+- **[Quick Reference](quick_reference.md)** - Commands, shortcuts, and common workflows
+- **[Developer Guide](developer.md)** - Setup and contribution guide
 - **[API Reference](api.md)** - Python package documentation
 
 ## Features
@@ -19,7 +19,7 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 - **Base Annotations**: Overlay base calls on signal data (requires BAM file)
 - **Read Filtering**: Search by read ID, reference region, or sequence motif
 - **Modification Analysis**: Filter and visualize base modifications with probability thresholds
-- **Multi-Sample Comparison** (NEW!): Load 2-6+ samples and compare with delta tracks showing differences
+- **Multi-Sample Comparison**: Load 2-6+ samples and compare with delta tracks showing differences
 
 ## System Requirements
 
