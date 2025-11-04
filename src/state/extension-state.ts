@@ -57,6 +57,7 @@ export class ExtensionState {
     // Multi-sample state (Phase 4)
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
+    private _sessionFastaPath: string | null = null;  // Session-level FASTA for all comparisons
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -314,5 +315,26 @@ squiggy.close_fasta()
      */
     clearComparisonSelection(): void {
         this._selectedSamplesForComparison = [];
+    }
+
+    /**
+     * Get session-level FASTA file path
+     */
+    get sessionFastaPath(): string | null {
+        return this._sessionFastaPath;
+    }
+
+    /**
+     * Set session-level FASTA file path (applies to all samples)
+     */
+    setSessionFasta(fastaPath: string | null): void {
+        this._sessionFastaPath = fastaPath;
+    }
+
+    /**
+     * Clear session-level FASTA file
+     */
+    clearSessionFasta(): void {
+        this._sessionFastaPath = null;
     }
 }

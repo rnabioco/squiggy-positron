@@ -166,12 +166,34 @@ export interface ClearSamplesMessage extends BaseMessage {
     type: 'clearSamples';
 }
 
+export interface FilesDroppedMessage extends BaseMessage {
+    type: 'filesDropped';
+    filePaths: string[];
+}
+
+export interface RequestSetSessionFastaMessage extends BaseMessage {
+    type: 'requestSetSessionFasta';
+}
+
+export interface SetSessionFastaMessage extends BaseMessage {
+    type: 'setSessionFasta';
+    fastaPath: string | null;
+}
+
+export interface UpdateSessionFastaMessage extends BaseMessage {
+    type: 'updateSessionFasta';
+    fastaPath: string | null;
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | StartComparisonMessage
     | UnloadSampleMessage
+    | FilesDroppedMessage
+    | RequestSetSessionFastaMessage
+    | SetSessionFastaMessage
     | ReadyMessage;
-export type SamplesOutgoingMessage = UpdateSamplesMessage | ClearSamplesMessage;
+export type SamplesOutgoingMessage = UpdateSamplesMessage | ClearSamplesMessage | UpdateSessionFastaMessage;
 
 // ========== Union Types for Message Handlers ==========
 
