@@ -1,5 +1,24 @@
 # Squiggy Release Notes
 
+## v0.1.8-alpha (2025-11-03)
+
+Multi-sample comparison feature with delta visualization and improved documentation.
+
+### Features
+
+- **Multi-Sample Comparison**: Load multiple samples (POD5 + BAM pairs) and visualize signal differences with delta plots showing deviation from reference baseline (#71)
+- **Sample Management UI**: New "Sample Comparison Manager" panel for loading, viewing, and managing comparison sessions with interactive controls
+
+### Improvements
+
+- **Visual Identity**: New Squiggy logo with googly eyes and green EKG trace for better brand recognition
+- **Documentation**: Added screenshot to documentation and comprehensive multi-sample comparison guide
+
+### Fixes
+
+- **Motif Aggregate Coordinates**: Fixed coordinate system using proper BAM alignment for accurate motif positioning (#71)
+- **Delta Comparison**: Improved plot layout and delta calculation implementation for clearer visualization
+
 ## v0.1.7-alpha (2025-11-02)
 
 State management improvements with FASTA integration and cleaner Python namespace.
