@@ -584,13 +584,26 @@ def plot_motif_aggregate_all(
     aggregate_stats = calculate_aggregate_signal(all_aligned_reads, norm_method)
 
     # Calculate base pileup across all reads
-    # Don't pass reference_name because reads are in motif-relative coordinates,
-    # not genomic coordinates - we can't extract reference sequence from BAM
     pileup_stats = calculate_base_pileup(
         all_aligned_reads,
-        bam_file=None,  # Don't try to extract reference sequence
+        bam_file=None,  # Reads are in motif-relative coordinates
         reference_name=None,
     )
+
+    # Add motif sequence as reference bases for display
+    # Center the motif in the coordinate system
+    motif_length = len(motif)
+    motif_center = 0  # Motif is centered at position 0 in motif-relative coordinates
+    motif_start = motif_center - motif_length // 2
+
+    # Create reference_bases dict mapping positions to motif letters
+    reference_bases = {}
+    for i, base in enumerate(motif.upper()):
+        pos = motif_start + i
+        reference_bases[pos] = base
+
+    # Add to pileup_stats
+    pileup_stats["reference_bases"] = reference_bases
 
     quality_stats = calculate_quality_by_position(all_aligned_reads)
 
@@ -609,7 +622,10 @@ def plot_motif_aggregate_all(
         "num_reads": num_reads,
     }
 
-    options = {"normalization": norm_method}
+    # Highlight motif positions (make them bold)
+    motif_positions_set = set(range(motif_start, motif_start + motif_length))
+
+    options = {"normalization": norm_method, "motif_positions": motif_positions_set}
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
