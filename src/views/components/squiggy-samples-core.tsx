@@ -148,33 +148,95 @@ export const SamplesCore: React.FC = () => {
         // Visual feedback is handled by CSS :hover state
     };
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
 
-        // Get file paths from dataTransfer
-        // Note: webviews can access file paths via webkitGetAsEntry
+        // Get file paths from dataTransfer using webkitGetAsEntry for full paths
         const items = e.dataTransfer.items;
         const filePaths: string[] = [];
 
         if (items) {
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (item.kind === 'file') {
-                    const file = item.getAsFile();
-                    if (file) {
-                        // In VS Code webview, File.path is available
-                        const filePath = (file as any).path || file.name;
-                        filePaths.push(filePath);
+            try {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind === 'file') {
+                        // Use webkitGetAsEntry to get FileSystemEntry with fullPath
+                        const entry = (item as any).webkitGetAsEntry?.();
+                        if (entry) {
+                            const paths = await getFullPathsFromEntry(entry);
+                            filePaths.push(...paths);
+                        } else {
+                            // Fallback if webkitGetAsEntry not available
+                            const file = item.getAsFile();
+                            if (file && file.name) {
+                                filePaths.push(file.name);
+                            }
+                        }
                     }
                 }
+            } catch (error) {
+                console.error('Error extracting file paths:', error);
+                vscode.postMessage({
+                    type: 'filesDropped',
+                    filePaths: [],
+                });
+                return;
             }
         }
 
-        console.log('Files dropped:', filePaths);
+        console.log('Files dropped with full paths:', filePaths);
         vscode.postMessage({
             type: 'filesDropped',
             filePaths,
+        });
+    };
+
+    // Helper function to recursively extract full paths from FileSystemEntry
+    const getFullPathsFromEntry = async (entry: any): Promise<string[]> => {
+        const paths: string[] = [];
+
+        if (entry.isFile) {
+            // File entry - has fullPath property
+            paths.push(entry.fullPath);
+        } else if (entry.isDirectory) {
+            // Directory entry - recursively read contents
+            try {
+                const reader = entry.createReader();
+                const entries = await readAllDirectoryEntries(reader);
+
+                for (const e of entries) {
+                    const subPaths = await getFullPathsFromEntry(e);
+                    paths.push(...subPaths);
+                }
+            } catch (error) {
+                console.error('Error reading directory:', error);
+            }
+        }
+
+        return paths;
+    };
+
+    // Helper to read all entries from a DirectoryReader
+    const readAllDirectoryEntries = async (reader: any): Promise<any[]> => {
+        const entries: any[] = [];
+
+        return new Promise((resolve, reject) => {
+            const readEntries = () => {
+                reader.readEntries(
+                    (batch: any[]) => {
+                        if (batch.length > 0) {
+                            entries.push(...batch);
+                            readEntries();  // Continue reading
+                        } else {
+                            resolve(entries);  // Done reading
+                        }
+                    },
+                    (error: Error) => reject(error)
+                );
+            };
+
+            readEntries();
         });
     };
 
