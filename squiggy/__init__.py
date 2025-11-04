@@ -743,6 +743,70 @@ def plot_delta_comparison(
     return html
 
 
+def get_test_data_path(filename: str = None) -> str:
+    """
+    Get path to bundled test data files
+
+    The squiggy package includes small test datasets for validation and
+    demonstration purposes. This function provides easy access to these files.
+
+    Available test files:
+    - yeast_trna_reads.pod5 - 180 reads from yeast tRNA sequencing
+    - yeast_trna_mappings.bam - BAM alignment file
+    - yeast_trna_mappings.bam.bai - BAM index file
+    - yeast_trna.fa - Reference FASTA file
+
+    Args:
+        filename: Name of test file to retrieve. If None, returns the data directory path.
+
+    Returns:
+        Absolute path to the test file or data directory
+
+    Examples:
+        >>> import squiggy
+        >>> # Get path to POD5 test file
+        >>> pod5_path = squiggy.get_test_data_path('yeast_trna_reads.pod5')
+        >>> pod5 = squiggy.Pod5File(pod5_path)
+        >>>
+        >>> # Get path to BAM test file
+        >>> bam_path = squiggy.get_test_data_path('yeast_trna_mappings.bam')
+        >>> bam = squiggy.BamFile(bam_path)
+        >>>
+        >>> # List all test files
+        >>> import os
+        >>> data_dir = squiggy.get_test_data_path()
+        >>> print(os.listdir(data_dir))
+
+    Raises:
+        FileNotFoundError: If the specified filename does not exist
+    """
+    import os
+    from pathlib import Path
+
+    # Get the package directory
+    package_dir = Path(__file__).parent
+
+    # Test data is in squiggy/data/
+    data_dir = package_dir / "data"
+
+    if filename is None:
+        # Return the data directory path
+        return str(data_dir)
+
+    # Return the full path to the requested file
+    file_path = data_dir / filename
+
+    if not file_path.exists():
+        available_files = list(data_dir.glob("*")) if data_dir.exists() else []
+        available_names = [f.name for f in available_files]
+        raise FileNotFoundError(
+            f"Test file '{filename}' not found. "
+            f"Available files: {', '.join(available_names)}"
+        )
+
+    return str(file_path)
+
+
 __all__ = [
     # Version
     "__version__",
@@ -813,5 +877,7 @@ __all__ = [
     "compare_read_sets",
     "calculate_delta_stats",
     "compare_signal_distributions",
+    # Test data utilities
+    "get_test_data_path",
     # Classes
 ]
