@@ -16,6 +16,7 @@ interface PlotOptionsState {
     scaleDwellTime: boolean;
     downsample: number;
     showSignalPoints: boolean;
+    hasPod5: boolean;
     hasBam: boolean;
     // Aggregate-specific
     aggregateReference: string;
@@ -37,6 +38,7 @@ export const PlotOptionsCore: React.FC = () => {
         scaleDwellTime: false,
         downsample: 5,
         showSignalPoints: false,
+        hasPod5: false,
         hasBam: false,
         // Aggregate defaults
         aggregateReference: '',
@@ -47,6 +49,11 @@ export const PlotOptionsCore: React.FC = () => {
         showQuality: true,
         availableReferences: [],
     });
+
+    // Send ready message on mount
+    useEffect(() => {
+        vscode.postMessage({ type: 'ready' });
+    }, []);
 
     // Listen for messages from extension
     useEffect(() => {
@@ -75,20 +82,33 @@ export const PlotOptionsCore: React.FC = () => {
                         showQuality: message.options.showQuality ?? prev.showQuality,
                     }));
                     break;
-                case 'updateBamStatus':
+                case 'updatePod5Status':
+                    console.log('[PlotOptions React] Received POD5 status:', message.hasPod5);
                     setOptions((prev) => ({
                         ...prev,
-                        hasBam: message.hasBam,
-                        // Switch to SINGLE mode/type if BAM becomes unavailable
-                        plotMode:
-                            !message.hasBam && prev.plotMode === 'EVENTALIGN'
-                                ? 'SINGLE'
-                                : prev.plotMode,
-                        plotType:
-                            !message.hasBam && prev.plotType === 'AGGREGATE'
-                                ? 'SINGLE'
-                                : prev.plotType,
+                        hasPod5: message.hasPod5,
                     }));
+                    break;
+                case 'updateBamStatus':
+                    console.log('[PlotOptions React] Received BAM status:', message.hasBam);
+                    setOptions((prev) => {
+                        console.log('[PlotOptions React] Previous hasBam:', prev.hasBam);
+                        const newOptions: PlotOptionsState = {
+                            ...prev,
+                            hasBam: message.hasBam,
+                            // When BAM loads, switch to AGGREGATE/EVENTALIGN
+                            // When BAM unloads, switch back to SINGLE
+                            plotMode: (message.hasBam
+                                ? 'EVENTALIGN'
+                                : 'SINGLE') as 'SINGLE' | 'EVENTALIGN',
+                            plotType: (message.hasBam
+                                ? 'AGGREGATE'
+                                : 'SINGLE') as 'SINGLE' | 'AGGREGATE',
+                        };
+                        console.log('[PlotOptions React] New hasBam:', newOptions.hasBam);
+                        console.log('[PlotOptions React] New plotType:', newOptions.plotType);
+                        return newOptions;
+                    });
                     // Request references when BAM is loaded
                     if (message.hasBam) {
                         vscode.postMessage({ type: 'requestReferences' });
@@ -227,6 +247,7 @@ export const PlotOptionsCore: React.FC = () => {
                 <select
                     value={options.plotType}
                     onChange={handlePlotTypeChange}
+                    disabled={!options.hasPod5}
                     style={{
                         width: '100%',
                         padding: '4px',
@@ -234,6 +255,8 @@ export const PlotOptionsCore: React.FC = () => {
                         background: 'var(--vscode-input-background)',
                         color: 'var(--vscode-input-foreground)',
                         border: '1px solid var(--vscode-input-border)',
+                        opacity: options.hasPod5 ? 1 : 0.5,
+                        cursor: options.hasPod5 ? 'default' : 'not-allowed',
                     }}
                 >
                     <option value="SINGLE">Single Read</option>
@@ -260,6 +283,7 @@ export const PlotOptionsCore: React.FC = () => {
                         <select
                             value={options.aggregateReference}
                             onChange={handleAggregateReferenceChange}
+                            disabled={!options.hasBam}
                             style={{
                                 width: '100%',
                                 padding: '4px',
@@ -267,13 +291,19 @@ export const PlotOptionsCore: React.FC = () => {
                                 background: 'var(--vscode-input-background)',
                                 color: 'var(--vscode-input-foreground)',
                                 border: '1px solid var(--vscode-input-border)',
+                                opacity: options.hasBam ? 1 : 0.5,
+                                cursor: options.hasBam ? 'default' : 'not-allowed',
                             }}
                         >
-                            {options.availableReferences.map((ref) => (
-                                <option key={ref} value={ref}>
-                                    {ref}
-                                </option>
-                            ))}
+                            {options.availableReferences.length > 0 ? (
+                                options.availableReferences.map((ref) => (
+                                    <option key={ref} value={ref}>
+                                        {ref}
+                                    </option>
+                                ))
+                            ) : (
+                                <option value="">No references (load BAM file)</option>
+                            )}
                         </select>
                     </div>
 
@@ -305,7 +335,13 @@ export const PlotOptionsCore: React.FC = () => {
                             step="10"
                             value={options.aggregateMaxReads}
                             onChange={handleAggregateMaxReadsChange}
-                            style={{ width: '100%', marginBottom: '4px' }}
+                            disabled={!options.hasBam}
+                            style={{
+                                width: '100%',
+                                marginBottom: '4px',
+                                opacity: options.hasBam ? 1 : 0.5,
+                                cursor: options.hasBam ? 'pointer' : 'not-allowed',
+                            }}
                         />
                         <div
                             style={{
@@ -319,7 +355,13 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Panel Visibility Toggles */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div
+                        style={{
+                            marginBottom: '20px',
+                            opacity: options.hasBam ? 1 : 0.5,
+                            pointerEvents: options.hasBam ? 'auto' : 'none',
+                        }}
+                    >
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -337,6 +379,7 @@ export const PlotOptionsCore: React.FC = () => {
                                 id="showModifications"
                                 checked={options.showModifications}
                                 onChange={handleAggregatePanelToggle('showModifications')}
+                                disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
                             <label htmlFor="showModifications" style={{ fontSize: '0.9em' }}>
@@ -363,6 +406,7 @@ export const PlotOptionsCore: React.FC = () => {
                                 id="showPileup"
                                 checked={options.showPileup}
                                 onChange={handleAggregatePanelToggle('showPileup')}
+                                disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
                             <label htmlFor="showPileup" style={{ fontSize: '0.9em' }}>
@@ -377,6 +421,7 @@ export const PlotOptionsCore: React.FC = () => {
                                 id="showDwellTimeAggregate"
                                 checked={options.showDwellTime}
                                 onChange={handleAggregatePanelToggle('showDwellTime')}
+                                disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
                             <label htmlFor="showDwellTimeAggregate" style={{ fontSize: '0.9em' }}>
@@ -391,6 +436,7 @@ export const PlotOptionsCore: React.FC = () => {
                                 id="showSignalAggregate"
                                 checked={options.showSignal}
                                 onChange={handleAggregatePanelToggle('showSignal')}
+                                disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
                             <label htmlFor="showSignalAggregate" style={{ fontSize: '0.9em' }}>
@@ -405,6 +451,7 @@ export const PlotOptionsCore: React.FC = () => {
                                 id="showQualityAggregate"
                                 checked={options.showQuality}
                                 onChange={handleAggregatePanelToggle('showQuality')}
+                                disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
                             <label htmlFor="showQualityAggregate" style={{ fontSize: '0.9em' }}>
@@ -417,18 +464,25 @@ export const PlotOptionsCore: React.FC = () => {
                     <div style={{ marginBottom: '20px' }}>
                         <button
                             onClick={handleGenerateAggregate}
-                            disabled={!options.aggregateReference}
+                            disabled={!options.hasBam || !options.aggregateReference}
                             style={{
                                 width: '100%',
                                 padding: '8px',
                                 background: 'var(--vscode-button-background)',
                                 color: 'var(--vscode-button-foreground)',
                                 border: 'none',
-                                cursor: options.aggregateReference ? 'pointer' : 'not-allowed',
-                                opacity: options.aggregateReference ? 1 : 0.5,
+                                cursor:
+                                    options.hasBam && options.aggregateReference
+                                        ? 'pointer'
+                                        : 'not-allowed',
+                                opacity: options.hasBam && options.aggregateReference ? 1 : 0.5,
                             }}
                         >
-                            Generate Aggregate Plot
+                            {!options.hasBam
+                                ? 'Load BAM file to generate plot'
+                                : !options.aggregateReference
+                                  ? 'Select reference to generate plot'
+                                  : 'Generate Aggregate Plot'}
                         </button>
                     </div>
                 </>
@@ -436,7 +490,12 @@ export const PlotOptionsCore: React.FC = () => {
 
             {/* Single Read Controls - Only show when plotType is SINGLE */}
             {options.plotType === 'SINGLE' && (
-                <>
+                <div
+                    style={{
+                        opacity: options.hasPod5 ? 1 : 0.5,
+                        pointerEvents: options.hasPod5 ? 'auto' : 'none',
+                    }}
+                >
                     {/* View Mode Section */}
                     <div style={{ marginBottom: '20px' }}>
                         <div
@@ -656,7 +715,7 @@ export const PlotOptionsCore: React.FC = () => {
                             Display circles at each signal sample point
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </div>
     );

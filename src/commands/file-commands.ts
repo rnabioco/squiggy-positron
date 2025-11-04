@@ -439,6 +439,9 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
                 numReads,
                 size: stats.size,
             });
+
+            // Update plot options to enable controls
+            state.plotOptionsProvider?.updatePod5Status(true);
         },
         ErrorContext.POD5_LOAD,
         'Opening POD5 file...'
@@ -593,6 +596,7 @@ squiggy.close_pod5()
         // Clear UI
         state.filePanelProvider?.clearPOD5();
         state.readsViewPane?.setReads([]);
+        state.plotOptionsProvider?.updatePod5Status(false);
 
         vscode.window.showInformationMessage('POD5 file closed');
     } catch (error) {

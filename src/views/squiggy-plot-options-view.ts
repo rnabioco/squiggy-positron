@@ -10,6 +10,7 @@ import {
     PlotOptionsIncomingMessage,
     UpdatePlotOptionsMessage,
     UpdateBamStatusMessage,
+    UpdatePod5StatusMessage,
     UpdateReferencesMessage,
 } from '../types/messages';
 
@@ -24,6 +25,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _scaleDwellTime: boolean = false;
     private _downsample: number = 5;
     private _showSignalPoints: boolean = false;
+    private _hasPod5File: boolean = false;
     private _hasBamFile: boolean = false;
 
     // Aggregate-specific state
@@ -147,6 +149,30 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             },
         };
         this.postMessage(updateMessage);
+
+        // Always send POD5 status on init (even if false)
+        const pod5StatusMessage: UpdatePod5StatusMessage = {
+            type: 'updatePod5Status',
+            hasPod5: this._hasPod5File,
+        };
+        this.postMessage(pod5StatusMessage);
+
+        // Always send BAM status on init (even if false)
+        const bamStatusMessage: UpdateBamStatusMessage = {
+            type: 'updateBamStatus',
+            hasBam: this._hasBamFile,
+        };
+        console.log('[PlotOptions] Sending BAM status on init:', this._hasBamFile);
+        this.postMessage(bamStatusMessage);
+
+        // Send references if available
+        if (this._hasBamFile && this._availableReferences.length > 0) {
+            const referencesMessage: UpdateReferencesMessage = {
+                type: 'updateReferences',
+                references: this._availableReferences,
+            };
+            this.postMessage(referencesMessage);
+        }
     }
 
     /**
@@ -172,24 +198,36 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     }
 
     /**
+     * Update POD5 file status
+     */
+    public updatePod5Status(hasPod5: boolean) {
+        this._hasPod5File = hasPod5;
+
+        // Update webview
+        const message: UpdatePod5StatusMessage = {
+            type: 'updatePod5Status',
+            hasPod5: this._hasPod5File,
+        };
+        this.postMessage(message);
+    }
+
+    /**
      * Update BAM file status and available plot modes
      */
     public updateBamStatus(hasBam: boolean) {
         this._hasBamFile = hasBam;
 
-        // If BAM loaded, default to EVENTALIGN
-        if (hasBam && this._plotMode === 'SINGLE') {
+        // When BAM loads, switch to AGGREGATE and EVENTALIGN
+        if (hasBam) {
+            this._plotType = 'AGGREGATE';
             this._plotMode = 'EVENTALIGN';
             this._updateConfig('defaultPlotMode', 'EVENTALIGN');
         }
-        // If BAM unloaded and currently in EVENTALIGN mode, switch to SINGLE
-        else if (!hasBam && this._plotMode === 'EVENTALIGN') {
+        // When BAM unloads, switch back to SINGLE
+        else {
+            this._plotType = 'SINGLE';
             this._plotMode = 'SINGLE';
             this._updateConfig('defaultPlotMode', 'SINGLE');
-        }
-        // If BAM unloaded and currently in AGGREGATE plot type, switch to SINGLE
-        if (!hasBam && this._plotType === 'AGGREGATE') {
-            this._plotType = 'SINGLE';
         }
 
         // Update webview

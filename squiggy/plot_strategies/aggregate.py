@@ -303,7 +303,13 @@ class AggregatePlotStrategy(PlotStrategy):
                 all_opacities.append(opacity)
 
         # Calculate min/max for normalization (clip to reasonable range)
+        # Ensure max_opacity is never zero to avoid division by zero
         max_opacity = max(all_opacities) if all_opacities else 1.0
+
+        # Handle edge case: all modifications have 0 probability/frequency
+        if max_opacity <= 0.0:
+            max_opacity = 1.0
+
         min_opacity = 0.2  # Minimum visible opacity
 
         for mod_code in mod_types:

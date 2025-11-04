@@ -133,6 +133,11 @@ export interface UpdateBamStatusMessage extends BaseMessage {
     hasBam: boolean;
 }
 
+export interface UpdatePod5StatusMessage extends BaseMessage {
+    type: 'updatePod5Status';
+    hasPod5: boolean;
+}
+
 export interface RequestReferencesMessage extends BaseMessage {
     type: 'requestReferences';
 }
@@ -180,6 +185,7 @@ export type PlotOptionsIncomingMessage =
 export type PlotOptionsOutgoingMessage =
     | UpdatePlotOptionsMessage
     | UpdateBamStatusMessage
+    | UpdatePod5StatusMessage
     | UpdateReferencesMessage;
 
 // ========== Modifications Panel Messages ==========
