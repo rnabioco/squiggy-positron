@@ -927,9 +927,8 @@ def extract_reads_for_reference(
                     aligned_read = _parse_alignment(read)
                     if aligned_read:
                         modifications = aligned_read.modifications
-                except Exception as e:
+                except Exception:
                     # Modifications are optional, don't fail if extraction fails
-                    print(f"DEBUG: Failed to extract modifications from read {read.query_name}: {e}")
                     pass
 
                 reads_info.append(
@@ -987,11 +986,14 @@ def extract_reads_for_reference(
         ) from e
 
 
-def calculate_modification_statistics(reads_data):
+def calculate_modification_statistics(reads_data, mod_filter=None):
     """Calculate aggregate modification statistics across multiple reads
 
     Args:
         reads_data: List of read dicts from extract_reads_for_reference()
+        mod_filter: Optional dict mapping mod_code -> minimum probability threshold
+                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications included.
+                   If specified, only modifications with probability >= threshold are included.
 
     Returns:
         Dict with keys:
@@ -1020,6 +1022,15 @@ def calculate_modification_statistics(reads_data):
 
             pos = mod.genomic_pos
             mod_code = mod.mod_code
+
+            # Apply mod_filter if specified
+            if mod_filter is not None:
+                # Skip if mod_code not in filter (user disabled it)
+                if mod_code not in mod_filter:
+                    continue
+                # Skip if probability below threshold
+                if mod.probability < mod_filter[mod_code]:
+                    continue
 
             if pos not in position_mods:
                 position_mods[pos] = {}
@@ -1052,14 +1063,6 @@ def calculate_modification_statistics(reads_data):
         "mod_stats": mod_stats,
         "positions": sorted(all_positions),
     }
-
-    # Debug output
-    if mod_stats:
-        print(f"DEBUG: Modification statistics calculated for {len(mod_stats)} modification types:")
-        for mod_code, positions in mod_stats.items():
-            print(f"  - {mod_code}: {len(positions)} positions")
-    else:
-        print("DEBUG: No modification statistics calculated (empty mod_stats)")
 
     return result
 
