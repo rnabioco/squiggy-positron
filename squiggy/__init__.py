@@ -511,7 +511,10 @@ def plot_motif_aggregate_all(
     from .io import _squiggy_session
     from .motif import search_motif
     from .plot_factory import create_plot_strategy
-    from .constants import DEFAULT_MOTIF_WINDOW_UPSTREAM, DEFAULT_MOTIF_WINDOW_DOWNSTREAM
+    from .constants import (
+        DEFAULT_MOTIF_WINDOW_UPSTREAM,
+        DEFAULT_MOTIF_WINDOW_DOWNSTREAM,
+    )
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,

@@ -105,7 +105,9 @@ class LazyReadList:
         """
         if self._materialized_ids is None:
             logger.info("Materializing all read IDs...")
-            self._materialized_ids = [str(read.read_id) for read in self._reader.reads()]
+            self._materialized_ids = [
+                str(read.read_id) for read in self._reader.reads()
+            ]
             self._cached_length = len(self._materialized_ids)
             logger.info(f"Materialized {self._cached_length:,} read IDs")
         return self._materialized_ids
@@ -249,7 +251,10 @@ def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
         raise RuntimeError("No POD5 file is currently loaded")
 
     # Use index if available
-    if hasattr(_squiggy_session, 'pod5_index') and _squiggy_session.pod5_index is not None:
+    if (
+        hasattr(_squiggy_session, "pod5_index")
+        and _squiggy_session.pod5_index is not None
+    ):
         position = _squiggy_session.pod5_index.get_position(read_id)
         if position is None:
             return None
@@ -394,6 +399,7 @@ class SquiggySession:
 
         # Cache integration (NEW)
         from .cache import SquiggyCache
+
         cache_path = Path(cache_dir) if cache_dir else None
         self.cache = SquiggyCache(cache_path, enabled=use_cache) if use_cache else None
 
@@ -848,7 +854,9 @@ def get_bam_modification_info(file_path: str) -> dict:
     }
 
 
-def load_bam(file_path: str, build_ref_mapping: bool = True, use_cache: bool = True) -> None:
+def load_bam(
+    file_path: str, build_ref_mapping: bool = True, use_cache: bool = True
+) -> None:
     """
     Load a BAM file into the global kernel session (OPTIMIZED)
 
