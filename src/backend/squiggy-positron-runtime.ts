@@ -406,7 +406,7 @@ squiggy.load_bam('${escapedPath}')
         scaleDwellTime: boolean = false,
         minModProbability: number = 0.5,
         enabledModTypes: string[] = [],
-        downsample: number = 1,
+        downsample: number = 5,
         showSignalPoints: boolean = false
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);

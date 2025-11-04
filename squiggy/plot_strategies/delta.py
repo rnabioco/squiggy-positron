@@ -154,9 +154,11 @@ class DeltaPlotStrategy(PlotStrategy):
         coverage_a = data.get("sample_a_coverage", [1] * len(positions))
         coverage_b = data.get("sample_b_coverage", [1] * len(positions))
 
+        from ..constants import DEFAULT_DOWNSAMPLE
+
         # Process normalization if requested
         normalization = options.get("normalization", NormalizationMethod.NONE)
-        downsample = options.get("downsample", 1)
+        downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
 
         if normalization != NormalizationMethod.NONE:
             delta_mean = normalize_signal(delta_mean, method=normalization)

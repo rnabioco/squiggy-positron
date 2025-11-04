@@ -136,9 +136,11 @@ class EventAlignPlotStrategy(PlotStrategy):
         reads_data = data["reads"]
         aligned_reads = data["aligned_reads"]
 
+        from ..constants import DEFAULT_DOWNSAMPLE
+
         # Extract options with defaults
         normalization = options.get("normalization", NormalizationMethod.NONE)
-        downsample = options.get("downsample", 1)
+        downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
         show_dwell_time = options.get("show_dwell_time", False)
         show_labels = options.get("show_labels", True)
         show_signal_points = options.get("show_signal_points", False)

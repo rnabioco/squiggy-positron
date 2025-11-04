@@ -105,10 +105,10 @@ def plot_read(
     mode: str = "SINGLE",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: int = 1,
+    downsample: int = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
-    position_label_interval: int = 100,
+    position_label_interval: int = None,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
@@ -143,9 +143,16 @@ def plot_read(
     """
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
+    from .constants import DEFAULT_DOWNSAMPLE, DEFAULT_POSITION_LABEL_INTERVAL
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+
+    # Apply defaults if not specified
+    if downsample is None:
+        downsample = DEFAULT_DOWNSAMPLE
+    if position_label_interval is None:
+        position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
     # Get read data
     read_obj = None
@@ -227,7 +234,7 @@ def plot_reads(
     mode: str = "OVERLAY",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: int = 1,
+    downsample: int = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     scale_dwell_time: bool = False,
@@ -261,12 +268,17 @@ def plot_reads(
     """
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
+    from .constants import DEFAULT_DOWNSAMPLE
 
     if _squiggy_session.reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     if not read_ids:
         raise ValueError("No read IDs provided.")
+
+    # Apply defaults if not specified
+    if downsample is None:
+        downsample = DEFAULT_DOWNSAMPLE
 
     # Parse parameters
     plot_mode = PlotMode[mode.upper()]
@@ -447,8 +459,8 @@ def plot_aggregate(
 def plot_motif_aggregate_all(
     fasta_file: str,
     motif: str,
-    upstream: int = 10,
-    downstream: int = 10,
+    upstream: int = None,
+    downstream: int = None,
     max_reads_per_motif: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
@@ -496,12 +508,19 @@ def plot_motif_aggregate_all(
     from .io import _squiggy_session
     from .motif import search_motif
     from .plot_factory import create_plot_strategy
+    from .constants import DEFAULT_MOTIF_WINDOW_UPSTREAM, DEFAULT_MOTIF_WINDOW_DOWNSTREAM
     from .utils import (
         calculate_aggregate_signal,
         calculate_base_pileup,
         calculate_quality_by_position,
         extract_reads_for_motif,
     )
+
+    # Apply defaults if not specified
+    if upstream is None:
+        upstream = DEFAULT_MOTIF_WINDOW_UPSTREAM
+    if downstream is None:
+        downstream = DEFAULT_MOTIF_WINDOW_DOWNSTREAM
 
     # Validate state
     if _squiggy_session.reader is None:

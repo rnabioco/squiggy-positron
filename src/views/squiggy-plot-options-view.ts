@@ -20,7 +20,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showDwellTime: boolean = false;
     private _showBaseAnnotations: boolean = true;
     private _scaleDwellTime: boolean = false;
-    private _downsample: number = 1;
+    private _downsample: number = 5;
     private _showSignalPoints: boolean = false;
     private _hasBamFile: boolean = false;
 
