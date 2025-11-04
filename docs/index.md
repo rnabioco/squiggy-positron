@@ -2,6 +2,8 @@
 
 Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing data from POD5 files directly in your workspace.
 
+![Squiggy Screenshot](screenshot.png)
+
 ## Documentation
 
 - **[User Guide](USER_GUIDE.md)** - Complete guide to using the extension
