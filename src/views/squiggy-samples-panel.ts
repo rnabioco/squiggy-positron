@@ -31,6 +31,15 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     private _onDidRequestUnload = new vscode.EventEmitter<string>();
     public readonly onDidRequestUnload = this._onDidRequestUnload.event;
 
+    // Store pending maxReads value for comparison
+    private _pendingMaxReads: number | null = null;
+
+    getPendingMaxReads(): number | null {
+        const value = this._pendingMaxReads;
+        this._pendingMaxReads = null;  // Clear after reading
+        return value;
+    }
+
     constructor(extensionUri: vscode.Uri, state: ExtensionState) {
         super(extensionUri);
         this._state = state;
@@ -57,6 +66,8 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
             case 'startComparison':
                 if (message.sampleNames.length >= 2) {
+                    // Store maxReads for the command handler to access
+                    this._pendingMaxReads = message.maxReads || null;
                     this._onDidRequestComparison.fire(message.sampleNames);
                 } else {
                     vscode.window.showWarningMessage(

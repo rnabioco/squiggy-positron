@@ -154,6 +154,7 @@ export interface SelectSampleMessage extends BaseMessage {
 export interface StartComparisonMessage extends BaseMessage {
     type: 'startComparison';
     sampleNames: string[];
+    maxReads?: number | null;  // null means use default
 }
 
 export interface UnloadSampleMessage extends BaseMessage {

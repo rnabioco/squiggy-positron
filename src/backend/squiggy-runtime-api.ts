@@ -504,7 +504,8 @@ squiggy.remove_sample('${escapedName}')
     async generateDeltaPlot(
         sampleNames: string[],
         normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
+        theme: string = 'LIGHT',
+        maxReads?: number | null
     ): Promise<void> {
         // Validate input
         if (!sampleNames || sampleNames.length < 2) {
@@ -514,6 +515,9 @@ squiggy.remove_sample('${escapedName}')
         // Convert sample names to JSON for safe Python serialization
         const sampleNamesJson = JSON.stringify(sampleNames);
 
+        // Build maxReads parameter if provided
+        const maxReadsParam = maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+
         const code = `
 import squiggy
 
@@ -521,7 +525,7 @@ import squiggy
 squiggy.plot_delta_comparison(
     sample_names=${sampleNamesJson},
     normalization='${normalization}',
-    theme='${theme}'
+    theme='${theme}'${maxReadsParam}
 )
 `;
 

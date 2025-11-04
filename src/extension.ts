@@ -99,7 +99,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for sample comparison requests and trigger delta plot
     context.subscriptions.push(
         samplesProvider.onDidRequestComparison((sampleNames) => {
-            vscode.commands.executeCommand('squiggy.plotDeltaComparison', sampleNames);
+            const maxReads = samplesProvider.getPendingMaxReads();
+            vscode.commands.executeCommand('squiggy.plotDeltaComparison', sampleNames, maxReads);
         })
     );
 

@@ -119,7 +119,7 @@ export function registerPlotCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotDeltaComparison',
-            async (sampleNames?: string[]) => {
+            async (sampleNames?: string[], maxReads?: number | null) => {
                 // If no sample names provided, prompt user to select
                 if (!sampleNames || sampleNames.length === 0) {
                     // Get list of loaded samples
@@ -156,7 +156,7 @@ export function registerPlotCommands(
                     return;
                 }
 
-                await plotDeltaComparison(sampleNames, state);
+                await plotDeltaComparison(sampleNames, state, maxReads);
             }
         )
     );
@@ -323,7 +323,7 @@ async function plotMotifAggregateAll(
  * Plot delta comparison between two or more samples
  * Phase 4 - Multi-sample comparison feature
  */
-async function plotDeltaComparison(sampleNames: string[], state: ExtensionState): Promise<void> {
+async function plotDeltaComparison(sampleNames: string[], state: ExtensionState, maxReads?: number | null): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
             if (!state.squiggyAPI) {
@@ -340,7 +340,7 @@ async function plotDeltaComparison(sampleNames: string[], state: ExtensionState)
 
             // Generate delta plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateDeltaPlot(sampleNames, normalization, theme);
+                await state.squiggyAPI.generateDeltaPlot(sampleNames, normalization, theme, maxReads);
             } else if (state.pythonBackend) {
                 // Subprocess backend not yet implemented for delta plots
                 throw new Error(

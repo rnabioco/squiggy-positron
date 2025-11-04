@@ -11,12 +11,18 @@ import { SampleItem } from '../../types/messages';
 interface SamplesState {
     samples: SampleItem[];
     selectedSamples: Set<string>;
+    maxReads: number | null;  // null = use default (min of available)
+    minAvailableReads: number;
+    maxAvailableReads: number;
 }
 
 export const SamplesCore: React.FC = () => {
     const [state, setState] = useState<SamplesState>({
         samples: [],
         selectedSamples: new Set(),
+        maxReads: null,  // null means use default
+        minAvailableReads: 1,
+        maxAvailableReads: 100,
     });
 
     // Listen for messages from extension
@@ -82,11 +88,19 @@ export const SamplesCore: React.FC = () => {
             return;
         }
 
-        console.log('Starting comparison with samples:', selectedNames);
+        console.log('Starting comparison with samples:', selectedNames, 'maxReads:', state.maxReads);
         vscode.postMessage({
             type: 'startComparison',
             sampleNames: selectedNames,
+            maxReads: state.maxReads,  // null means use default
         });
+    };
+
+    const handleMaxReadsChange = (value: number) => {
+        setState((prev) => ({
+            ...prev,
+            maxReads: value,
+        }));
     };
 
     const handleUnloadSample = (sampleName: string) => {
@@ -296,11 +310,60 @@ export const SamplesCore: React.FC = () => {
                         style={{
                             fontSize: '0.85em',
                             color: 'var(--vscode-descriptionForeground)',
-                            marginBottom: '8px',
+                            marginBottom: '12px',
                             fontStyle: 'italic',
                         }}
                     >
                         Selected: {state.selectedSamples.size} sample(s)
+                    </div>
+
+                    {/* Reads per Sample Slider */}
+                    <div
+                        style={{
+                            marginBottom: '12px',
+                            padding: '8px',
+                            backgroundColor: 'var(--vscode-input-background)',
+                            border: '1px solid var(--vscode-widget-border)',
+                            borderRadius: '4px',
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-foreground)',
+                                marginBottom: '6px',
+                                fontWeight: '500',
+                            }}
+                        >
+                            Reads per Sample: {state.maxReads === null ? 'Auto' : state.maxReads}
+                        </div>
+                        <input
+                            type="range"
+                            min={state.minAvailableReads}
+                            max={state.maxAvailableReads}
+                            value={state.maxReads === null ? state.maxAvailableReads : state.maxReads}
+                            onChange={(e) => handleMaxReadsChange(parseInt(e.target.value))}
+                            style={{
+                                width: '100%',
+                                height: '6px',
+                                borderRadius: '3px',
+                                background: 'var(--vscode-progressBar-background)',
+                                outline: 'none',
+                                cursor: 'pointer',
+                            }}
+                        />
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                marginTop: '4px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <span>{state.minAvailableReads}</span>
+                            <span>{state.maxAvailableReads}</span>
+                        </div>
                     </div>
 
                     <button
