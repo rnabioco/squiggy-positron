@@ -358,7 +358,9 @@ class AggregatePlotStrategy(PlotStrategy):
             ):
                 if ref_base:
                     # Use base color if available, otherwise use 'N' (gray) for IUPAC codes
-                    base_color = base_colors.get(ref_base, base_colors.get("N", "#808080"))
+                    base_color = base_colors.get(
+                        ref_base, base_colors.get("N", "#808080")
+                    )
 
                     # Determine if this position is part of a motif
                     is_motif = motif_positions and pos in motif_positions
