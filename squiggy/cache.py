@@ -293,6 +293,109 @@ class SquiggyCache:
         except (OSError, pickle.PicklingError) as e:
             logger.warning(f"Cache save failed: {e}")
 
+    def load_bam_metadata(self, file_path: Path) -> dict | None:
+        """
+        Load complete BAM metadata from cache (Phase 2 optimization)
+
+        Caches all metadata collected by _collect_bam_metadata_single_pass():
+        - references (list of dicts with name/length/read_count)
+        - has_modifications (bool)
+        - modification_types (list)
+        - has_probabilities (bool)
+        - has_event_alignment (bool)
+        - ref_mapping (dict[str, list[str]])
+        - num_reads (int)
+
+        Args:
+            file_path: Path to BAM file
+
+        Returns:
+            Complete metadata dict, or None if cache miss/invalid
+
+        Examples:
+            >>> cache = SquiggyCache()
+            >>> metadata = cache.load_bam_metadata(Path('alignments.bam'))
+            >>> if metadata:
+            ...     print(f"Loaded {metadata['num_reads']} reads from cache")
+        """
+        if not self.enabled:
+            return None
+
+        cache_path = self._get_cache_path(file_path, ".bam.metadata.cache")
+        if not cache_path.exists():
+            logger.debug(f"Cache miss: {cache_path.name}")
+            return None
+
+        try:
+            with open(cache_path, "rb") as f:
+                cached = pickle.load(f)
+
+            # Validate file hasn't changed (using mtime for faster check)
+            current_mtime = file_path.stat().st_mtime
+            if abs(cached["file_mtime"] - current_mtime) > 0.001:
+                logger.info(f"Cache invalid (file modified): {cache_path.name}")
+                return None
+
+            logger.info(
+                f"Loaded BAM metadata from cache "
+                f"({cached['metadata']['num_reads']:,} reads, "
+                f"{len(cached['metadata']['references'])} refs)"
+            )
+            return cached["metadata"]
+
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
+            logger.warning(f"Cache load failed: {e}")
+            return None
+
+    def save_bam_metadata(self, file_path: Path, metadata: dict) -> None:
+        """
+        Save complete BAM metadata to cache (Phase 2 optimization)
+
+        Caches the full metadata dict from _collect_bam_metadata_single_pass().
+        This replaces the need for separate caching of individual components.
+
+        Args:
+            file_path: Path to BAM file
+            metadata: Complete metadata dict with keys:
+                - references
+                - has_modifications
+                - modification_types
+                - has_probabilities
+                - has_event_alignment
+                - ref_mapping
+                - num_reads
+
+        Examples:
+            >>> cache = SquiggyCache()
+            >>> metadata = _collect_bam_metadata_single_pass(bam_path)
+            >>> cache.save_bam_metadata(bam_path, metadata)
+        """
+        if not self.enabled:
+            return
+
+        cache_path = self._get_cache_path(file_path, ".bam.metadata.cache")
+
+        try:
+            cached = {
+                "file_path": str(file_path),
+                "file_mtime": file_path.stat().st_mtime,
+                "file_size": file_path.stat().st_size,
+                "metadata": metadata,
+                "cached_at": datetime.now().isoformat(),
+            }
+
+            with open(cache_path, "wb") as f:
+                pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+            logger.info(
+                f"Saved BAM metadata to cache: {cache_path.name} "
+                f"({metadata['num_reads']:,} reads, "
+                f"{len(metadata['references'])} refs)"
+            )
+
+        except (OSError, pickle.PicklingError) as e:
+            logger.warning(f"Cache save failed: {e}")
+
     def clear_cache(self) -> int:
         """
         Clear all cache files
