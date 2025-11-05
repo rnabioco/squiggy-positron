@@ -254,8 +254,5 @@ export class FilePanelProvider extends BaseWebviewProvider {
             disposable.dispose();
         }
         this._disposables = [];
-
-        // Call parent dispose if it exists
-        super.dispose?.();
     }
 }

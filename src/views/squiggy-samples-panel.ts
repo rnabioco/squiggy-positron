@@ -111,9 +111,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             disposable.dispose();
         }
         this._disposables = [];
-
-        // Call parent dispose if it exists
-        super.dispose?.();
     }
 
     protected getTitle(): string {

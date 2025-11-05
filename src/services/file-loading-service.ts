@@ -174,7 +174,7 @@ export class FileLoadingService {
                 fileSize: metadata.fileSize,
                 fileSizeFormatted: metadata.fileSizeFormatted,
                 readCount: result.numReads,
-                numReferences: result.references?.length || 0,
+                numReferences: 0, // Will be populated by API if available
                 hasModifications: result.hasModifications || false,
                 hasEventAlignment: result.hasEventAlignment || false,
                 error: null,
