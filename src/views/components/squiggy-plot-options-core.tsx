@@ -73,7 +73,8 @@ export const PlotOptionsCore: React.FC = () => {
                         scaleDwellTime: message.options.scaleDwellTime,
                         downsample: message.options.downsample,
                         showSignalPoints: message.options.showSignalPoints,
-                        clipXAxisToAlignment: message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
+                        clipXAxisToAlignment:
+                            message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
                         aggregateReference:
                             message.options.aggregateReference || prev.aggregateReference,
                         aggregateMaxReads:
@@ -492,7 +493,10 @@ export const PlotOptionsCore: React.FC = () => {
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
-                            <label htmlFor="clipXAxisToAlignmentAggregate" style={{ fontSize: '0.9em' }}>
+                            <label
+                                htmlFor="clipXAxisToAlignmentAggregate"
+                                style={{ fontSize: '0.9em' }}
+                            >
                                 Clip x-axis to consensus region
                             </label>
                         </div>
