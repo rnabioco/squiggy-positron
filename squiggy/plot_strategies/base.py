@@ -6,7 +6,7 @@ Each plot mode (SINGLE, EVENTALIGN, AGGREGATE, etc.) implements this interface.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -153,7 +153,7 @@ class PlotStrategy(ABC):
         self,
         signal: np.ndarray,
         normalization: NormalizationMethod = NormalizationMethod.NONE,
-        downsample: int = None,
+        downsample: Optional[int] = None,
         seq_to_sig_map: list[int] | None = None,
     ) -> tuple[np.ndarray, list[int] | None]:
         """

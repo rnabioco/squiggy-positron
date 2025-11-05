@@ -37,6 +37,7 @@ Example usage:
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pod5
@@ -615,7 +616,7 @@ class FastaFile:
         self,
         motif: str,
         region: str | None = None,
-        strand: str = "both",
+        strand: Literal["+", "-", "both"] = "both",
     ) -> Iterator[MotifMatch]:
         """
         Search for motif matches in FASTA file
@@ -641,7 +642,7 @@ class FastaFile:
         self,
         motif: str,
         region: str | None = None,
-        strand: str = "both",
+        strand: Literal["+", "-", "both"] = "both",
     ) -> int:
         """
         Count total motif matches

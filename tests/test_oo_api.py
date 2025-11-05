@@ -222,6 +222,8 @@ class TestRead:
             for alignment in pysam_bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
                     read = pod5.get_read(read_id)
 
                     aligned_read = read.get_alignment(bam)
@@ -280,6 +282,8 @@ class TestRead:
             for alignment in pysam_bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
                     read = pod5.get_read(read_id)
 
                     fig = read.plot(mode="EVENTALIGN", bam_file=bam)
@@ -372,6 +376,8 @@ class TestBamFile:
             for alignment in pysam_bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
 
                     aligned_read = bam.get_alignment(read_id)
                     if aligned_read is not None:
@@ -562,6 +568,8 @@ class TestIntegrationWorkflows:
             for alignment in pysam_bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
                     read = pod5.get_read(read_id)
 
                     # Get alignment
