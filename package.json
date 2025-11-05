@@ -196,7 +196,7 @@
         },
         {
           "id": "squiggyComparisonSamples",
-          "name": "Sample Comparison Manager",
+          "name": "Sample Manager",
           "type": "webview"
         }
       ]
