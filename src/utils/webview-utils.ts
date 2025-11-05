@@ -50,7 +50,8 @@ export function getReactWebviewHtml(
           content="default-src 'none';
                    style-src ${webview.cspSource} 'unsafe-inline';
                    font-src ${webview.cspSource};
-                   script-src 'nonce-${nonce}';">
+                   script-src 'nonce-${nonce}';
+                   connect-src 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
     <style>

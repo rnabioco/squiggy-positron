@@ -20,7 +20,10 @@ class TestLoadPOD5:
 
         # Should populate global session
         assert _squiggy_session.reader is not None
-        assert isinstance(_squiggy_session.read_ids, list)
+        # read_ids can be either list or LazyReadList (optimized)
+        from squiggy.io import LazyReadList
+
+        assert isinstance(_squiggy_session.read_ids, (list, LazyReadList))
         assert len(_squiggy_session.read_ids) > 0
         assert all(isinstance(rid, str) for rid in _squiggy_session.read_ids)
 

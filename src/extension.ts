@@ -13,9 +13,11 @@ import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { SamplesPanelProvider } from './views/squiggy-samples-panel';
+import { SessionPanelProvider } from './views/squiggy-session-panel';
 import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
+import { registerSessionCommands } from './commands/session-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 
 // Global extension state
@@ -29,6 +31,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await state.initializeBackends(context);
 
     // Create and register UI panel providers
+    const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
     const filePanelProvider = new FilePanelProvider(context.extensionUri);
     const readsViewPane = new ReadsViewPane(context.extensionUri);
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
@@ -37,6 +40,10 @@ export async function activate(context: vscode.ExtensionContext) {
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
 
     context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            SessionPanelProvider.viewType,
+            sessionPanelProvider
+        ),
         vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider),
         vscode.window.registerWebviewViewProvider(ReadsViewPane.viewType, readsViewPane),
         vscode.window.registerWebviewViewProvider(
@@ -122,10 +129,15 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Listen for sample comparison requests and trigger delta plot
+    // Listen for sample comparison requests and trigger signal overlay plot (default)
     context.subscriptions.push(
         samplesProvider.onDidRequestComparison((sampleNames) => {
-            vscode.commands.executeCommand('squiggy.plotDeltaComparison', sampleNames);
+            const maxReads = samplesProvider.getPendingMaxReads();
+            vscode.commands.executeCommand(
+                'squiggy.plotSignalOverlayComparison',
+                sampleNames,
+                maxReads
+            );
         })
     );
 
@@ -151,6 +163,48 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Listen for aggregate plot generation requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
+            if (!state.squiggyAPI) {
+                vscode.window.showErrorMessage('API not available');
+                return;
+            }
+
+            try {
+                // Get current theme
+                const isDarkTheme =
+                    vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+                const theme = isDarkTheme ? 'DARK' : 'LIGHT';
+
+                // Get modification filters from Modifications panel
+                const modFilters = modificationsProvider.getFilters();
+
+                // Generate aggregate plot
+                await state.squiggyAPI.generateAggregatePlot(
+                    options.reference,
+                    options.maxReads,
+                    options.normalization,
+                    theme,
+                    options.showModifications,
+                    modFilters.minProbability,
+                    modFilters.enabledModTypes,
+                    options.showPileup,
+                    options.showDwellTime,
+                    options.showSignal,
+                    options.showQuality,
+                    options.clipXAxisToAlignment
+                );
+
+                vscode.window.showInformationMessage(
+                    `Generated aggregate plot for ${options.reference}`
+                );
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
+            }
+        })
+    );
+
     // Register kernel event listeners (session changes, restarts)
     registerKernelListeners(context, state);
 
@@ -158,6 +212,7 @@ export async function activate(context: vscode.ExtensionContext) {
     registerFileCommands(context, state);
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
+    registerSessionCommands(context, state);
 
     // Extension activated silently - no welcome message needed
 }

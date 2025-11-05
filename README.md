@@ -21,6 +21,7 @@ Squiggy is a Positron extension that integrates nanopore signal visualization in
 - **Base Annotations**: Overlay base calls and modifications on signal data when using BAM files
 - **Read Filtering**: Search by read ID, reference region, or sequence motif
 - **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
+- **Aggregate Plots**: Multi-read visualizations with modification heatmaps, dwell time, and quality tracks
 
 ## Project-Based Workflow
 
@@ -98,11 +99,18 @@ The **Reads** panel shows all reads in the POD5 file:
 
 ### 3. Customize Plots
 
-Use the **Plot Options** panel to configure:
-- **Plot mode**: Raw signal vs event-aligned with bases
+Use the **Advanced Plotting** panel to configure:
+- **Analysis Type**: Single Read or Aggregate (multi-read statistics)
+- **View Mode**: Standard or Event-Aligned (with base annotations)
 - **Normalization**: None, Z-score, Median, or MAD
 - **X-axis scaling**: Base positions vs cumulative dwell time
 - **Downsample threshold**: For large signals (default: 100,000 samples)
+
+For **Aggregate Plots** (requires BAM):
+- Select reference sequence and maximum reads to include
+- Toggle individual panels: Modifications, Pileup, Dwell Time, Signal, Quality
+- View modification heatmaps showing frequency and confidence
+- Explore dwell time patterns with confidence bands
 
 ### 4. Explore Modifications (BAM with MM/ML tags)
 

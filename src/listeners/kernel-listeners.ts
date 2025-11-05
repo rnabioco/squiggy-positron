@@ -56,9 +56,9 @@ export function registerKernelListeners(
                 if (session && session.onDidChangeRuntimeState) {
                     context.subscriptions.push(
                         session.onDidChangeRuntimeState((runtimeState: string) => {
-                            console.log('Squiggy: Runtime state changed to:', runtimeState);
-                            // Clear state when kernel is restarting or has exited
+                            // Only log important state changes (not idle/busy cycles)
                             if (runtimeState === 'restarting' || runtimeState === 'exited') {
+                                console.log('Squiggy: Kernel state changed to:', runtimeState);
                                 clearExtensionState(`Kernel ${runtimeState}`);
                             }
                         })

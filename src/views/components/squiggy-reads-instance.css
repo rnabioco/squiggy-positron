@@ -37,3 +37,22 @@
     flex-shrink: 0;
     text-align: right;
 }
+
+/* Sortable header column */
+.reads-header-column.reads-sortable {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.reads-header-column.reads-sortable:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.sort-indicator {
+    font-size: 10px;
+    opacity: 0.7;
+    margin-left: 4px;
+}

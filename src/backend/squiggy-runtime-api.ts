@@ -31,7 +31,15 @@ export interface BAMLoadResult {
  * High-level API for squiggy operations in the Python kernel
  */
 export class SquiggyRuntimeAPI {
-    constructor(private readonly client: PositronRuntimeClient) {}
+    constructor(private readonly _client: PositronRuntimeClient) {}
+
+    /**
+     * Get access to the underlying Positron runtime client
+     * For advanced use cases that need direct kernel access
+     */
+    get client(): PositronRuntimeClient {
+        return this._client;
+    }
 
     /**
      * Load a POD5 file
@@ -47,14 +55,14 @@ export class SquiggyRuntimeAPI {
 
         // Load file silently (no console output)
         // This populates the global _squiggy_session in Python
-        await this.client.executeSilent(`
+        await this._client.executeSilent(`
 import squiggy
 from squiggy.io import _squiggy_session
 squiggy.load_pod5('${escapedPath}')
 `);
 
         // Get read count by reading from session object (no print needed)
-        const numReads = await this.client.getVariable('len(_squiggy_session.read_ids)');
+        const numReads = await this._client.getVariable('len(_squiggy_session.read_ids)');
 
         return { numReads: numReads as number };
     }
@@ -69,7 +77,7 @@ squiggy.load_pod5('${escapedPath}')
         const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
 
         // Read from session object (no print needed)
-        const readIds = await this.client.getVariable(`_squiggy_session.read_ids${sliceStr}`);
+        const readIds = await this._client.getVariable(`_squiggy_session.read_ids${sliceStr}`);
 
         return readIds as string[];
     }
@@ -85,7 +93,7 @@ squiggy.load_pod5('${escapedPath}')
 
         // Load BAM silently (no console output)
         // This populates _squiggy_session.bam_info and .bam_path
-        await this.client.executeSilent(`
+        await this._client.executeSilent(`
 import squiggy
 from squiggy.io import _squiggy_session
 squiggy.load_bam('${escapedPath}')
@@ -93,17 +101,17 @@ squiggy.get_read_to_reference_mapping()
 `);
 
         // Read metadata directly from session object (no print needed)
-        const numReads = await this.client.getVariable("_squiggy_session.bam_info['num_reads']");
-        const hasModifications = await this.client.getVariable(
+        const numReads = await this._client.getVariable("_squiggy_session.bam_info['num_reads']");
+        const hasModifications = await this._client.getVariable(
             "_squiggy_session.bam_info.get('has_modifications', False)"
         );
-        const modificationTypes = await this.client.getVariable(
+        const modificationTypes = await this._client.getVariable(
             "_squiggy_session.bam_info.get('modification_types', [])"
         );
-        const hasProbabilities = await this.client.getVariable(
+        const hasProbabilities = await this._client.getVariable(
             "_squiggy_session.bam_info.get('has_probabilities', False)"
         );
-        const hasEventAlignment = await this.client.getVariable(
+        const hasEventAlignment = await this._client.getVariable(
             "_squiggy_session.bam_info.get('has_event_alignment', False)"
         );
 
@@ -121,7 +129,7 @@ squiggy.get_read_to_reference_mapping()
      */
     async getReferences(): Promise<string[]> {
         // Read keys directly from session object (no print needed)
-        const references = await this.client.getVariable(
+        const references = await this._client.getVariable(
             'list(_squiggy_session.ref_mapping.keys()) if _squiggy_session.ref_mapping else []'
         );
         return references as string[];
@@ -129,16 +137,41 @@ squiggy.get_read_to_reference_mapping()
 
     /**
      * Get read IDs mapping to a specific reference
+     * @deprecated Use getReadsForReferencePaginated instead for better performance
      */
     async getReadsForReference(referenceName: string): Promise<string[]> {
         const escapedRef = referenceName.replace(/'/g, "\\'");
 
         // Read directly from session object (no print needed)
-        const readIds = await this.client.getVariable(
+        const readIds = await this._client.getVariable(
             `_squiggy_session.ref_mapping.get('${escapedRef}', []) if _squiggy_session.ref_mapping else []`
         );
 
         return readIds as string[];
+    }
+
+    /**
+     * Get read IDs mapping to a specific reference with pagination support
+     * Enables lazy loading for large reference groups
+     */
+    async getReadsForReferencePaginated(
+        referenceName: string,
+        offset: number = 0,
+        limit: number | null = null
+    ): Promise<{ readIds: string[]; totalCount: number }> {
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        // Get paginated reads using the new Python function
+        const readIds = await this._client.getVariable(
+            `squiggy.get_reads_for_reference_paginated('${escapedRef}', offset=${offset}, limit=${limit === null ? 'None' : limit})`
+        );
+
+        // Get total count for this reference
+        const totalCount = await this._client.getVariable(
+            `len(squiggy.io._squiggy_session.ref_mapping.get('${escapedRef}', []))`
+        );
+
+        return { readIds: readIds as string[], totalCount: totalCount as number };
     }
 
     /**
@@ -185,7 +218,7 @@ except Exception as e:
 
         try {
             // Execute silently - plot will appear in Plots pane automatically
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
 
             // Check if there was an error during plot generation
             const plotError = await this.client
@@ -196,7 +229,7 @@ except Exception as e:
             }
 
             // Clean up temporary variable
-            await this.client.executeSilent(`
+            await this._client.executeSilent(`
 if '_squiggy_plot_error' in globals():
     del _squiggy_plot_error
 `);
@@ -220,15 +253,34 @@ if '_squiggy_plot_error' in globals():
      * @param maxReads - Maximum number of reads to sample (default 100)
      * @param normalization - Normalization method (ZNORM, MAD, etc.)
      * @param theme - Color theme (LIGHT or DARK)
+     * @param showModifications - Show modifications heatmap panel (default true)
+     * @param showPileup - Show base pileup panel (default true)
+     * @param showDwellTime - Show dwell time track panel (default true)
+     * @param showSignal - Show signal track panel (default true)
+     * @param showQuality - Show quality track panel (default true)
      */
     async generateAggregatePlot(
         referenceName: string,
         maxReads: number = 100,
         normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
+        theme: string = 'LIGHT',
+        showModifications: boolean = true,
+        modificationThreshold: number = 0.5,
+        enabledModTypes: string[] = [],
+        showPileup: boolean = true,
+        showDwellTime: boolean = true,
+        showSignal: boolean = true,
+        showQuality: boolean = true,
+        clipXAxisToAlignment: boolean = true
     ): Promise<void> {
         // Escape single quotes in reference name for Python string
         const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        // Build modification filter dict if modifications are enabled
+        const modFilterDict =
+            enabledModTypes.length > 0
+                ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                : 'None';
 
         const code = `
 import squiggy
@@ -238,13 +290,20 @@ squiggy.plot_aggregate(
     reference_name='${escapedRefName}',
     max_reads=${maxReads},
     normalization='${normalization}',
-    theme='${theme}'
+    theme='${theme}',
+    show_modifications=${showModifications ? 'True' : 'False'},
+    mod_filter=${modFilterDict},
+    show_pileup=${showPileup ? 'True' : 'False'},
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_signal=${showSignal ? 'True' : 'False'},
+    show_quality=${showQuality ? 'True' : 'False'},
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}
 )
 `;
 
         try {
             // Execute silently - plot will appear in Plots pane automatically
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
         } catch (error) {
             throw new Error(`Failed to generate aggregate plot: ${error}`);
         }
@@ -265,7 +324,7 @@ squiggy.load_fasta('${escapedPath}')
 `;
 
         try {
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
         } catch (error) {
             throw new Error(`Failed to load FASTA file: ${error}`);
         }
@@ -302,8 +361,8 @@ _squiggy_motif_matches_json = [
 `;
 
         try {
-            await this.client.executeSilent(searchCode);
-            const matches = await this.client.getVariable('_squiggy_motif_matches_json');
+            await this._client.executeSilent(searchCode);
+            const matches = await this._client.getVariable('_squiggy_motif_matches_json');
 
             // Clean up temporary variables
             await this.client
@@ -354,7 +413,7 @@ squiggy.plot_motif_aggregate_all(
 `;
 
         try {
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
         } catch (error) {
             throw new Error(`Failed to generate motif aggregate all plot: ${error}`);
         }
@@ -401,10 +460,10 @@ squiggy.load_sample(
 
         try {
             // Load sample silently
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
 
             // Get read count for this sample
-            const numReads = await this.client.getVariable(
+            const numReads = await this._client.getVariable(
                 `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
             );
 
@@ -421,7 +480,7 @@ squiggy.load_sample(
      */
     async listSamples(): Promise<string[]> {
         try {
-            const sampleNames = await this.client.getVariable('_squiggy_session.list_samples()');
+            const sampleNames = await this._client.getVariable('_squiggy_session.list_samples()');
             return (sampleNames as string[]) || [];
         } catch (error) {
             throw new Error(`Failed to list samples: ${error}`);
@@ -451,8 +510,8 @@ else:
 _sample_info_json = json.dumps(_sample_info)
 `;
 
-            await this.client.executeSilent(code);
-            const sampleInfo = await this.client.getVariable('_sample_info_json');
+            await this._client.executeSilent(code);
+            const sampleInfo = await this._client.getVariable('_sample_info_json');
 
             // Clean up temporary variables
             await this.client
@@ -487,7 +546,7 @@ if '_sample_info_json' in globals():
 import squiggy
 squiggy.remove_sample('${escapedName}')
 `;
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
         } catch (error) {
             throw new Error(`Failed to remove sample '${sampleName}': ${error}`);
         }
@@ -501,10 +560,48 @@ squiggy.remove_sample('${escapedName}')
      * @param normalization - Normalization method (ZNORM, MAD, MEDIAN, NONE)
      * @param theme - Color theme (LIGHT or DARK)
      */
+    async generateSignalOverlayComparison(
+        sampleNames: string[],
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        maxReads?: number | null
+    ): Promise<void> {
+        // Validate input
+        if (!sampleNames || sampleNames.length < 2) {
+            throw new Error('Signal overlay comparison requires at least 2 samples');
+        }
+
+        // Convert sample names to JSON for safe Python serialization
+        const sampleNamesJson = JSON.stringify(sampleNames);
+
+        // Build maxReads parameter if provided
+        const maxReadsParam =
+            maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+
+        const code = `
+import squiggy
+
+# Generate signal overlay comparison plot - will be automatically routed to Plots pane
+squiggy.plot_signal_overlay_comparison(
+    sample_names=${sampleNamesJson},
+    normalization='${normalization}',
+    theme='${theme}'${maxReadsParam}
+)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this.client.executeSilent(code);
+        } catch (error) {
+            throw new Error(`Failed to generate signal overlay comparison plot: ${error}`);
+        }
+    }
+
     async generateDeltaPlot(
         sampleNames: string[],
         normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
+        theme: string = 'LIGHT',
+        maxReads?: number | null
     ): Promise<void> {
         // Validate input
         if (!sampleNames || sampleNames.length < 2) {
@@ -514,6 +611,10 @@ squiggy.remove_sample('${escapedName}')
         // Convert sample names to JSON for safe Python serialization
         const sampleNamesJson = JSON.stringify(sampleNames);
 
+        // Build maxReads parameter if provided
+        const maxReadsParam =
+            maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+
         const code = `
 import squiggy
 
@@ -521,13 +622,13 @@ import squiggy
 squiggy.plot_delta_comparison(
     sample_names=${sampleNamesJson},
     normalization='${normalization}',
-    theme='${theme}'
+    theme='${theme}'${maxReadsParam}
 )
 `;
 
         try {
             // Execute silently - plot will appear in Plots pane automatically
-            await this.client.executeSilent(code);
+            await this._client.executeSilent(code);
         } catch (error) {
             throw new Error(`Failed to generate delta comparison plot: ${error}`);
         }

@@ -1,5 +1,74 @@
 # Squiggy Release Notes
 
+## v0.1.12-alpha (2025-11-04)
+
+Aggregate plot enhancements with modification heatmaps, dwell time visualization, and improved UI clarity.
+
+### Features
+
+- **Modification Heatmap Panel**: Visualize base modification patterns in aggregate plots with frequency-based opacity showing both modification prevalence and confidence (#76)
+- **Dwell Time Track**: Display mean dwell time with confidence bands across reference positions in aggregate plots (#76)
+- **Dynamic Panel Visibility**: Toggle individual panels (modifications, pileup, dwell time, signal, quality) in aggregate plots via UI checkboxes (#76)
+- **Modifications Explorer Integration**: Aggregate plots now respect modification filters (probability thresholds and enabled types) from the Modifications Explorer panel (#76)
+
+### Improvements
+
+- **UI Clarity**: Renamed "Plot Type" → "Analysis Type" and "Plot Mode" → "View Mode" with "Single Read" → "Standard" to eliminate confusing duplication (#76)
+- **Modification Visualization**: Heatmap opacity based on `frequency × probability` with automatic normalization for visibility across different filtering thresholds (#76)
+- **Dwell Time Auto-scaling**: Y-axis automatically adapts to data range after zoom operations (#76)
+- **Panel Naming**: "Plot Options" renamed to "Advanced Plotting" to reflect expanded functionality (#76)
+
+### Fixes
+
+- **Type Coercion**: Fixed modification filtering by converting integer ChEBI codes to strings for consistent comparison with UI filters (#76)
+- **Coverage Calculation**: Modification frequency now correctly calculated from total coverage (all reads) not just modified reads (#76)
+
+### Documentation
+
+- Updated README.md with aggregate plot features
+- Added comprehensive "Aggregate Plots" section to User Guide with interpretation tips
+- Created issue #75 to revisit modification heatmap with real-world data
+
+## v0.1.11-alpha (2025-11-04)
+
+Session management improvements with demo session support and enhanced code quality.
+
+### Features
+
+- **Session Management Panel**: Added new "Session Manager" panel with demo session support for quick onboarding and testing (#81)
+
+### Documentation
+
+- **React-First UI Guidelines**: Added comprehensive React-first UI development guidance to CLAUDE.md for consistent panel implementation
+
+### Internal
+
+- **CI Configuration**: Disabled Codecov PR comments to reduce notification noise
+- **Release Process**: Added quality checks (linting and formatting) to release workflow
+
+## v0.1.10-alpha (2025-11-04)
+
+UX improvement with search mode toggle for better reference navigation.
+
+### Improvements
+
+- **Search Mode Toggle**: Added toggle button in reads explorer search bar to switch between reference name search (default) and read ID search. This fixes an issue where searching for reference names would clear the panel in lazy-loading mode, and provides a cleaner UX by separating the two search use cases.
+
+## v0.1.9-alpha (2025-11-04)
+
+Performance and UX improvements with optimized data loading and enhanced reads explorer.
+
+### Improvements
+
+- **Reads Explorer UX**: Added sortable "Reads" column, sticky reference headers when scrolling, and proper refresh functionality that queries backend state
+- **POD5/BAM Loading Performance**: 30-40x speedup in data loading through optimized reference mapping and batch processing (#73)
+- **Aggregate Plot Annotations**: Added reference base annotations to aggregate plots for better context (#74)
+- **Documentation**: Renamed all documentation files to lowercase convention and fixed internal cross-references
+
+### Fixes
+
+- **Downsampling Default**: Changed default downsampling factor to 5 for better signal quality preservation
+
 ## v0.1.8-alpha (2025-11-03)
 
 Multi-sample comparison feature with delta visualization and improved documentation.

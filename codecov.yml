@@ -28,12 +28,7 @@ coverage:
         informational: true  # Don't block PRs
 
 # PR comment configuration
-comment:
-  layout: "header, diff, components, tree"
-  behavior: default  # Post new comment on each push
-  require_changes: false  # Always comment
-  require_base: false  # Comment even if base has no coverage
-  require_head: true  # Only comment if head has coverage
+comment: off  # Disable PR comments
 
 # Paths to ignore in coverage calculation
 ignore:

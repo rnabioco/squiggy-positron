@@ -16,6 +16,10 @@ import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
 import { FilePanelProvider } from '../views/squiggy-file-panel';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
 import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
+import { SessionState, SampleSessionState } from '../types/squiggy-session-types';
+import { SessionStateManager } from './session-state-manager';
+import { PathResolver } from './path-resolver';
+import { FileResolver } from './file-resolver';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
@@ -54,9 +58,17 @@ export class ExtensionState {
     private _currentFastaFile?: string;
     private _currentPlotReadIds?: string[];
 
+    // Lazy loading context
+    private _pod5LoadContext?: {
+        currentOffset: number;
+        pageSize: number;
+        totalReads: number;
+    };
+
     // Multi-sample state (Phase 4)
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
+    private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -137,6 +149,7 @@ export class ExtensionState {
         this._filePanelProvider?.clearPOD5();
         this._filePanelProvider?.clearBAM();
         this._filePanelProvider?.clearFASTA?.();
+        this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
         // Clear Python kernel state if using Positron
@@ -261,6 +274,18 @@ squiggy.close_fasta()
         return this._extensionContext;
     }
 
+    get pod5LoadContext():
+        | { currentOffset: number; pageSize: number; totalReads: number }
+        | undefined {
+        return this._pod5LoadContext;
+    }
+
+    set pod5LoadContext(
+        value: { currentOffset: number; pageSize: number; totalReads: number } | undefined
+    ) {
+        this._pod5LoadContext = value;
+    }
+
     // ========== Multi-Sample Management (Phase 4) ==========
 
     get loadedSamples(): Map<string, SampleInfo> {
@@ -314,5 +339,387 @@ squiggy.close_fasta()
      */
     clearComparisonSelection(): void {
         this._selectedSamplesForComparison = [];
+    }
+
+    /**
+     * Get session-level FASTA file path
+     */
+    get sessionFastaPath(): string | null {
+        return this._sessionFastaPath;
+    }
+
+    /**
+     * Set session-level FASTA file path (applies to all samples)
+     */
+    setSessionFasta(fastaPath: string | null): void {
+        this._sessionFastaPath = fastaPath;
+    }
+
+    /**
+     * Clear session-level FASTA file
+     */
+    clearSessionFasta(): void {
+        this._sessionFastaPath = null;
+    }
+
+    // ========== Session State Serialization ==========
+
+    /**
+     * Serialize current extension state to SessionState format
+     */
+    toSessionState(): SessionState {
+        // Build samples object from current state
+        const samples: { [sampleName: string]: SampleSessionState } = {};
+
+        // If using multi-sample mode (when implemented)
+        if (this._loadedSamples.size > 0) {
+            for (const [sampleName, sampleInfo] of this._loadedSamples.entries()) {
+                samples[sampleName] = {
+                    pod5Paths: [sampleInfo.pod5Path],
+                    bamPath: sampleInfo.bamPath,
+                    fastaPath: sampleInfo.fastaPath,
+                };
+            }
+        } else {
+            // Legacy single-file mode - create a default sample
+            if (this._currentPod5File) {
+                samples['Default'] = {
+                    pod5Paths: [this._currentPod5File],
+                    bamPath: this._currentBamFile,
+                    fastaPath: this._currentFastaFile,
+                };
+            }
+        }
+
+        // Get plot options from provider
+        const plotOptions = this._plotOptionsProvider?.getOptions() || {
+            mode: 'SINGLE',
+            normalization: 'ZNORM',
+            showDwellTime: false,
+            showBaseAnnotations: true,
+            scaleDwellTime: false,
+            downsample: 5,
+            showSignalPoints: false,
+        };
+
+        // Get modification filters if available
+        const modFilters = this._modificationsProvider?.getFilters?.();
+        const modificationFilters = modFilters
+            ? {
+                  minProbability: modFilters.minProbability,
+                  enabledModTypes: Array.from(modFilters.enabledModTypes),
+              }
+            : undefined;
+
+        // Build UI state
+        const ui = {
+            expandedSamples: this.getAllSampleNames(),
+            selectedSamplesForComparison: this._selectedSamplesForComparison,
+        };
+
+        return {
+            version: '1.0.0',
+            timestamp: new Date().toISOString(),
+            samples,
+            plotOptions,
+            modificationFilters,
+            ui,
+        };
+    }
+
+    /**
+     * Restore extension state from SessionState
+     */
+    async fromSessionState(session: SessionState, context: vscode.ExtensionContext): Promise<void> {
+        if (!this._extensionContext) {
+            this._extensionContext = context;
+        }
+
+        const isDemo = session.isDemo || false;
+        const extensionUri = context.extensionUri;
+
+        // Clear current state first
+        await this.clearAll();
+
+        // Track any errors during restoration
+        const errors: string[] = [];
+
+        // Restore each sample
+        for (const [sampleName, sampleData] of Object.entries(session.samples)) {
+            try {
+                await this.restoreSample(sampleName, sampleData, isDemo, extensionUri);
+            } catch (error) {
+                errors.push(`Failed to restore sample ${sampleName}: ${error}`);
+            }
+        }
+
+        // Restore plot options
+        if (session.plotOptions && this._plotOptionsProvider) {
+            // Update provider state directly (this will trigger view update)
+            const provider = this._plotOptionsProvider as any;
+            provider._plotMode = session.plotOptions.mode;
+            provider._normalization = session.plotOptions.normalization;
+            provider._showDwellTime = session.plotOptions.showDwellTime;
+            provider._showBaseAnnotations = session.plotOptions.showBaseAnnotations;
+            provider._scaleDwellTime = session.plotOptions.scaleDwellTime;
+            provider._downsample = session.plotOptions.downsample;
+            provider._showSignalPoints = session.plotOptions.showSignalPoints;
+            provider.updateView();
+        }
+
+        // Restore modification filters
+        if (session.modificationFilters && this._modificationsProvider) {
+            const provider = this._modificationsProvider as any;
+            provider._minProbability = session.modificationFilters.minProbability;
+            provider._enabledModTypes = new Set(session.modificationFilters.enabledModTypes);
+            provider.updateView();
+        }
+
+        // Restore UI state
+        if (session.ui) {
+            this._selectedSamplesForComparison = session.ui.selectedSamplesForComparison || [];
+        }
+
+        // Show errors if any
+        if (errors.length > 0) {
+            vscode.window.showWarningMessage(`Session restored with errors:\n${errors.join('\n')}`);
+        } else {
+            vscode.window.showInformationMessage('Session restored successfully');
+        }
+    }
+
+    /**
+     * Restore a single sample from session data
+     */
+    private async restoreSample(
+        sampleName: string,
+        sampleData: SampleSessionState,
+        isDemo: boolean,
+        extensionUri: vscode.Uri
+    ): Promise<void> {
+        // Resolve POD5 paths
+        const resolvedPod5Paths: string[] = [];
+        for (const pod5Path of sampleData.pod5Paths) {
+            let resolvedPath = pod5Path;
+
+            // First try to resolve Python package paths (for demo)
+            if (pod5Path.startsWith('<package:')) {
+                resolvedPath = await PathResolver.resolvePythonPackagePath(
+                    pod5Path,
+                    this._positronClient
+                );
+            }
+            // Otherwise, resolve extension-relative paths
+            else if (pod5Path.includes('${extensionPath}')) {
+                resolvedPath = PathResolver.resolveExtensionPath(pod5Path, extensionUri);
+            }
+
+            // Check if file exists, prompt if missing
+            const resolution = await FileResolver.resolveFilePath(
+                resolvedPath,
+                'POD5',
+                isDemo,
+                extensionUri
+            );
+
+            if (resolution.resolved && resolution.newPath) {
+                resolvedPod5Paths.push(resolution.newPath);
+            } else {
+                throw new Error(resolution.error || 'Failed to resolve POD5 file');
+            }
+        }
+
+        // Resolve BAM path if present
+        let resolvedBamPath: string | undefined;
+        if (sampleData.bamPath) {
+            let resolvedPath = sampleData.bamPath;
+
+            // Resolve Python package paths first
+            if (sampleData.bamPath.startsWith('<package:')) {
+                resolvedPath = await PathResolver.resolvePythonPackagePath(
+                    sampleData.bamPath,
+                    this._positronClient
+                );
+            }
+            // Otherwise, resolve extension-relative paths
+            else if (sampleData.bamPath.includes('${extensionPath}')) {
+                resolvedPath = PathResolver.resolveExtensionPath(sampleData.bamPath, extensionUri);
+            }
+
+            const resolution = await FileResolver.resolveFilePath(
+                resolvedPath,
+                'BAM',
+                isDemo,
+                extensionUri
+            );
+
+            if (resolution.resolved && resolution.newPath) {
+                resolvedBamPath = resolution.newPath;
+            } else if (!isDemo) {
+                // For user sessions, BAM is optional
+                vscode.window.showWarningMessage(`BAM file not found: ${sampleData.bamPath}`);
+            }
+        }
+
+        // Resolve FASTA path if present
+        let resolvedFastaPath: string | undefined;
+        if (sampleData.fastaPath) {
+            let resolvedPath = sampleData.fastaPath;
+
+            // Resolve Python package paths first
+            if (sampleData.fastaPath.startsWith('<package:')) {
+                resolvedPath = await PathResolver.resolvePythonPackagePath(
+                    sampleData.fastaPath,
+                    this._positronClient
+                );
+            }
+            // Otherwise, resolve extension-relative paths
+            else if (sampleData.fastaPath.includes('${extensionPath}')) {
+                resolvedPath = PathResolver.resolveExtensionPath(
+                    sampleData.fastaPath,
+                    extensionUri
+                );
+            }
+
+            const resolution = await FileResolver.resolveFilePath(
+                resolvedPath,
+                'FASTA',
+                isDemo,
+                extensionUri
+            );
+
+            if (resolution.resolved && resolution.newPath) {
+                resolvedFastaPath = resolution.newPath;
+            }
+        }
+
+        // Load files via API
+        if (!this._squiggyAPI) {
+            throw new Error('Squiggy API not initialized');
+        }
+
+        // Load POD5 (assuming single POD5 for now)
+        if (resolvedPod5Paths.length > 0) {
+            const pod5Path = resolvedPod5Paths[0];
+            const pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
+            this._currentPod5File = pod5Path;
+
+            // Get first 1000 read IDs for reads view (lazy loading)
+            const readIds = await this._squiggyAPI.getReadIds(0, 1000);
+            if (readIds.length > 0) {
+                this._readsViewPane?.setReads(readIds);
+            }
+
+            // Update file panel and plot options
+            if (this._filePanelProvider) {
+                const fs = await import('fs/promises');
+                const stats = await fs.stat(pod5Path);
+                this._filePanelProvider.setPOD5({
+                    path: pod5Path,
+                    numReads: pod5Result.numReads,
+                    size: stats.size,
+                });
+            }
+            this._plotOptionsProvider?.updatePod5Status(true);
+        }
+
+        // Load BAM if present
+        if (resolvedBamPath) {
+            const bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
+            this._currentBamFile = resolvedBamPath;
+
+            // Get references only (lazy loading - don't fetch reads yet)
+            const references = await this._squiggyAPI.getReferences();
+            const referenceToReads: Record<string, string[]> = {};
+
+            // Build reference count map by getting length for each reference
+            for (const ref of references) {
+                const readCount = (await this._squiggyAPI.client.getVariable(
+                    `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                )) as number;
+                referenceToReads[ref] = new Array(readCount); // Placeholder
+            }
+
+            // Update reads view with references if POD5 was loaded
+            if (resolvedPod5Paths.length > 0 && Object.keys(referenceToReads).length > 0) {
+                const referenceList = Object.entries(referenceToReads).map(
+                    ([referenceName, reads]) => ({
+                        referenceName,
+                        readCount: Array.isArray(reads) ? reads.length : 0,
+                    })
+                );
+                this._readsViewPane?.setReferencesOnly(referenceList);
+            }
+
+            // Update file panel
+            if (this._filePanelProvider) {
+                const fs = await import('fs/promises');
+                const stats = await fs.stat(resolvedBamPath);
+
+                this._filePanelProvider.setBAM({
+                    path: resolvedBamPath,
+                    numReads: bamResult.numReads,
+                    numRefs: Object.keys(referenceToReads).length,
+                    size: stats.size,
+                    hasMods: bamResult.hasModifications,
+                    hasEvents: bamResult.hasEventAlignment,
+                });
+            }
+
+            // Update plot options BAM status
+            if (this._plotOptionsProvider) {
+                this._plotOptionsProvider.updateBamStatus(true);
+            }
+
+            // Update plot options with available references for aggregate plots
+            if (references.length > 0) {
+                this._plotOptionsProvider?.updateReferences(references);
+            }
+        }
+
+        // Load FASTA if present
+        if (resolvedFastaPath) {
+            await this._squiggyAPI.loadFASTA?.(resolvedFastaPath);
+            this._currentFastaFile = resolvedFastaPath;
+
+            // Update file panel
+            if (this._filePanelProvider) {
+                const fs = await import('fs/promises');
+                const stats = await fs.stat(resolvedFastaPath);
+                this._filePanelProvider.setFASTA?.({
+                    path: resolvedFastaPath,
+                    size: stats.size,
+                });
+            }
+        }
+
+        // Add to loaded samples if multi-sample mode
+        if (resolvedPod5Paths.length > 0) {
+            const sampleInfo: SampleInfo = {
+                name: sampleName,
+                pod5Path: resolvedPod5Paths[0],
+                bamPath: resolvedBamPath,
+                fastaPath: resolvedFastaPath,
+                readCount: 0, // Will be populated by loadPOD5
+                hasBam: !!resolvedBamPath,
+                hasFasta: !!resolvedFastaPath,
+            };
+            this._loadedSamples.set(sampleName, sampleInfo);
+        }
+    }
+
+    /**
+     * Load demo session with packaged test data
+     */
+    async loadDemoSession(context: vscode.ExtensionContext): Promise<void> {
+        // Get demo session from manager
+        const demoSession = SessionStateManager.getDemoSession(context.extensionUri);
+
+        // Restore from demo session
+        await this.fromSessionState(demoSession, context);
+
+        vscode.window.showInformationMessage(
+            'Demo session loaded! Explore 180 yeast tRNA reads with base annotations.'
+        );
     }
 }
