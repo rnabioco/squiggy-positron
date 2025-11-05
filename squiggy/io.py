@@ -498,8 +498,9 @@ class SquiggySession:
                 raise FileNotFoundError(f"BAM file not found: {abs_bam_path}")
 
             # Collect all metadata in single pass (optimized)
+            # IMPORTANT: build_ref_mapping=True so TypeScript can query references
             metadata = _collect_bam_metadata_single_pass(
-                Path(abs_bam_path), build_ref_mapping=False
+                Path(abs_bam_path), build_ref_mapping=True
             )
 
             # Build metadata dict
@@ -511,6 +512,7 @@ class SquiggySession:
                 "modification_types": metadata["modification_types"],
                 "has_probabilities": metadata["has_probabilities"],
                 "has_event_alignment": metadata["has_event_alignment"],
+                "ref_mapping": metadata.get("ref_mapping"),  # Include ref mapping for read lookup
             }
 
             sample.bam_path = abs_bam_path
