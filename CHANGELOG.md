@@ -1,6 +1,6 @@
 # Squiggy Release Notes
 
-## v0.1.12-alpha (TBD)
+## v0.1.12-alpha (2025-11-04)
 
 Aggregate plot enhancements with modification heatmaps, dwell time visualization, and improved UI clarity.
 
