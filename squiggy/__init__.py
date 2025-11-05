@@ -470,6 +470,83 @@ def plot_aggregate(
     )
     dwell_stats = calculate_dwell_time_statistics(reads_data)
 
+    # Convert to relative coordinates (1-based) for intuitive visualization
+    import numpy as np
+
+    # Find minimum position across all tracks
+    all_positions = []
+    if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
+        all_positions.extend(list(aggregate_stats["positions"]))
+    if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
+        all_positions.extend(list(pileup_stats["positions"]))
+    if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
+        all_positions.extend(list(quality_stats["positions"]))
+
+    # Store diagnostic info for plot title
+    transformation_info = ""
+
+    if all_positions:
+        min_pos = int(np.min(all_positions))
+        offset = min_pos - 1  # Offset to make positions 1-based
+
+        transformation_info = f"T: o={offset} mp={min_pos}"
+
+        # Transform aggregate_stats
+        if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
+            old = list(aggregate_stats["positions"])
+            aggregate_stats["positions"] = np.array([int(p) - offset for p in old])
+
+        # Transform pileup_stats
+        if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
+            old_positions = list(pileup_stats["positions"])
+            new_positions = np.array([int(p) - offset for p in old_positions])
+            pileup_stats["positions"] = new_positions
+
+            # Remap counts dict - ensure consistent int types
+            old_counts = pileup_stats["counts"]
+            new_counts = {}
+            for p in old_positions:
+                new_p = int(p) - offset
+                # Use int() to ensure Python int type for dictionary keys
+                new_counts[int(new_p)] = old_counts[int(p)]
+            pileup_stats["counts"] = new_counts
+
+            # Remap reference_bases dict
+            if "reference_bases" in pileup_stats:
+                old_ref = pileup_stats["reference_bases"]
+                new_ref = {}
+                for p in old_positions:
+                    old_p = int(p)
+                    if old_p in old_ref:
+                        new_p = int(old_p - offset)
+                        new_ref[new_p] = old_ref[old_p]
+                pileup_stats["reference_bases"] = new_ref
+
+        # Transform quality_stats
+        if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
+            old = list(quality_stats["positions"])
+            quality_stats["positions"] = np.array([int(p) - offset for p in old])
+
+        # Transform modification_stats
+        if modification_stats and modification_stats.get("mod_stats"):
+            mod_stats = modification_stats["mod_stats"]
+            new_mod_stats = {}
+            for mod_code, pos_dict in mod_stats.items():
+                new_mod_stats[mod_code] = {}
+                for p, stats in pos_dict.items():
+                    new_p = int(int(p) - offset)
+                    new_mod_stats[mod_code][new_p] = stats
+            modification_stats["mod_stats"] = new_mod_stats
+
+            if "positions" in modification_stats:
+                old = modification_stats["positions"]
+                modification_stats["positions"] = [int(p) - offset for p in old]
+
+        # Transform dwell_stats
+        if dwell_stats and "positions" in dwell_stats and len(dwell_stats["positions"]) > 0:
+            old = list(dwell_stats["positions"])
+            dwell_stats["positions"] = np.array([int(p) - offset for p in old])
+
     # Prepare data for AggregatePlotStrategy
     data = {
         "aggregate_stats": aggregate_stats,
@@ -479,6 +556,7 @@ def plot_aggregate(
         "dwell_stats": dwell_stats,
         "reference_name": reference_name,
         "num_reads": num_reads,
+        "transformation_info": transformation_info,  # Diagnostic info
     }
 
     options = {

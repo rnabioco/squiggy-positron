@@ -83,6 +83,14 @@ def _parse_alignment(alignment) -> AlignedRead | None:
     stride = int(move_table[0])
     moves = move_table[1:]
 
+    # Build query_pos -> ref_pos mapping using get_aligned_pairs()
+    # This properly handles insertions, deletions, and matches
+    query_to_ref = {}
+    if not alignment.is_unmapped:
+        for query_pos, ref_pos in alignment.get_aligned_pairs():
+            if query_pos is not None and ref_pos is not None:
+                query_to_ref[query_pos] = ref_pos
+
     # Convert move table to base annotations
     bases = []
     signal_pos = 0
@@ -104,10 +112,8 @@ def _parse_alignment(alignment) -> AlignedRead | None:
                     # No next base found, extend to end of signal
                     signal_end = signal_pos + ((len(moves) - move_idx) * stride)
 
-                # Get genomic position if aligned
-                genomic_pos = None
-                if not alignment.is_unmapped and alignment.reference_start is not None:
-                    genomic_pos = alignment.reference_start + base_idx
+                # Get genomic position using aligned_pairs (handles indels correctly)
+                genomic_pos = query_to_ref.get(base_idx)
 
                 # Get quality score
                 quality = None

@@ -164,8 +164,9 @@ class AggregatePlotStrategy(PlotStrategy):
         dwell_stats = data.get("dwell_stats")
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
+        transformation_info = data.get("transformation_info", "")
 
-        # Extract options
+        # Extract options (transformation now happens in plot_aggregate() before this)
         normalization = options.get("normalization", NormalizationMethod.NONE)
         show_modifications = options.get("show_modifications", True)
         show_pileup = options.get("show_pileup", True)
@@ -195,7 +196,9 @@ class AggregatePlotStrategy(PlotStrategy):
         # Create pileup track if enabled
         if show_pileup:
             p_pileup = self._create_pileup_track(
-                pileup_stats=pileup_stats, motif_positions=motif_positions
+                pileup_stats=pileup_stats,
+                motif_positions=motif_positions,
+                transformation_info=transformation_info,
             )
             panels.append([p_pileup])
             all_figs.append(p_pileup)
@@ -493,24 +496,42 @@ class AggregatePlotStrategy(PlotStrategy):
 
         return fig
 
-    def _create_pileup_track(self, pileup_stats: dict, motif_positions: set = None):
+    def _create_pileup_track(
+        self,
+        pileup_stats: dict,
+        motif_positions: set = None,
+        transformation_info: str = "",
+    ):
         """
         Create base call pileup track with optional motif highlighting
 
         Args:
             pileup_stats: Dictionary containing pileup statistics
             motif_positions: Optional set of genomic positions to highlight as motif matches
+            transformation_info: Diagnostic info about coordinate transformation
         """
+        positions = pileup_stats["positions"]
+        counts = pileup_stats["counts"]
+        reference_bases = pileup_stats.get("reference_bases", {})
+
+        # Build diagnostic title
+        title = "Base Call Pileup"
+        if transformation_info or len(positions) > 0:
+            diag_parts = []
+            if transformation_info:
+                diag_parts.append(transformation_info)
+            if len(positions) > 0:
+                first_pos = int(positions[0])
+                first_key = min(counts.keys()) if counts else 0
+                diag_parts.append(f"p0={first_pos} k={first_key}")
+            title = f"{title} [{' '.join(diag_parts)}]"
+
         fig = self.theme_manager.create_figure(
-            title="Base Call Pileup",
+            title=title,
             x_label="Reference Position",
             y_label="Base Proportion",
             height=300,
         )
-
-        positions = pileup_stats["positions"]
-        counts = pileup_stats["counts"]
-        reference_bases = pileup_stats.get("reference_bases", {})
 
         # Prepare data for stacked bars
         pileup_data = {
@@ -532,12 +553,17 @@ class AggregatePlotStrategy(PlotStrategy):
         }
 
         for pos in positions:
-            pos_counts = counts[pos]
+            # Ensure position is Python int for dictionary lookup
+            pos_key = int(pos)
+            pos_counts = counts[pos_key]
             total = sum(pos_counts.values())
+
+            # Only draw bars for positions with coverage
+            # The x value (pos_key) is the reference position, ensuring alignment
             if total > 0:
-                pileup_data["x"].append(pos)
+                pileup_data["x"].append(pos_key)
                 pileup_data["total"].append(total)
-                pileup_data["ref_base"].append(reference_bases.get(pos, ""))
+                pileup_data["ref_base"].append(reference_bases.get(pos_key, ""))
 
                 # Calculate proportions
                 proportions = {}
@@ -557,8 +583,9 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Add stacked bars
         base_colors = self.theme_manager.get_base_colors()
+        renderers = []
         for base in ["A", "C", "G", "T"]:
-            fig.vbar(
+            r = fig.vbar(
                 x="x",
                 bottom=f"{base}_bottom",
                 top=f"{base}_top",
@@ -567,6 +594,23 @@ class AggregatePlotStrategy(PlotStrategy):
                 color=base_colors[base],
                 legend_label=base,
             )
+            renderers.append(r)
+
+        # Add hover tool to show position and base counts
+        hover = HoverTool(
+            renderers=renderers,
+            tooltips=[
+                ("Position", "@x"),
+                ("Reference", "@ref_base"),
+                ("A", "@A{0.0%} (@{total} reads)"),
+                ("C", "@C{0.0%}"),
+                ("G", "@G{0.0%}"),
+                ("T", "@T{0.0%}"),
+                ("Total", "@total reads"),
+            ],
+            mode="mouse",
+        )
+        fig.add_tools(hover)
 
         # Add reference base labels above bars (if available)
         if reference_bases and pileup_data["ref_base"]:

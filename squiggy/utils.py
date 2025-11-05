@@ -978,6 +978,13 @@ def extract_reads_for_reference(
                     if cigar[-1][0] == 4:
                         query_end_offset = cigar[-1][1]
 
+                # Get aligned pairs for proper position mapping (handles indels)
+                # Build query_pos -> ref_pos mapping
+                query_to_ref = {}
+                for query_pos, ref_pos in read.get_aligned_pairs():
+                    if query_pos is not None and ref_pos is not None:
+                        query_to_ref[query_pos] = ref_pos
+
                 reads_info.append(
                     {
                         "read_id": read.query_name,
@@ -990,6 +997,7 @@ def extract_reads_for_reference(
                         "modifications": modifications,
                         "query_start_offset": query_start_offset,  # Soft-clipped bases at start
                         "query_end_offset": query_end_offset,  # Soft-clipped bases at end
+                        "query_to_ref": query_to_ref,  # Query pos -> Ref pos mapping (handles indels)
                     }
                 )
 
@@ -1155,7 +1163,7 @@ def iter_aligned_bases(read: dict):
     - Skipping soft-clipped bases
     - Tracking aligned base index
     - Tracking sequence index
-    - Mapping to reference positions
+    - Mapping to reference positions (correctly handling insertions/deletions)
 
     Args:
         read: Read dict from extract_reads_for_reference()
@@ -1165,7 +1173,7 @@ def iter_aligned_bases(read: dict):
         - move_idx: Index in move table where this base starts
         - base_idx: Index among aligned bases (0-based, excludes soft-clipped)
         - seq_idx: Index in query sequence (includes soft-clipped bases)
-        - ref_pos: Reference genome position
+        - ref_pos: Reference genome position (correctly accounts for indels)
 
     Example:
         >>> for move_idx, base_idx, seq_idx, ref_pos in iter_aligned_bases(read):
@@ -1175,7 +1183,8 @@ def iter_aligned_bases(read: dict):
         >>>     # Map to reference position ref_pos
     """
     moves = read["move_table"]
-    ref_start = read["reference_start"]
+    query_to_ref = read.get("query_to_ref", None)
+    ref_start = read.get("reference_start")
 
     # Get aligned move indices (skips soft-clipped bases)
     aligned_indices, aligned_set = get_aligned_move_indices_from_read(read)
@@ -1192,8 +1201,16 @@ def iter_aligned_bases(read: dict):
             # This is a base position
             if move_idx in aligned_set:
                 # This base is aligned (not soft-clipped)
-                ref_pos = ref_start + base_idx
-                yield move_idx, base_idx, seq_idx, ref_pos
+                if query_to_ref is not None:
+                    # Use query_to_ref mapping which handles insertions/deletions correctly
+                    ref_pos = query_to_ref.get(seq_idx)
+                else:
+                    # Fallback for test/legacy data: assume consecutive positions
+                    # This doesn't handle deletions/insertions correctly!
+                    ref_pos = ref_start + base_idx if ref_start is not None else None
+
+                if ref_pos is not None:
+                    yield move_idx, base_idx, seq_idx, ref_pos
                 base_idx += 1
 
             seq_idx += 1
@@ -1206,7 +1223,12 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
         reads_data: List of read dicts from extract_reads_for_reference()
         mod_filter: Optional dict mapping mod_code -> minimum probability threshold
                    (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications included.
-                   If specified, only modifications with probability >= threshold are included.
+
+                   Filter behavior:
+                   - Disabled modification types (not in filter dict) are excluded entirely
+                   - Only modifications with probability >= threshold are counted
+                   - mean/median/std are calculated from filtered modifications only
+                   - Positions are only output if they have at least one mod >= threshold
 
     Returns:
         Dict with keys:
@@ -1214,18 +1236,30 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
                 {
                     'mod_code': {
                         position: {
-                            'probabilities': [float],  # All probabilities at this position
-                            'mean': float,
-                            'median': float,
-                            'std': float,
-                            'count': int
+                            'probabilities': [float],  # Probabilities >= threshold
+                            'mean': float,              # Mean of filtered probabilities
+                            'median': float,            # Median of filtered probabilities
+                            'std': float,               # Std dev of filtered probabilities
+                            'count': int,               # Count of reads with prob >= threshold
+                            'total_coverage': int,      # Total reads covering this position
+                            'frequency': float          # count / total_coverage
                         }
                     }
                 }
-            - positions: Sorted list of all positions with modifications
+            - positions: Sorted list of all positions with modifications >= threshold
+
+    Example interpretation:
+        frequency=0.03, mean=0.92, count=3, total_coverage=100
+        → "3% of reads are modified (3 out of 100)"
+        → "Among those 3 modified reads, average probability is 0.92"
     """
     # Map genomic_pos -> mod_code -> list of probabilities
-    position_mods = {}
+    # We collect TWO sets of data:
+    # 1. position_mods_all: ALL probabilities (kept for reference, not used in stats)
+    # 2. position_mods_filtered: Only probabilities >= threshold (used for ALL statistics)
+    # This ensures frequency and mean probability use the same denominator
+    position_mods_all = {}
+    position_mods_filtered = {}
 
     for read in reads_data:
         modifications = read.get("modifications", [])
@@ -1239,58 +1273,73 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
             # Convert mod_code to string for consistent comparison with filter keys
             mod_code_str = str(mod_code)
 
-            # Apply mod_filter if specified
-            if mod_filter is not None:
-                # Skip if mod_code not in filter (user disabled it)
-                if mod_code_str not in mod_filter:
-                    continue
-                # Skip if probability below threshold
-                if mod.probability < mod_filter[mod_code_str]:
-                    continue
+            # Skip if mod_code not in filter (user disabled this modification type)
+            if mod_filter is not None and mod_code_str not in mod_filter:
+                continue
 
-            if pos not in position_mods:
-                position_mods[pos] = {}
-            if mod_code not in position_mods[pos]:
-                position_mods[pos][mod_code] = []
+            # Always add to ALL probabilities (for unbiased statistics)
+            if pos not in position_mods_all:
+                position_mods_all[pos] = {}
+            if mod_code not in position_mods_all[pos]:
+                position_mods_all[pos][mod_code] = []
+            position_mods_all[pos][mod_code].append(mod.probability)
 
-            position_mods[pos][mod_code].append(mod.probability)
+            # Add to filtered probabilities only if meets threshold
+            # This is used for count and frequency calculations
+            if mod_filter is None or mod.probability >= mod_filter[mod_code_str]:
+                if pos not in position_mods_filtered:
+                    position_mods_filtered[pos] = {}
+                if mod_code not in position_mods_filtered[pos]:
+                    position_mods_filtered[pos][mod_code] = []
+                position_mods_filtered[pos][mod_code].append(mod.probability)
 
     # Calculate total coverage per position (all reads, not just modified ones)
     position_coverage = {}
     for read in reads_data:
-        ref_positions = read.get("ref_positions", [])
-        for pos in ref_positions:
-            if pos not in position_coverage:
-                position_coverage[pos] = 0
-            position_coverage[pos] += 1
+        # Generate reference positions from the alignment range
+        # reference_start and reference_end are from pysam and already account for soft-clipping
+        ref_start = read.get("reference_start")
+        ref_end = read.get("reference_end")
+
+        if ref_start is not None and ref_end is not None:
+            # Iterate over all reference positions covered by this read
+            for pos in range(ref_start, ref_end):
+                if pos not in position_coverage:
+                    position_coverage[pos] = 0
+                position_coverage[pos] += 1
 
     # Calculate statistics per position/mod_type
+    # Only process positions that have at least one modification >= threshold
+    # Calculate mean/median/std from FILTERED probabilities (>= threshold only)
+    # This ensures frequency and mean probability use the same denominator
     mod_stats = {}
     all_positions = set()
 
-    for pos, mod_dict in position_mods.items():
+    for pos, mod_dict_filtered in position_mods_filtered.items():
         all_positions.add(pos)
         total_coverage = position_coverage.get(pos, 0)
 
-        for mod_code, probabilities in mod_dict.items():
+        for mod_code, probabilities_filtered in mod_dict_filtered.items():
             if mod_code not in mod_stats:
                 mod_stats[mod_code] = {}
 
-            # Calculate statistics
-            probs_array = np.array(probabilities)
-            mod_count = len(probabilities)
+            # Calculate statistics from filtered probabilities (>= threshold only)
+            # This makes mean/median/std consistent with frequency
+            # Interpretation: "Among high-confidence modified reads, what's the average probability?"
+            probs_array_filtered = np.array(probabilities_filtered)
+            mod_count = len(probabilities_filtered)
 
-            # Calculate modification frequency (fraction of reads with this mod)
+            # Calculate modification frequency (fraction of reads with high-confidence mod)
             frequency = mod_count / total_coverage if total_coverage > 0 else 0.0
 
             mod_stats[mod_code][pos] = {
-                "probabilities": probabilities,
-                "mean": float(np.mean(probs_array)),
-                "median": float(np.median(probs_array)),
-                "std": float(np.std(probs_array)),
-                "count": mod_count,
+                "probabilities": probabilities_filtered,  # Store filtered for reference
+                "mean": float(np.mean(probs_array_filtered)),  # Mean of filtered only
+                "median": float(np.median(probs_array_filtered)),  # Median of filtered
+                "std": float(np.std(probs_array_filtered)),  # Std of filtered
+                "count": mod_count,  # Count of filtered (>= threshold)
                 "total_coverage": total_coverage,
-                "frequency": float(frequency),
+                "frequency": float(frequency),  # Frequency based on filtered count
             }
 
     result = {
@@ -1521,6 +1570,9 @@ def calculate_base_pileup(
                     position_bases[ref_pos][base] = 0
                 position_bases[ref_pos][base] += 1
 
+    # Only include positions that have actual coverage
+    # The x-axis will automatically span the correct range, and bars will be
+    # at their correct reference positions
     positions = sorted(position_bases.keys())
 
     result = {
