@@ -476,16 +476,26 @@ squiggy.load_sample(
         code += `\n)`;
 
         try {
+            console.log(`[loadSample] Starting to load sample '${sampleName}' with POD5: ${pod5Path}${bamPath ? ` BAM: ${bamPath}` : ''}`);
+            const startTime = Date.now();
+
             // Load sample silently
+            console.log(`[loadSample] Executing Python code to load sample...`);
             await this._client.executeSilent(code);
+            const executeSilentTime = Date.now();
+            console.log(`[loadSample] executeSilent completed in ${executeSilentTime - startTime}ms`);
 
             // Get read count for this sample
+            console.log(`[loadSample] Querying read count for sample '${sampleName}'...`);
             const numReads = await this._client.getVariable(
                 `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
             );
+            const queryTime = Date.now();
+            console.log(`[loadSample] Got ${numReads} reads in ${queryTime - executeSilentTime}ms (total: ${queryTime - startTime}ms)`);
 
             return { numReads: numReads as number };
         } catch (error) {
+            console.error(`[loadSample] Error loading sample '${sampleName}':`, error);
             throw new Error(`Failed to load sample '${sampleName}': ${error}`);
         }
     }
@@ -593,6 +603,9 @@ squiggy.remove_sample('${escapedName}')
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
+            console.log(`[getReadIdsForSample] Fetching read IDs for sample '${sampleName}'...`);
+            const startTime = Date.now();
+
             // Extract read IDs safely without trying to serialize the Sample object
             const code = `
 _sample = _squiggy_session.get_sample('${escapedName}')
@@ -600,7 +613,10 @@ _read_ids = _sample.read_ids if _sample else []
 _read_ids
 `;
             const readIds = await this._client.getVariable(code);
-            return (readIds as string[]) || [];
+            const elapsed = Date.now() - startTime;
+            const readIdArray = (readIds as string[]) || [];
+            console.log(`[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`);
+            return readIdArray;
         } catch (error) {
             console.warn(`Failed to get read IDs for sample '${sampleName}':`, error);
             return [];
