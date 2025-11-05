@@ -1002,6 +1002,21 @@ squiggy.close_fasta()
 
         // Add to loaded samples if multi-sample mode
         if (resolvedPod5Paths.length > 0) {
+            // CRITICAL: Load sample into Python registry so TypeScript queries work
+            try {
+                console.log(`[restoreSample] Loading sample '${sampleName}' into Python registry...`);
+                await this._squiggyAPI.loadSample(
+                    sampleName,
+                    resolvedPod5Paths[0],
+                    resolvedBamPath,
+                    resolvedFastaPath
+                );
+                console.log(`[restoreSample] Sample '${sampleName}' successfully loaded into Python registry`);
+            } catch (error) {
+                console.error(`[restoreSample] Failed to load sample into Python registry:`, error);
+                // Continue anyway - sample is in TypeScript state
+            }
+
             const sampleInfo: SampleInfo = {
                 // Core identifiers
                 sampleId: `sample:${sampleName}`, // Consistent with LoadedItem ID format
