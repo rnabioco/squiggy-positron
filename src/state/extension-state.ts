@@ -17,6 +17,7 @@ import { FilePanelProvider } from '../views/squiggy-file-panel';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
 import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
 import { SessionState, SampleSessionState } from '../types/squiggy-session-types';
+import { LoadedItem } from '../types/loaded-item';
 import { SessionStateManager } from './session-state-manager';
 import { PathResolver } from './path-resolver';
 import { FileResolver } from './file-resolver';
@@ -69,6 +70,17 @@ export class ExtensionState {
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
     private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
+
+    // ========== UNIFIED STATE (Issue #92) ==========
+    // Consolidated registry replacing fragmented state silos
+    private _loadedItems: Map<string, LoadedItem> = new Map();
+    private _selectedItemIds: Set<string> = new Set();
+    private _itemsForComparison: Set<string> = new Set();
+
+    // Event emitters for cross-panel synchronization
+    private _onLoadedItemsChanged: vscode.EventEmitter<LoadedItem[]> = new vscode.EventEmitter();
+    private _onSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
+    private _onComparisonChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -284,6 +296,202 @@ squiggy.close_fasta()
         value: { currentOffset: number; pageSize: number; totalReads: number } | undefined
     ) {
         this._pod5LoadContext = value;
+    }
+
+    // ========== UNIFIED STATE EVENTS (Issue #92) ==========
+
+    /**
+     * Event fired when loaded items change (add/remove)
+     * Listened to by: File Panel, Samples Panel, Reads View, etc.
+     */
+    get onLoadedItemsChanged(): vscode.Event<LoadedItem[]> {
+        return this._onLoadedItemsChanged.event;
+    }
+
+    /**
+     * Event fired when selection changes
+     * Listened to by: UI panels for local selection state
+     */
+    get onSelectionChanged(): vscode.Event<string[]> {
+        return this._onSelectionChanged.event;
+    }
+
+    /**
+     * Event fired when comparison selection changes
+     * Listened to by: Samples Panel for comparison mode
+     */
+    get onComparisonChanged(): vscode.Event<string[]> {
+        return this._onComparisonChanged.event;
+    }
+
+    // ========== UNIFIED ITEM MANAGEMENT (Issue #92) ==========
+
+    /**
+     * Add or update a loaded item in the unified registry
+     * Fires onLoadedItemsChanged event to notify all listeners
+     *
+     * @param item - LoadedItem to add or update
+     */
+    addLoadedItem(item: LoadedItem): void {
+        this._loadedItems.set(item.id, item);
+        this._notifyLoadedItemsChanged();
+    }
+
+    /**
+     * Remove a loaded item from the unified registry
+     * Also removes from selection sets and fires notifications
+     *
+     * @param id - Item ID to remove
+     */
+    removeLoadedItem(id: string): void {
+        this._loadedItems.delete(id);
+        // Also remove from selections
+        this._selectedItemIds.delete(id);
+        this._itemsForComparison.delete(id);
+        this._notifyLoadedItemsChanged();
+        this._notifySelectionChanged();
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Get all loaded items
+     * @returns Array of all LoadedItem objects
+     */
+    getLoadedItems(): LoadedItem[] {
+        return Array.from(this._loadedItems.values());
+    }
+
+    /**
+     * Get a specific item by ID
+     * @param id - Item ID
+     * @returns LoadedItem if found, undefined otherwise
+     */
+    getLoadedItem(id: string): LoadedItem | undefined {
+        return this._loadedItems.get(id);
+    }
+
+    /**
+     * Clear all loaded items (e.g., on reset)
+     */
+    clearLoadedItems(): void {
+        this._loadedItems.clear();
+        this._selectedItemIds.clear();
+        this._itemsForComparison.clear();
+        this._notifyLoadedItemsChanged();
+        this._notifySelectionChanged();
+        this._notifyComparisonChanged();
+    }
+
+    // ========== SELECTION MANAGEMENT (Issue #92) ==========
+
+    /**
+     * Update selection in UI (e.g., checkbox clicked)
+     * @param ids - Array of selected item IDs
+     */
+    setSelectedItems(ids: string[]): void {
+        this._selectedItemIds = new Set(ids);
+        this._notifySelectionChanged();
+    }
+
+    /**
+     * Get currently selected items
+     * @returns Array of selected item IDs
+     */
+    getSelectedItems(): string[] {
+        return Array.from(this._selectedItemIds);
+    }
+
+    /**
+     * Toggle selection of an item
+     * @param id - Item ID to toggle
+     */
+    toggleItemSelection(id: string): void {
+        if (this._selectedItemIds.has(id)) {
+            this._selectedItemIds.delete(id);
+        } else {
+            this._selectedItemIds.add(id);
+        }
+        this._notifySelectionChanged();
+    }
+
+    /**
+     * Check if an item is selected
+     * @param id - Item ID to check
+     * @returns true if selected, false otherwise
+     */
+    isItemSelected(id: string): boolean {
+        return this._selectedItemIds.has(id);
+    }
+
+    // ========== COMPARISON MANAGEMENT (Issue #92) ==========
+
+    /**
+     * Update items selected for comparison
+     * @param ids - Array of item IDs for comparison
+     */
+    setComparisonItems(ids: string[]): void {
+        this._itemsForComparison = new Set(ids);
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Get items selected for comparison
+     * @returns Array of item IDs for comparison
+     */
+    getComparisonItems(): string[] {
+        return Array.from(this._itemsForComparison);
+    }
+
+    /**
+     * Add item to comparison selection
+     * @param id - Item ID to add
+     */
+    addToComparison(id: string): void {
+        this._itemsForComparison.add(id);
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Remove item from comparison selection
+     * @param id - Item ID to remove
+     */
+    removeFromComparison(id: string): void {
+        this._itemsForComparison.delete(id);
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Clear comparison selection
+     */
+    clearComparison(): void {
+        this._itemsForComparison.clear();
+        this._notifyComparisonChanged();
+    }
+
+    // ========== PRIVATE NOTIFICATION HELPERS ==========
+
+    /**
+     * Notify all listeners that loaded items changed
+     * @private
+     */
+    private _notifyLoadedItemsChanged(): void {
+        this._onLoadedItemsChanged.fire(this.getLoadedItems());
+    }
+
+    /**
+     * Notify all listeners that selection changed
+     * @private
+     */
+    private _notifySelectionChanged(): void {
+        this._onSelectionChanged.fire(this.getSelectedItems());
+    }
+
+    /**
+     * Notify all listeners that comparison selection changed
+     * @private
+     */
+    private _notifyComparisonChanged(): void {
+        this._onComparisonChanged.fire(this.getComparisonItems());
     }
 
     // ========== Multi-Sample Management (Phase 4) ==========
