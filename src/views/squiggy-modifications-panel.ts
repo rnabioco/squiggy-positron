@@ -33,7 +33,10 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         console.log('[ModificationsPanel] Received message:', message);
 
         if (message.type === 'ready') {
-            console.log('[ModificationsPanel] Webview ready, hasModifications:', this._hasModifications);
+            console.log(
+                '[ModificationsPanel] Webview ready, hasModifications:',
+                this._hasModifications
+            );
             this.updateView();
             return;
         }
@@ -49,7 +52,9 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         // Don't check isVisible here - if we have a view and received 'ready',
         // the webview is ready to receive messages even if not technically "visible" yet
         if (!this._view) {
-            console.log('[ModificationsPanel] updateView: No view available, data will be sent when webview is ready');
+            console.log(
+                '[ModificationsPanel] updateView: No view available, data will be sent when webview is ready'
+            );
             return;
         }
 

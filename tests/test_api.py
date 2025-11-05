@@ -418,3 +418,159 @@ class TestAPIIntegration:
                     return
 
         pytest.skip("No aligned reads with move table found")
+
+
+class TestPlotAggregateFunction:
+    """Tests for plot_aggregate() function"""
+
+    def test_plot_aggregate_requires_pod5_loaded(self):
+        """Test that plot_aggregate requires POD5 file to be loaded"""
+        from squiggy import close_pod5, plot_aggregate
+
+        close_pod5()
+
+        with pytest.raises(ValueError, match="No POD5 file loaded"):
+            plot_aggregate("chr1")
+
+    def test_plot_aggregate_requires_bam_loaded(self, sample_pod5_file):
+        """Test that plot_aggregate requires BAM file to be loaded"""
+        from squiggy import close_bam, load_pod5, plot_aggregate
+
+        load_pod5(str(sample_pod5_file))
+        close_bam()
+
+        with pytest.raises(ValueError, match="No BAM file loaded"):
+            plot_aggregate("chr1")
+
+    def test_plot_aggregate_invalid_reference(self, sample_pod5_file, indexed_bam_file):
+        """Test that plot_aggregate raises error for invalid reference name"""
+        from squiggy import load_bam, load_pod5, plot_aggregate
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        with pytest.raises(ValueError, match="No reads found.*NONEXISTENT_REF"):
+            plot_aggregate("NONEXISTENT_REF")
+
+    def test_plot_aggregate_returns_html(self, sample_pod5_file, indexed_bam_file):
+        """Test that plot_aggregate returns HTML"""
+        import pysam
+
+        from squiggy import load_bam, load_pod5, plot_aggregate
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        # Get a reference name with actual reads from BAM
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            # Find first reference with reads
+            ref_name = None
+            for ref in bam.references:
+                if bam.count(ref) > 0:
+                    ref_name = ref
+                    break
+
+            if ref_name is None:
+                pytest.skip("No references with reads found in BAM file")
+
+        html = plot_aggregate(ref_name, max_reads=10)
+
+        assert isinstance(html, str)
+        assert len(html) > 0
+        assert "<!DOCTYPE html>" in html
+        assert "<html" in html
+        assert "bokeh" in html.lower()
+
+    def test_plot_aggregate_with_transform_coordinates_true(
+        self, sample_pod5_file, indexed_bam_file
+    ):
+        """Test plot_aggregate with transform_coordinates=True anchors to reference"""
+        import pysam
+
+        from squiggy import load_bam, load_pod5, plot_aggregate
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        # Get a reference name with actual reads from BAM
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            ref_name = None
+            for ref in bam.references:
+                if bam.count(ref) > 0:
+                    ref_name = ref
+                    break
+
+            if ref_name is None:
+                pytest.skip("No references with reads found in BAM file")
+
+        html = plot_aggregate(ref_name, max_reads=10, transform_coordinates=True)
+
+        assert isinstance(html, str)
+        assert "bokeh" in html.lower()
+        # Check for transformation info in the HTML
+        assert "Ref-anchored" in html or "Base Call Pileup" in html
+
+    def test_plot_aggregate_with_transform_coordinates_false(
+        self, sample_pod5_file, indexed_bam_file
+    ):
+        """Test plot_aggregate with transform_coordinates=False uses genomic coords"""
+        import pysam
+
+        from squiggy import load_bam, load_pod5, plot_aggregate
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        # Get a reference name with actual reads from BAM
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            ref_name = None
+            for ref in bam.references:
+                if bam.count(ref) > 0:
+                    ref_name = ref
+                    break
+
+            if ref_name is None:
+                pytest.skip("No references with reads found in BAM file")
+
+        html = plot_aggregate(ref_name, max_reads=10, transform_coordinates=False)
+
+        assert isinstance(html, str)
+        assert "bokeh" in html.lower()
+        # With no transformation, should not have transformation info
+        assert "Ref-anchored" not in html
+
+    def test_plot_aggregate_with_options(self, sample_pod5_file, indexed_bam_file):
+        """Test plot_aggregate with various options"""
+        import pysam
+
+        from squiggy import load_bam, load_pod5, plot_aggregate
+
+        load_pod5(str(sample_pod5_file))
+        load_bam(str(indexed_bam_file))
+
+        # Get a reference name with actual reads from BAM
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            ref_name = None
+            for ref in bam.references:
+                if bam.count(ref) > 0:
+                    ref_name = ref
+                    break
+
+            if ref_name is None:
+                pytest.skip("No references with reads found in BAM file")
+
+        html = plot_aggregate(
+            ref_name,
+            max_reads=20,
+            normalization="MEDIAN",
+            theme="DARK",
+            show_modifications=False,
+            show_pileup=True,
+            show_dwell_time=True,
+            show_signal=True,
+            show_quality=True,
+            transform_coordinates=True,
+        )
+
+        assert isinstance(html, str)
+        assert "bokeh" in html.lower()

@@ -377,6 +377,7 @@ def plot_aggregate(
     show_signal: bool = True,
     show_quality: bool = True,
     clip_x_to_alignment: bool = True,
+    transform_coordinates: bool = True,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -402,6 +403,8 @@ def plot_aggregate(
         show_quality: Show quality panel (default True)
         clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
                              If False, x-axis extends to include soft-clipped regions.
+        transform_coordinates: If True, transform to 1-based coordinates anchored to first
+                               reference base (default True). If False, use raw genomic coordinates.
 
     Returns:
         Bokeh HTML string with synchronized tracks
@@ -473,79 +476,96 @@ def plot_aggregate(
     # Convert to relative coordinates (1-based) for intuitive visualization
     import numpy as np
 
-    # Find minimum position across all tracks
-    all_positions = []
-    if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
-        all_positions.extend(list(aggregate_stats["positions"]))
-    if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
-        all_positions.extend(list(pileup_stats["positions"]))
-    if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
-        all_positions.extend(list(quality_stats["positions"]))
-
     # Store diagnostic info for plot title
     transformation_info = ""
 
-    if all_positions:
-        min_pos = int(np.min(all_positions))
-        offset = min_pos - 1  # Offset to make positions 1-based
+    if transform_coordinates:
+        # Anchor to first base of reference sequence (from pileup reference_bases)
+        # This ensures x-axis position 1 = first base of the reference sequence
+        reference_bases = pileup_stats.get("reference_bases", {})
 
-        transformation_info = f"T: o={offset} mp={min_pos}"
+        if reference_bases:
+            # Use first position from reference_bases as anchor
+            min_pos = min(reference_bases.keys())
+        else:
+            # Fallback: find minimum position across all tracks
+            all_positions = []
+            if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
+                all_positions.extend(list(aggregate_stats["positions"]))
+            if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
+                all_positions.extend(list(pileup_stats["positions"]))
+            if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
+                all_positions.extend(list(quality_stats["positions"]))
 
-        # Transform aggregate_stats
-        if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
-            old = list(aggregate_stats["positions"])
-            aggregate_stats["positions"] = np.array([int(p) - offset for p in old])
+            if not all_positions:
+                min_pos = None
+            else:
+                min_pos = int(np.min(all_positions))
 
-        # Transform pileup_stats
-        if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
-            old_positions = list(pileup_stats["positions"])
-            new_positions = np.array([int(p) - offset for p in old_positions])
-            pileup_stats["positions"] = new_positions
+        if min_pos is not None:
+            offset = min_pos - 1  # Offset to make positions 1-based
 
-            # Remap counts dict - ensure consistent int types
-            old_counts = pileup_stats["counts"]
-            new_counts = {}
-            for p in old_positions:
-                new_p = int(p) - offset
-                # Use int() to ensure Python int type for dictionary keys
-                new_counts[int(new_p)] = old_counts[int(p)]
-            pileup_stats["counts"] = new_counts
+            transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
 
-            # Remap reference_bases dict
-            if "reference_bases" in pileup_stats:
-                old_ref = pileup_stats["reference_bases"]
-                new_ref = {}
+            # Transform aggregate_stats
+            if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
+                old = list(aggregate_stats["positions"])
+                aggregate_stats["positions"] = np.array([int(p) - offset for p in old])
+
+            # Transform pileup_stats
+            if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
+                old_positions = list(pileup_stats["positions"])
+                new_positions = np.array([int(p) - offset for p in old_positions])
+                pileup_stats["positions"] = new_positions
+
+                # Remap counts dict - ensure consistent int types
+                old_counts = pileup_stats["counts"]
+                new_counts = {}
                 for p in old_positions:
-                    old_p = int(p)
-                    if old_p in old_ref:
-                        new_p = int(old_p - offset)
-                        new_ref[new_p] = old_ref[old_p]
-                pileup_stats["reference_bases"] = new_ref
+                    new_p = int(p) - offset
+                    # Use int() to ensure Python int type for dictionary keys
+                    new_counts[int(new_p)] = old_counts[int(p)]
+                pileup_stats["counts"] = new_counts
 
-        # Transform quality_stats
-        if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
-            old = list(quality_stats["positions"])
-            quality_stats["positions"] = np.array([int(p) - offset for p in old])
+                # Remap reference_bases dict
+                if "reference_bases" in pileup_stats:
+                    old_ref = pileup_stats["reference_bases"]
+                    new_ref = {}
+                    for p in old_positions:
+                        old_p = int(p)
+                        if old_p in old_ref:
+                            new_p = int(old_p - offset)
+                            new_ref[new_p] = old_ref[old_p]
+                    pileup_stats["reference_bases"] = new_ref
 
-        # Transform modification_stats
-        if modification_stats and modification_stats.get("mod_stats"):
-            mod_stats = modification_stats["mod_stats"]
-            new_mod_stats = {}
-            for mod_code, pos_dict in mod_stats.items():
-                new_mod_stats[mod_code] = {}
-                for p, stats in pos_dict.items():
-                    new_p = int(int(p) - offset)
-                    new_mod_stats[mod_code][new_p] = stats
-            modification_stats["mod_stats"] = new_mod_stats
+            # Transform quality_stats
+            if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
+                old = list(quality_stats["positions"])
+                quality_stats["positions"] = np.array([int(p) - offset for p in old])
 
-            if "positions" in modification_stats:
-                old = modification_stats["positions"]
-                modification_stats["positions"] = [int(p) - offset for p in old]
+            # Transform modification_stats
+            if modification_stats and modification_stats.get("mod_stats"):
+                mod_stats = modification_stats["mod_stats"]
+                new_mod_stats = {}
+                for mod_code, pos_dict in mod_stats.items():
+                    new_mod_stats[mod_code] = {}
+                    for p, stats in pos_dict.items():
+                        new_p = int(int(p) - offset)
+                        new_mod_stats[mod_code][new_p] = stats
+                modification_stats["mod_stats"] = new_mod_stats
 
-        # Transform dwell_stats
-        if dwell_stats and "positions" in dwell_stats and len(dwell_stats["positions"]) > 0:
-            old = list(dwell_stats["positions"])
-            dwell_stats["positions"] = np.array([int(p) - offset for p in old])
+                if "positions" in modification_stats:
+                    old = modification_stats["positions"]
+                    modification_stats["positions"] = [int(p) - offset for p in old]
+
+            # Transform dwell_stats
+            if (
+                dwell_stats
+                and "positions" in dwell_stats
+                and len(dwell_stats["positions"]) > 0
+            ):
+                old = list(dwell_stats["positions"])
+                dwell_stats["positions"] = np.array([int(p) - offset for p in old])
 
     # Prepare data for AggregatePlotStrategy
     data = {

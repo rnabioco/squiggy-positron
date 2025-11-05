@@ -256,8 +256,18 @@ class AggregatePlotStrategy(PlotStrategy):
                     ]
 
                     if len(high_coverage_positions) > 0:
-                        # Use the consensus alignment region
-                        start_pos = high_coverage_positions[0]
+                        # Check if coordinates were transformed to be reference-anchored
+                        is_transformed = bool(transformation_info)
+
+                        if is_transformed:
+                            # For transformed coordinates: always start at position 1
+                            # Position 1 represents the first base of the reference sequence
+                            start_pos = 1
+                        else:
+                            # For genomic coordinates: use original high-coverage clipping
+                            start_pos = high_coverage_positions[0]
+
+                        # End position: clip to last high-coverage position (both modes)
                         end_pos = high_coverage_positions[-1]
                     else:
                         # Fallback to all positions if threshold filters everything
@@ -516,15 +526,8 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Build diagnostic title
         title = "Base Call Pileup"
-        if transformation_info or len(positions) > 0:
-            diag_parts = []
-            if transformation_info:
-                diag_parts.append(transformation_info)
-            if len(positions) > 0:
-                first_pos = int(positions[0])
-                first_key = min(counts.keys()) if counts else 0
-                diag_parts.append(f"p0={first_pos} k={first_key}")
-            title = f"{title} [{' '.join(diag_parts)}]"
+        if transformation_info:
+            title = f"{title} [{transformation_info}]"
 
         fig = self.theme_manager.create_figure(
             title=title,

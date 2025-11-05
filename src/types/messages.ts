@@ -158,6 +158,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showSignal: boolean;
     showQuality: boolean;
     clipXAxisToAlignment: boolean;
+    transformCoordinates: boolean;
 }
 
 export interface PlotOptions {
@@ -170,6 +171,7 @@ export interface PlotOptions {
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment?: boolean;
+    transformCoordinates?: boolean;
     // Aggregate-specific options
     aggregateReference?: string;
     aggregateMaxReads?: number;

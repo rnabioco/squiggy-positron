@@ -271,7 +271,8 @@ if '_squiggy_plot_error' in globals():
         showDwellTime: boolean = true,
         showSignal: boolean = true,
         showQuality: boolean = true,
-        clipXAxisToAlignment: boolean = true
+        clipXAxisToAlignment: boolean = true,
+        transformCoordinates: boolean = true
     ): Promise<void> {
         // Escape single quotes in reference name for Python string
         const escapedRefName = referenceName.replace(/'/g, "\\'");
@@ -297,7 +298,8 @@ squiggy.plot_aggregate(
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
-    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'}
 )
 `;
 

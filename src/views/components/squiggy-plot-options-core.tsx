@@ -17,6 +17,7 @@ interface PlotOptionsState {
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment: boolean;
+    transformCoordinates: boolean;
     hasPod5: boolean;
     hasBam: boolean;
     // Aggregate-specific
@@ -40,6 +41,7 @@ export const PlotOptionsCore: React.FC = () => {
         downsample: 5,
         showSignalPoints: false,
         clipXAxisToAlignment: true,
+        transformCoordinates: true,
         hasPod5: false,
         hasBam: false,
         // Aggregate defaults
@@ -75,6 +77,8 @@ export const PlotOptionsCore: React.FC = () => {
                         showSignalPoints: message.options.showSignalPoints,
                         clipXAxisToAlignment:
                             message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
+                        transformCoordinates:
+                            message.options.transformCoordinates ?? prev.transformCoordinates,
                         aggregateReference:
                             message.options.aggregateReference || prev.aggregateReference,
                         aggregateMaxReads:
@@ -221,6 +225,7 @@ export const PlotOptionsCore: React.FC = () => {
             showSignal: options.showSignal,
             showQuality: options.showQuality,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
+            transformCoordinates: options.transformCoordinates,
         });
     };
 
@@ -505,6 +510,36 @@ export const PlotOptionsCore: React.FC = () => {
                             }}
                         >
                             Focus on high-coverage region (uncheck to show full reference range)
+                        </div>
+
+                        {/* Transform Coordinates */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="transformCoordinatesAggregate"
+                                checked={options.transformCoordinates}
+                                onChange={handleCheckboxChange('transformCoordinates')}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label
+                                htmlFor="transformCoordinatesAggregate"
+                                style={{ fontSize: '0.9em' }}
+                            >
+                                Transform to relative coordinates
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Anchor position 1 to first reference base (uncheck to use genomic
+                            coordinates)
                         </div>
                     </div>
 

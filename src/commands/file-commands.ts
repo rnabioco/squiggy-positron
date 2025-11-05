@@ -541,8 +541,16 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
             }
 
             // Update modifications panel and context
-            console.log('[file-commands] BAM loaded, hasModifications:', hasModifications, 'types:', modificationTypes);
-            console.log('[file-commands] modificationsProvider exists:', !!state.modificationsProvider);
+            console.log(
+                '[file-commands] BAM loaded, hasModifications:',
+                hasModifications,
+                'types:',
+                modificationTypes
+            );
+            console.log(
+                '[file-commands] modificationsProvider exists:',
+                !!state.modificationsProvider
+            );
 
             if (hasModifications) {
                 console.log('[file-commands] Setting squiggy.hasModifications context to true');
@@ -553,7 +561,11 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                     true
                 );
                 // Then update the panel data (panel is now visible)
-                console.log('[file-commands] Calling setModificationInfo with:', modificationTypes, hasProbabilities);
+                console.log(
+                    '[file-commands] Calling setModificationInfo with:',
+                    modificationTypes,
+                    hasProbabilities
+                );
                 state.modificationsProvider?.setModificationInfo(
                     hasModifications,
                     modificationTypes,

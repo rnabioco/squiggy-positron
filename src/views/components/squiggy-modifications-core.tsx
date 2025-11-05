@@ -222,9 +222,7 @@ export const ModificationsCore: React.FC = () => {
                     color: 'var(--vscode-foreground)',
                 }}
             >
-                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                    Aggregate plots show:
-                </div>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Aggregate plots show:</div>
                 <ul style={{ marginTop: '4px', marginBottom: '0', paddingLeft: '20px' }}>
                     <li style={{ marginBottom: '4px' }}>
                         <strong>Frequency:</strong> % of reads modified at each position
