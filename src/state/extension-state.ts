@@ -102,6 +102,7 @@ export class ExtensionState {
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
     private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
+    private _selectedReadExplorerSample: string | null = null; // Currently selected sample in Read Explorer
 
     // ========== UNIFIED STATE (Issue #92) ==========
     // Consolidated registry replacing fragmented state silos
@@ -296,6 +297,14 @@ squiggy.close_fasta()
 
     set currentPlotReadIds(value: string[] | undefined) {
         this._currentPlotReadIds = value;
+    }
+
+    get selectedReadExplorerSample(): string | null {
+        return this._selectedReadExplorerSample;
+    }
+
+    set selectedReadExplorerSample(value: string | null) {
+        this._selectedReadExplorerSample = value;
     }
 
     get squiggyInstallChecked(): boolean {

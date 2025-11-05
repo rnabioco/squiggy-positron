@@ -80,6 +80,11 @@ export interface LoadMoreReadsMessage extends BaseMessage {
     type: 'loadMore';
 }
 
+export interface SelectReadExplorerSampleMessage extends BaseMessage {
+    type: 'selectSample';
+    sampleName: string;
+}
+
 export interface ExpandReferenceMessage extends BaseMessage {
     type: 'expandReference';
     referenceName: string;
@@ -118,18 +123,26 @@ export interface SetLoadingMessage extends BaseMessage {
     message?: string;
 }
 
+export interface SetAvailableSamplesMessage extends BaseMessage {
+    type: 'setAvailableSamples';
+    samples: string[];
+    selectedSample: string | null;
+}
+
 export type ReadsViewIncomingMessage =
     | PlotReadMessage
     | PlotAggregateMessage
     | LoadMoreReadsMessage
     | ExpandReferenceMessage
+    | SelectReadExplorerSampleMessage
     | ReadyMessage;
 export type ReadsViewOutgoingMessage =
     | UpdateReadsMessage
     | SetReferencesOnlyMessage
     | AppendReadsMessage
     | SetReadsForReferenceMessage
-    | SetLoadingMessage;
+    | SetLoadingMessage
+    | SetAvailableSamplesMessage;
 
 // ========== Plot Options Messages ==========
 

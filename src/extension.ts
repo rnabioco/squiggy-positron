@@ -33,7 +33,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create and register UI panel providers
     const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
     const filePanelProvider = new FilePanelProvider(context.extensionUri, state);
-    const readsViewPane = new ReadsViewPane(context.extensionUri);
+    const readsViewPane = new ReadsViewPane(context.extensionUri, state);
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
@@ -114,10 +114,21 @@ export async function activate(context: vscode.ExtensionContext) {
             try {
                 // Call Python to remove sample
                 await state.squiggyAPI.removeSample(sampleName);
+
                 // Update extension state
                 state.removeSample(sampleName);
-                // Refresh panel
+                state.removeLoadedItem(`sample:${sampleName}`);
+
+                // If this was the selected sample in Read Explorer, clear selection and reset view
+                if (state.selectedReadExplorerSample === sampleName) {
+                    state.selectedReadExplorerSample = null;
+                    readsViewPane?.setReads([]);
+                }
+
+                // Refresh panels
                 samplesProvider.refresh();
+                readsViewPane?.refresh();
+
                 vscode.window.showInformationMessage(`Sample '${sampleName}' unloaded`);
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to unload sample: ${error}`);

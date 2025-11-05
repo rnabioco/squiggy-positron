@@ -236,6 +236,14 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
+    const handleAddFastaForSample = (sampleName: string) => {
+        // For now, this sets the session-level FASTA which applies to all samples
+        // Future enhancement: implement per-sample FASTA selection
+        vscode.postMessage({
+            type: 'requestSetSessionFasta',
+        });
+    };
+
     // Unused utility functions - reserved for future file size display feature
     // const formatFileSize = (bytes: number): string => {
     //     if (bytes === 0) return '0 B';
@@ -748,6 +756,7 @@ export const SamplesCore: React.FC = () => {
                                                             </div>
                                                         ) : (
                                                             <button
+                                                                onClick={() => handleAddFastaForSample(sample.name)}
                                                                 style={{
                                                                     width: '100%',
                                                                     padding: '4px',

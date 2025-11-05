@@ -582,6 +582,91 @@ squiggy.remove_sample('${escapedName}')
     }
 
     /**
+     * Get read IDs for a specific sample from the multi-sample registry
+     *
+     * @param sampleName - Name of the sample
+     * @returns Array of read IDs in that sample
+     */
+    async getReadIdsForSample(sampleName: string): Promise<string[]> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            // Extract read IDs safely without trying to serialize the Sample object
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+_read_ids = _sample.read_ids if _sample else []
+_read_ids
+`;
+            const readIds = await this._client.getVariable(code);
+            return (readIds as string[]) || [];
+        } catch (error) {
+            console.warn(`Failed to get read IDs for sample '${sampleName}':`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Get reference names for a specific sample from the multi-sample registry
+     *
+     * @param sampleName - Name of the sample
+     * @returns Array of reference names from that sample's BAM
+     */
+    async getReferencesForSample(sampleName: string): Promise<string[]> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            // Extract reference names from the sample's BAM without serializing the Sample object
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
+    _refs = list(_sample.bam_info['ref_mapping'].keys())
+else:
+    _refs = []
+_refs
+`;
+            const references = await this._client.getVariable(code);
+            return (references as string[]) || [];
+        } catch (error) {
+            console.warn(`Failed to get references for sample '${sampleName}':`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Get read IDs for a specific reference within a specific sample
+     *
+     * @param sampleName - Name of the sample
+     * @param referenceName - Name of the reference
+     * @returns Array of read IDs aligned to that reference
+     */
+    async getReadsForReferenceSample(
+        sampleName: string,
+        referenceName: string
+    ): Promise<string[]> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        try {
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
+    _reads = _sample.bam_info['ref_mapping'].get('${escapedRef}', [])
+else:
+    _reads = []
+_reads
+`;
+            const readIds = await this._client.getVariable(code);
+            return (readIds as string[]) || [];
+        } catch (error) {
+            console.warn(
+                `Failed to get reads for reference '${referenceName}' in sample '${sampleName}':`,
+                error
+            );
+            return [];
+        }
+    }
+
+    /**
      * Generate a delta comparison plot between two or more samples
      * Shows differences in aggregate statistics between samples (B - A)
      *

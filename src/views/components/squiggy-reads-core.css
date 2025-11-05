@@ -117,3 +117,48 @@
     background-color: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
 }
+
+/* Sample selector */
+.reads-sample-selector {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background-color: var(--vscode-sideBar-background);
+    gap: 8px;
+}
+
+.reads-sample-selector label {
+    color: var(--vscode-foreground);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.reads-sample-select {
+    flex: 1;
+    padding: 4px 8px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 3px;
+    outline: none;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+}
+
+.reads-sample-select:focus {
+    border-color: var(--vscode-focusBorder);
+}
+
+/* Empty state */
+.reads-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 16px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+}

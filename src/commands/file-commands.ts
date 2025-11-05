@@ -246,6 +246,16 @@ export function registerFileCommands(
             }
         )
     );
+
+    // Load reads for a specific sample (multi-sample support)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.internal.loadReadsForSample',
+            async (sampleName: string) => {
+                await loadReadsForSample(sampleName, state);
+            }
+        )
+    );
 }
 
 /**
@@ -324,6 +334,59 @@ async function expandReference(
             offset,
             result.totalCount
         );
+    } finally {
+        state.readsViewPane?.setLoading(false);
+    }
+}
+
+/**
+ * Load reads for a specific sample from the multi-sample registry
+ */
+async function loadReadsForSample(sampleName: string, state: ExtensionState): Promise<void> {
+    if (!state.usePositron || !state.squiggyAPI) {
+        return;
+    }
+
+    try {
+        // Show loading state
+        state.readsViewPane?.setLoading(true, `Loading reads for sample '${sampleName}'...`);
+
+        // Get read IDs for this sample from the multi-sample registry
+        const readIds = await state.squiggyAPI.getReadIdsForSample(sampleName);
+
+        if (readIds.length === 0) {
+            state.readsViewPane?.setReads([]);
+            vscode.window.showWarningMessage(`No reads found in sample '${sampleName}'`);
+            return;
+        }
+
+        // Check if this sample has a BAM file (references)
+        const references = await state.squiggyAPI.getReferencesForSample(sampleName);
+
+        if (references && references.length > 0) {
+            // Sample has BAM - show references only (lazy load mode)
+            // Count reads per reference
+            const refCounts: { referenceName: string; readCount: number }[] = [];
+
+            for (const refName of references) {
+                const refReads = await state.squiggyAPI.getReadsForReferenceSample(
+                    sampleName,
+                    refName
+                );
+                refCounts.push({
+                    referenceName: refName,
+                    readCount: refReads.length,
+                });
+            }
+
+            state.readsViewPane?.setReferencesOnly(refCounts);
+        } else {
+            // Sample has only POD5 - show flat list of reads
+            state.readsViewPane?.setReads(readIds);
+        }
+    } catch (error) {
+        console.error(`Failed to load reads for sample '${sampleName}':`, error);
+        vscode.window.showErrorMessage(`Failed to load reads for sample: ${error}`);
     } finally {
         state.readsViewPane?.setLoading(false);
     }
@@ -1081,6 +1144,18 @@ async function loadSamplesFromDropped(
                             sourceType: 'manual',
                         },
                     });
+
+                    // Auto-select and load reads in Read Explorer for first sample
+                    // or on user's first interaction (state.selectedReadExplorerSample will be set later)
+                    if (!state.selectedReadExplorerSample) {
+                        state.selectedReadExplorerSample = sampleName;
+                        // Trigger async read loading (don't await to avoid blocking the UI)
+                        Promise.resolve(
+                            vscode.commands.executeCommand('squiggy.internal.loadReadsForSample', sampleName)
+                        ).catch((err: unknown) => {
+                            console.error(`Failed to auto-load reads for sample '${sampleName}':`, err);
+                        });
+                    }
 
                     results.successful++;
                 },
