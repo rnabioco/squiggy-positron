@@ -28,6 +28,23 @@ export interface BAMLoadResult {
 }
 
 /**
+ * Result from loading a sample (POD5 + optional BAM/FASTA)
+ */
+export interface SampleLoadResult {
+    name: string;
+    numReads: number;
+    hasBAM: boolean;
+    hasFASTA: boolean;
+    bamNumReads?: number;
+    bamInfo?: {
+        hasModifications: boolean;
+        modificationTypes: string[];
+        hasProbabilities: boolean;
+        hasEventAlignment: boolean;
+    };
+}
+
+/**
  * High-level API for squiggy operations in the Python kernel
  */
 export class SquiggyRuntimeAPI {

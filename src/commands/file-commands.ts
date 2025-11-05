@@ -1029,19 +1029,15 @@ async function loadSamplesFromDropped(
                         }
                     }
 
-                    // Use FileLoadingService for consistent loading
+                    // Use FileLoadingService to load sample into multi-sample registry
+                    // This enables multi-sample comparisons by storing samples in the Python registry
                     const service = new FileLoadingService(state);
-                    const fileResults = await service.loadSample(
+                    const sampleResult = await service.loadSampleIntoRegistry(
+                        sampleName,
                         pod5Path,
                         bamPath,
                         state.sessionFastaPath || undefined
                     );
-
-                    if (!fileResults.pod5Result.success) {
-                        throw new Error(
-                            fileResults.pod5Result.error || 'Failed to load POD5'
-                        );
-                    }
 
                     // Create LoadedItem for unified state
                     const item: LoadedItem = {
@@ -1051,15 +1047,13 @@ async function loadSamplesFromDropped(
                         pod5Path,
                         bamPath,
                         fastaPath: state.sessionFastaPath || undefined,
-                        readCount: fileResults.pod5Result.readCount,
-                        fileSize: fileResults.pod5Result.fileSize,
-                        fileSizeFormatted: fileResults.pod5Result.fileSizeFormatted,
-                        hasAlignments: fileResults.bamResult?.success ?? false,
-                        hasReference: fileResults.fastaResult?.success ?? false,
-                        hasMods:
-                            (fileResults.bamResult as BAMLoadResult)?.hasModifications ?? false,
-                        hasEvents:
-                            (fileResults.bamResult as BAMLoadResult)?.hasEventAlignment ?? false,
+                        readCount: sampleResult.numReads,
+                        fileSize: 0, // File size metadata not available from registry
+                        fileSizeFormatted: 'Unknown',
+                        hasAlignments: sampleResult.hasBAM ?? false,
+                        hasReference: sampleResult.hasFASTA ?? false,
+                        hasMods: sampleResult.bamInfo?.hasModifications ?? false,
+                        hasEvents: sampleResult.bamInfo?.hasEventAlignment ?? false,
                     };
 
                     // Add to unified state (triggers onLoadedItemsChanged event)
@@ -1072,7 +1066,7 @@ async function loadSamplesFromDropped(
                         pod5Path,
                         bamPath,
                         fastaPath: state.sessionFastaPath || undefined,
-                        readCount: fileResults.pod5Result.readCount,
+                        readCount: sampleResult.numReads,
                         hasBam: !!bamPath,
                         hasFasta: !!state.sessionFastaPath,
                         isLoaded: true,

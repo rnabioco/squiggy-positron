@@ -47,6 +47,10 @@ export class FileLoadingService {
      * Load a sample (POD5 + optional BAM + optional FASTA)
      * Used by Samples Panel to load complete sample bundles
      *
+     * IMPORTANT: This method loads individual files into the global session.
+     * For multi-sample comparisons, use loadSampleIntoRegistry() instead,
+     * which properly registers samples in the Python multi-sample registry.
+     *
      * @param pod5Path - Required POD5 file path
      * @param bamPath - Optional BAM alignment file
      * @param fastaPath - Optional FASTA reference sequence
@@ -83,6 +87,69 @@ export class FileLoadingService {
             bamResult,
             fastaResult,
         };
+    }
+
+    /**
+     * Load a sample into the multi-sample registry (for comparisons)
+     *
+     * This method uses the Python squiggy.load_sample() API to properly register
+     * samples in the _squiggy_session.samples dictionary, enabling multi-sample
+     * comparisons via plot_signal_overlay_comparison() and similar functions.
+     *
+     * CRITICAL: Must be called via squiggyAPI.loadSample() to sync with Python registry.
+     * This is different from loadSample() which loads into the global session.
+     *
+     * @param sampleName - Unique sample identifier (e.g., 'model_v4.2')
+     * @param pod5Path - Required POD5 file path
+     * @param bamPath - Optional BAM alignment file
+     * @param fastaPath - Optional FASTA reference sequence
+     * @returns Sample metadata from registry
+     */
+    async loadSampleIntoRegistry(
+        sampleName: string,
+        pod5Path: string,
+        bamPath?: string,
+        fastaPath?: string
+    ): Promise<any> {
+        // Verify API is available
+        if (!this.state.squiggyAPI) {
+            throw new Error('Squiggy API not initialized');
+        }
+
+        try {
+            // Load sample into registry
+            const pod5Result = await this.state.squiggyAPI.loadSample(
+                sampleName,
+                pod5Path,
+                bamPath,
+                fastaPath
+            );
+
+            // Get full sample metadata from the registry (includes BAM info if loaded)
+            const sampleInfo = await this.state.squiggyAPI.getSampleInfo(sampleName);
+
+            // Build metadata object with BAM info if available
+            const bamInfo = sampleInfo?.bam_info
+                ? {
+                      hasModifications: sampleInfo.bam_info.has_modifications || false,
+                      modificationTypes: sampleInfo.bam_info.modification_types || [],
+                      hasProbabilities: sampleInfo.bam_info.has_probabilities || false,
+                      hasEventAlignment: sampleInfo.bam_info.has_event_alignment || false,
+                  }
+                : undefined;
+
+            // Return comprehensive sample metadata
+            return {
+                numReads: pod5Result.numReads,
+                hasBAM: !!bamPath,
+                hasFASTA: !!fastaPath,
+                bamNumReads: sampleInfo?.bam_info?.num_reads,
+                bamInfo,
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load sample into registry: ${errorMessage}`);
+        }
     }
 
     /**
