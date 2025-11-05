@@ -865,6 +865,39 @@ def get_reference_sequence_for_read(bam_file, read_id):
         raise ValueError(f"Error extracting reference sequence: {str(e)}") from e
 
 
+def get_available_reads_for_reference(bam_file, reference_name):
+    """Count total reads available for a reference in a BAM file
+
+    Args:
+        bam_file: Path to BAM file with alignments
+        reference_name: Name of reference sequence to count reads for
+
+    Returns:
+        Integer count of reads mapping to the reference
+
+    Raises:
+        ValueError: If BAM file cannot be read or reference not found
+    """
+    try:
+        count = 0
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if read.is_unmapped:
+                    continue
+
+                # Check if read maps to the specified reference
+                ref_name = bam.get_reference_name(read.reference_id)
+                if ref_name == reference_name:
+                    count += 1
+
+        return count
+
+    except Exception as e:
+        raise ValueError(
+            f"Error counting reads for reference '{reference_name}': {str(e)}"
+        ) from e
+
+
 def extract_reads_for_reference(
     pod5_file, bam_file, reference_name, max_reads=100, random_sample=True
 ):
@@ -888,6 +921,7 @@ def extract_reads_for_reference(
             - move_table: Move table array
             - stride: Stride value from move table
             - quality_scores: Per-base quality scores
+            - modifications: List of ModificationAnnotation objects
     """
     import random
 
@@ -918,6 +952,32 @@ def extract_reads_for_reference(
                     np.array(read.query_qualities) if read.query_qualities else None
                 )
 
+                # Extract modifications using _parse_alignment
+                modifications = []
+                try:
+                    from .alignment import _parse_alignment
+
+                    aligned_read = _parse_alignment(read)
+                    if aligned_read:
+                        modifications = aligned_read.modifications
+                except Exception:
+                    # Modifications are optional, don't fail if extraction fails
+                    pass
+
+                # Calculate soft-clipped bases at the start and end of the read
+                # This tells us how many bases in the raw signal to skip
+                cigar = read.cigartuples
+                query_start_offset = 0  # Bases to skip at start due to soft clipping
+                query_end_offset = 0  # Bases to skip at end due to soft clipping
+
+                if cigar:
+                    # Check for soft clip at start (operation code 4)
+                    if cigar[0][0] == 4:
+                        query_start_offset = cigar[0][1]
+                    # Check for soft clip at end (operation code 4)
+                    if cigar[-1][0] == 4:
+                        query_end_offset = cigar[-1][1]
+
                 reads_info.append(
                     {
                         "read_id": read.query_name,
@@ -927,6 +987,9 @@ def extract_reads_for_reference(
                         "move_table": moves,
                         "stride": stride,
                         "quality_scores": quality_scores,
+                        "modifications": modifications,
+                        "query_start_offset": query_start_offset,  # Soft-clipped bases at start
+                        "query_end_offset": query_end_offset,  # Soft-clipped bases at end
                     }
                 )
 
@@ -972,6 +1035,362 @@ def extract_reads_for_reference(
         ) from e
 
 
+def calculate_aligned_move_indices(
+    moves: np.ndarray, query_start_offset: int, query_end_offset: int
+) -> tuple[np.ndarray, set[int]]:
+    """
+    Calculate move table indices corresponding to aligned (non-soft-clipped) bases
+
+    This utility function filters a move table to identify which move indices correspond
+    to bases that are actually aligned to the reference (i.e., not soft-clipped).
+
+    BAM files contain soft-clipped bases at the start/end of alignments that don't match
+    the reference. The move table includes moves for ALL bases in the query sequence,
+    including soft-clipped ones. When mapping signal to reference positions, we must
+    skip the soft-clipped bases to avoid incorrect position assignments.
+
+    Args:
+        moves: Move table array (stride already removed, just 0s and 1s)
+               where 1 indicates a new base starts at this signal position
+        query_start_offset: Number of soft-clipped bases at start of alignment
+                           (extracted from CIGAR, e.g., 4S7M3S -> offset=4)
+        query_end_offset: Number of soft-clipped bases at end of alignment
+                         (extracted from CIGAR, e.g., 4S7M3S -> offset=3)
+
+    Returns:
+        Tuple of (aligned_indices_array, aligned_indices_set):
+        - aligned_indices_array: np.ndarray of move table indices for aligned bases only
+        - aligned_indices_set: Set version for O(1) membership testing
+
+    Example:
+        >>> moves = np.array([0, 1, 0, 0, 1, 0, 1, 0, 0, 1])
+        >>> # Bases are at indices: [1, 4, 6, 9] (4 bases total)
+        >>> # CIGAR shows 1S2M1S (1 soft-clip start, 2 matched, 1 soft-clip end)
+        >>> aligned, aligned_set = calculate_aligned_move_indices(
+        ...     moves, query_start_offset=1, query_end_offset=1
+        ... )
+        >>> print(aligned)  # [4, 6] (only the 2 middle aligned bases)
+        >>> print(4 in aligned_set)  # True (base at index 4 is aligned)
+        >>> print(1 in aligned_set)  # False (base at index 1 is soft-clipped)
+
+    Technical Details:
+        Move table format: [stride, move1, move2, ...]
+        - stride: Neural network downsampling factor (5 for DNA, 10-12 for RNA)
+        - moves: Array of 0s and 1s
+          - 1 = New base starts at this signal position
+          - 0 = Signal continues from previous base
+
+        CIGAR codes: 4 = Soft clip, 0 = Match, 1 = Insertion, 2 = Deletion
+
+    References:
+        - Issue #88: Extend soft-clip boundary handling
+        - PR #85: Original fix for signal_overlay_comparison
+        - SAM/BAM spec: https://samtools.github.io/hts-specs/SAMv1.pdf
+    """
+    # Find all indices where move=1 (these are base positions in query sequence)
+    query_base_move_indices = np.where(moves == 1)[0]
+
+    if len(query_base_move_indices) == 0:
+        # No bases found in move table
+        return np.array([], dtype=int), set()
+
+    # Calculate slice indices to exclude soft-clipped bases
+    # Example: If we have 4 bases [1, 4, 6, 9] with offsets (1, 1)
+    #          start_idx=1, end_idx=4-1=3
+    #          Slice [1:3] gives indices [4, 6] (middle 2 bases)
+    start_idx = query_start_offset
+    end_idx = len(query_base_move_indices) - query_end_offset
+
+    # Handle edge case: all bases are soft-clipped
+    if start_idx >= end_idx:
+        return np.array([], dtype=int), set()
+
+    # Slice to get only aligned base indices
+    aligned_indices = query_base_move_indices[start_idx:end_idx]
+
+    # Create set for O(1) membership testing in loops
+    aligned_set = set(aligned_indices)
+
+    return aligned_indices, aligned_set
+
+
+def get_aligned_move_indices_from_read(read: dict) -> tuple[np.ndarray, set[int]]:
+    """
+    Extract aligned move indices from a read dict (convenience wrapper)
+
+    This is a convenience function that extracts the move table and soft-clip offsets
+    from a read dict and calls calculate_aligned_move_indices(). Reduces code
+    duplication in functions that process multiple reads.
+
+    Args:
+        read: Read dict from extract_reads_for_reference() containing:
+              - move_table: np.ndarray of move values
+              - query_start_offset: int (soft-clipped bases at start, default 0)
+              - query_end_offset: int (soft-clipped bases at end, default 0)
+
+    Returns:
+        Tuple of (aligned_indices_array, aligned_indices_set)
+        Same as calculate_aligned_move_indices()
+
+    Example:
+        >>> for read in reads_data:
+        >>>     aligned_indices, aligned_set = get_aligned_move_indices_from_read(read)
+        >>>     if len(aligned_indices) == 0:
+        >>>         continue  # Skip reads with no aligned bases
+        >>>     # Process aligned bases...
+    """
+    moves = read["move_table"]
+    query_start_offset = read.get("query_start_offset", 0)
+    query_end_offset = read.get("query_end_offset", 0)
+
+    return calculate_aligned_move_indices(moves, query_start_offset, query_end_offset)
+
+
+def iter_aligned_bases(read: dict):
+    """
+    Iterate over aligned bases in a read, yielding position information
+
+    This generator yields information about each aligned (non-soft-clipped) base,
+    handling the common pattern of:
+    - Skipping soft-clipped bases
+    - Tracking aligned base index
+    - Tracking sequence index
+    - Mapping to reference positions
+
+    Args:
+        read: Read dict from extract_reads_for_reference()
+
+    Yields:
+        Tuples of (move_idx, base_idx, seq_idx, ref_pos) for each aligned base:
+        - move_idx: Index in move table where this base starts
+        - base_idx: Index among aligned bases (0-based, excludes soft-clipped)
+        - seq_idx: Index in query sequence (includes soft-clipped bases)
+        - ref_pos: Reference genome position
+
+    Example:
+        >>> for move_idx, base_idx, seq_idx, ref_pos in iter_aligned_bases(read):
+        >>>     # Process this aligned base
+        >>>     base = read["sequence"][seq_idx]
+        >>>     qual = read["quality_scores"][seq_idx]
+        >>>     # Map to reference position ref_pos
+    """
+    moves = read["move_table"]
+    ref_start = read["reference_start"]
+
+    # Get aligned move indices (skips soft-clipped bases)
+    aligned_indices, aligned_set = get_aligned_move_indices_from_read(read)
+
+    if len(aligned_indices) == 0:
+        # No aligned bases in this read
+        return
+
+    base_idx = 0  # Index for aligned bases only
+    seq_idx = 0  # Index in query sequence (includes soft-clipped bases)
+
+    for move_idx, move in enumerate(moves):
+        if move == 1:
+            # This is a base position
+            if move_idx in aligned_set:
+                # This base is aligned (not soft-clipped)
+                ref_pos = ref_start + base_idx
+                yield move_idx, base_idx, seq_idx, ref_pos
+                base_idx += 1
+
+            seq_idx += 1
+
+
+def calculate_modification_statistics(reads_data, mod_filter=None):
+    """Calculate aggregate modification statistics across multiple reads
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+        mod_filter: Optional dict mapping mod_code -> minimum probability threshold
+                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications included.
+                   If specified, only modifications with probability >= threshold are included.
+
+    Returns:
+        Dict with keys:
+            - mod_stats: Dict mapping mod_code -> position -> statistics
+                {
+                    'mod_code': {
+                        position: {
+                            'probabilities': [float],  # All probabilities at this position
+                            'mean': float,
+                            'median': float,
+                            'std': float,
+                            'count': int
+                        }
+                    }
+                }
+            - positions: Sorted list of all positions with modifications
+    """
+    # Map genomic_pos -> mod_code -> list of probabilities
+    position_mods = {}
+
+    for read in reads_data:
+        modifications = read.get("modifications", [])
+        for mod in modifications:
+            if mod.genomic_pos is None:
+                continue
+
+            pos = mod.genomic_pos
+            mod_code = mod.mod_code
+
+            # Convert mod_code to string for consistent comparison with filter keys
+            mod_code_str = str(mod_code)
+
+            # Apply mod_filter if specified
+            if mod_filter is not None:
+                # Skip if mod_code not in filter (user disabled it)
+                if mod_code_str not in mod_filter:
+                    continue
+                # Skip if probability below threshold
+                if mod.probability < mod_filter[mod_code_str]:
+                    continue
+
+            if pos not in position_mods:
+                position_mods[pos] = {}
+            if mod_code not in position_mods[pos]:
+                position_mods[pos][mod_code] = []
+
+            position_mods[pos][mod_code].append(mod.probability)
+
+    # Calculate total coverage per position (all reads, not just modified ones)
+    position_coverage = {}
+    for read in reads_data:
+        ref_positions = read.get("ref_positions", [])
+        for pos in ref_positions:
+            if pos not in position_coverage:
+                position_coverage[pos] = 0
+            position_coverage[pos] += 1
+
+    # Calculate statistics per position/mod_type
+    mod_stats = {}
+    all_positions = set()
+
+    for pos, mod_dict in position_mods.items():
+        all_positions.add(pos)
+        total_coverage = position_coverage.get(pos, 0)
+
+        for mod_code, probabilities in mod_dict.items():
+            if mod_code not in mod_stats:
+                mod_stats[mod_code] = {}
+
+            # Calculate statistics
+            probs_array = np.array(probabilities)
+            mod_count = len(probabilities)
+
+            # Calculate modification frequency (fraction of reads with this mod)
+            frequency = mod_count / total_coverage if total_coverage > 0 else 0.0
+
+            mod_stats[mod_code][pos] = {
+                "probabilities": probabilities,
+                "mean": float(np.mean(probs_array)),
+                "median": float(np.median(probs_array)),
+                "std": float(np.std(probs_array)),
+                "count": mod_count,
+                "total_coverage": total_coverage,
+                "frequency": float(frequency),
+            }
+
+    result = {
+        "mod_stats": mod_stats,
+        "positions": sorted(all_positions),
+    }
+
+    return result
+
+
+def calculate_dwell_time_statistics(reads_data):
+    """Calculate aggregate dwell time statistics across multiple reads
+
+    Dwell time is calculated from move tables as the number of signal samples
+    per base divided by the sample rate, giving time in milliseconds.
+
+    Args:
+        reads_data: List of read dicts from extract_reads_for_reference()
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - mean_dwell: Mean dwell time (ms) at each position
+            - std_dwell: Standard deviation (ms) at each position
+            - median_dwell: Median dwell time (ms) at each position
+            - coverage: Number of reads covering each position
+    """
+    # Map reference position -> list of dwell times (in milliseconds)
+    position_dwells = {}
+
+    for read in reads_data:
+        stride = read["stride"]
+        moves = read["move_table"]
+        ref_start = read["reference_start"]
+        sample_rate = read.get("sample_rate", 4000)  # Default 4kHz
+
+        # Get aligned move indices (skips soft-clipped bases)
+        aligned_indices, aligned_set = get_aligned_move_indices_from_read(read)
+
+        if len(aligned_indices) == 0:
+            # No aligned bases in this read (all soft-clipped)
+            continue
+
+        # Calculate dwell time for each aligned base
+        signal_pos = 0
+        base_idx = 0  # Index for aligned bases only
+
+        for move_idx, move in enumerate(moves):
+            if move == 1:
+                # Only process if this base is aligned (not soft-clipped)
+                if move_idx in aligned_set:
+                    # This is an aligned base boundary
+                    # Find end of this base's signal
+                    signal_end = signal_pos + stride  # Default
+
+                    for j in range(move_idx + 1, len(moves)):
+                        if moves[j] == 1:
+                            signal_end = signal_pos + ((j - move_idx) * stride)
+                            break
+                    else:
+                        signal_end = signal_pos + ((len(moves) - move_idx) * stride)
+
+                    # Calculate dwell time in milliseconds
+                    num_samples = signal_end - signal_pos
+                    dwell_ms = (num_samples / sample_rate) * 1000.0
+
+                    # Map to reference position (only for aligned bases)
+                    ref_pos = ref_start + base_idx
+
+                    if ref_pos not in position_dwells:
+                        position_dwells[ref_pos] = []
+                    position_dwells[ref_pos].append(dwell_ms)
+
+                    base_idx += 1  # Only increment for aligned bases
+
+            signal_pos += stride
+
+    # Calculate statistics
+    positions = sorted(position_dwells.keys())
+    mean_dwell = []
+    std_dwell = []
+    median_dwell = []
+    coverage = []
+
+    for pos in positions:
+        dwells = np.array(position_dwells[pos])
+        mean_dwell.append(np.mean(dwells))
+        std_dwell.append(np.std(dwells))
+        median_dwell.append(np.median(dwells))
+        coverage.append(len(dwells))
+
+    return {
+        "positions": np.array(positions),
+        "mean_dwell": np.array(mean_dwell),
+        "std_dwell": np.array(std_dwell),
+        "median_dwell": np.array(median_dwell),
+        "coverage": np.array(coverage),
+    }
+
+
 def calculate_aggregate_signal(reads_data, normalization_method):
     """Calculate aggregate signal statistics aligned to reference positions
 
@@ -985,32 +1404,61 @@ def calculate_aggregate_signal(reads_data, normalization_method):
             - mean_signal: Mean signal at each position
             - std_signal: Standard deviation at each position
             - median_signal: Median signal at each position
-            - coverage: Number of reads covering each position
+            - coverage: Number of unique reads covering each position
     """
     from .normalization import normalize_signal
 
-    # Build a dict mapping reference positions to signal values
+    # Build a dict mapping reference positions to signal values and read IDs
     position_signals = {}
+    position_reads = {}  # Track which reads cover each position
 
     for read in reads_data:
+        read_id = read.get(
+            "read_id", str(id(read))
+        )  # Use read_id if available, else use object id
         # Normalize the signal
         signal = normalize_signal(read["signal"], normalization_method)
         stride = read["stride"]
-        moves = read["move_table"]
+        moves = np.array(read["move_table"], dtype=np.uint8)
         ref_start = read["reference_start"]
 
-        # Map signal to reference positions using move table
-        ref_pos = ref_start
-        sig_idx = 0
+        # Soft-clipped bases: the move table includes moves for ALL signal samples
+        # We need to skip signal samples corresponding to soft-clipped query bases
+        query_start_offset = read.get("query_start_offset", 0)
+        query_end_offset = read.get("query_end_offset", 0)
 
-        for move in moves:
-            if sig_idx < len(signal):
+        # Find indices in move table where move=1 (these correspond to query bases)
+        query_base_move_indices = np.where(moves == 1)[0]
+
+        if len(query_base_move_indices) == 0:
+            # No aligned bases, skip this read
+            continue
+
+        # The first query_start_offset indices are soft-clipped at the start
+        # The last query_end_offset indices are soft-clipped at the end
+        aligned_query_base_indices = query_base_move_indices[
+            query_start_offset : len(query_base_move_indices) - query_end_offset
+        ]
+        aligned_set = set(aligned_query_base_indices)  # For O(1) lookup
+
+        # Map signal to reference positions using move table
+        # Only process aligned (non-soft-clipped) query bases
+        ref_pos = ref_start
+
+        for move_idx in range(len(moves)):
+            move = moves[move_idx]
+            sig_idx = move_idx * stride
+
+            # Only process if this move index corresponds to an aligned query base
+            if move_idx in aligned_set and sig_idx < len(signal):
                 # Add signal value at this reference position
                 if ref_pos not in position_signals:
                     position_signals[ref_pos] = []
+                    position_reads[ref_pos] = set()
                 position_signals[ref_pos].append(signal[sig_idx])
+                position_reads[ref_pos].add(read_id)
 
-            sig_idx += stride
+            # Advance reference position only on move=1
             if move == 1:
                 ref_pos += 1
 
@@ -1026,7 +1474,9 @@ def calculate_aggregate_signal(reads_data, normalization_method):
         mean_signals.append(np.mean(values))
         std_signals.append(np.std(values))
         median_signals.append(np.median(values))
-        coverages.append(len(values))
+        coverages.append(
+            len(position_reads[pos])
+        )  # Count unique reads, not signal samples
 
     return {
         "positions": np.array(positions),
@@ -1059,24 +1509,17 @@ def calculate_base_pileup(
 
     for read in reads_data:
         sequence = read["sequence"]
-        moves = read["move_table"]
-        ref_start = read["reference_start"]
 
-        # Map bases to reference positions using move table
-        ref_pos = ref_start
-        seq_idx = 0
+        # Iterate over aligned bases only (skips soft-clipped bases)
+        for _move_idx, _base_idx, seq_idx, ref_pos in iter_aligned_bases(read):
+            if seq_idx < len(sequence):
+                base = sequence[seq_idx].upper()
 
-        for move in moves:
-            if move == 1:
-                if seq_idx < len(sequence):
-                    base = sequence[seq_idx].upper()
-                    if ref_pos not in position_bases:
-                        position_bases[ref_pos] = {}
-                    if base not in position_bases[ref_pos]:
-                        position_bases[ref_pos][base] = 0
-                    position_bases[ref_pos][base] += 1
-                    seq_idx += 1
-                ref_pos += 1
+                if ref_pos not in position_bases:
+                    position_bases[ref_pos] = {}
+                if base not in position_bases[ref_pos]:
+                    position_bases[ref_pos][base] = 0
+                position_bases[ref_pos][base] += 1
 
     positions = sorted(position_bases.keys())
 
@@ -1162,22 +1605,15 @@ def calculate_quality_by_position(reads_data):
             continue
 
         quality_scores = read["quality_scores"]
-        moves = read["move_table"]
-        ref_start = read["reference_start"]
 
-        # Map quality scores to reference positions using move table
-        ref_pos = ref_start
-        seq_idx = 0
+        # Iterate over aligned bases only (skips soft-clipped bases)
+        for _move_idx, _base_idx, seq_idx, ref_pos in iter_aligned_bases(read):
+            if seq_idx < len(quality_scores):
+                qual = quality_scores[seq_idx]
 
-        for move in moves:
-            if move == 1:
-                if seq_idx < len(quality_scores):
-                    qual = quality_scores[seq_idx]
-                    if ref_pos not in position_qualities:
-                        position_qualities[ref_pos] = []
-                    position_qualities[ref_pos].append(qual)
-                    seq_idx += 1
-                ref_pos += 1
+                if ref_pos not in position_qualities:
+                    position_qualities[ref_pos] = []
+                position_qualities[ref_pos].append(qual)
 
     positions = sorted(position_qualities.keys())
     mean_qualities = []

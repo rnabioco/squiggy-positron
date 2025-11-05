@@ -187,8 +187,39 @@ describe('PositronRuntime', () => {
             });
             positron.runtime.executeCode.mockRejectedValue(new Error('Kernel not ready'));
 
-            await expect(runtime.executeSilent('x = 1')).rejects.toThrow();
-        }, 15000); // Increase timeout for this test
+            // Mock the private ensureKernelReadyViaPolling to use shorter timeout
+            const originalMethod = (runtime as any).ensureKernelReadyViaPolling;
+            (runtime as any).ensureKernelReadyViaPolling = async function () {
+                const startTime = Date.now();
+                const maxWaitMs = 100; // Much shorter timeout for testing
+                const retryDelayMs = 10;
+
+                while (Date.now() - startTime < maxWaitMs) {
+                    try {
+                        await positron.runtime.executeCode(
+                            'python',
+                            '1+1',
+                            false,
+                            true,
+                            positron.RuntimeCodeExecutionMode.Silent
+                        );
+                        return;
+                    } catch (_error) {
+                        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+                    }
+                }
+                throw new Error('Timeout waiting for Python kernel to be ready');
+            };
+
+            try {
+                await expect(runtime.executeSilent('x = 1')).rejects.toThrow(
+                    'Timeout waiting for Python kernel to be ready'
+                );
+            } finally {
+                // Restore original method
+                (runtime as any).ensureKernelReadyViaPolling = originalMethod;
+            }
+        });
 
         it('should throw error if no kernel is running', async () => {
             positron.runtime.getForegroundSession.mockResolvedValue(undefined);

@@ -156,4 +156,25 @@ export class FilePanelProvider extends BaseWebviewProvider {
         this._files = this._files.filter((f) => f.type !== 'FASTA');
         this.updateView();
     }
+
+    /**
+     * Check if any POD5 file is loaded
+     */
+    public hasPOD5(): boolean {
+        return this._files.some((f) => f.type === 'POD5');
+    }
+
+    /**
+     * Check if any BAM file is loaded
+     */
+    public hasBAM(): boolean {
+        return this._files.some((f) => f.type === 'BAM');
+    }
+
+    /**
+     * Check if any files are loaded
+     */
+    public hasAnyFiles(): boolean {
+        return this._files.length > 0;
+    }
 }

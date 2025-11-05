@@ -49,6 +49,7 @@ export interface ReadsViewState {
 
     // Search/Filter
     searchText: string;
+    searchMode: 'reference' | 'read'; // Search in reference names or read IDs
     filteredItems: ReadListItem[]; // Filtered subset of items
 
     // Selection
@@ -57,6 +58,10 @@ export interface ReadsViewState {
 
     // Expansion state (for reference groups)
     expandedReferences: Set<string>;
+
+    // Sorting (for reference groups)
+    sortBy: 'name' | 'reads';
+    sortOrder: 'asc' | 'desc';
 
     // Column widths
     nameColumnWidth: number;
@@ -69,12 +74,23 @@ export interface ReadsViewState {
 export type ReadsViewMessage =
     | { type: 'setReads'; reads: ReadItem[] }
     | { type: 'setReadsGrouped'; references: Map<string, ReadItem[]> }
+    | { type: 'setReferencesOnly'; references: { referenceName: string; readCount: number }[] }
+    | { type: 'appendReads'; reads: ReadItem[] }
+    | {
+          type: 'setReadsForReference';
+          referenceName: string;
+          reads: ReadItem[];
+          offset: number;
+          totalCount: number;
+      }
     | { type: 'updateSearch'; searchText: string }
     | { type: 'selectRead'; readId: string; multiSelect: boolean }
     | { type: 'plotRead'; readId: string }
     | { type: 'toggleReference'; referenceName: string }
+    | { type: 'expandReference'; referenceName: string; offset: number; limit: number }
     | { type: 'updateColumnWidths'; nameWidth: number; detailsWidth: number }
-    | { type: 'loadMore' };
+    | { type: 'loadMore' }
+    | { type: 'setLoading'; isLoading: boolean; message?: string };
 
 /**
  * Props for React components
@@ -94,7 +110,11 @@ export interface ReadsInstanceProps extends ReadsViewProps {
     focusedIndex: number | null;
     nameColumnWidth: number;
     detailsColumnWidth: number;
+    hasReferences: boolean;
+    sortBy: 'name' | 'reads';
+    sortOrder: 'asc' | 'desc';
     onUpdateColumnWidths: (nameWidth: number, detailsWidth: number) => void;
+    onSort: (column: 'name' | 'reads') => void;
 }
 
 export interface ReadItemProps {

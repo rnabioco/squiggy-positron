@@ -329,6 +329,8 @@ class TestPrivateMethods:
         """Test signal processing with normalization"""
         strategy = EventAlignPlotStrategy(Theme.LIGHT)
 
+        # Set seed for reproducible test
+        np.random.seed(42)
         signal = np.random.randn(1000) * 10 + 50
         processed, seq_map = strategy._process_signal(
             signal=signal,

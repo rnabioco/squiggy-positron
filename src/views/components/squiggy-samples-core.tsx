@@ -11,12 +11,20 @@ import { SampleItem } from '../../types/messages';
 interface SamplesState {
     samples: SampleItem[];
     selectedSamples: Set<string>;
+    maxReads: number | null; // null = use default (min of available)
+    minAvailableReads: number;
+    maxAvailableReads: number;
+    sessionFastaPath: string | null; // Session-level FASTA file path
 }
 
 export const SamplesCore: React.FC = () => {
     const [state, setState] = useState<SamplesState>({
         samples: [],
         selectedSamples: new Set(),
+        maxReads: null, // null means use default
+        minAvailableReads: 1,
+        maxAvailableReads: 100,
+        sessionFastaPath: null,
     });
 
     // Listen for messages from extension
@@ -26,20 +34,46 @@ export const SamplesCore: React.FC = () => {
             console.log('SamplesCore received message:', message);
 
             switch (message.type) {
-                case 'updateSamples':
+                case 'updateSamples': {
                     console.log('Updating samples:', message.samples);
-                    setState((prev) => ({
-                        ...prev,
-                        samples: message.samples,
-                    }));
+                    setState((prev) => {
+                        // Auto-select newly added samples
+                        const samples = (message as any).samples as SampleItem[];
+                        const newSampleNames = new Set(samples.map((s: SampleItem) => s.name));
+                        const updatedSelected = new Set(prev.selectedSamples);
+                        newSampleNames.forEach((name: string) => {
+                            if (!prev.selectedSamples.has(name)) {
+                                updatedSelected.add(name);
+                            }
+                        });
+
+                        return {
+                            ...prev,
+                            samples,
+                            selectedSamples: updatedSelected,
+                        };
+                    });
                     break;
+                }
 
                 case 'clearSamples':
                     console.log('Clearing samples');
                     setState({
                         samples: [],
                         selectedSamples: new Set(),
+                        maxReads: null,
+                        minAvailableReads: 1,
+                        maxAvailableReads: 100,
+                        sessionFastaPath: null,
                     });
+                    break;
+
+                case 'updateSessionFasta':
+                    console.log('Updating session FASTA:', message.fastaPath);
+                    setState((prev) => ({
+                        ...prev,
+                        sessionFastaPath: message.fastaPath,
+                    }));
                     break;
 
                 default:
@@ -82,11 +116,24 @@ export const SamplesCore: React.FC = () => {
             return;
         }
 
-        console.log('Starting comparison with samples:', selectedNames);
+        console.log(
+            'Starting comparison with samples:',
+            selectedNames,
+            'maxReads:',
+            state.maxReads
+        );
         vscode.postMessage({
             type: 'startComparison',
             sampleNames: selectedNames,
+            maxReads: state.maxReads, // null means use default
         });
+    };
+
+    const handleMaxReadsChange = (value: number) => {
+        setState((prev) => ({
+            ...prev,
+            maxReads: value,
+        }));
     };
 
     const handleUnloadSample = (sampleName: string) => {
@@ -94,6 +141,30 @@ export const SamplesCore: React.FC = () => {
         vscode.postMessage({
             type: 'unloadSample',
             sampleName,
+        });
+    };
+
+    const handleSetSessionFasta = () => {
+        vscode.postMessage({
+            type: 'requestSetSessionFasta',
+        });
+    };
+
+    const handleClearSessionFasta = () => {
+        setState((prev) => ({
+            ...prev,
+            sessionFastaPath: null,
+        }));
+        vscode.postMessage({
+            type: 'setSessionFasta',
+            fastaPath: null,
+        });
+    };
+
+    const handleLoadSamplesClick = () => {
+        console.log('🎯 DEBUG: Load Samples button clicked');
+        vscode.postMessage({
+            type: 'requestLoadSamples',
         });
     };
 
@@ -119,12 +190,77 @@ export const SamplesCore: React.FC = () => {
                     padding: '10px',
                     fontFamily: 'var(--vscode-font-family)',
                     fontSize: 'var(--vscode-font-size)',
-                    color: 'var(--vscode-descriptionForeground)',
-                    fontStyle: 'italic',
+                    color: 'var(--vscode-foreground)',
                 }}
             >
-                No samples loaded. Use "Load Sample (Multi-Sample Comparison)" to add samples for
-                comparison.
+                {/* Session FASTA Button */}
+                <div style={{ marginBottom: '12px' }}>
+                    <button
+                        onClick={handleSetSessionFasta}
+                        style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            backgroundColor: 'var(--vscode-button-background)',
+                            color: 'var(--vscode-button-foreground)',
+                            border: 'none',
+                            borderRadius: '2px',
+                            cursor: 'pointer',
+                            fontSize: 'var(--vscode-font-size)',
+                            fontFamily: 'var(--vscode-font-family)',
+                            marginBottom: '4px',
+                        }}
+                        onMouseEnter={(e) => {
+                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                'var(--vscode-button-hoverBackground)';
+                        }}
+                        onMouseLeave={(e) => {
+                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                'var(--vscode-button-background)';
+                        }}
+                    >
+                        {state.sessionFastaPath ? '✓ FASTA Set' : 'Set FASTA for Comparisons'}
+                    </button>
+                    {state.sessionFastaPath && (
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                marginBottom: '8px',
+                                padding: '4px',
+                                wordBreak: 'break-word',
+                            }}
+                        >
+                            {state.sessionFastaPath.split('/').pop()}
+                        </div>
+                    )}
+                </div>
+
+                {/* Load Button */}
+                <button
+                    onClick={handleLoadSamplesClick}
+                    style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
+                        marginBottom: '12px',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
+                    }}
+                >
+                    Load Samples
+                </button>
             </div>
         );
     }
@@ -138,6 +274,100 @@ export const SamplesCore: React.FC = () => {
                 color: 'var(--vscode-foreground)',
             }}
         >
+            {/* Session FASTA Button */}
+            <div style={{ marginBottom: '12px' }}>
+                <button
+                    onClick={handleSetSessionFasta}
+                    style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
+                        marginBottom: '4px',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
+                    }}
+                >
+                    {state.sessionFastaPath ? '✓ FASTA Set' : 'Set FASTA for Comparisons'}
+                </button>
+                {state.sessionFastaPath && (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                padding: '4px',
+                                wordBreak: 'break-word',
+                                flex: 1,
+                            }}
+                        >
+                            {state.sessionFastaPath.split('/').pop()}
+                        </div>
+                        <button
+                            onClick={handleClearSessionFasta}
+                            style={{
+                                fontSize: '0.75em',
+                                padding: '2px 6px',
+                                backgroundColor: 'var(--vscode-button-background)',
+                                color: 'var(--vscode-button-foreground)',
+                                border: 'none',
+                                borderRadius: '2px',
+                                cursor: 'pointer',
+                            }}
+                            onMouseEnter={(e) => {
+                                (e.target as HTMLButtonElement).style.backgroundColor =
+                                    'var(--vscode-button-hoverBackground)';
+                            }}
+                            onMouseLeave={(e) => {
+                                (e.target as HTMLButtonElement).style.backgroundColor =
+                                    'var(--vscode-button-background)';
+                            }}
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Load More Samples Button */}
+            <div style={{ marginBottom: '12px' }}>
+                <button
+                    onClick={handleLoadSamplesClick}
+                    style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
+                    }}
+                >
+                    Load More Samples
+                </button>
+            </div>
+
             {/* Samples List */}
             <div style={{ marginBottom: '20px' }}>
                 <div
@@ -296,11 +526,62 @@ export const SamplesCore: React.FC = () => {
                         style={{
                             fontSize: '0.85em',
                             color: 'var(--vscode-descriptionForeground)',
-                            marginBottom: '8px',
+                            marginBottom: '12px',
                             fontStyle: 'italic',
                         }}
                     >
                         Selected: {state.selectedSamples.size} sample(s)
+                    </div>
+
+                    {/* Reads per Sample Slider */}
+                    <div
+                        style={{
+                            marginBottom: '12px',
+                            padding: '8px',
+                            backgroundColor: 'var(--vscode-input-background)',
+                            border: '1px solid var(--vscode-widget-border)',
+                            borderRadius: '4px',
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-foreground)',
+                                marginBottom: '6px',
+                                fontWeight: '500',
+                            }}
+                        >
+                            Reads per Sample: {state.maxReads === null ? 'Auto' : state.maxReads}
+                        </div>
+                        <input
+                            type="range"
+                            min={state.minAvailableReads}
+                            max={state.maxAvailableReads}
+                            value={
+                                state.maxReads === null ? state.maxAvailableReads : state.maxReads
+                            }
+                            onChange={(e) => handleMaxReadsChange(parseInt(e.target.value))}
+                            style={{
+                                width: '100%',
+                                height: '6px',
+                                borderRadius: '3px',
+                                background: 'var(--vscode-progressBar-background)',
+                                outline: 'none',
+                                cursor: 'pointer',
+                            }}
+                        />
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                marginTop: '4px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <span>{state.minAvailableReads}</span>
+                            <span>{state.maxAvailableReads}</span>
+                        </div>
                     </div>
 
                     <button

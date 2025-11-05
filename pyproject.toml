@@ -1,6 +1,6 @@
 [project]
 name = "squiggy-positron"
-version = "0.1.8"
+version = "0.1.12"
 description = "Python backend for Squiggy Positron extension - Nanopore squiggle visualization. Not recommended for standalone use."
 readme = "PYPI_README.md"
 requires-python = ">=3.12"
@@ -87,4 +87,15 @@ packages = ["squiggy"]
 # This maintains compatibility with existing code
 
 [tool.setuptools.package-data]
-squiggy = ["data/*.pod5", "data/*.bam", "data/*.bai", "data/*.fa"]
+squiggy = [
+  "data/*.pod5",
+  "data/*.bam",
+  "data/*.bai",
+  "data/*.fa",
+  "data/*.fai",
+  "data/*.fasta",
+  "data/*.png",
+  "data/*.ico",
+  "data/*.icns",
+  "data/README.md"
+]

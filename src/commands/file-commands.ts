@@ -195,6 +195,164 @@ paths = {
             await loadTestMultiReadDataset(context, state);
         })
     );
+
+    // Set session-level FASTA file for all comparisons
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.setSessionFasta', async () => {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { 'FASTA Files': ['fasta', 'fa', 'fna'] },
+                title: 'Select FASTA File for Comparisons',
+            });
+
+            if (fileUri && fileUri[0]) {
+                const fastaPath = fileUri[0].fsPath;
+                state.setSessionFasta(fastaPath);
+
+                // Notify samples panel of FASTA change
+                if (state.samplesProvider) {
+                    state.samplesProvider.updateSessionFasta(fastaPath);
+                }
+
+                vscode.window.showInformationMessage(`FASTA set: ${path.basename(fastaPath)}`);
+            }
+        })
+    );
+
+    // Load samples from dropped files
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.loadSamplesFromDropped',
+            async (fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]) => {
+                await loadSamplesFromDropped(context, state, fileQueue);
+            }
+        )
+    );
+
+    // Load samples via file picker (from UI button)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.loadSamplesFromUI', async () => {
+            const fileUris = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                filters: { 'Sequence Files': ['pod5', 'bam'], 'All Files': ['*'] },
+                title: 'Select POD5 and BAM files to load',
+            });
+
+            if (!fileUris || fileUris.length === 0) {
+                return;
+            }
+
+            const filePaths = fileUris.map((uri) => uri.fsPath);
+
+            // Delegate to the samples panel's file handling logic
+            const samplesProvider = state.samplesProvider;
+            if (samplesProvider) {
+                // The samples panel will handle categorizing and matching files
+                // We need to access its private method via message or use the same logic
+                // For now, use the setFilesForLoading approach
+                // Actually, we need to call a public method on samplesProvider
+                // Let's create a new public method that handles file paths directly
+                await loadSamplesFromFilePicker(context, state, filePaths);
+            }
+        })
+    );
+
+    // Internal commands for lazy loading
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.internal.loadMoreReads', async () => {
+            await loadMoreReads(state);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.internal.expandReference',
+            async (referenceName: string, offset: number, limit: number) => {
+                await expandReference(referenceName, offset, limit, state);
+            }
+        )
+    );
+}
+
+/**
+ * Load more reads for POD5 pagination
+ */
+async function loadMoreReads(state: ExtensionState): Promise<void> {
+    if (!state.usePositron || !state.squiggyAPI || !state.currentPod5File) {
+        return;
+    }
+
+    // Track POD5 pagination context
+    if (!state.pod5LoadContext) {
+        // Initialize context if not present
+        const totalReads = await state.squiggyAPI.client.getVariable(
+            'len(squiggy.io._squiggy_session.read_ids)'
+        );
+        state.pod5LoadContext = {
+            currentOffset: 1000, // Initial load was 1000
+            pageSize: 500,
+            totalReads: totalReads as number,
+        };
+    }
+
+    const { currentOffset, pageSize, totalReads } = state.pod5LoadContext;
+
+    if (currentOffset >= totalReads) {
+        // All reads loaded
+        return;
+    }
+
+    try {
+        // Show loading state
+        state.readsViewPane?.setLoading(true, 'Loading more reads...');
+
+        // Fetch next batch
+        const nextBatch = await state.squiggyAPI.getReadIds(currentOffset, pageSize);
+
+        // Send to React
+        state.readsViewPane?.appendReads(nextBatch);
+
+        // Update context
+        state.pod5LoadContext.currentOffset += nextBatch.length;
+    } finally {
+        state.readsViewPane?.setLoading(false);
+    }
+}
+
+/**
+ * Expand reference and fetch reads (BAM lazy loading)
+ */
+async function expandReference(
+    referenceName: string,
+    offset: number,
+    limit: number,
+    state: ExtensionState
+): Promise<void> {
+    if (!state.usePositron || !state.squiggyAPI || !state.currentBamFile) {
+        return;
+    }
+
+    try {
+        // Show loading state
+        state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
+
+        // Fetch reads for this reference with pagination
+        const result = await state.squiggyAPI.getReadsForReferencePaginated(
+            referenceName,
+            offset,
+            limit
+        );
+
+        // Send to React
+        state.readsViewPane?.setReadsForReference(
+            referenceName,
+            result.readIds,
+            offset,
+            result.totalCount
+        );
+    } finally {
+        state.readsViewPane?.setLoading(false);
+    }
 }
 
 /**
@@ -292,6 +450,9 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
                 numReads,
                 size: stats.size,
             });
+
+            // Update plot options to enable controls
+            state.plotOptionsProvider?.updatePod5Status(true);
         },
         ErrorContext.POD5_LOAD,
         'Opening POD5 file...'
@@ -331,11 +492,15 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 hasProbabilities = result.hasProbabilities;
                 hasEventAlignment = result.hasEventAlignment || false;
 
-                // Get references and build mapping (lazy loading)
+                // Get references only (lazy loading - don't fetch reads yet)
                 const references = await state.squiggyAPI.getReferences();
+
+                // Build reference count map by getting length for each reference
                 for (const ref of references) {
-                    const reads = await state.squiggyAPI.getReadsForReference(ref);
-                    referenceToReads[ref] = reads;
+                    const readCount = await state.squiggyAPI.client.getVariable(
+                        `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                    );
+                    referenceToReads[ref] = new Array(readCount as number); // Placeholder
                 }
             } else if (state.pythonBackend) {
                 // Use subprocess backend
@@ -374,24 +539,16 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 hasEvents: hasEventAlignment,
             });
 
-            // Update reads view to show reads grouped by reference
+            // Update reads view to show references only (lazy loading mode)
             if (Object.keys(referenceToReads).length > 0) {
-                const refMap = new Map<string, string[]>(Object.entries(referenceToReads));
+                const references = Object.entries(referenceToReads).map(
+                    ([referenceName, reads]) => ({
+                        referenceName,
+                        readCount: Array.isArray(reads) ? reads.length : 0,
+                    })
+                );
 
-                // Convert to ReadItem[] with reference info
-                const readItemsMap = new Map<string, any[]>();
-                for (const [ref, reads] of refMap.entries()) {
-                    readItemsMap.set(
-                        ref,
-                        reads.map((readId) => ({
-                            type: 'read' as const,
-                            readId,
-                            referenceName: ref,
-                            indentLevel: 1,
-                        }))
-                    );
-                }
-                state.readsViewPane?.setReadsGrouped(readItemsMap);
+                state.readsViewPane?.setReferencesOnly(references);
             }
 
             // Update modifications panel and context
@@ -419,6 +576,12 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
             // Update plot options to show EVENTALIGN mode and set as default
             state.plotOptionsProvider?.updateBamStatus(true);
+
+            // Update plot options with available references for aggregate plots
+            const references = Object.keys(referenceToReads);
+            if (references.length > 0) {
+                state.plotOptionsProvider?.updateReferences(references);
+            }
         },
         ErrorContext.BAM_LOAD,
         'Opening BAM file...'
@@ -444,6 +607,7 @@ squiggy.close_pod5()
         // Clear UI
         state.filePanelProvider?.clearPOD5();
         state.readsViewPane?.setReads([]);
+        state.plotOptionsProvider?.updatePod5Status(false);
 
         vscode.window.showInformationMessage('POD5 file closed');
     } catch (error) {
@@ -806,4 +970,214 @@ paths = {
         console.error('[loadTestMultiReadDataset] Error:', error);
         handleError(error, ErrorContext.POD5_LOAD);
     }
+}
+
+/**
+ * Load multiple samples from dropped files
+ * Handles batch loading of POD5/BAM pairs with smart file matching
+ */
+async function loadSamplesFromDropped(
+    context: vscode.ExtensionContext,
+    state: ExtensionState,
+    fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
+): Promise<void> {
+    if (fileQueue.length === 0) {
+        return;
+    }
+
+    // Check if squiggy is available
+    if (!(await ensureSquiggyAvailable(state))) {
+        return;
+    }
+
+    const results = {
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+    };
+
+    for (let i = 0; i < fileQueue.length; i++) {
+        const { pod5Path, bamPath, sampleName } = fileQueue[i];
+        const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
+
+        try {
+            await safeExecuteWithProgress(
+                async () => {
+                    // Validate files exist
+                    try {
+                        await fs.access(pod5Path);
+                    } catch {
+                        throw new Error(`POD5 file not found: ${pod5Path}`);
+                    }
+
+                    if (bamPath) {
+                        try {
+                            await fs.access(bamPath);
+                        } catch {
+                            throw new Error(`BAM file not found: ${bamPath}`);
+                        }
+                    }
+
+                    // Load via Python API
+                    const result = await state.squiggyAPI!.loadSample(
+                        sampleName,
+                        pod5Path,
+                        bamPath,
+                        state.sessionFastaPath || undefined
+                    );
+
+                    // Update extension state
+                    state.addSample({
+                        name: sampleName,
+                        pod5Path,
+                        bamPath,
+                        fastaPath: state.sessionFastaPath || undefined,
+                        readCount: result.numReads,
+                        hasBam: !!bamPath,
+                        hasFasta: !!state.sessionFastaPath,
+                    });
+
+                    results.successful++;
+                },
+                ErrorContext.POD5_LOAD,
+                progressMsg
+            );
+        } catch (error) {
+            console.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
+            results.failed++;
+        }
+    }
+
+    // Refresh samples panel with all loaded samples
+    if (state.samplesProvider) {
+        state.samplesProvider.refresh();
+    }
+
+    // Show summary
+    let message = `Loaded ${results.successful} sample(s)`;
+    if (results.failed > 0) {
+        message += `, ${results.failed} failed`;
+    }
+    if (results.skipped > 0) {
+        message += `, ${results.skipped} skipped`;
+    }
+
+    if (results.successful > 0) {
+        vscode.window.showInformationMessage(message);
+    } else {
+        vscode.window.showErrorMessage(`Failed to load samples: ${message}`);
+    }
+}
+
+/**
+ * Load samples from file picker (reuses the same logic as drag-and-drop)
+ */
+async function loadSamplesFromFilePicker(
+    context: vscode.ExtensionContext,
+    state: ExtensionState,
+    filePaths: string[]
+): Promise<void> {
+    // Categorize files by extension (reuse same logic as drag-and-drop handler)
+    const pod5Files: string[] = [];
+    const bamFiles: string[] = [];
+
+    for (const filePath of filePaths) {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.pod5') {
+            pod5Files.push(filePath);
+        } else if (ext === '.bam') {
+            bamFiles.push(filePath);
+        }
+    }
+
+    if (pod5Files.length === 0) {
+        vscode.window.showWarningMessage('No POD5 files selected');
+        return;
+    }
+
+    // Auto-match POD5 files to BAM files using stem matching
+    const fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+    for (const pod5Path of pod5Files) {
+        const pod5Basename = path.basename(pod5Path, '.pod5');
+        const pod5Stem = extractStem(pod5Basename);
+
+        // Try to find matching BAM file
+        let matchedBam: string | undefined;
+
+        // First try: exact basename match
+        for (const bamPath of bamFiles) {
+            const bamBasename = path.basename(bamPath);
+            if (bamBasename.startsWith(pod5Basename)) {
+                matchedBam = bamPath;
+                break;
+            }
+        }
+
+        // Second try: stem match
+        if (!matchedBam) {
+            for (const bamPath of bamFiles) {
+                const bamBasename = path.basename(bamPath, '.bam');
+                if (extractStem(bamBasename) === pod5Stem) {
+                    matchedBam = bamPath;
+                    break;
+                }
+            }
+        }
+
+        fileQueue.push({
+            pod5Path,
+            bamPath: matchedBam,
+            sampleName: pod5Stem,
+        });
+    }
+
+    // Prompt user to confirm and customize sample names
+    const confirmed: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
+
+    for (let i = 0; i < fileQueue.length; i++) {
+        const item = fileQueue[i];
+        const suggestion = item.sampleName;
+
+        const customName = await vscode.window.showInputBox({
+            prompt: `Sample ${i + 1}/${fileQueue.length}: Enter name for ${path.basename(item.pod5Path)}`,
+            value: suggestion,
+            validateInput: (value) => {
+                if (!value.trim()) {
+                    return 'Sample name cannot be empty';
+                }
+                if (
+                    confirmed.filter((c) => c.sampleName === value).length > 0 ||
+                    fileQueue.slice(i + 1).filter((f) => f.sampleName === value).length > 0
+                ) {
+                    return 'Sample name already used';
+                }
+                return null;
+            },
+        });
+
+        if (customName === undefined) {
+            // User cancelled
+            return;
+        }
+
+        confirmed.push({
+            ...item,
+            sampleName: customName.trim(),
+        });
+    }
+
+    // Load samples using the same logic as dropped files
+    await loadSamplesFromDropped(context, state, confirmed);
+}
+
+/**
+ * Extract stem from filename (everything before first non-word character)
+ */
+function extractStem(filename: string): string {
+    // Remove extension first
+    const withoutExt = filename.replace(/\.[^.]*$/, '');
+    // Extract stem: everything up to first non-alphanumeric non-underscore
+    const match = withoutExt.match(/^([a-zA-Z0-9_]+)/);
+    return match ? match[1] : withoutExt;
 }

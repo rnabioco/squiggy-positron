@@ -460,7 +460,7 @@ load_sample("full", "/data/large.pod5")
 
 ## Related Topics
 
-- [User Guide](USER_GUIDE.md) - Basic Squiggy usage
+- [User Guide](user_guide.md) - Basic Squiggy usage
 - [API Reference](api.md) - Python API documentation
-- [Developer Guide](DEVELOPER.md) - Architecture and extension development
+- [Developer Guide](developer.md) - Architecture and extension development
 - [Issue #61](https://github.com/rnabioco/squiggy-positron/issues/61) - Feature implementation details

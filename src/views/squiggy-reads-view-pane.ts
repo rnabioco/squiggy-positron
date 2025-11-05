@@ -31,6 +31,19 @@ export class ReadsViewPane extends BaseWebviewProvider {
             case 'plotAggregate':
                 vscode.commands.executeCommand('squiggy.plotAggregate', message.referenceName);
                 break;
+            case 'loadMore':
+                // POD5 pagination: request more reads
+                vscode.commands.executeCommand('squiggy.internal.loadMoreReads');
+                break;
+            case 'expandReference':
+                // BAM lazy loading: fetch reads for specific reference
+                vscode.commands.executeCommand(
+                    'squiggy.internal.expandReference',
+                    message.referenceName,
+                    message.offset,
+                    message.limit
+                );
+                break;
             case 'ready':
                 // Webview is ready, send initial state
                 this.updateView();
@@ -101,6 +114,74 @@ export class ReadsViewPane extends BaseWebviewProvider {
 
         this._readItems = items;
         this.updateView();
+    }
+
+    /**
+     * Set reference headers only (for lazy loading mode)
+     * Reads will be fetched when user expands each reference
+     */
+    public setReferencesOnly(references: { referenceName: string; readCount: number }[]): void {
+        this._hasReferences = true;
+        this._referenceToReads = new Map(); // Empty initially
+
+        this.postMessage({
+            type: 'setReferencesOnly',
+            references,
+        });
+    }
+
+    /**
+     * Append reads to the flat list (for POD5 pagination)
+     */
+    public appendReads(newReadIds: string[]): void {
+        const newItems = newReadIds.map((readId) => ({
+            type: 'read' as const,
+            readId,
+            indentLevel: 0 as 0 | 1,
+        }));
+
+        this._readItems = [...this._readItems, ...newItems];
+
+        this.postMessage({
+            type: 'appendReads',
+            reads: newItems,
+        });
+    }
+
+    /**
+     * Set reads for a specific reference (lazy loading for BAM mode)
+     */
+    public setReadsForReference(
+        referenceName: string,
+        readIds: string[],
+        offset: number,
+        totalCount: number
+    ): void {
+        const reads = readIds.map((readId) => ({
+            type: 'read' as const,
+            readId,
+            referenceName,
+            indentLevel: 1 as 0 | 1,
+        }));
+
+        this.postMessage({
+            type: 'setReadsForReference',
+            referenceName,
+            reads,
+            offset,
+            totalCount,
+        });
+    }
+
+    /**
+     * Send loading state to webview
+     */
+    public setLoading(isLoading: boolean, message?: string): void {
+        this.postMessage({
+            type: 'setLoading',
+            isLoading,
+            message,
+        });
     }
 
     /**
