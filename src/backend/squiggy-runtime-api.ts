@@ -208,10 +208,14 @@ squiggy.get_read_to_reference_mapping()
         minModProbability: number = 0.5,
         enabledModTypes: string[] = [],
         downsample: number = 5,
-        showSignalPoints: boolean = false
+        showSignalPoints: boolean = false,
+        sampleName?: string
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
         const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+        // Build sample name parameter if in multi-sample mode
+        const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
 
         const code = `
 import sys
@@ -225,8 +229,8 @@ try:
     # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
     ${
         readIds.length === 1
-            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
-            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
+            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
     }
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
@@ -288,16 +292,21 @@ if '_squiggy_plot_error' in globals():
         showDwellTime: boolean = true,
         showSignal: boolean = true,
         showQuality: boolean = true,
-        clipXAxisToAlignment: boolean = true
+        clipXAxisToAlignment: boolean = true,
+        sampleName?: string
     ): Promise<void> {
-        // Escape single quotes in reference name for Python string
+        // Escape single quotes in reference name and sample name for Python strings
         const escapedRefName = referenceName.replace(/'/g, "\\'");
+        const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
 
         // Build modification filter dict if modifications are enabled
         const modFilterDict =
             enabledModTypes.length > 0
                 ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
                 : 'None';
+
+        // Build sample name parameter if in multi-sample mode
+        const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
 
         const code = `
 import squiggy
@@ -314,7 +323,7 @@ squiggy.plot_aggregate(
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
-    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 

@@ -236,7 +236,8 @@ async function plotReads(readIds: string[], state: ExtensionState): Promise<void
                     modFilters.minProbability,
                     modFilters.enabledModTypes,
                     options.downsample,
-                    options.showSignalPoints
+                    options.showSignalPoints,
+                    state.selectedReadExplorerSample || undefined  // Pass current sample for multi-sample mode
                 );
             } else if (state.pythonBackend) {
                 // Use subprocess backend - still need webview fallback
@@ -281,7 +282,16 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
                     referenceName,
                     maxReads,
                     normalization,
-                    theme
+                    theme,
+                    true,  // showModifications
+                    0.5,   // modificationThreshold
+                    [],    // enabledModTypes
+                    true,  // showPileup
+                    true,  // showDwellTime
+                    true,  // showSignal
+                    true,  // showQuality
+                    true,  // clipXAxisToAlignment
+                    state.selectedReadExplorerSample || undefined  // Pass current sample for multi-sample mode
                 );
             } else if (state.pythonBackend) {
                 // Subprocess backend not yet implemented for aggregate
