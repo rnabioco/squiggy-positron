@@ -611,12 +611,13 @@ squiggy.remove_sample('${escapedName}')
             const startTime = Date.now();
 
             // Batch both queries into a single Python execution
+            // Uses ref_counts (reference → read count) which is built once during sample load
             const code = `
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample:
     _read_ids = _sample.read_ids
-    if _sample.bam_info and 'ref_mapping' in _sample.bam_info:
-        _refs = list(_sample.bam_info['ref_mapping'].keys())
+    if _sample.bam_info and 'ref_counts' in _sample.bam_info:
+        _refs = list(_sample.bam_info['ref_counts'].keys())
     else:
         _refs = []
 else:
@@ -709,6 +710,8 @@ _refs
      * This fetches read counts for all references in a single query,
      * avoiding N separate getVariable() calls when you have multiple references.
      *
+     * Uses pre-computed ref_counts (built during sample load), so this is instant.
+     *
      * @param sampleName - Name of the sample
      * @returns Map of reference name to read count
      */
@@ -718,8 +721,8 @@ _refs
         try {
             const code = `
 _sample = _squiggy_session.get_sample('${escapedName}')
-if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
-    _counts = {ref: len(reads) for ref, reads in _sample.bam_info['ref_mapping'].items()}
+if _sample and _sample.bam_info and 'ref_counts' in _sample.bam_info:
+    _counts = _sample.bam_info['ref_counts']
 else:
     _counts = {}
 _counts

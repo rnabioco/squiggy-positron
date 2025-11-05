@@ -497,11 +497,24 @@ class SquiggySession:
             if not os.path.exists(abs_bam_path):
                 raise FileNotFoundError(f"BAM file not found: {abs_bam_path}")
 
-            # Collect all metadata in single pass (optimized)
-            # IMPORTANT: build_ref_mapping=True so TypeScript can query references
+            # Collect metadata WITHOUT building full ref_mapping (too slow for large BAMs)
+            # Instead, build ref_counts (reference → read count) which is much faster
             metadata = _collect_bam_metadata_single_pass(
-                Path(abs_bam_path), build_ref_mapping=True
+                Path(abs_bam_path), build_ref_mapping=False
             )
+
+            # Build ref_counts in a single pass instead of full ref_mapping
+            # This is MUCH faster: just count reads per reference instead of storing all IDs
+            ref_counts = defaultdict(int)
+            try:
+                with pysam.AlignmentFile(str(abs_bam_path), "rb", check_sq=False) as bam:
+                    for read in bam:
+                        if not read.is_unmapped:
+                            ref_name = bam.get_reference_name(read.reference_id)
+                            ref_counts[ref_name] += 1
+            except Exception as e:
+                logger.warning(f"Failed to build ref_counts for {abs_bam_path}: {e}")
+                ref_counts = defaultdict(int)
 
             # Build metadata dict
             bam_info = {
@@ -512,7 +525,7 @@ class SquiggySession:
                 "modification_types": metadata["modification_types"],
                 "has_probabilities": metadata["has_probabilities"],
                 "has_event_alignment": metadata["has_event_alignment"],
-                "ref_mapping": metadata.get("ref_mapping"),  # Include ref mapping for read lookup
+                "ref_counts": dict(ref_counts),  # Reference → read count (fast to compute)
             }
 
             sample.bam_path = abs_bam_path
