@@ -704,11 +704,43 @@ _refs
     }
 
     /**
+     * Get read counts for all references in a sample (optimized batch)
+     *
+     * This fetches read counts for all references in a single query,
+     * avoiding N separate getVariable() calls when you have multiple references.
+     *
+     * @param sampleName - Name of the sample
+     * @returns Map of reference name to read count
+     */
+    async getReadsCountForAllReferencesSample(sampleName: string): Promise<{ [referenceName: string]: number }> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
+    _counts = {ref: len(reads) for ref, reads in _sample.bam_info['ref_mapping'].items()}
+else:
+    _counts = {}
+_counts
+`;
+            const counts = await this._client.getVariable(code);
+            return (counts as { [referenceName: string]: number }) || {};
+        } catch (error) {
+            console.warn(`Failed to get reference read counts for sample '${sampleName}':`, error);
+            return {};
+        }
+    }
+
+    /**
      * Get read IDs for a specific reference within a specific sample
      *
      * @param sampleName - Name of the sample
      * @param referenceName - Name of the reference
      * @returns Array of read IDs aligned to that reference
+     *
+     * NOTE: Prefer getReadsCountForAllReferencesSample() when you need counts for all references,
+     * as it batches all queries into a single call.
      */
     async getReadsForReferenceSample(
         sampleName: string,

@@ -372,21 +372,23 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
 
         if (references && references.length > 0) {
             // Sample has BAM - show references only (lazy load mode)
-            // Count reads per reference
+            // Fetch all reference read counts in a single optimized batch query
+            console.log(`[loadReadsForSample] Loading read counts for ${references.length} references...`);
             const refCounts: { referenceName: string; readCount: number }[] = [];
 
+            const readCounts = await Promise.race([
+                state.squiggyAPI.getReadsCountForAllReferencesSample(sampleName),
+                new Promise<{ [ref: string]: number }>((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout loading reference read counts for sample '${sampleName}' after 30 seconds`)), 30000)
+                ),
+            ]);
+
             for (const refName of references) {
-                console.log(`[loadReadsForSample] Loading reads for reference '${refName}'`);
-                const refReads = await Promise.race([
-                    state.squiggyAPI.getReadsForReferenceSample(sampleName, refName),
-                    new Promise<string[]>((_, reject) =>
-                        setTimeout(() => reject(new Error(`Timeout loading reads for reference '${refName}' after 30 seconds`)), 30000)
-                    ),
-                ]);
-                console.log(`[loadReadsForSample] Got ${refReads.length} reads for reference '${refName}'`);
+                const count = readCounts[refName] || 0;
+                console.log(`[loadReadsForSample] Reference '${refName}' has ${count} reads`);
                 refCounts.push({
                     referenceName: refName,
-                    readCount: refReads.length,
+                    readCount: count,
                 });
             }
 
