@@ -10,15 +10,13 @@ tsconfig.json
 jest.config.js
 htmlcov/**
 
-# Tests data live in tests/data
-# tests/**
+# Tests (exclude all test code and data)
+tests/**
 
 # images
 resources/screenshot.png
 
-# Python development files (exclude test code but include test data)
-tests/*.py
-tests/__pycache__/**
+# Python development files
 .pytest_cache/**
 .ruff_cache/**
 **/__pycache__/**
@@ -29,6 +27,8 @@ tests/__pycache__/**
 .venv/**
 codecov.yml
 *.egg-info/**
+.coverage
+uv.lock
 
 # Pixi environment (this is the key exclusion to fix the build error)
 .pixi/**
@@ -60,6 +60,7 @@ package-lock.json
 build/build/**
 build/dist/**
 build/__mocks__/**
+**/*.map
 
 # OS files
 .DS_Store
