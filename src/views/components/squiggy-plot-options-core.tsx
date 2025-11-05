@@ -16,6 +16,7 @@ interface PlotOptionsState {
     scaleDwellTime: boolean;
     downsample: number;
     showSignalPoints: boolean;
+    clipXAxisToAlignment: boolean;
     hasPod5: boolean;
     hasBam: boolean;
     // Aggregate-specific
@@ -38,6 +39,7 @@ export const PlotOptionsCore: React.FC = () => {
         scaleDwellTime: false,
         downsample: 5,
         showSignalPoints: false,
+        clipXAxisToAlignment: true,
         hasPod5: false,
         hasBam: false,
         // Aggregate defaults
@@ -71,6 +73,7 @@ export const PlotOptionsCore: React.FC = () => {
                         scaleDwellTime: message.options.scaleDwellTime,
                         downsample: message.options.downsample,
                         showSignalPoints: message.options.showSignalPoints,
+                        clipXAxisToAlignment: message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
                         aggregateReference:
                             message.options.aggregateReference || prev.aggregateReference,
                         aggregateMaxReads:
@@ -221,6 +224,7 @@ export const PlotOptionsCore: React.FC = () => {
             showDwellTime: options.showDwellTime,
             showSignal: options.showSignal,
             showQuality: options.showQuality,
+            clipXAxisToAlignment: options.clipXAxisToAlignment,
         });
     };
 
@@ -460,6 +464,51 @@ export const PlotOptionsCore: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* X-Axis Options */}
+                    <div
+                        style={{
+                            marginBottom: '20px',
+                            opacity: options.hasBam ? 1 : 0.5,
+                            pointerEvents: options.hasBam ? 'auto' : 'none',
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            X-Axis Display
+                        </div>
+
+                        {/* Clip to Consensus */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="clipXAxisToAlignmentAggregate"
+                                checked={options.clipXAxisToAlignment}
+                                onChange={handleCheckboxChange('clipXAxisToAlignment')}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="clipXAxisToAlignmentAggregate" style={{ fontSize: '0.9em' }}>
+                                Clip x-axis to consensus region
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Focus on high-coverage region (uncheck to show full reference range)
+                        </div>
+                    </div>
+
                     {/* Generate Button */}
                     <div style={{ marginBottom: '20px' }}>
                         <button
@@ -641,6 +690,32 @@ export const PlotOptionsCore: React.FC = () => {
                             }}
                         >
                             X-axis shows cumulative dwell time instead of base positions
+                        </div>
+
+                        {/* Clip X-Axis to Alignment */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="clipXAxisToAlignment"
+                                checked={options.clipXAxisToAlignment}
+                                onChange={handleCheckboxChange('clipXAxisToAlignment')}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="clipXAxisToAlignment" style={{ fontSize: '0.9em' }}>
+                                Clip x-axis to consensus region
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Focus on high-coverage region (uncheck to show full reference range)
                         </div>
 
                         {/* Downsample Slider */}

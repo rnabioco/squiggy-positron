@@ -157,6 +157,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showDwellTime: boolean;
     showSignal: boolean;
     showQuality: boolean;
+    clipXAxisToAlignment: boolean;
 }
 
 export interface PlotOptions {
@@ -168,6 +169,7 @@ export interface PlotOptions {
     scaleDwellTime: boolean;
     downsample: number;
     showSignalPoints: boolean;
+    clipXAxisToAlignment?: boolean;
     // Aggregate-specific options
     aggregateReference?: string;
     aggregateMaxReads?: number;
