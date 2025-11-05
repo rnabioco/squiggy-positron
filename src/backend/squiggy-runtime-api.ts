@@ -526,7 +526,7 @@ _sample_info_json = json.dumps(_sample_info)
 `;
 
             await this._client.executeSilent(code);
-            const sampleInfo = await this._client.getVariable('_sample_info_json');
+            const sampleInfoJson = await this._client.getVariable('_sample_info_json');
 
             // Clean up temporary variables
             await this.client
@@ -542,7 +542,21 @@ if '_sample_info_json' in globals():
                 )
                 .catch(() => {});
 
-            return sampleInfo ? JSON.parse(sampleInfo as string) : null;
+            // Handle the case where sampleInfoJson is a string representation of JSON
+            if (!sampleInfoJson) {
+                return null;
+            }
+
+            try {
+                // If it's a string like "null", parse it correctly
+                const jsonString = String(sampleInfoJson);
+                const parsed = JSON.parse(jsonString);
+                return parsed;
+            } catch (parseError) {
+                // If parsing fails, sample likely doesn't exist in registry
+                console.warn(`Could not parse sample info for '${escapedName}':`, parseError);
+                return null;
+            }
         } catch (error) {
             throw new Error(`Failed to get sample info: ${error}`);
         }

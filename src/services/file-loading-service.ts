@@ -129,16 +129,18 @@ export class FileLoadingService {
             const sampleInfo = await this.state.squiggyAPI.getSampleInfo(sampleName);
 
             // Build metadata object with BAM info if available
-            const bamInfo = sampleInfo?.bam_info
-                ? {
-                      hasModifications: sampleInfo.bam_info.has_modifications || false,
-                      modificationTypes: sampleInfo.bam_info.modification_types || [],
-                      hasProbabilities: sampleInfo.bam_info.has_probabilities || false,
-                      hasEventAlignment: sampleInfo.bam_info.has_event_alignment || false,
-                  }
-                : undefined;
+            let bamInfo = undefined;
+            if (sampleInfo?.bam_info) {
+                bamInfo = {
+                    hasModifications: sampleInfo.bam_info.has_modifications || false,
+                    modificationTypes: sampleInfo.bam_info.modification_types || [],
+                    hasProbabilities: sampleInfo.bam_info.has_probabilities || false,
+                    hasEventAlignment: sampleInfo.bam_info.has_event_alignment || false,
+                };
+            }
 
             // Return comprehensive sample metadata
+            // Note: If sampleInfo is null, we still return basic metadata from parameters
             return {
                 numReads: pod5Result.numReads,
                 hasBAM: !!bamPath,
