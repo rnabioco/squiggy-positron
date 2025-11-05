@@ -1001,13 +1001,28 @@ def load_bam(
         raise FileNotFoundError(f"BAM file not found: {abs_path}")
 
     # Try cache first for complete metadata (Phase 2 optimization)
-    # TODO: Implement full metadata caching in Phase 2
-    # For now, only ref_mapping is cached
+    metadata = None
+    if use_cache and _squiggy_session.cache:
+        logger.info("Checking cache for BAM metadata...")
+        metadata = _squiggy_session.cache.load_bam_metadata(abs_path)
 
-    # Collect all metadata in single pass (Phase 1 optimization)
-    logger.info("Loading BAM metadata (single-pass scan)...")
-    metadata = _collect_bam_metadata_single_pass(abs_path, build_ref_mapping)
-    logger.info(f"Loaded {metadata['num_reads']:,} reads from {len(metadata['references'])} references")
+    # If cache miss or disabled, collect fresh metadata (Phase 1 single-pass scan)
+    if metadata is None:
+        logger.info("Loading BAM metadata (single-pass scan)...")
+        metadata = _collect_bam_metadata_single_pass(abs_path, build_ref_mapping)
+        logger.info(
+            f"Scanned {metadata['num_reads']:,} reads from "
+            f"{len(metadata['references'])} references"
+        )
+
+        # Save to cache for instant future loads (Phase 2)
+        if use_cache and _squiggy_session.cache:
+            _squiggy_session.cache.save_bam_metadata(abs_path, metadata)
+    else:
+        logger.info(
+            f"Loaded {metadata['num_reads']:,} reads from cache "
+            f"({len(metadata['references'])} references)"
+        )
 
     # Build metadata dict for session
     bam_info = {
