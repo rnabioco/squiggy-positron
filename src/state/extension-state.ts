@@ -576,11 +576,35 @@ squiggy.close_fasta()
      * Serialize current extension state to SessionState format
      */
     toSessionState(): SessionState {
-        // Build samples object from current state
+        // Build samples object from unified state first, fall back to legacy state
         const samples: { [sampleName: string]: SampleSessionState } = {};
 
-        // If using multi-sample mode (when implemented)
-        if (this._loadedSamples.size > 0) {
+        // Use unified state (_loadedItems) if available
+        if (this._loadedItems.size > 0) {
+            // Process unified state items
+            for (const [id, item] of this._loadedItems.entries()) {
+                if (item.type === 'sample') {
+                    // Sample from unified state
+                    const sampleName = item.sampleName || id.substring(7); // Extract name after "sample:"
+                    samples[sampleName] = {
+                        pod5Paths: [item.pod5Path],
+                        bamPath: item.bamPath,
+                        fastaPath: item.fastaPath,
+                    };
+                } else if (item.type === 'pod5' && id.startsWith('pod5:')) {
+                    // Standalone POD5 file from unified state
+                    const sampleName = 'Default';
+                    if (!samples[sampleName]) {
+                        samples[sampleName] = {
+                            pod5Paths: [item.pod5Path],
+                            bamPath: item.bamPath,
+                            fastaPath: item.fastaPath,
+                        };
+                    }
+                }
+            }
+        } else if (this._loadedSamples.size > 0) {
+            // Fall back to legacy multi-sample mode
             for (const [sampleName, sampleInfo] of this._loadedSamples.entries()) {
                 samples[sampleName] = {
                     pod5Paths: [sampleInfo.pod5Path],
@@ -589,7 +613,7 @@ squiggy.close_fasta()
                 };
             }
         } else {
-            // Legacy single-file mode - create a default sample
+            // Fall back to legacy single-file mode
             if (this._currentPod5File) {
                 samples['Default'] = {
                     pod5Paths: [this._currentPod5File],
@@ -656,6 +680,29 @@ squiggy.close_fasta()
         for (const [sampleName, sampleData] of Object.entries(session.samples)) {
             try {
                 await this.restoreSample(sampleName, sampleData, isDemo, extensionUri);
+
+                // Also add to unified state for cross-panel synchronization
+                // Use sampleName if it's not "Default", otherwise use POD5 path
+                const pod5Path = sampleData.pod5Paths?.[0];
+                if (pod5Path) {
+                    const itemId = sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+                    const unifiedItem: LoadedItem = {
+                        id: itemId,
+                        type: sampleName === 'Default' ? 'pod5' : 'sample',
+                        pod5Path: pod5Path,
+                        bamPath: sampleData.bamPath,
+                        fastaPath: sampleData.fastaPath,
+                        sampleName: sampleName === 'Default' ? undefined : sampleName,
+                        readCount: 0, // Will be populated by restoreSample
+                        fileSize: 0, // Will be populated by restoreSample
+                        fileSizeFormatted: 'Unknown',
+                        hasAlignments: !!sampleData.bamPath,
+                        hasReference: !!sampleData.fastaPath,
+                        hasMods: false, // Will be determined when loading BAM
+                        hasEvents: false, // Will be determined when loading BAM
+                    };
+                    this.addLoadedItem(unifiedItem);
+                }
             } catch (error) {
                 errors.push(`Failed to restore sample ${sampleName}: ${error}`);
             }
@@ -686,6 +733,13 @@ squiggy.close_fasta()
         // Restore UI state
         if (session.ui) {
             this._selectedSamplesForComparison = session.ui.selectedSamplesForComparison || [];
+
+            // Also populate unified state comparison items
+            const comparisonIds = (session.ui.selectedSamplesForComparison || [])
+                .map((sampleName) => `sample:${sampleName}`);
+            if (comparisonIds.length > 0) {
+                this.setComparisonItems(comparisonIds);
+            }
         }
 
         // Show errors if any
