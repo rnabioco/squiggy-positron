@@ -24,9 +24,9 @@ export const FilesToolbar: React.FC<FilesToolbarProps> = ({
             <button
                 className="files-toolbar-button"
                 onClick={handleAddFiles}
-                title="Add POD5 and/or BAM files. Files will be loaded to File Explorer and auto-matched as samples in Sample Manager."
+                title="Select POD5 file(s), optionally with matching BAM files"
             >
-                + Add Files
+                Load Sample Data
             </button>
             <button
                 className="files-toolbar-button"

@@ -1178,43 +1178,9 @@ async function loadSamplesFromFilePicker(
         });
     }
 
-    // Prompt user to confirm and customize sample names
-    const confirmed: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
-
-    for (let i = 0; i < fileQueue.length; i++) {
-        const item = fileQueue[i];
-        const suggestion = item.sampleName;
-
-        const customName = await vscode.window.showInputBox({
-            prompt: `Sample ${i + 1}/${fileQueue.length}: Enter name for ${path.basename(item.pod5Path)}`,
-            value: suggestion,
-            validateInput: (value) => {
-                if (!value.trim()) {
-                    return 'Sample name cannot be empty';
-                }
-                if (
-                    confirmed.filter((c) => c.sampleName === value).length > 0 ||
-                    fileQueue.slice(i + 1).filter((f) => f.sampleName === value).length > 0
-                ) {
-                    return 'Sample name already used';
-                }
-                return null;
-            },
-        });
-
-        if (customName === undefined) {
-            // User cancelled
-            return;
-        }
-
-        confirmed.push({
-            ...item,
-            sampleName: customName.trim(),
-        });
-    }
-
     // Load samples using the same logic as dropped files
-    await loadSamplesFromDropped(context, state, confirmed);
+    // Sample naming will be handled in the Sample Manager UI, not during file loading
+    await loadSamplesFromDropped(context, state, fileQueue);
 }
 
 /**
