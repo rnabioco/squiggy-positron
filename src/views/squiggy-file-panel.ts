@@ -2,6 +2,7 @@
  * File Panel Webview View - React-based
  *
  * Provides file management with sortable table layout
+ * Subscribes to unified extension state for cross-panel synchronization
  */
 
 import * as vscode from 'vscode';
@@ -9,11 +10,76 @@ import * as path from 'path';
 import { BaseWebviewProvider } from './base-webview-provider';
 import { FilePanelIncomingMessage, UpdateFilesMessage, FileItem } from '../types/messages';
 import { formatFileSize } from '../utils/format-utils';
+import { ExtensionState } from '../state/extension-state';
+import { LoadedItem } from '../types/loaded-item';
 
 export class FilePanelProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyFilePanel';
 
     private _files: FileItem[] = [];
+    private _disposables: vscode.Disposable[] = [];
+
+    /**
+     * Constructor with optional ExtensionState for unified state subscription
+     * @param extensionUri - Extension URI
+     * @param state - Optional ExtensionState for subscribing to unified state changes
+     */
+    constructor(extensionUri: vscode.Uri, private state?: ExtensionState) {
+        super(extensionUri);
+
+        // Subscribe to unified state changes if state is provided
+        if (this.state) {
+            const disposable = this.state.onLoadedItemsChanged((items: LoadedItem[]) => {
+                this._handleLoadedItemsChanged(items);
+            });
+            this._disposables.push(disposable);
+        }
+    }
+
+    /**
+     * Handle unified state changes - convert LoadedItem[] to FileItem[] for display
+     * @private
+     */
+    private _handleLoadedItemsChanged(items: LoadedItem[]): void {
+        // Convert LoadedItem[] to FileItem[] for the UI
+        // For now, display all items (samples and single files)
+        this._files = items.map((item) => {
+            // Determine file type - samples show as POD5, single files keep their type
+            const fileType =
+                item.type === 'sample'
+                    ? 'POD5'
+                    : item.type === 'pod5'
+                      ? 'POD5'
+                      : item.type === 'fasta'
+                        ? 'FASTA'
+                        : 'POD5';
+
+            const fileItem: FileItem = {
+                path: item.pod5Path,
+                filename: path.basename(item.pod5Path),
+                type: fileType as 'POD5' | 'BAM' | 'FASTA',
+                size: item.fileSize,
+                sizeFormatted: item.fileSizeFormatted,
+                numReads: item.readCount,
+                hasMods: item.hasMods,
+                hasEvents: item.hasEvents,
+            };
+
+            // Add BAM info if present
+            if (item.bamPath) {
+                fileItem.numRefs = item.hasAlignments ? 1 : 0; // Placeholder
+            }
+
+            return fileItem;
+        });
+
+        console.log(
+            'FilePanelProvider: Unified state changed, now showing',
+            this._files.length,
+            'items'
+        );
+        this.updateView();
+    }
 
     protected getTitle(): string {
         return 'Squiggy File Explorer';
@@ -176,5 +242,20 @@ export class FilePanelProvider extends BaseWebviewProvider {
      */
     public hasAnyFiles(): boolean {
         return this._files.length > 0;
+    }
+
+    /**
+     * Dispose method to clean up subscriptions
+     * Called when the provider is no longer needed
+     */
+    public dispose(): void {
+        // Clean up event subscriptions
+        for (const disposable of this._disposables) {
+            disposable.dispose();
+        }
+        this._disposables = [];
+
+        // Call parent dispose if it exists
+        super.dispose?.();
     }
 }
