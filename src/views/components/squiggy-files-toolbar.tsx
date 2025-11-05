@@ -1,7 +1,8 @@
 /**
  * FilesToolbar Component
  *
- * Toolbar with POD5, BAM, and FASTA file open buttons
+ * Toolbar with "Add Files" (POD5/BAM) and "Add Reference" (FASTA) buttons
+ * Files are loaded and appear in File Explorer, auto-matched in Sample Manager
  */
 
 import * as React from 'react';
@@ -13,16 +14,26 @@ export const FilesToolbar: React.FC<FilesToolbarProps> = ({
     onOpenBAM,
     onOpenFASTA,
 }) => {
+    // onOpenPOD5 and onOpenBAM now trigger the combined file picker workflow
+    // onOpenFASTA triggers the FASTA-specific workflow
+    const handleAddFiles = onOpenPOD5; // Use the first handler for add files
+    const handleAddReference = onOpenFASTA; // Use FASTA handler for reference
+
     return (
         <div className="files-toolbar">
-            <button className="files-toolbar-button" onClick={onOpenPOD5} title="Open POD5 file">
-                POD5 📁
+            <button
+                className="files-toolbar-button"
+                onClick={handleAddFiles}
+                title="Add POD5 and/or BAM files. Files will be loaded to File Explorer and auto-matched as samples in Sample Manager."
+            >
+                + Add Files
             </button>
-            <button className="files-toolbar-button" onClick={onOpenBAM} title="Open BAM file">
-                BAM 📁
-            </button>
-            <button className="files-toolbar-button" onClick={onOpenFASTA} title="Open FASTA file">
-                FASTA 📁
+            <button
+                className="files-toolbar-button"
+                onClick={handleAddReference}
+                title="Add FASTA reference file"
+            >
+                + Add Reference
             </button>
         </div>
     );

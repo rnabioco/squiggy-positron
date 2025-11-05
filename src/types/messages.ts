@@ -25,6 +25,16 @@ export interface CloseFileMessage extends BaseMessage {
     fileType: 'POD5' | 'BAM' | 'FASTA';
 }
 
+export interface AddFilesMessage extends BaseMessage {
+    type: 'addFiles';
+    // No parameters - triggers file picker in extension
+}
+
+export interface AddReferenceMessage extends BaseMessage {
+    type: 'addReference';
+    // No parameters - triggers file picker in extension
+}
+
 export interface UpdateFilesMessage extends BaseMessage {
     type: 'updateFiles';
     files: FileItem[];
@@ -46,7 +56,12 @@ export interface FileItem {
     hasEvents?: boolean;
 }
 
-export type FilePanelIncomingMessage = OpenFileMessage | CloseFileMessage | ReadyMessage;
+export type FilePanelIncomingMessage =
+    | OpenFileMessage
+    | CloseFileMessage
+    | AddFilesMessage
+    | AddReferenceMessage
+    | ReadyMessage;
 export type FilePanelOutgoingMessage = UpdateFilesMessage;
 
 // ========== Reads View Messages ==========

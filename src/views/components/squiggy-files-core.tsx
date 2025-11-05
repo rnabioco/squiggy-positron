@@ -80,15 +80,18 @@ export const FilesCore: React.FC = () => {
     };
 
     const handleOpenPOD5 = () => {
-        vscode.postMessage({ type: 'openFile', fileType: 'POD5' });
+        // New workflow: open file picker for POD5/BAM files
+        vscode.postMessage({ type: 'addFiles' });
     };
 
     const handleOpenBAM = () => {
-        vscode.postMessage({ type: 'openFile', fileType: 'BAM' });
+        // Unused - bundled with handleOpenPOD5 in new workflow
+        vscode.postMessage({ type: 'addFiles' });
     };
 
     const handleOpenFASTA = () => {
-        vscode.postMessage({ type: 'openFile', fileType: 'FASTA' });
+        // New workflow: open file picker for FASTA reference
+        vscode.postMessage({ type: 'addReference' });
     };
 
     return (

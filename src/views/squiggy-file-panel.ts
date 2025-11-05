@@ -123,6 +123,14 @@ export class FilePanelProvider extends BaseWebviewProvider {
                     vscode.commands.executeCommand('squiggy.closeFASTA');
                 }
                 break;
+            case 'addFiles':
+                // New workflow: add POD5/BAM files (will be auto-matched and appear in Sample Manager)
+                vscode.commands.executeCommand('squiggy.loadSamplesFromUI');
+                break;
+            case 'addReference':
+                // New workflow: add FASTA reference file
+                vscode.commands.executeCommand('squiggy.setSessionFasta');
+                break;
             case 'ready':
                 // Webview is ready, send initial state
                 this.updateView();
