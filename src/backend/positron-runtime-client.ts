@@ -18,6 +18,9 @@ import { KernelNotAvailableError } from '../utils/error-handler';
  * Manages kernel communication, code execution, and variable access.
  */
 export class PositronRuntimeClient {
+    private kernelReadyCache: { ready: boolean; timestamp: number } | null = null;
+    private readonly KERNEL_CACHE_TTL = 1000; // 1 second - kernel state is fairly stable
+
     /**
      * Check if Positron runtime is available
      */
@@ -34,8 +37,18 @@ export class PositronRuntimeClient {
      *
      * Waits up to 10 seconds for kernel to be ready after restart.
      * Uses event-based approach if available, falls back to polling.
+     *
+     * Uses a 1-second cache to avoid repeated readiness checks within the same
+     * logical operation (e.g., getVariable() makes 3 executeSilent calls sequentially).
      */
     private async ensureKernelReady(): Promise<void> {
+        // Check cache first - if kernel was ready in the last 1 second, assume still ready
+        const now = Date.now();
+        if (this.kernelReadyCache && now - this.kernelReadyCache.timestamp < this.KERNEL_CACHE_TTL) {
+            if (this.kernelReadyCache.ready) {
+                return; // Kernel is cached as ready, skip check
+            }
+        }
         const session = await positron.runtime.getForegroundSession();
 
         if (!session) {
@@ -58,6 +71,7 @@ export class PositronRuntimeClient {
     private async ensureKernelReadyViaEvents(session: any): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
+                this.kernelReadyCache = { ready: false, timestamp: Date.now() };
                 reject(new Error('Timeout waiting for Python kernel to be ready'));
             }, 10000); // 10 second timeout
 
@@ -68,6 +82,7 @@ export class PositronRuntimeClient {
                 // Ready states - can execute code
                 if (state === 'ready' || state === 'idle' || state === 'busy') {
                     clearTimeout(timeout);
+                    this.kernelReadyCache = { ready: true, timestamp: Date.now() };
                     resolve();
                     return true;
                 }
@@ -75,6 +90,7 @@ export class PositronRuntimeClient {
                 // Failed states - cannot execute code
                 if (state === 'offline' || state === 'exited') {
                     clearTimeout(timeout);
+                    this.kernelReadyCache = { ready: false, timestamp: Date.now() };
                     reject(new Error(`Python kernel is ${state}. Please start a Python console.`));
                     return true;
                 }
@@ -105,6 +121,7 @@ export class PositronRuntimeClient {
                     // Kernel responded - it's ready
                     clearTimeout(timeout);
                     disposable.dispose();
+                    this.kernelReadyCache = { ready: true, timestamp: Date.now() };
                     resolve();
                 })
                 .catch(() => {
@@ -134,6 +151,7 @@ export class PositronRuntimeClient {
                 );
                 // Success - kernel is ready
                 console.log('Squiggy: Kernel is ready (polling check)');
+                this.kernelReadyCache = { ready: true, timestamp: Date.now() };
                 return;
             } catch (_error) {
                 // Kernel not ready yet, wait and retry
@@ -142,6 +160,7 @@ export class PositronRuntimeClient {
         }
 
         // Timeout reached
+        this.kernelReadyCache = { ready: false, timestamp: Date.now() };
         throw new Error('Timeout waiting for Python kernel to be ready');
     }
 
