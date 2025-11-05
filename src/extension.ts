@@ -188,6 +188,18 @@ export async function activate(context: vscode.ExtensionContext) {
     registerStateCommands(context, state);
     registerSessionCommands(context, state);
 
+    // Open walkthrough on first activation
+    const hasShownWalkthrough = context.globalState.get<boolean>('squiggy.walkthroughShown');
+    if (!hasShownWalkthrough) {
+        await context.globalState.update('squiggy.walkthroughShown', true);
+        // Open the walkthrough
+        await vscode.commands.executeCommand(
+            'workbench.action.openWalkthrough',
+            'rnabioco.squiggy-positron#squiggy.gettingStarted',
+            false
+        );
+    }
+
     // Extension activated silently - no welcome message needed
 }
 

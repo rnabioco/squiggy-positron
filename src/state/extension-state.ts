@@ -430,13 +430,18 @@ squiggy.close_fasta()
     /**
      * Restore extension state from SessionState
      */
-    async fromSessionState(session: SessionState, context: vscode.ExtensionContext): Promise<void> {
+    async fromSessionState(
+        session: SessionState,
+        context: vscode.ExtensionContext,
+        options?: { silent?: boolean }
+    ): Promise<void> {
         if (!this._extensionContext) {
             this._extensionContext = context;
         }
 
         const isDemo = session.isDemo || false;
         const extensionUri = context.extensionUri;
+        const silent = options?.silent || false;
 
         // Clear current state first
         await this.clearAll();
@@ -480,11 +485,15 @@ squiggy.close_fasta()
             this._selectedSamplesForComparison = session.ui.selectedSamplesForComparison || [];
         }
 
-        // Show errors if any
-        if (errors.length > 0) {
-            vscode.window.showWarningMessage(`Session restored with errors:\n${errors.join('\n')}`);
-        } else {
-            vscode.window.showInformationMessage('Session restored successfully');
+        // Show errors if any (unless silent mode)
+        if (!silent) {
+            if (errors.length > 0) {
+                vscode.window.showWarningMessage(
+                    `Session restored with errors:\n${errors.join('\n')}`
+                );
+            } else {
+                vscode.window.showInformationMessage('Session restored successfully');
+            }
         }
     }
 
@@ -711,15 +720,21 @@ squiggy.close_fasta()
     /**
      * Load demo session with packaged test data
      */
-    async loadDemoSession(context: vscode.ExtensionContext): Promise<void> {
+    async loadDemoSession(
+        context: vscode.ExtensionContext,
+        options?: { silent?: boolean }
+    ): Promise<void> {
         // Get demo session from manager
         const demoSession = SessionStateManager.getDemoSession(context.extensionUri);
 
         // Restore from demo session
-        await this.fromSessionState(demoSession, context);
+        await this.fromSessionState(demoSession, context, options);
 
-        vscode.window.showInformationMessage(
-            'Demo session loaded! Explore 180 yeast tRNA reads with base annotations.'
-        );
+        // Show success message unless in silent mode
+        if (!options?.silent) {
+            vscode.window.showInformationMessage(
+                'Demo session loaded! Explore 180 yeast tRNA reads with base annotations.'
+            );
+        }
     }
 }

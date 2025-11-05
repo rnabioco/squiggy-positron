@@ -277,17 +277,14 @@ export async function loadDemoSessionCommand(
             }
         }
 
-        // Show progress while loading
-        await vscode.window.withProgress(
-            {
-                location: vscode.ProgressLocation.Notification,
-                title: 'Loading demo session...',
-                cancellable: false,
-            },
-            async (progress) => {
-                progress.report({ message: 'Loading yeast tRNA reads...' });
-                await extensionState.loadDemoSession(context);
-            }
+        // Load silently to avoid stealing focus from walkthrough
+        // Progress is shown in status bar instead of notification
+        await extensionState.loadDemoSession(context, { silent: true });
+
+        // Show subtle success indicator in status bar
+        vscode.window.setStatusBarMessage(
+            '$(check) Demo session loaded - 180 reads available',
+            3000
         );
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to load demo session: ${error}`);
