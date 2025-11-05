@@ -688,89 +688,99 @@ export const SamplesCore: React.FC = () => {
                                             )}
                                         </div>
 
-                                        {/* FASTA File */}
+                                        {/* FASTA File - Show sample FASTA or session FASTA */}
                                         <div style={{ marginBottom: '6px' }}>
-                                            <div
-                                                style={{
-                                                    color: 'var(--vscode-descriptionForeground)',
-                                                    fontSize: '0.8em',
-                                                    marginBottom: '2px',
-                                                }}
-                                            >
-                                                FASTA {sample.fastaPath ? '' : '(not set)'}
-                                            </div>
-                                            {sample.fastaPath ? (
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        gap: '4px',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '4px 6px',
-                                                            backgroundColor: 'var(--vscode-editor-background)',
-                                                            borderRadius: '2px',
-                                                            wordBreak: 'break-all',
-                                                        }}
-                                                    >
-                                                        {sample.fastaPath.split('/').pop()}
-                                                    </div>
-                                                    <button
-                                                        style={{
-                                                            padding: '2px 8px',
-                                                            fontSize: '0.75em',
-                                                            backgroundColor:
-                                                                'var(--vscode-button-background)',
-                                                            color: 'var(--vscode-button-foreground)',
-                                                            border: 'none',
-                                                            borderRadius: '2px',
-                                                            cursor: 'pointer',
-                                                            flexShrink: 0,
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            (e.target as HTMLButtonElement)
-                                                                .style.backgroundColor =
-                                                                'var(--vscode-button-hoverBackground)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            (e.target as HTMLButtonElement)
-                                                                .style.backgroundColor =
-                                                                'var(--vscode-button-background)';
-                                                        }}
-                                                    >
-                                                        [Change]
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '4px',
-                                                        fontSize: '0.85em',
-                                                        backgroundColor:
-                                                            'var(--vscode-button-background)',
-                                                        color: 'var(--vscode-button-foreground)',
-                                                        border: 'none',
-                                                        borderRadius: '2px',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        (e.target as HTMLButtonElement)
-                                                            .style.backgroundColor =
-                                                            'var(--vscode-button-hoverBackground)';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        (e.target as HTMLButtonElement)
-                                                            .style.backgroundColor =
-                                                            'var(--vscode-button-background)';
-                                                    }}
-                                                >
-                                                    + Add FASTA
-                                                </button>
-                                            )}
+                                            {(() => {
+                                                const fastaPath = sample.fastaPath || state.sessionFastaPath;
+                                                const isSessionFasta = !sample.fastaPath && state.sessionFastaPath;
+                                                return (
+                                                    <>
+                                                        <div
+                                                            style={{
+                                                                color: 'var(--vscode-descriptionForeground)',
+                                                                fontSize: '0.8em',
+                                                                marginBottom: '2px',
+                                                            }}
+                                                        >
+                                                            FASTA {fastaPath ? (isSessionFasta ? '(session)' : '') : '(not set)'}
+                                                        </div>
+                                                        {fastaPath ? (
+                                                            <div
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    gap: '4px',
+                                                                    alignItems: 'center',
+                                                                }}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        flex: 1,
+                                                                        padding: '4px 6px',
+                                                                        backgroundColor: 'var(--vscode-editor-background)',
+                                                                        borderRadius: '2px',
+                                                                        wordBreak: 'break-all',
+                                                                    }}
+                                                                >
+                                                                    {fastaPath.split('/').pop()}
+                                                                </div>
+                                                                {!isSessionFasta && (
+                                                                    <button
+                                                                        style={{
+                                                                            padding: '2px 8px',
+                                                                            fontSize: '0.75em',
+                                                                            backgroundColor:
+                                                                                'var(--vscode-button-background)',
+                                                                            color: 'var(--vscode-button-foreground)',
+                                                                            border: 'none',
+                                                                            borderRadius: '2px',
+                                                                            cursor: 'pointer',
+                                                                            flexShrink: 0,
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            (e.target as HTMLButtonElement)
+                                                                                .style.backgroundColor =
+                                                                                'var(--vscode-button-hoverBackground)';
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            (e.target as HTMLButtonElement)
+                                                                                .style.backgroundColor =
+                                                                                'var(--vscode-button-background)';
+                                                                        }}
+                                                                    >
+                                                                        [Change]
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                style={{
+                                                                    width: '100%',
+                                                                    padding: '4px',
+                                                                    fontSize: '0.85em',
+                                                                    backgroundColor:
+                                                                        'var(--vscode-button-background)',
+                                                                    color: 'var(--vscode-button-foreground)',
+                                                                    border: 'none',
+                                                                    borderRadius: '2px',
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    (e.target as HTMLButtonElement)
+                                                                        .style.backgroundColor =
+                                                                        'var(--vscode-button-hoverBackground)';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    (e.target as HTMLButtonElement)
+                                                                        .style.backgroundColor =
+                                                                        'var(--vscode-button-background)';
+                                                                }}
+                                                            >
+                                                                + Add FASTA
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
 
                                         {/* Unload Button */}

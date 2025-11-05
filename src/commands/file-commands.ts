@@ -1137,7 +1137,10 @@ async function loadSamplesFromFilePicker(
     }
 
     if (pod5Files.length === 0) {
-        vscode.window.showWarningMessage('No POD5 files selected');
+        vscode.window.showWarningMessage(
+            'No POD5 files selected. POD5 files are required to load samples. ' +
+            'Please select at least one POD5 file. You can select BAM files at the same time for auto-matching.'
+        );
         return;
     }
 

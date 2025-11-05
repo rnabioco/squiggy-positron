@@ -591,7 +591,18 @@ squiggy.plot_signal_overlay_comparison(
             // Execute silently - plot will appear in Plots pane automatically
             await this.client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate signal overlay comparison plot: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Provide helpful error messages for common issues
+            if (errorMessage.includes('not found')) {
+                throw new Error(
+                    `Sample not found in Python session. ` +
+                    `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
+                    `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                );
+            }
+
+            throw new Error(`Failed to generate signal overlay comparison plot: ${errorMessage}`);
         }
     }
 

@@ -114,7 +114,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     }
 
     protected getTitle(): string {
-        return 'Sample Comparison Manager';
+        return 'Sample Manager';
     }
 
     protected async handleMessage(message: SamplesIncomingMessage): Promise<void> {
