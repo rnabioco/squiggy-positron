@@ -11,9 +11,6 @@ import { SampleItem } from '../../types/messages';
 interface SamplesState {
     samples: SampleItem[];
     selectedSamples: Set<string>;
-    maxReads: number | null; // null = use default (min of available)
-    minAvailableReads: number;
-    maxAvailableReads: number;
     sessionFastaPath: string | null; // Session-level FASTA file path
     editingSampleName: string | null; // Which sample name is being edited
     editInputValue: string; // Current value in edit input
@@ -25,9 +22,6 @@ export const SamplesCore: React.FC = () => {
     const [state, setState] = useState<SamplesState>({
         samples: [],
         selectedSamples: new Set(),
-        maxReads: null, // null means use default
-        minAvailableReads: 1,
-        maxAvailableReads: 100,
         sessionFastaPath: null,
         editingSampleName: null,
         editInputValue: '',
@@ -69,9 +63,6 @@ export const SamplesCore: React.FC = () => {
                     setState({
                         samples: [],
                         selectedSamples: new Set(),
-                        maxReads: null,
-                        minAvailableReads: 1,
-                        maxAvailableReads: 100,
                         sessionFastaPath: null,
                         editingSampleName: null,
                         editInputValue: '',
@@ -119,33 +110,6 @@ export const SamplesCore: React.FC = () => {
 
             return { ...prev, selectedSamples: newSelected };
         });
-    };
-
-    const handleStartComparison = () => {
-        const selectedNames = Array.from(state.selectedSamples);
-        if (selectedNames.length < 2) {
-            alert('Please select at least 2 samples for comparison');
-            return;
-        }
-
-        console.log(
-            'Starting comparison with samples:',
-            selectedNames,
-            'maxReads:',
-            state.maxReads
-        );
-        vscode.postMessage({
-            type: 'startComparison',
-            sampleNames: selectedNames,
-            maxReads: state.maxReads, // null means use default
-        });
-    };
-
-    const handleMaxReadsChange = (value: number) => {
-        setState((prev) => ({
-            ...prev,
-            maxReads: value,
-        }));
     };
 
     const handleUnloadSample = (sampleName: string) => {
@@ -861,126 +825,6 @@ export const SamplesCore: React.FC = () => {
                 </div>
             </div>
 
-            {/* Comparison Controls */}
-            {state.samples.length > 0 && (
-                <div
-                    style={{
-                        borderTop: '1px solid var(--vscode-widget-border)',
-                        paddingTop: '12px',
-                        marginTop: '12px',
-                    }}
-                >
-                    <div
-                        style={{
-                            fontSize: '0.85em',
-                            color: 'var(--vscode-descriptionForeground)',
-                            marginBottom: '12px',
-                            fontStyle: 'italic',
-                        }}
-                    >
-                        Selected: {state.selectedSamples.size} sample(s)
-                    </div>
-
-                    {/* Reads per Sample Slider */}
-                    <div
-                        style={{
-                            marginBottom: '12px',
-                            padding: '8px',
-                            backgroundColor: 'var(--vscode-input-background)',
-                            border: '1px solid var(--vscode-widget-border)',
-                            borderRadius: '4px',
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: '0.85em',
-                                color: 'var(--vscode-foreground)',
-                                marginBottom: '6px',
-                                fontWeight: '500',
-                            }}
-                        >
-                            Reads per Sample: {state.maxReads === null ? 'Auto' : state.maxReads}
-                        </div>
-                        <input
-                            type="range"
-                            min={state.minAvailableReads}
-                            max={state.maxAvailableReads}
-                            value={
-                                state.maxReads === null ? state.maxAvailableReads : state.maxReads
-                            }
-                            onChange={(e) => handleMaxReadsChange(parseInt(e.target.value))}
-                            style={{
-                                width: '100%',
-                                height: '6px',
-                                borderRadius: '3px',
-                                background: 'var(--vscode-progressBar-background)',
-                                outline: 'none',
-                                cursor: 'pointer',
-                            }}
-                        />
-                        <div
-                            style={{
-                                fontSize: '0.75em',
-                                color: 'var(--vscode-descriptionForeground)',
-                                marginTop: '4px',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                            }}
-                        >
-                            <span>{state.minAvailableReads}</span>
-                            <span>{state.maxAvailableReads}</span>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleStartComparison}
-                        disabled={state.selectedSamples.size < 2}
-                        style={{
-                            width: '100%',
-                            padding: '8px 12px',
-                            backgroundColor:
-                                state.selectedSamples.size >= 2
-                                    ? 'var(--vscode-button-background)'
-                                    : 'var(--vscode-button-disabledBackground)',
-                            color:
-                                state.selectedSamples.size >= 2
-                                    ? 'var(--vscode-button-foreground)'
-                                    : 'var(--vscode-input-placeholderForeground)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
-                            cursor: state.selectedSamples.size >= 2 ? 'pointer' : 'not-allowed',
-                            fontSize: 'var(--vscode-font-size)',
-                            fontFamily: 'var(--vscode-font-family)',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (state.selectedSamples.size >= 2) {
-                                (e.target as HTMLButtonElement).style.backgroundColor =
-                                    'var(--vscode-button-hoverBackground)';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (state.selectedSamples.size >= 2) {
-                                (e.target as HTMLButtonElement).style.backgroundColor =
-                                    'var(--vscode-button-background)';
-                            }
-                        }}
-                    >
-                        Start Comparison
-                    </button>
-
-                    <div
-                        style={{
-                            fontSize: '0.75em',
-                            color: 'var(--vscode-descriptionForeground)',
-                            marginTop: '6px',
-                            fontStyle: 'italic',
-                        }}
-                    >
-                        Select at least 2 samples to compare
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

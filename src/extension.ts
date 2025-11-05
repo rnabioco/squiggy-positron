@@ -103,18 +103,6 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Listen for sample comparison requests and trigger signal overlay plot (default)
-    context.subscriptions.push(
-        samplesProvider.onDidRequestComparison((sampleNames) => {
-            const maxReads = samplesProvider.getPendingMaxReads();
-            vscode.commands.executeCommand(
-                'squiggy.plotSignalOverlayComparison',
-                sampleNames,
-                maxReads
-            );
-        })
-    );
-
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {

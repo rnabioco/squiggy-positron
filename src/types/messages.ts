@@ -253,12 +253,6 @@ export interface SelectSampleMessage extends BaseMessage {
     selected: boolean;
 }
 
-export interface StartComparisonMessage extends BaseMessage {
-    type: 'startComparison';
-    sampleNames: string[];
-    maxReads?: number | null; // null means use default
-}
-
 export interface UnloadSampleMessage extends BaseMessage {
     type: 'unloadSample';
     sampleName: string;
@@ -305,7 +299,6 @@ export interface UpdateSampleColorMessage extends BaseMessage {
 
 export type SamplesIncomingMessage =
     | SelectSampleMessage
-    | StartComparisonMessage
     | UnloadSampleMessage
     | FilesDroppedMessage
     | RequestSetSessionFastaMessage

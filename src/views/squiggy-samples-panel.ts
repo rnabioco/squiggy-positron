@@ -28,22 +28,9 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     private _selectedSamples: Set<string> = new Set();
     private _disposables: vscode.Disposable[] = [];
 
-    // Event emitter for comparison requests
-    private _onDidRequestComparison = new vscode.EventEmitter<string[]>();
-    public readonly onDidRequestComparison = this._onDidRequestComparison.event;
-
     // Event emitter for sample unload requests
     private _onDidRequestUnload = new vscode.EventEmitter<string>();
     public readonly onDidRequestUnload = this._onDidRequestUnload.event;
-
-    // Store pending maxReads value for comparison
-    private _pendingMaxReads: number | null = null;
-
-    getPendingMaxReads(): number | null {
-        const value = this._pendingMaxReads;
-        this._pendingMaxReads = null; // Clear after reading
-        return value;
-    }
 
     constructor(extensionUri: vscode.Uri, state: ExtensionState) {
         super(extensionUri);
@@ -132,18 +119,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     this._selectedSamples.add(message.sampleName);
                 } else {
                     this._selectedSamples.delete(message.sampleName);
-                }
-                break;
-
-            case 'startComparison':
-                if (message.sampleNames.length >= 2) {
-                    // Store maxReads for the command handler to access
-                    this._pendingMaxReads = message.maxReads || null;
-                    this._onDidRequestComparison.fire(message.sampleNames);
-                } else {
-                    vscode.window.showWarningMessage(
-                        'Please select at least 2 samples for comparison'
-                    );
                 }
                 break;
 
