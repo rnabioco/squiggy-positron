@@ -24,15 +24,47 @@ import { FileResolver } from './file-resolver';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
+ *
+ * Phase 3 refactor: Designed to support future TSV import and sample management.
+ * - `sampleId`: Unique identifier (can be UUID or file-based)
+ * - `displayName`: User-facing name (editable), separate from POD5 filename
+ * - `pod5Path`: Single POD5 file (Phase 3), extensible to array for multi-POD5 future
+ * - `isLoaded`: Tracks kernel state (prepares for lazy loading in #79 TSV import)
+ * - `metadata`: Extensible object for future attributes without interface changes
  */
 export interface SampleInfo {
-    name: string;
-    pod5Path: string;
+    // Core identifiers
+    sampleId: string; // Unique ID (can be UUID or derived from pod5 path)
+    displayName: string; // User-facing name (editable in Sample Manager)
+
+    // File associations
+    pod5Path: string; // Single POD5 per sample (Phase 3)
     bamPath?: string;
     fastaPath?: string;
+
+    // File metadata
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+
+    // Kernel state (for lazy loading)
+    isLoaded: boolean; // Whether files are loaded into kernel
+
+    // Extensible metadata (for future features without refactoring)
+    metadata?: {
+        // Sample identification
+        autoDetected?: boolean; // Was sample auto-detected from file names?
+
+        // UI preferences
+        displayColor?: string; // Hex or CSS color for plot rendering
+
+        // TSV import tracking (future #79)
+        sourceType?: 'manual' | 'tsv'; // Origin of sample (manual UI or TSV import)
+        tsvGroup?: string; // Batch grouping if loaded from same TSV
+
+        // Additional notes or tags (extensible)
+        tags?: string[];
+    };
 }
 
 /**
@@ -505,7 +537,9 @@ squiggy.close_fasta()
     }
 
     addSample(sample: SampleInfo): void {
-        this._loadedSamples.set(sample.name, sample);
+        // Use displayName as the key for backward compatibility
+        // displayName can be edited in Sample Manager, but the key stays stable
+        this._loadedSamples.set(sample.displayName, sample);
     }
 
     removeSample(name: string): void {
@@ -958,13 +992,24 @@ squiggy.close_fasta()
         // Add to loaded samples if multi-sample mode
         if (resolvedPod5Paths.length > 0) {
             const sampleInfo: SampleInfo = {
-                name: sampleName,
+                // Core identifiers
+                sampleId: `sample:${sampleName}`, // Consistent with LoadedItem ID format
+                displayName: sampleName, // Can be edited later in Sample Manager
+                // File associations
                 pod5Path: resolvedPod5Paths[0],
                 bamPath: resolvedBamPath,
                 fastaPath: resolvedFastaPath,
+                // File metadata
                 readCount: 0, // Will be populated by loadPOD5
                 hasBam: !!resolvedBamPath,
                 hasFasta: !!resolvedFastaPath,
+                // Kernel state
+                isLoaded: true, // Files have been loaded to kernel
+                // Extensible metadata
+                metadata: {
+                    autoDetected: false, // Manual sample creation for now
+                    sourceType: 'manual', // Manual UI creation (not from TSV)
+                },
             };
             this._loadedSamples.set(sampleName, sampleInfo);
         }

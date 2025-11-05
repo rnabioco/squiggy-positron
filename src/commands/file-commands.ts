@@ -825,13 +825,19 @@ async function loadSampleForComparison(
 
             // Maintain legacy state for backward compatibility
             state.addSample({
-                name: sampleName,
+                sampleId: `sample:${sampleName}`,
+                displayName: sampleName,
                 pod5Path,
                 bamPath,
                 fastaPath,
                 readCount: fileResults.pod5Result.readCount,
                 hasBam: !!bamPath,
                 hasFasta: !!fastaPath,
+                isLoaded: true,
+                metadata: {
+                    autoDetected: false,
+                    sourceType: 'manual',
+                },
             });
 
             // Reveal samples panel (subscribed to unified state, so no refresh needed)
@@ -929,13 +935,21 @@ async function loadTestMultiReadDataset(
 
                     // Maintain legacy state for backward compatibility
                     state.addSample({
-                        name: sample.name,
+                        sampleId: `sample:${sample.name}`,
+                        displayName: sample.name,
                         pod5Path: sample.pod5Path,
                         bamPath: sample.bamPath,
                         fastaPath: sample.fastaPath,
                         readCount: fileResults.pod5Result.readCount,
                         hasBam: !!sample.bamPath,
                         hasFasta: !!sample.fastaPath,
+                        isLoaded: true,
+                        metadata: {
+                            // Note: autoDetected tracks whether files were matched by naming convention.
+                            // Can be enhanced in Task 3.3 when sample loading dialog is implemented.
+                            autoDetected: false,
+                            sourceType: 'manual',
+                        },
                     });
 
                     console.log(
@@ -1053,13 +1067,19 @@ async function loadSamplesFromDropped(
 
                     // Maintain legacy state for backward compatibility
                     state.addSample({
-                        name: sampleName,
+                        sampleId: `sample:${sampleName}`,
+                        displayName: sampleName,
                         pod5Path,
                         bamPath,
                         fastaPath: state.sessionFastaPath || undefined,
                         readCount: fileResults.pod5Result.readCount,
                         hasBam: !!bamPath,
                         hasFasta: !!state.sessionFastaPath,
+                        isLoaded: true,
+                        metadata: {
+                            autoDetected: false,
+                            sourceType: 'manual',
+                        },
                     });
 
                     results.successful++;

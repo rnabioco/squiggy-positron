@@ -175,6 +175,41 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             case 'setSessionFasta':
                 this._state.setSessionFasta(message.fastaPath);
                 break;
+
+            case 'updateSampleName': {
+                // Rename a sample in the state
+                const sample = this._state.getSample(message.oldName);
+                if (sample) {
+                    sample.displayName = message.newName;
+                    // Update map key: remove old, add new
+                    this._state.removeSample(message.oldName);
+                    this._state.addSample(sample);
+                    // If sample was selected, update selection
+                    if (this._selectedSamples.has(message.oldName)) {
+                        this._selectedSamples.delete(message.oldName);
+                        this._selectedSamples.add(message.newName);
+                    }
+                    console.log(`[SamplesPanelProvider] Renamed sample: ${message.oldName} → ${message.newName}`);
+                    this.updateView();
+                }
+                break;
+            }
+
+            case 'updateSampleColor': {
+                // Update sample color
+                const sample = this._state.getSample(message.sampleName);
+                if (sample) {
+                    if (!sample.metadata) {
+                        sample.metadata = {};
+                    }
+                    sample.metadata.displayColor = message.color || undefined;
+                    console.log(
+                        `[SamplesPanelProvider] Updated color for ${message.sampleName}: ${message.color}`
+                    );
+                    this.updateView();
+                }
+                break;
+            }
         }
     }
 
@@ -200,7 +235,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 }
 
                 const sampleItem: SampleItem = {
-                    name: sampleInfo.name,
+                    name: sampleInfo.displayName, // User-facing display name (editable)
                     pod5Path: sampleInfo.pod5Path,
                     bamPath: sampleInfo.bamPath,
                     fastaPath: sampleInfo.fastaPath,

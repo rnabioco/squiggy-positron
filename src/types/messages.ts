@@ -276,6 +276,18 @@ export interface UpdateSessionFastaMessage extends BaseMessage {
     fastaPath: string | null;
 }
 
+export interface UpdateSampleNameMessage extends BaseMessage {
+    type: 'updateSampleName';
+    oldName: string;
+    newName: string;
+}
+
+export interface UpdateSampleColorMessage extends BaseMessage {
+    type: 'updateSampleColor';
+    sampleName: string;
+    color: string | null; // null to clear color
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | StartComparisonMessage
@@ -284,6 +296,8 @@ export type SamplesIncomingMessage =
     | RequestSetSessionFastaMessage
     | RequestLoadSamplesMessage
     | SetSessionFastaMessage
+    | UpdateSampleNameMessage
+    | UpdateSampleColorMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage

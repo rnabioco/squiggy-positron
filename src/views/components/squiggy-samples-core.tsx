@@ -15,6 +15,9 @@ interface SamplesState {
     minAvailableReads: number;
     maxAvailableReads: number;
     sessionFastaPath: string | null; // Session-level FASTA file path
+    editingSampleName: string | null; // Which sample name is being edited
+    editInputValue: string; // Current value in edit input
+    sampleColors: Map<string, string>; // Map of sample names to hex colors
 }
 
 export const SamplesCore: React.FC = () => {
@@ -25,6 +28,9 @@ export const SamplesCore: React.FC = () => {
         minAvailableReads: 1,
         maxAvailableReads: 100,
         sessionFastaPath: null,
+        editingSampleName: null,
+        editInputValue: '',
+        sampleColors: new Map(),
     });
 
     // Listen for messages from extension
@@ -65,6 +71,9 @@ export const SamplesCore: React.FC = () => {
                         minAvailableReads: 1,
                         maxAvailableReads: 100,
                         sessionFastaPath: null,
+                        editingSampleName: null,
+                        editInputValue: '',
+                        sampleColors: new Map(),
                     });
                     break;
 
@@ -168,6 +177,77 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
+    const handleEditSampleName = (sampleName: string) => {
+        setState((prev) => ({
+            ...prev,
+            editingSampleName: sampleName,
+            editInputValue: sampleName,
+        }));
+    };
+
+    const handleSaveNameEdit = (oldName: string, newName: string) => {
+        if (!newName.trim()) {
+            alert('Sample name cannot be empty');
+            return;
+        }
+
+        if (newName === oldName) {
+            // No change, just exit edit mode
+            setState((prev) => ({
+                ...prev,
+                editingSampleName: null,
+                editInputValue: '',
+            }));
+            return;
+        }
+
+        // Check for duplicate names
+        if (state.samples.some((s) => s.name === newName)) {
+            alert('A sample with this name already exists');
+            return;
+        }
+
+        // Send update to extension
+        vscode.postMessage({
+            type: 'updateSampleName',
+            oldName: oldName,
+            newName: newName.trim(),
+        });
+
+        // Exit edit mode
+        setState((prev) => ({
+            ...prev,
+            editingSampleName: null,
+            editInputValue: '',
+        }));
+    };
+
+    const handleCancelNameEdit = () => {
+        setState((prev) => ({
+            ...prev,
+            editingSampleName: null,
+            editInputValue: '',
+        }));
+    };
+
+    const handleSampleColorChange = (sampleName: string, color: string) => {
+        setState((prev) => {
+            const newColors = new Map(prev.sampleColors);
+            newColors.set(sampleName, color);
+            return {
+                ...prev,
+                sampleColors: newColors,
+            };
+        });
+
+        // Send to extension
+        vscode.postMessage({
+            type: 'updateSampleColor',
+            sampleName: sampleName,
+            color: color || null,
+        });
+    };
+
     // Unused utility functions - reserved for future file size display feature
     // const formatFileSize = (bytes: number): string => {
     //     if (bytes === 0) return '0 B';
@@ -235,7 +315,7 @@ export const SamplesCore: React.FC = () => {
                     )}
                 </div>
 
-                {/* Load Button */}
+                {/* New Sample Button */}
                 <button
                     onClick={handleLoadSamplesClick}
                     style={{
@@ -259,7 +339,7 @@ export const SamplesCore: React.FC = () => {
                             'var(--vscode-button-background)';
                     }}
                 >
-                    Load Samples
+                    + New Sample
                 </button>
             </div>
         );
@@ -340,7 +420,7 @@ export const SamplesCore: React.FC = () => {
                 )}
             </div>
 
-            {/* Load More Samples Button */}
+            {/* New Sample Button */}
             <div style={{ marginBottom: '12px' }}>
                 <button
                     onClick={handleLoadSamplesClick}
@@ -364,7 +444,7 @@ export const SamplesCore: React.FC = () => {
                             'var(--vscode-button-background)';
                     }}
                 >
-                    Load More Samples
+                    + New Sample
                 </button>
             </div>
 
@@ -397,6 +477,7 @@ export const SamplesCore: React.FC = () => {
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
+                                    gap: '6px',
                                     marginBottom: '6px',
                                 }}
                             >
@@ -405,18 +486,102 @@ export const SamplesCore: React.FC = () => {
                                     id={`sample-${sample.name}`}
                                     checked={state.selectedSamples.has(sample.name)}
                                     onChange={() => handleSampleToggle(sample.name)}
-                                    style={{ marginRight: '6px' }}
+                                    style={{ marginRight: '0px', flexShrink: 0 }}
                                 />
-                                <label
-                                    htmlFor={`sample-${sample.name}`}
+
+                                {/* Color Picker */}
+                                <input
+                                    type="color"
+                                    value={state.sampleColors.get(sample.name) || '#808080'}
+                                    onChange={(e) => handleSampleColorChange(sample.name, e.target.value)}
                                     style={{
-                                        fontWeight: 'bold',
-                                        flex: 1,
+                                        width: '24px',
+                                        height: '24px',
+                                        border: 'none',
+                                        borderRadius: '2px',
                                         cursor: 'pointer',
+                                        flexShrink: 0,
                                     }}
-                                >
-                                    {sample.name}
-                                </label>
+                                    title="Sample color for plots"
+                                />
+
+                                {/* Sample Name - Editable */}
+                                {state.editingSampleName === sample.name ? (
+                                    <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+                                        <input
+                                            type="text"
+                                            value={state.editInputValue}
+                                            onChange={(e) =>
+                                                setState((prev) => ({
+                                                    ...prev,
+                                                    editInputValue: e.target.value,
+                                                }))
+                                            }
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleSaveNameEdit(sample.name, state.editInputValue);
+                                                } else if (e.key === 'Escape') {
+                                                    handleCancelNameEdit();
+                                                }
+                                            }}
+                                            style={{
+                                                flex: 1,
+                                                padding: '4px',
+                                                backgroundColor: 'var(--vscode-input-background)',
+                                                color: 'var(--vscode-input-foreground)',
+                                                border: '1px solid var(--vscode-input-border)',
+                                                borderRadius: '2px',
+                                                fontWeight: 'bold',
+                                                fontFamily: 'var(--vscode-font-family)',
+                                                fontSize: 'var(--vscode-font-size)',
+                                            }}
+                                            autoFocus
+                                        />
+                                        <button
+                                            onClick={() =>
+                                                handleSaveNameEdit(sample.name, state.editInputValue)
+                                            }
+                                            style={{
+                                                padding: '2px 8px',
+                                                backgroundColor: 'var(--vscode-button-background)',
+                                                color: 'var(--vscode-button-foreground)',
+                                                border: 'none',
+                                                borderRadius: '2px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85em',
+                                            }}
+                                        >
+                                            ✓
+                                        </button>
+                                        <button
+                                            onClick={handleCancelNameEdit}
+                                            style={{
+                                                padding: '2px 8px',
+                                                backgroundColor: 'var(--vscode-errorForeground)',
+                                                color: 'var(--vscode-editor-background)',
+                                                border: 'none',
+                                                borderRadius: '2px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85em',
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <label
+                                        htmlFor={`sample-${sample.name}`}
+                                        style={{
+                                            fontWeight: 'bold',
+                                            flex: 1,
+                                            cursor: 'pointer',
+                                            userSelect: 'none',
+                                        }}
+                                        onDoubleClick={() => handleEditSampleName(sample.name)}
+                                    >
+                                        {sample.name}
+                                    </label>
+                                )}
                             </div>
 
                             {/* Sample Metadata */}
