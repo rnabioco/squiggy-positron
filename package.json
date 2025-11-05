@@ -267,7 +267,102 @@
           "description": "Maximum number of reads to sample for aggregate plots"
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "squiggy.gettingStarted",
+        "title": "Getting Started with Squiggy",
+        "description": "Learn how to visualize Oxford Nanopore sequencing data with interactive squiggle plots",
+        "steps": [
+          {
+            "id": "welcome",
+            "title": "Welcome to Squiggy",
+            "description": "Squiggy is a powerful tool for visualizing Oxford Nanopore sequencing data directly in Positron. You can explore raw signal data (squiggle plots), analyze base modifications, and compare signals across multiple reads.\n\n**Key Features:**\n- Interactive signal visualization with Bokeh\n- Base annotation overlay from BAM files\n- Modification detection and filtering\n- Multiple plot modes (single, overlay, stacked, eventalign, aggregate)\n- Signal normalization options\n\nLet's get started!",
+            "media": {
+              "image": "resources/walkthrough/welcome.png",
+              "altText": "Squiggy visualization example"
+            },
+            "completionEvents": [
+              "onView:squiggy.gettingStarted"
+            ]
+          },
+          {
+            "id": "loadDemo",
+            "title": "Load Demo Session",
+            "description": "First, let's load a demo session with sample data to explore Squiggy's features.\n\n[Load Demo Session](command:squiggy.loadDemoSession)\n\nThis will load test data from the extension including POD5 and BAM files, giving you immediate access to all visualization features.",
+            "media": {
+              "image": "resources/walkthrough/session-manager.png",
+              "altText": "Session Manager panel"
+            },
+            "completionEvents": [
+              "onCommand:squiggy.loadDemoSession"
+            ]
+          },
+          {
+            "id": "browseReads",
+            "title": "Browse Available Reads",
+            "description": "Once data is loaded, you can browse all available reads in the **Read Explorer** panel. This panel shows:\n- Read IDs\n- Sequence length\n- Quality scores\n- Reference alignment (when BAM loaded)\n- Mapping positions\n\nYou can search, filter, and select reads for visualization.\n\n[Open Read Explorer](command:squiggyReadList.focus)\n\nClick the button above to open the Read Explorer panel in the Squiggy sidebar.",
+            "media": {
+              "image": "resources/walkthrough/read-explorer.png",
+              "altText": "Read Explorer with data"
+            },
+            "completionEvents": [
+              "onView:squiggyReadList"
+            ]
+          },
+          {
+            "id": "visualizeRead",
+            "title": "Visualize a Read",
+            "description": "Now let's create your first plot! Select a read from the Read Explorer and click the plot icon, or use the command palette.\n\n[Plot Selected Read](command:squiggy.plotRead)\n\nSquiggy will generate an interactive Bokeh plot showing the raw signal data. You can:\n- Zoom and pan with mouse/trackpad\n- See base annotations (if BAM loaded)\n- Identify base modifications\n- Export plots to HTML/PNG/SVG",
+            "media": {
+              "image": "resources/walkthrough/plot-example.png",
+              "altText": "Bokeh plot with annotations"
+            },
+            "completionEvents": [
+              "onCommand:squiggy.plotRead"
+            ]
+          },
+          {
+            "id": "customizePlot",
+            "title": "Customize Visualization",
+            "description": "Use the **Advanced Plotting** panel to customize your visualizations:\n\n**Plot Modes:**\n- **SINGLE**: Single read signal\n- **OVERLAY**: Multiple reads overlaid\n- **STACKED**: Multiple reads stacked vertically\n- **EVENTALIGN**: Event-aligned with base annotations\n- **AGGREGATE**: Multi-read statistics (mean, median, quantiles)\n\n**Normalization:**\n- ZNORM: Z-score normalization\n- MEDIAN: Median centering\n- MAD: Median absolute deviation\n\n**Other Options:**\n- X-axis scaling by dwell time\n- Theme selection (light/dark)\n- Downsampling for large signals\n\n[Open Advanced Plotting](command:squiggyPlotOptions.focus)",
+            "media": {
+              "image": "resources/walkthrough/plot-options.png",
+              "altText": "Plot Options panel"
+            },
+            "completionEvents": [
+              "onView:squiggyPlotOptions"
+            ]
+          },
+          {
+            "id": "analyzeModifications",
+            "title": "Analyze Base Modifications",
+            "description": "If your BAM file contains modification tags (MM/ML), Squiggy can visualize modification probabilities.\n\nThe **Modifications Explorer** panel lets you:\n- View all detected modification types (5mC, 6mA, etc.)\n- Filter by modification probability threshold\n- Toggle modification tracks on/off\n- Color-code modifications in plots\n\n[Open Modifications Explorer](command:squiggyModificationsPanel.focus)\n\n*Note: This panel only appears when modification data is available.*",
+            "media": {
+              "image": "resources/walkthrough/modifications.png",
+              "altText": "Modifications Explorer"
+            },
+            "when": "squiggy.hasModifications",
+            "completionEvents": [
+              "onView:squiggyModificationsPanel"
+            ]
+          },
+          {
+            "id": "loadOwnData",
+            "title": "Load Your Own Data",
+            "description": "Ready to explore your own data? Squiggy supports:\n\n**POD5 Files:**\nContain raw nanopore signal data from Oxford Nanopore sequencers.\n\n[Open POD5 File](command:squiggy.openPOD5)\n\n**BAM Files:**\nProvide base annotations and modification calls (requires .bai index).\n\n[Open BAM File](command:squiggy.openBAM)\n\n**Session Management:**\n- Save sessions: [Save Session](command:squiggy.saveSession)\n- Restore sessions: [Restore Session](command:squiggy.restoreSession)\n- Export/import sessions for sharing\n\n**Tips:**\n- Load POD5 first, then BAM for best experience\n- BAM files must be indexed (.bai)\n- Use demo data to test features before loading large files\n\nHappy exploring!",
+            "media": {
+              "image": "resources/walkthrough/load-files.png",
+              "altText": "File loading interface"
+            },
+            "completionEvents": [
+              "onCommand:squiggy.openPOD5",
+              "onCommand:squiggy.openBAM"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "sync": "node scripts/sync-version.js",
