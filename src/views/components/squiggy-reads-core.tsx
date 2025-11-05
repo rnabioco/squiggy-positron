@@ -504,7 +504,7 @@ export const ReadsCore: React.FC = () => {
             {/* Empty state when no samples loaded */}
             {availableSamples.length === 0 && (
                 <div className="reads-empty-state">
-                    <p>No samples loaded. Use Sample Manager to load POD5 files.</p>
+                    <p>No samples loaded. Load POD5 files to get started.</p>
                 </div>
             )}
 

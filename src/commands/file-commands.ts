@@ -352,7 +352,13 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
         state.readsViewPane?.setLoading(true, `Loading reads for sample '${sampleName}'...`);
 
         // Get read IDs for this sample from the multi-sample registry
-        const readIds = await state.squiggyAPI.getReadIdsForSample(sampleName);
+        // Add timeout to prevent hanging indefinitely
+        const readIds = await Promise.race([
+            state.squiggyAPI.getReadIdsForSample(sampleName),
+            new Promise<string[]>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout loading reads for sample '${sampleName}'`)), 10000)
+            ),
+        ]);
 
         if (readIds.length === 0) {
             state.readsViewPane?.setReads([]);
@@ -361,7 +367,13 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
         }
 
         // Check if this sample has a BAM file (references)
-        const references = await state.squiggyAPI.getReferencesForSample(sampleName);
+        // Add timeout to prevent hanging indefinitely
+        const references = await Promise.race([
+            state.squiggyAPI.getReferencesForSample(sampleName),
+            new Promise<string[]>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout loading references for sample '${sampleName}'`)), 10000)
+            ),
+        ]);
 
         if (references && references.length > 0) {
             // Sample has BAM - show references only (lazy load mode)
@@ -369,10 +381,12 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
             const refCounts: { referenceName: string; readCount: number }[] = [];
 
             for (const refName of references) {
-                const refReads = await state.squiggyAPI.getReadsForReferenceSample(
-                    sampleName,
-                    refName
-                );
+                const refReads = await Promise.race([
+                    state.squiggyAPI.getReadsForReferenceSample(sampleName, refName),
+                    new Promise<string[]>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Timeout loading reads for reference '${refName}'`)), 10000)
+                    ),
+                ]);
                 refCounts.push({
                     referenceName: refName,
                     readCount: refReads.length,
@@ -1149,12 +1163,15 @@ async function loadSamplesFromDropped(
                     // or on user's first interaction (state.selectedReadExplorerSample will be set later)
                     if (!state.selectedReadExplorerSample) {
                         state.selectedReadExplorerSample = sampleName;
-                        // Trigger async read loading (don't await to avoid blocking the UI)
-                        Promise.resolve(
-                            vscode.commands.executeCommand('squiggy.internal.loadReadsForSample', sampleName)
-                        ).catch((err: unknown) => {
-                            console.error(`Failed to auto-load reads for sample '${sampleName}':`, err);
-                        });
+                        // Delay slightly to ensure sample is fully registered in Python registry
+                        // (the loadSample() call is async and may not complete immediately)
+                        setTimeout(() => {
+                            Promise.resolve(
+                                vscode.commands.executeCommand('squiggy.internal.loadReadsForSample', sampleName)
+                            ).catch((err: unknown) => {
+                                console.error(`Failed to auto-load reads for sample '${sampleName}':`, err);
+                            });
+                        }, 500); // Wait 500ms to ensure sample is registered
                     }
 
                     results.successful++;
