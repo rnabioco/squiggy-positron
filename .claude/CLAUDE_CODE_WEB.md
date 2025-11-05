@@ -183,7 +183,7 @@ Claude Code reads it automatically each session.
 ### Tests failing
 - Ensure you're on the correct branch
 - Run `git status` to check for uncommitted changes
-- Verify test data is present: `ls tests/data/`
+- Verify test data is present: `ls squiggy/data/`
 
 ## 📚 Additional Resources
 

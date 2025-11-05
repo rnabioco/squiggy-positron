@@ -181,9 +181,9 @@ class TestSearchMotif:
     """Tests for motif search functionality"""
 
     @pytest.fixture
-    def fasta_file(self):
+    def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return Path(__file__).parent / "data" / "yeast_trna.fa"
+        return test_data_dir / "yeast_trna.fa"
 
     def test_file_not_found(self):
         """Test that missing file raises error"""
@@ -313,9 +313,9 @@ class TestCountMotifs:
     """Tests for motif counting"""
 
     @pytest.fixture
-    def fasta_file(self):
+    def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return Path(__file__).parent / "data" / "yeast_trna.fa"
+        return test_data_dir / "yeast_trna.fa"
 
     def test_count_matches_search(self, fasta_file):
         """Test that count matches search results"""
@@ -344,9 +344,9 @@ class TestFastaFileIntegration:
     """Integration tests with FastaFile class"""
 
     @pytest.fixture
-    def fasta_file(self):
+    def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return Path(__file__).parent / "data" / "yeast_trna.fa"
+        return test_data_dir / "yeast_trna.fa"
 
     def test_fasta_file_class(self, fasta_file):
         """Test FastaFile class"""
@@ -391,14 +391,14 @@ class TestBamFileMotifIntegration:
     """Integration tests for BamFile.get_reads_overlapping_motif()"""
 
     @pytest.fixture
-    def fasta_file(self):
+    def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return Path(__file__).parent / "data" / "yeast_trna.fa"
+        return test_data_dir / "yeast_trna.fa"
 
     @pytest.fixture
-    def bam_file(self):
+    def bam_file(self, test_data_dir):
         """Path to test BAM file"""
-        return Path(__file__).parent / "data" / "yeast_trna_mappings.bam"
+        return test_data_dir / "yeast_trna_mappings.bam"
 
     def test_get_reads_overlapping_motif(self, fasta_file, bam_file):
         """Test finding reads overlapping motif positions"""

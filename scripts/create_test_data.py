@@ -11,7 +11,7 @@ Usage:
         --input-bam /path/to/full_mappings.bam \
         --references "tRNA-Phe-GAA,tRNA-Tyr-GUA" \
         --reads-per-ref 60 \
-        --output-dir tests/data/
+        --output-dir squiggy/data/
 """
 
 import argparse
@@ -56,8 +56,8 @@ def parse_args():
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("tests/data"),
-        help="Output directory for test files (default: tests/data/)",
+        default=Path("squiggy/data"),
+        help="Output directory for test files (default: squiggy/data/)",
     )
     parser.add_argument(
         "--output-prefix",
