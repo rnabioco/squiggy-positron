@@ -333,9 +333,7 @@ class SquiggyCache:
             # Validate file hasn't changed (using mtime for faster check)
             current_mtime = file_path.stat().st_mtime
             if abs(cached["file_mtime"] - current_mtime) > 0.001:
-                logger.info(
-                    f"Cache invalid (file modified): {cache_path.name}"
-                )
+                logger.info(f"Cache invalid (file modified): {cache_path.name}")
                 return None
 
             logger.info(
