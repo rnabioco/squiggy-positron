@@ -17,7 +17,7 @@ sync = "node scripts/sync-version.js"
 # === Main Development Workflow ===
 dev = "npm run watch"
 test = { depends-on = ["test-py", "test-ts"] }
-check = { depends-on = ["format-check", "lint", "test"] }
+check = { depends-on = ["format-check", "lint", "type-check-py", "test"] }
 build = "npm run package"
 clean = "rm -rf build/ .pytest_cache/ .ruff_cache/ site/ squiggy.egg-info/ squiggy/__pycache__/ src/squiggy.egg-info/ src/squiggy/ test-*/ tests/__pycache__/ .DS_Store"
 docs = "mkdocs serve"           # Local development server (runs indefinitely)
@@ -36,6 +36,7 @@ test-py = "python -m pytest tests/ -v"
 lint-py = "ruff check squiggy/ tests/"
 format-py = "ruff format squiggy/ tests/"
 format-check-py = "ruff format --check squiggy/ tests/"
+type-check-py = "mypy squiggy/ tests/"
 
 # Combined
 lint = { depends-on = ["format-py", "format-ts", "lint-py", "lint-ts"] }
@@ -52,6 +53,7 @@ pillow = ">=10.0.0"
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 ruff = ">=0.1.0"
+mypy = ">=1.0.0"
 mkdocs = ">=1.5.0"
 mkdocs-material = ">=9.0.0"
 
