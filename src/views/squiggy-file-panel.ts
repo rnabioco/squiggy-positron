@@ -38,44 +38,62 @@ export class FilePanelProvider extends BaseWebviewProvider {
 
     /**
      * Handle unified state changes - convert LoadedItem[] to FileItem[] for display
+     * Expands each LoadedItem into separate rows for POD5, BAM, and FASTA files
      * @private
      */
     private _handleLoadedItemsChanged(items: LoadedItem[]): void {
         // Convert LoadedItem[] to FileItem[] for the UI
-        // For now, display all items (samples and single files)
-        this._files = items.map((item) => {
-            // Determine file type - samples show as POD5, single files keep their type
-            const fileType =
-                item.type === 'sample'
-                    ? 'POD5'
-                    : item.type === 'pod5'
-                      ? 'POD5'
-                      : item.type === 'fasta'
-                        ? 'FASTA'
-                        : 'POD5';
+        // Each LoadedItem can expand to multiple rows (POD5 + BAM + FASTA)
+        this._files = [];
 
-            const fileItem: FileItem = {
+        for (const item of items) {
+            // Add POD5 row
+            this._files.push({
                 path: item.pod5Path,
                 filename: path.basename(item.pod5Path),
-                type: fileType as 'POD5' | 'BAM' | 'FASTA',
+                type: 'POD5',
                 size: item.fileSize,
                 sizeFormatted: item.fileSizeFormatted,
                 numReads: item.readCount,
                 hasMods: item.hasMods,
                 hasEvents: item.hasEvents,
-            };
+            });
 
-            // Add BAM info if present
+            // Add BAM row if present
             if (item.bamPath) {
-                fileItem.numRefs = item.hasAlignments ? 1 : 0; // Placeholder
+                this._files.push({
+                    path: item.bamPath,
+                    filename: path.basename(item.bamPath),
+                    type: 'BAM',
+                    size: 0, // BAM size not tracked in LoadedItem yet
+                    sizeFormatted: 'Unknown',
+                    numReads: item.readCount, // BAM alignment count matches POD5
+                    numRefs: item.hasAlignments ? 1 : 0,
+                    hasMods: item.hasMods,
+                    hasEvents: item.hasEvents,
+                });
             }
 
-            return fileItem;
-        });
+            // Add FASTA row if present
+            if (item.fastaPath) {
+                this._files.push({
+                    path: item.fastaPath,
+                    filename: path.basename(item.fastaPath),
+                    type: 'FASTA',
+                    size: 0, // FASTA size not tracked in LoadedItem yet
+                    sizeFormatted: 'Unknown',
+                    // FASTA is reference sequence, not reads
+                    hasMods: false,
+                    hasEvents: false,
+                });
+            }
+        }
 
         console.log(
             'FilePanelProvider: Unified state changed, now showing',
             this._files.length,
+            'file rows from',
+            items.length,
             'items'
         );
         this.updateView();
