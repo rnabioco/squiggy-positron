@@ -353,34 +353,22 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
 
         console.log(`[loadReadsForSample] Starting to load reads for '${sampleName}'`);
 
-        // Get read IDs for this sample from the multi-sample registry
-        // Add timeout to prevent hanging indefinitely (increased to 30s for large datasets)
-        const readIds = await Promise.race([
-            state.squiggyAPI.getReadIdsForSample(sampleName),
-            new Promise<string[]>((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout loading reads for sample '${sampleName}' after 30 seconds`)), 30000)
+        // Get read IDs and references in a single optimized batch query
+        // (avoids two separate getVariable() calls which each add 3x kernel round-trips)
+        const { readIds, references } = await Promise.race([
+            state.squiggyAPI.getReadIdsAndReferencesForSample(sampleName),
+            new Promise<{ readIds: string[], references: string[] }>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout loading reads and references for sample '${sampleName}' after 30 seconds`)), 30000)
             ),
         ]);
 
-        console.log(`[loadReadsForSample] Got ${readIds.length} reads for sample '${sampleName}'`);
+        console.log(`[loadReadsForSample] Got ${readIds.length} reads and ${references.length} references for sample '${sampleName}'`);
 
         if (readIds.length === 0) {
             state.readsViewPane?.setReads([]);
             vscode.window.showWarningMessage(`No reads found in sample '${sampleName}'`);
             return;
         }
-
-        // Check if this sample has a BAM file (references)
-        // Add timeout to prevent hanging indefinitely (30s for large datasets)
-        console.log(`[loadReadsForSample] Checking for references in sample '${sampleName}'`);
-        const references = await Promise.race([
-            state.squiggyAPI.getReferencesForSample(sampleName),
-            new Promise<string[]>((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout loading references for sample '${sampleName}' after 30 seconds`)), 30000)
-            ),
-        ]);
-
-        console.log(`[loadReadsForSample] Found ${references?.length || 0} references`);
 
         if (references && references.length > 0) {
             // Sample has BAM - show references only (lazy load mode)

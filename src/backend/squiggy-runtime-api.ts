@@ -594,10 +594,60 @@ squiggy.remove_sample('${escapedName}')
     }
 
     /**
+     * Get read IDs and references for a sample in a single query (optimized batch)
+     *
+     * This combines two expensive getVariable() calls into one to reduce kernel round-trips.
+     * Each getVariable() call requires 3 sequential executeSilent() calls (json.dumps, getSessionVariables, cleanup),
+     * so batching two queries saves significant overhead.
+     *
+     * @param sampleName - Name of the sample
+     * @returns Object with readIds and references
+     */
+    async getReadIdsAndReferencesForSample(sampleName: string): Promise<{ readIds: string[], references: string[] }> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            console.log(`[getReadIdsAndReferencesForSample] Fetching data for sample '${sampleName}'...`);
+            const startTime = Date.now();
+
+            // Batch both queries into a single Python execution
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample:
+    _read_ids = _sample.read_ids
+    if _sample.bam_info and 'ref_mapping' in _sample.bam_info:
+        _refs = list(_sample.bam_info['ref_mapping'].keys())
+    else:
+        _refs = []
+else:
+    _read_ids = []
+    _refs = []
+{'read_ids': _read_ids, 'references': _refs}
+`;
+            const result = await this._client.getVariable(code);
+            const elapsed = Date.now() - startTime;
+
+            const data = result as { read_ids: string[], references: string[] } || { read_ids: [], references: [] };
+            console.log(`[getReadIdsAndReferencesForSample] Got ${data.read_ids?.length || 0} reads and ${data.references?.length || 0} references in ${elapsed}ms`);
+
+            return {
+                readIds: data.read_ids || [],
+                references: data.references || []
+            };
+        } catch (error) {
+            console.warn(`Failed to get read IDs and references for sample '${sampleName}':`, error);
+            return { readIds: [], references: [] };
+        }
+    }
+
+    /**
      * Get read IDs for a specific sample from the multi-sample registry
      *
      * @param sampleName - Name of the sample
      * @returns Array of read IDs in that sample
+     *
+     * NOTE: Prefer getReadIdsAndReferencesForSample() when you also need references,
+     * as it batches both queries into a single call.
      */
     async getReadIdsForSample(sampleName: string): Promise<string[]> {
         const escapedName = sampleName.replace(/'/g, "\\'");
@@ -628,6 +678,9 @@ _read_ids
      *
      * @param sampleName - Name of the sample
      * @returns Array of reference names from that sample's BAM
+     *
+     * NOTE: Prefer getReadIdsAndReferencesForSample() when you also need read IDs,
+     * as it batches both queries into a single call.
      */
     async getReferencesForSample(sampleName: string): Promise<string[]> {
         const escapedName = sampleName.replace(/'/g, "\\'");
