@@ -173,6 +173,7 @@ class AggregatePlotStrategy(PlotStrategy):
         show_signal = options.get("show_signal", True)
         show_quality = options.get("show_quality", True)
         motif_positions = options.get("motif_positions", None)
+        clip_x_to_alignment = options.get("clip_x_to_alignment", True)
 
         # Build panel list dynamically based on available data and visibility options
         # Panel order: modifications, pileup, dwell time, signal, quality
@@ -229,8 +230,48 @@ class AggregatePlotStrategy(PlotStrategy):
         # Link x-axes for synchronized zoom/pan
         # Use first figure as base for x_range
         if all_figs:
-            base_x_range = all_figs[0].x_range
-            for fig in all_figs[1:]:
+            # Apply x-axis clipping if requested
+            if clip_x_to_alignment:
+                # Clip to consensus alignment region (where most reads agree)
+                # Use pileup coverage to determine the high-coverage region
+                all_positions = aggregate_stats.get("positions", [])
+                coverage = aggregate_stats.get("coverage", [])
+
+                if len(all_positions) > 0 and len(coverage) > 0:
+                    import numpy as np
+                    from bokeh.models import Range1d
+
+                    # Find consensus region: positions with >50% of maximum coverage
+                    # This filters out sparse regions where only a few reads align
+                    max_coverage = np.max(coverage)
+                    coverage_threshold = max_coverage * 0.5
+
+                    # Find positions that meet the threshold
+                    high_coverage_mask = np.array(coverage) >= coverage_threshold
+                    high_coverage_positions = np.array(all_positions)[
+                        high_coverage_mask
+                    ]
+
+                    if len(high_coverage_positions) > 0:
+                        # Use the consensus alignment region
+                        start_pos = high_coverage_positions[0]
+                        end_pos = high_coverage_positions[-1]
+                    else:
+                        # Fallback to all positions if threshold filters everything
+                        start_pos = all_positions[0]
+                        end_pos = all_positions[-1]
+
+                    # Add 0.5 padding to prevent bars from being cut off
+                    base_x_range = Range1d(start=start_pos - 0.5, end=end_pos + 0.5)
+                else:
+                    # No positions available, use default
+                    base_x_range = all_figs[0].x_range
+            else:
+                # Use default DataRange1d for auto-scaling (shows full range)
+                base_x_range = all_figs[0].x_range
+
+            # Apply the x_range to all figures
+            for fig in all_figs:
                 fig.x_range = base_x_range
 
         # Create gridplot
