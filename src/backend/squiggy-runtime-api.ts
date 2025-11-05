@@ -485,14 +485,18 @@ squiggy.load_sample(
         code += `\n)`;
 
         try {
-            console.log(`[loadSample] Starting to load sample '${sampleName}' with POD5: ${pod5Path}${bamPath ? ` BAM: ${bamPath}` : ''}`);
+            console.log(
+                `[loadSample] Starting to load sample '${sampleName}' with POD5: ${pod5Path}${bamPath ? ` BAM: ${bamPath}` : ''}`
+            );
             const startTime = Date.now();
 
             // Load sample silently
             console.log(`[loadSample] Executing Python code to load sample...`);
             await this._client.executeSilent(code);
             const executeSilentTime = Date.now();
-            console.log(`[loadSample] executeSilent completed in ${executeSilentTime - startTime}ms`);
+            console.log(
+                `[loadSample] executeSilent completed in ${executeSilentTime - startTime}ms`
+            );
 
             // Get read count for this sample
             console.log(`[loadSample] Querying read count for sample '${sampleName}'...`);
@@ -500,7 +504,9 @@ squiggy.load_sample(
                 `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
             );
             const queryTime = Date.now();
-            console.log(`[loadSample] Got ${numReads} reads in ${queryTime - executeSilentTime}ms (total: ${queryTime - startTime}ms)`);
+            console.log(
+                `[loadSample] Got ${numReads} reads in ${queryTime - executeSilentTime}ms (total: ${queryTime - startTime}ms)`
+            );
 
             return { numReads: numReads as number };
         } catch (error) {
@@ -612,11 +618,15 @@ squiggy.remove_sample('${escapedName}')
      * @param sampleName - Name of the sample
      * @returns Object with readIds and references
      */
-    async getReadIdsAndReferencesForSample(sampleName: string): Promise<{ readIds: string[], references: string[] }> {
+    async getReadIdsAndReferencesForSample(
+        sampleName: string
+    ): Promise<{ readIds: string[]; references: string[] }> {
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
-            console.log(`[getReadIdsAndReferencesForSample] Fetching data for sample '${sampleName}'...`);
+            console.log(
+                `[getReadIdsAndReferencesForSample] Fetching data for sample '${sampleName}'...`
+            );
             const startTime = Date.now();
 
             // Execute setup code first to create variables
@@ -638,15 +648,23 @@ _result = {'read_ids': _read_ids, 'references': _refs}
             const result = await this._client.getVariable('_result');
             const elapsed = Date.now() - startTime;
 
-            const data = result as { read_ids: string[], references: string[] } || { read_ids: [], references: [] };
-            console.log(`[getReadIdsAndReferencesForSample] Got ${data.read_ids?.length || 0} reads and ${data.references?.length || 0} references in ${elapsed}ms`);
+            const data = (result as { read_ids: string[]; references: string[] }) || {
+                read_ids: [],
+                references: [],
+            };
+            console.log(
+                `[getReadIdsAndReferencesForSample] Got ${data.read_ids?.length || 0} reads and ${data.references?.length || 0} references in ${elapsed}ms`
+            );
 
             return {
                 readIds: data.read_ids || [],
-                references: data.references || []
+                references: data.references || [],
             };
         } catch (error) {
-            console.warn(`Failed to get read IDs and references for sample '${sampleName}':`, error);
+            console.warn(
+                `Failed to get read IDs and references for sample '${sampleName}':`,
+                error
+            );
             return { readIds: [], references: [] };
         }
     }
@@ -725,7 +743,9 @@ _refs
      * @param sampleName - Name of the sample
      * @returns Map of reference name to read count
      */
-    async getReadsCountForAllReferencesSample(sampleName: string): Promise<{ [referenceName: string]: number }> {
+    async getReadsCountForAllReferencesSample(
+        sampleName: string
+    ): Promise<{ [referenceName: string]: number }> {
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
@@ -756,10 +776,7 @@ else:
      * NOTE: Prefer getReadsCountForAllReferencesSample() when you need counts for all references,
      * as it batches all queries into a single call.
      */
-    async getReadsForReferenceSample(
-        sampleName: string,
-        referenceName: string
-    ): Promise<string[]> {
+    async getReadsForReferenceSample(sampleName: string, referenceName: string): Promise<string[]> {
         const escapedName = sampleName.replace(/'/g, "\\'");
         const escapedRef = referenceName.replace(/'/g, "\\'");
 

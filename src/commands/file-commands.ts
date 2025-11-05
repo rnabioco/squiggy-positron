@@ -213,7 +213,9 @@ export function registerFileCommands(
                 title: 'Select POD5 and BAM files to load',
             });
 
-            console.log(`[squiggy.loadSamplesFromUI] File picker returned ${fileUris?.length || 0} files`);
+            console.log(
+                `[squiggy.loadSamplesFromUI] File picker returned ${fileUris?.length || 0} files`
+            );
             if (!fileUris || fileUris.length === 0) {
                 console.log('[squiggy.loadSamplesFromUI] No files selected, returning');
                 return;
@@ -225,7 +227,9 @@ export function registerFileCommands(
             // Delegate to the samples panel's file handling logic
             const samplesProvider = state.samplesProvider;
             if (samplesProvider) {
-                console.log('[squiggy.loadSamplesFromUI] samplesProvider exists, calling loadSamplesFromFilePicker');
+                console.log(
+                    '[squiggy.loadSamplesFromUI] samplesProvider exists, calling loadSamplesFromFilePicker'
+                );
                 // The samples panel will handle categorizing and matching files
                 // We need to access its private method via message or use the same logic
                 // For now, use the setFilesForLoading approach
@@ -330,19 +334,16 @@ async function expandReference(
         // Check if we're in multi-sample mode or single-file mode
         if (state.selectedReadExplorerSample) {
             // Multi-sample mode: get reads for reference within a specific sample
-            console.log(`[expandReference] Multi-sample mode: getting reads for ${referenceName} in sample ${state.selectedReadExplorerSample}`);
+            console.log(
+                `[expandReference] Multi-sample mode: getting reads for ${referenceName} in sample ${state.selectedReadExplorerSample}`
+            );
             const readIds = await state.squiggyAPI.getReadsForReferenceSample(
                 state.selectedReadExplorerSample,
                 referenceName
             );
 
             // Send to React
-            state.readsViewPane?.setReadsForReference(
-                referenceName,
-                readIds,
-                0,
-                readIds.length
-            );
+            state.readsViewPane?.setReadsForReference(referenceName, readIds, 0, readIds.length);
         } else if (state.currentBamFile) {
             // Single-file mode: get reads for reference from loaded BAM
             console.log(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
@@ -386,12 +387,22 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
         // (avoids two separate getVariable() calls which each add 3x kernel round-trips)
         const { readIds, references } = await Promise.race([
             state.squiggyAPI.getReadIdsAndReferencesForSample(sampleName),
-            new Promise<{ readIds: string[], references: string[] }>((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout loading reads and references for sample '${sampleName}' after 30 seconds`)), 30000)
+            new Promise<{ readIds: string[]; references: string[] }>((_, reject) =>
+                setTimeout(
+                    () =>
+                        reject(
+                            new Error(
+                                `Timeout loading reads and references for sample '${sampleName}' after 30 seconds`
+                            )
+                        ),
+                    30000
+                )
             ),
         ]);
 
-        console.log(`[loadReadsForSample] Got ${readIds.length} reads and ${references.length} references for sample '${sampleName}'`);
+        console.log(
+            `[loadReadsForSample] Got ${readIds.length} reads and ${references.length} references for sample '${sampleName}'`
+        );
 
         if (readIds.length === 0) {
             state.readsViewPane?.setReads([]);
@@ -402,13 +413,23 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
         if (references && references.length > 0) {
             // Sample has BAM - show references only (lazy load mode)
             // Fetch all reference read counts in a single optimized batch query
-            console.log(`[loadReadsForSample] Loading read counts for ${references.length} references...`);
+            console.log(
+                `[loadReadsForSample] Loading read counts for ${references.length} references...`
+            );
             const refCounts: { referenceName: string; readCount: number }[] = [];
 
             const readCounts = await Promise.race([
                 state.squiggyAPI.getReadsCountForAllReferencesSample(sampleName),
                 new Promise<{ [ref: string]: number }>((_, reject) =>
-                    setTimeout(() => reject(new Error(`Timeout loading reference read counts for sample '${sampleName}' after 30 seconds`)), 30000)
+                    setTimeout(
+                        () =>
+                            reject(
+                                new Error(
+                                    `Timeout loading reference read counts for sample '${sampleName}' after 30 seconds`
+                                )
+                            ),
+                        30000
+                    )
                 ),
             ]);
 
@@ -1103,7 +1124,9 @@ async function loadSamplesFromDropped(
     state: ExtensionState,
     fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
 ): Promise<void> {
-    console.log(`[loadSamplesFromDropped] Function called with ${fileQueue.length} samples to load`);
+    console.log(
+        `[loadSamplesFromDropped] Function called with ${fileQueue.length} samples to load`
+    );
     if (fileQueue.length === 0) {
         return;
     }
@@ -1126,10 +1149,14 @@ async function loadSamplesFromDropped(
         const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
 
         try {
-            console.log(`[loadSamplesFromDropped] Starting load for sample: '${sampleName}' (${i + 1}/${fileQueue.length})`);
+            console.log(
+                `[loadSamplesFromDropped] Starting load for sample: '${sampleName}' (${i + 1}/${fileQueue.length})`
+            );
             await safeExecuteWithProgress(
                 async () => {
-                    console.log(`[loadSamplesFromDropped] Inside safeExecuteWithProgress callback for '${sampleName}'`);
+                    console.log(
+                        `[loadSamplesFromDropped] Inside safeExecuteWithProgress callback for '${sampleName}'`
+                    );
                     // Validate files exist
                     try {
                         await fs.access(pod5Path);
@@ -1147,9 +1174,13 @@ async function loadSamplesFromDropped(
 
                     // Use FileLoadingService to load sample into multi-sample registry
                     // This enables multi-sample comparisons by storing samples in the Python registry
-                    console.log(`[loadSamplesFromDropped] About to create FileLoadingService for sample '${sampleName}'`);
+                    console.log(
+                        `[loadSamplesFromDropped] About to create FileLoadingService for sample '${sampleName}'`
+                    );
                     const service = new FileLoadingService(state);
-                    console.log(`[loadSamplesFromDropped] FileLoadingService created, calling loadSampleIntoRegistry...`);
+                    console.log(
+                        `[loadSamplesFromDropped] FileLoadingService created, calling loadSampleIntoRegistry...`
+                    );
                     const sampleResult = await service.loadSampleIntoRegistry(
                         sampleName,
                         pod5Path,
@@ -1201,11 +1232,19 @@ async function loadSamplesFromDropped(
                         // Delay to ensure sample is fully registered in Python registry
                         // (the loadSample() call is async and may not complete immediately)
                         setTimeout(() => {
-                            console.log(`[loadSamplesFromDropped] Auto-loading reads for first sample: '${sampleName}'`);
+                            console.log(
+                                `[loadSamplesFromDropped] Auto-loading reads for first sample: '${sampleName}'`
+                            );
                             Promise.resolve(
-                                vscode.commands.executeCommand('squiggy.internal.loadReadsForSample', sampleName)
+                                vscode.commands.executeCommand(
+                                    'squiggy.internal.loadReadsForSample',
+                                    sampleName
+                                )
                             ).catch((err: unknown) => {
-                                console.error(`Failed to auto-load reads for sample '${sampleName}':`, err);
+                                console.error(
+                                    `Failed to auto-load reads for sample '${sampleName}':`,
+                                    err
+                                );
                             });
                         }, 1500); // Wait 1.5s to ensure sample is registered
                     }
@@ -1312,7 +1351,9 @@ async function loadSamplesFromFilePicker(
 
     // Load samples using the same logic as dropped files
     // Sample naming will be handled in the Sample Manager UI, not during file loading
-    console.log(`[loadSamplesFromFilePicker] Calling loadSamplesFromDropped with ${fileQueue.length} samples`);
+    console.log(
+        `[loadSamplesFromFilePicker] Calling loadSamplesFromDropped with ${fileQueue.length} samples`
+    );
     await loadSamplesFromDropped(context, state, fileQueue);
     console.log(`[loadSamplesFromFilePicker] loadSamplesFromDropped completed`);
 }

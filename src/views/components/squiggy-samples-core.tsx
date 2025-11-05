@@ -236,7 +236,7 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
-    const handleAddFastaForSample = (sampleName: string) => {
+    const handleAddFastaForSample = (_sampleName: string) => {
         // For now, this sets the session-level FASTA which applies to all samples
         // Future enhancement: implement per-sample FASTA selection
         vscode.postMessage({
@@ -756,7 +756,11 @@ export const SamplesCore: React.FC = () => {
                                                             </div>
                                                         ) : (
                                                             <button
-                                                                onClick={() => handleAddFastaForSample(sample.name)}
+                                                                onClick={() =>
+                                                                    handleAddFastaForSample(
+                                                                        sample.name
+                                                                    )
+                                                                }
                                                                 style={{
                                                                     width: '100%',
                                                                     padding: '4px',
@@ -833,7 +837,6 @@ export const SamplesCore: React.FC = () => {
                     })}
                 </div>
             </div>
-
         </div>
     );
 };

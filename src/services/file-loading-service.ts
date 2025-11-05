@@ -113,7 +113,9 @@ export class FileLoadingService {
         bamPath?: string,
         fastaPath?: string
     ): Promise<any> {
-        console.log(`[loadSampleIntoRegistry] Starting - sample: '${sampleName}', pod5: ${pod5Path}, bam: ${bamPath || 'none'}`);
+        console.log(
+            `[loadSampleIntoRegistry] Starting - sample: '${sampleName}', pod5: ${pod5Path}, bam: ${bamPath || 'none'}`
+        );
 
         // Verify API is available
         if (!this.state.squiggyAPI) {
@@ -132,7 +134,9 @@ export class FileLoadingService {
                 bamPath,
                 fastaPath
             );
-            console.log(`[loadSampleIntoRegistry] loadSample returned successfully with ${pod5Result.numReads} reads`);
+            console.log(
+                `[loadSampleIntoRegistry] loadSample returned successfully with ${pod5Result.numReads} reads`
+            );
 
             // Return comprehensive sample metadata
             // We have all needed info: POD5 read count, whether BAM/FASTA provided

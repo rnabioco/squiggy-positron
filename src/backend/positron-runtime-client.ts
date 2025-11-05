@@ -44,7 +44,10 @@ export class PositronRuntimeClient {
     private async ensureKernelReady(): Promise<void> {
         // Check cache first - if kernel was ready in the last 1 second, assume still ready
         const now = Date.now();
-        if (this.kernelReadyCache && now - this.kernelReadyCache.timestamp < this.KERNEL_CACHE_TTL) {
+        if (
+            this.kernelReadyCache &&
+            now - this.kernelReadyCache.timestamp < this.KERNEL_CACHE_TTL
+        ) {
             if (this.kernelReadyCache.ready) {
                 return; // Kernel is cached as ready, skip check
             }
@@ -215,7 +218,8 @@ export class PositronRuntimeClient {
 
         // Check if using cache
         const now = Date.now();
-        const cacheHit = this.kernelReadyCache && now - this.kernelReadyCache.timestamp < this.KERNEL_CACHE_TTL;
+        const cacheHit =
+            this.kernelReadyCache && now - this.kernelReadyCache.timestamp < this.KERNEL_CACHE_TTL;
 
         await this.executeCode(
             code,
@@ -225,7 +229,9 @@ export class PositronRuntimeClient {
         );
 
         const elapsed = Date.now() - startTime;
-        console.log(`[executeSilent] ${cacheHit ? '(CACHED)' : '(CHECKED)'} ${codePreview}... took ${elapsed}ms`);
+        console.log(
+            `[executeSilent] ${cacheHit ? '(CACHED)' : '(CHECKED)'} ${codePreview}... took ${elapsed}ms`
+        );
     }
 
     /**
@@ -312,7 +318,9 @@ if '${tempVar}' in globals():
 
             const result = JSON.parse(cleaned);
             const totalElapsed = Date.now() - startTime;
-            console.log(`[getVariable] Complete in ${totalElapsed}ms (exec=${elapsed1}ms, read=${elapsedRead}ms, cleanup=${elapsedCleanup}ms)`);
+            console.log(
+                `[getVariable] Complete in ${totalElapsed}ms (exec=${elapsed1}ms, read=${elapsedRead}ms, cleanup=${elapsedCleanup}ms)`
+            );
             return result;
         } catch (error) {
             // Clean up temp variable on error

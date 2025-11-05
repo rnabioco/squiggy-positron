@@ -55,7 +55,10 @@ export class ReadsViewPane extends BaseWebviewProvider {
                 // User selected a different sample in the dropdown
                 this._state.selectedReadExplorerSample = message.sampleName;
                 // Reload reads for selected sample
-                vscode.commands.executeCommand('squiggy.internal.loadReadsForSample', message.sampleName);
+                vscode.commands.executeCommand(
+                    'squiggy.internal.loadReadsForSample',
+                    message.sampleName
+                );
                 break;
             case 'ready':
                 // Webview is ready, send initial state

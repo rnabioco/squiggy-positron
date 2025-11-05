@@ -298,11 +298,9 @@ def plot_reads(
         if not sample or sample.pod5_reader is None:
             raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
         reader = sample.pod5_reader
-        bam_path = sample.bam_path if sample else None
     else:
         # Single-file mode: use global reader and BAM
         reader = _squiggy_session.reader
-        bam_path = _squiggy_session.bam_path
         if reader is None:
             raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
