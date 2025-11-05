@@ -81,6 +81,28 @@ ignore = [
 quote-style = "double"
 indent-style = "space"
 
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start lenient, can be tightened later
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true
+show_error_codes = true
+
+# External packages without stubs
+[[tool.mypy.overrides]]
+module = [
+    "pod5.*",
+    "pysam.*",
+    "bokeh.*",
+    "selenium.*",
+]
+ignore_missing_imports = true
+
 [tool.setuptools]
 packages = ["squiggy"]
 # Using root squiggy/ package (extension version without Qt)

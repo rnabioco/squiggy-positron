@@ -45,6 +45,9 @@ jobs:
             - name: Run TypeScript formatting check
               run: npm run format:check
 
+            - name: Run Python type checking
+              run: pixi run type-check-py
+
             - name: Run Python tests with coverage
               run: pixi run pytest tests/ --cov=squiggy --cov-report=xml --cov-report=term
 
