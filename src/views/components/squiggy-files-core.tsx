@@ -81,7 +81,9 @@ export const FilesCore: React.FC = () => {
 
     const handleOpenPOD5 = () => {
         // New workflow: open file picker for POD5/BAM files
+        console.log('[FilesCore] handleOpenPOD5 clicked, sending addFiles message');
         vscode.postMessage({ type: 'addFiles' });
+        console.log('[FilesCore] addFiles message sent');
     };
 
     const handleOpenBAM = () => {

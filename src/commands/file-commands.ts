@@ -206,27 +206,34 @@ export function registerFileCommands(
     // Load samples via file picker (from UI button)
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.loadSamplesFromUI', async () => {
+            console.log('[squiggy.loadSamplesFromUI] Command handler invoked');
             const fileUris = await vscode.window.showOpenDialog({
                 canSelectMany: true,
                 filters: { 'Sequence Files': ['pod5', 'bam'], 'All Files': ['*'] },
                 title: 'Select POD5 and BAM files to load',
             });
 
+            console.log(`[squiggy.loadSamplesFromUI] File picker returned ${fileUris?.length || 0} files`);
             if (!fileUris || fileUris.length === 0) {
+                console.log('[squiggy.loadSamplesFromUI] No files selected, returning');
                 return;
             }
 
             const filePaths = fileUris.map((uri) => uri.fsPath);
+            console.log('[squiggy.loadSamplesFromUI] Selected file paths:', filePaths);
 
             // Delegate to the samples panel's file handling logic
             const samplesProvider = state.samplesProvider;
             if (samplesProvider) {
+                console.log('[squiggy.loadSamplesFromUI] samplesProvider exists, calling loadSamplesFromFilePicker');
                 // The samples panel will handle categorizing and matching files
                 // We need to access its private method via message or use the same logic
                 // For now, use the setFilesForLoading approach
                 // Actually, we need to call a public method on samplesProvider
                 // Let's create a new public method that handles file paths directly
                 await loadSamplesFromFilePicker(context, state, filePaths);
+            } else {
+                console.log('[squiggy.loadSamplesFromUI] samplesProvider does not exist');
             }
         })
     );
@@ -312,7 +319,7 @@ async function expandReference(
     limit: number,
     state: ExtensionState
 ): Promise<void> {
-    if (!state.usePositron || !state.squiggyAPI || !state.currentBamFile) {
+    if (!state.usePositron || !state.squiggyAPI) {
         return;
     }
 
@@ -320,20 +327,42 @@ async function expandReference(
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
 
-        // Fetch reads for this reference with pagination
-        const result = await state.squiggyAPI.getReadsForReferencePaginated(
-            referenceName,
-            offset,
-            limit
-        );
+        // Check if we're in multi-sample mode or single-file mode
+        if (state.selectedReadExplorerSample) {
+            // Multi-sample mode: get reads for reference within a specific sample
+            console.log(`[expandReference] Multi-sample mode: getting reads for ${referenceName} in sample ${state.selectedReadExplorerSample}`);
+            const readIds = await state.squiggyAPI.getReadsForReferenceSample(
+                state.selectedReadExplorerSample,
+                referenceName
+            );
 
-        // Send to React
-        state.readsViewPane?.setReadsForReference(
-            referenceName,
-            result.readIds,
-            offset,
-            result.totalCount
-        );
+            // Send to React
+            state.readsViewPane?.setReadsForReference(
+                referenceName,
+                readIds,
+                0,
+                readIds.length
+            );
+        } else if (state.currentBamFile) {
+            // Single-file mode: get reads for reference from loaded BAM
+            console.log(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
+            const result = await state.squiggyAPI.getReadsForReferencePaginated(
+                referenceName,
+                offset,
+                limit
+            );
+
+            // Send to React
+            state.readsViewPane?.setReadsForReference(
+                referenceName,
+                result.readIds,
+                offset,
+                result.totalCount
+            );
+        } else {
+            console.warn('[expandReference] No sample selected and no BAM file loaded');
+            return;
+        }
     } finally {
         state.readsViewPane?.setLoading(false);
     }
@@ -1074,12 +1103,15 @@ async function loadSamplesFromDropped(
     state: ExtensionState,
     fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
 ): Promise<void> {
+    console.log(`[loadSamplesFromDropped] Function called with ${fileQueue.length} samples to load`);
     if (fileQueue.length === 0) {
         return;
     }
 
+    console.log(`[loadSamplesFromDropped] Starting to load ${fileQueue.length} samples...`);
     // Check if squiggy is available
     if (!(await ensureSquiggyAvailable(state))) {
+        console.log(`[loadSamplesFromDropped] Squiggy not available, returning`);
         return;
     }
 
@@ -1094,8 +1126,10 @@ async function loadSamplesFromDropped(
         const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
 
         try {
+            console.log(`[loadSamplesFromDropped] Starting load for sample: '${sampleName}' (${i + 1}/${fileQueue.length})`);
             await safeExecuteWithProgress(
                 async () => {
+                    console.log(`[loadSamplesFromDropped] Inside safeExecuteWithProgress callback for '${sampleName}'`);
                     // Validate files exist
                     try {
                         await fs.access(pod5Path);
@@ -1113,7 +1147,9 @@ async function loadSamplesFromDropped(
 
                     // Use FileLoadingService to load sample into multi-sample registry
                     // This enables multi-sample comparisons by storing samples in the Python registry
+                    console.log(`[loadSamplesFromDropped] About to create FileLoadingService for sample '${sampleName}'`);
                     const service = new FileLoadingService(state);
+                    console.log(`[loadSamplesFromDropped] FileLoadingService created, calling loadSampleIntoRegistry...`);
                     const sampleResult = await service.loadSampleIntoRegistry(
                         sampleName,
                         pod5Path,
@@ -1215,6 +1251,7 @@ async function loadSamplesFromFilePicker(
     state: ExtensionState,
     filePaths: string[]
 ): Promise<void> {
+    console.log(`[loadSamplesFromFilePicker] Called with ${filePaths.length} file(s):`, filePaths);
     // Categorize files by extension (reuse same logic as drag-and-drop handler)
     const pod5Files: string[] = [];
     const bamFiles: string[] = [];
@@ -1275,7 +1312,9 @@ async function loadSamplesFromFilePicker(
 
     // Load samples using the same logic as dropped files
     // Sample naming will be handled in the Sample Manager UI, not during file loading
+    console.log(`[loadSamplesFromFilePicker] Calling loadSamplesFromDropped with ${fileQueue.length} samples`);
     await loadSamplesFromDropped(context, state, fileQueue);
+    console.log(`[loadSamplesFromFilePicker] loadSamplesFromDropped completed`);
 }
 
 /**

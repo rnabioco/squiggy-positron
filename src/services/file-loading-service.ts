@@ -22,7 +22,9 @@ import {
 } from '../types/file-loading-types';
 
 export class FileLoadingService {
-    constructor(private state: ExtensionState) {}
+    constructor(private state: ExtensionState) {
+        console.log('[FileLoadingService] Constructor called');
+    }
 
     /**
      * Load a file and return normalized metadata

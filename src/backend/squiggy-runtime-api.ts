@@ -610,9 +610,9 @@ squiggy.remove_sample('${escapedName}')
             console.log(`[getReadIdsAndReferencesForSample] Fetching data for sample '${sampleName}'...`);
             const startTime = Date.now();
 
-            // Batch both queries into a single Python execution
+            // Execute setup code first to create variables
             // Uses ref_counts (reference → read count) which is built once during sample load
-            const code = `
+            const setupCode = `
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample:
     _read_ids = _sample.read_ids
@@ -623,9 +623,10 @@ if _sample:
 else:
     _read_ids = []
     _refs = []
-{'read_ids': _read_ids, 'references': _refs}
+_result = {'read_ids': _read_ids, 'references': _refs}
 `;
-            const result = await this._client.getVariable(code);
+            await this._client.executeSilent(setupCode);
+            const result = await this._client.getVariable('_result');
             const elapsed = Date.now() - startTime;
 
             const data = result as { read_ids: string[], references: string[] } || { read_ids: [], references: [] };
@@ -719,15 +720,16 @@ _refs
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
-            const code = `
+            // Execute setup code first to create variables
+            const setupCode = `
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_counts' in _sample.bam_info:
     _counts = _sample.bam_info['ref_counts']
 else:
     _counts = {}
-_counts
 `;
-            const counts = await this._client.getVariable(code);
+            await this._client.executeSilent(setupCode);
+            const counts = await this._client.getVariable('_counts');
             return (counts as { [referenceName: string]: number }) || {};
         } catch (error) {
             console.warn(`Failed to get reference read counts for sample '${sampleName}':`, error);
@@ -753,15 +755,16 @@ _counts
         const escapedRef = referenceName.replace(/'/g, "\\'");
 
         try {
-            const code = `
+            // Execute setup code first to create variables
+            const setupCode = `
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
     _reads = _sample.bam_info['ref_mapping'].get('${escapedRef}', [])
 else:
     _reads = []
-_reads
 `;
-            const readIds = await this._client.getVariable(code);
+            await this._client.executeSilent(setupCode);
+            const readIds = await this._client.getVariable('_reads');
             return (readIds as string[]) || [];
         } catch (error) {
             console.warn(

@@ -503,13 +503,14 @@ class SquiggySession:
                 raise FileNotFoundError(f"BAM file not found: {abs_bam_path}")
 
             logger.info(f"[load_sample] Starting BAM metadata collection for: {abs_bam_path}")
-            # Collect all metadata in a single pass (already includes ref_counts)
+            # Collect all metadata in a single pass (includes both ref_counts and ref_mapping)
+            # ref_mapping is needed for expanding references in Read Explorer
             metadata = _collect_bam_metadata_single_pass(
-                Path(abs_bam_path), build_ref_mapping=False
+                Path(abs_bam_path), build_ref_mapping=True
             )
             logger.info(f"[load_sample] BAM metadata collected successfully. {metadata['num_reads']} reads, {len(metadata['references'])} references")
 
-            # Build metadata dict - ref_counts is already computed during single pass
+            # Build metadata dict - both ref_counts and ref_mapping are computed during single BAM scan
             bam_info = {
                 "file_path": abs_bam_path,
                 "num_reads": metadata["num_reads"],
@@ -518,7 +519,8 @@ class SquiggySession:
                 "modification_types": metadata["modification_types"],
                 "has_probabilities": metadata["has_probabilities"],
                 "has_event_alignment": metadata["has_event_alignment"],
-                "ref_counts": metadata["ref_counts"],  # Built during single BAM scan
+                "ref_counts": metadata["ref_counts"],  # Reference name → read count
+                "ref_mapping": metadata["ref_mapping"],  # Reference name → read IDs (needed for expanding)
             }
 
             sample.bam_path = abs_bam_path

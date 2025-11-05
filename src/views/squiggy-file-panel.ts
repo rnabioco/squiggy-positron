@@ -107,6 +107,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
     }
 
     protected async handleMessage(message: FilePanelIncomingMessage): Promise<void> {
+        console.log('[FilePanelProvider] Received message:', message.type);
         switch (message.type) {
             case 'openFile':
                 if (message.fileType === 'POD5') {
@@ -128,6 +129,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
                 break;
             case 'addFiles':
                 // New workflow: add POD5/BAM files (will be auto-matched and appear in Sample Manager)
+                console.log('[FilePanelProvider] Executing squiggy.loadSamplesFromUI command');
                 vscode.commands.executeCommand('squiggy.loadSamplesFromUI');
                 break;
             case 'addReference':
