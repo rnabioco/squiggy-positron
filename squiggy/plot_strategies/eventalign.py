@@ -147,6 +147,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         position_label_interval = options.get(
             "position_label_interval", DEFAULT_POSITION_LABEL_INTERVAL
         )
+        clip_x_to_alignment = options.get("clip_x_to_alignment", True)
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)
@@ -217,6 +218,25 @@ class EventAlignPlotStrategy(PlotStrategy):
             mode="mouse",
         )
         fig.add_tools(hover)
+
+        # Apply x-axis clipping if requested
+        if clip_x_to_alignment and len(first_aligned.bases) > 0:
+            from bokeh.models import Range1d
+
+            # X-axis is in base position units (0, 1, 2, ...) or time units
+            num_bases = len(first_aligned.bases)
+            if show_dwell_time:
+                # For dwell time mode, calculate total dwell time
+                # Only calculate if bases have dwell_time attribute
+                try:
+                    total_dwell = sum(base.dwell_time for base in first_aligned.bases)
+                    fig.x_range = Range1d(start=-0.5, end=total_dwell + 0.5)
+                except AttributeError:
+                    # If dwell_time not available, fall back to position mode
+                    fig.x_range = Range1d(start=-0.5, end=num_bases - 0.5)
+            else:
+                # For position mode, set range to [0, num_bases]
+                fig.x_range = Range1d(start=-0.5, end=num_bases - 0.5)
 
         # Configure legend
         self.theme_manager.configure_legend(fig)
