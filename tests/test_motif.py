@@ -1,7 +1,5 @@
 """Tests for motif search functionality"""
 
-from pathlib import Path
-
 import pytest
 
 from squiggy.motif import (

@@ -294,12 +294,12 @@ def get_test_data_path():
 
     try:
         # Find the squiggy package location
-        spec = importlib.util.find_spec('squiggy')
+        spec = importlib.util.find_spec("squiggy")
         if spec is None or spec.origin is None:
             raise FileNotFoundError("Could not locate squiggy package")
 
         package_dir = os.path.dirname(spec.origin)
-        data_dir = os.path.join(package_dir, 'data')
+        data_dir = os.path.join(package_dir, "data")
 
         # Verify the directory exists
         if not os.path.isdir(data_dir):
