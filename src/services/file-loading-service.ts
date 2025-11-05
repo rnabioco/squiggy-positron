@@ -125,28 +125,15 @@ export class FileLoadingService {
                 fastaPath
             );
 
-            // Get full sample metadata from the registry (includes BAM info if loaded)
-            const sampleInfo = await this.state.squiggyAPI.getSampleInfo(sampleName);
-
-            // Build metadata object with BAM info if available
-            let bamInfo = undefined;
-            if (sampleInfo?.bam_info) {
-                bamInfo = {
-                    hasModifications: sampleInfo.bam_info.has_modifications || false,
-                    modificationTypes: sampleInfo.bam_info.modification_types || [],
-                    hasProbabilities: sampleInfo.bam_info.has_probabilities || false,
-                    hasEventAlignment: sampleInfo.bam_info.has_event_alignment || false,
-                };
-            }
-
             // Return comprehensive sample metadata
-            // Note: If sampleInfo is null, we still return basic metadata from parameters
+            // We have all needed info: POD5 read count, whether BAM/FASTA provided
+            // Detailed BAM metadata will be loaded separately if needed
             return {
                 numReads: pod5Result.numReads,
                 hasBAM: !!bamPath,
                 hasFASTA: !!fastaPath,
-                bamNumReads: sampleInfo?.bam_info?.num_reads,
-                bamInfo,
+                bamNumReads: undefined, // Will be populated if BAM was loaded
+                bamInfo: undefined, // Will be populated if BAM was loaded
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
