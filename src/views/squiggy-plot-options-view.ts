@@ -25,6 +25,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _scaleDwellTime: boolean = false;
     private _downsample: number = 5;
     private _showSignalPoints: boolean = false;
+    private _clipXAxisToAlignment: boolean = true;
     private _hasPod5File: boolean = false;
     private _hasBamFile: boolean = false;
 
@@ -51,6 +52,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         showDwellTime: boolean;
         showSignal: boolean;
         showQuality: boolean;
+        clipXAxisToAlignment: boolean;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -76,6 +78,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._scaleDwellTime = message.options.scaleDwellTime;
             this._downsample = message.options.downsample;
             this._showSignalPoints = message.options.showSignalPoints;
+            if (message.options.clipXAxisToAlignment !== undefined) {
+                this._clipXAxisToAlignment = message.options.clipXAxisToAlignment;
+            }
 
             // Update aggregate-specific options if present
             if (message.options.aggregateReference !== undefined) {
@@ -117,6 +122,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showDwellTime: message.showDwellTime,
                 showSignal: message.showSignal,
                 showQuality: message.showQuality,
+                clipXAxisToAlignment: message.clipXAxisToAlignment,
             });
         }
     }
@@ -140,6 +146,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 scaleDwellTime: this._scaleDwellTime,
                 downsample: this._downsample,
                 showSignalPoints: this._showSignalPoints,
+                clipXAxisToAlignment: this._clipXAxisToAlignment,
                 aggregateReference: this._aggregateReference,
                 aggregateMaxReads: this._aggregateMaxReads,
                 showModifications: this._showModifications,
@@ -188,6 +195,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             scaleDwellTime: this._scaleDwellTime,
             downsample: this._downsample,
             showSignalPoints: this._showSignalPoints,
+            clipXAxisToAlignment: this._clipXAxisToAlignment,
             aggregateReference: this._aggregateReference,
             aggregateMaxReads: this._aggregateMaxReads,
             showModifications: this._showModifications,

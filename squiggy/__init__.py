@@ -118,6 +118,7 @@ def plot_read(
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
+    clip_x_to_alignment: bool = True,
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -135,6 +136,8 @@ def plot_read(
         min_mod_probability: Minimum probability threshold for displaying modifications (0-1)
         enabled_mod_types: List of modification type codes to display (None = all)
         show_signal_points: Show individual signal points as circles
+        clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
+                             If False, x-axis extends to include soft-clipped regions.
 
     Returns:
         Bokeh HTML string
@@ -211,6 +214,7 @@ def plot_read(
             "show_labels": show_labels,
             "show_signal_points": show_signal_points,
             "position_label_interval": position_label_interval,
+            "clip_x_to_alignment": clip_x_to_alignment,
         }
 
     else:
@@ -372,6 +376,7 @@ def plot_aggregate(
     show_dwell_time: bool = True,
     show_signal: bool = True,
     show_quality: bool = True,
+    clip_x_to_alignment: bool = True,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -395,6 +400,8 @@ def plot_aggregate(
         show_dwell_time: Show dwell time panel (default True)
         show_signal: Show signal panel (default True)
         show_quality: Show quality panel (default True)
+        clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
+                             If False, x-axis extends to include soft-clipped regions.
 
     Returns:
         Bokeh HTML string with synchronized tracks
@@ -481,6 +488,7 @@ def plot_aggregate(
         "show_dwell_time": show_dwell_time,
         "show_signal": show_signal,
         "show_quality": show_quality,
+        "clip_x_to_alignment": clip_x_to_alignment,
     }
 
     # Create strategy and generate plot
