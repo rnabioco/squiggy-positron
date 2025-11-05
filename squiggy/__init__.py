@@ -26,6 +26,8 @@ Example usage in Jupyter notebook:
 __version__ = "0.1.12"
 
 # Standard library
+from typing import Literal, Optional
+
 import numpy as np
 
 # Object-oriented API (NEW - notebook-friendly)
@@ -110,13 +112,13 @@ def plot_read(
     mode: str = "SINGLE",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: int = None,
+    downsample: Optional[int] = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
-    position_label_interval: int = None,
+    position_label_interval: Optional[int] = None,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
-    enabled_mod_types: list = None,
+    enabled_mod_types: Optional[list] = None,
     show_signal_points: bool = False,
     clip_x_to_alignment: bool = True,
 ) -> str:
@@ -196,9 +198,13 @@ def plot_read(
                 "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
 
+        from pathlib import Path
+
         from .alignment import extract_alignment_from_bam
 
-        aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
+        aligned_read = extract_alignment_from_bam(
+            Path(_squiggy_session.bam_path), read_id
+        )
         if aligned_read is None:
             raise ValueError(f"No alignment found for read {read_id} in BAM file.")
 
@@ -239,12 +245,12 @@ def plot_reads(
     mode: str = "OVERLAY",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: int = None,
+    downsample: Optional[int] = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
-    enabled_mod_types: list = None,
+    enabled_mod_types: Optional[list] = None,
     show_signal_points: bool = False,
 ) -> str:
     """
@@ -323,12 +329,14 @@ def plot_reads(
                 "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
 
+        from pathlib import Path
+
         from .alignment import extract_alignment_from_bam
 
         aligned_reads = []
         for read_id in read_ids:
             aligned_read = extract_alignment_from_bam(
-                _squiggy_session.bam_path, read_id
+                Path(_squiggy_session.bam_path), read_id
             )
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
@@ -506,12 +514,12 @@ def plot_aggregate(
 def plot_motif_aggregate_all(
     fasta_file: str,
     motif: str,
-    upstream: int = None,
-    downstream: int = None,
+    upstream: Optional[int] = None,
+    downstream: Optional[int] = None,
     max_reads_per_motif: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    strand: str = "both",
+    strand: Literal["+", "-", "both"] = "both",
 ) -> str:
     """
     Generate aggregate multi-read visualization across ALL motif matches

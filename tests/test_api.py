@@ -110,6 +110,8 @@ class TestPlotReadFunction:
             for alignment in bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):  # Has move table
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
 
                     # Should work now
                     html = plot_read(read_id, mode="EVENTALIGN")
@@ -133,6 +135,8 @@ class TestPlotReadFunction:
             for alignment in bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
 
                     html = plot_read(
                         read_id,
@@ -403,6 +407,8 @@ class TestAPIIntegration:
             for alignment in bam.fetch(until_eof=True):
                 if alignment.has_tag("mv"):
                     read_id = alignment.query_name
+                    if read_id is None:
+                        continue
 
                     # Plot with event alignment
                     html = plot_read(

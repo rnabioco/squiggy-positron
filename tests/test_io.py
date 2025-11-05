@@ -13,10 +13,8 @@ class TestLoadPOD5:
         from squiggy import load_pod5
         from squiggy.io import _squiggy_session
 
-        result = load_pod5(str(sample_pod5_file))
-
-        # Should return None (void function)
-        assert result is None
+        # load_pod5 is a void function (returns None)
+        load_pod5(str(sample_pod5_file))
 
         # Should populate global session
         assert _squiggy_session.reader is not None
@@ -58,7 +56,9 @@ class TestLoadPOD5:
 
             current_files = get_current_files()
             # Should be absolute path
-            assert Path(current_files["pod5_path"]).is_absolute()
+            pod5_path = current_files["pod5_path"]
+            assert pod5_path is not None
+            assert Path(pod5_path).is_absolute()
         finally:
             os.chdir(original_dir)
 
@@ -94,10 +94,8 @@ class TestLoadBAM:
         from squiggy import load_bam
         from squiggy.io import _squiggy_session
 
-        result = load_bam(str(indexed_bam_file))
-
-        # Should return None (void function)
-        assert result is None
+        # load_bam is a void function (returns None)
+        load_bam(str(indexed_bam_file))
 
         # Should populate global session
         assert _squiggy_session.bam_info is not None
@@ -132,6 +130,7 @@ class TestLoadBAM:
         from squiggy.io import _squiggy_session
 
         load_bam(str(indexed_bam_file))
+        assert _squiggy_session.bam_info is not None
         references = _squiggy_session.bam_info["references"]
 
         assert isinstance(references, list)
