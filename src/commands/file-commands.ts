@@ -529,7 +529,11 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
             // Update modifications panel and context
             if (bamResult.hasModifications) {
-                await vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', true);
+                await vscode.commands.executeCommand(
+                    'setContext',
+                    'squiggy.hasModifications',
+                    true
+                );
                 state.modificationsProvider?.setModificationInfo(
                     true,
                     [], // modificationTypes would need to come from API
@@ -537,7 +541,11 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 );
             } else {
                 state.modificationsProvider?.clear();
-                await vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+                await vscode.commands.executeCommand(
+                    'setContext',
+                    'squiggy.hasModifications',
+                    false
+                );
             }
 
             // Update plot options
@@ -906,9 +914,7 @@ async function loadTestMultiReadDataset(
                     );
 
                     if (!fileResults.pod5Result.success) {
-                        throw new Error(
-                            fileResults.pod5Result.error || 'Failed to load POD5'
-                        );
+                        throw new Error(fileResults.pod5Result.error || 'Failed to load POD5');
                     }
 
                     // Create LoadedItem for unified state
@@ -1133,7 +1139,7 @@ async function loadSamplesFromFilePicker(
     if (pod5Files.length === 0) {
         vscode.window.showWarningMessage(
             'No POD5 files selected. POD5 files are required to load samples. ' +
-            'Please select at least one POD5 file. You can select BAM files at the same time for auto-matching.'
+                'Please select at least one POD5 file. You can select BAM files at the same time for auto-matching.'
         );
         return;
     }

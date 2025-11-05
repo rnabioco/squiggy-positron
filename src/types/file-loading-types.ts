@@ -9,10 +9,10 @@
  * Metadata extracted from a file
  */
 export interface FileMetadata {
-    fileSize: number;           // File size in bytes
-    fileSizeFormatted: string;  // Human-readable size (e.g., "2.5 MB")
-    lastModified: Date;         // File modification time
-    isReadable: boolean;        // Whether file is readable
+    fileSize: number; // File size in bytes
+    fileSizeFormatted: string; // Human-readable size (e.g., "2.5 MB")
+    lastModified: Date; // File modification time
+    isReadable: boolean; // Whether file is readable
 }
 
 /**

@@ -24,7 +24,10 @@ export class FilePanelProvider extends BaseWebviewProvider {
      * @param extensionUri - Extension URI
      * @param state - Optional ExtensionState for subscribing to unified state changes
      */
-    constructor(extensionUri: vscode.Uri, private state?: ExtensionState) {
+    constructor(
+        extensionUri: vscode.Uri,
+        private state?: ExtensionState
+    ) {
         super(extensionUri);
 
         // Subscribe to unified state changes if state is provided

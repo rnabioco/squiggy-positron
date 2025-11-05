@@ -70,9 +70,10 @@ describe('Cross-Panel Synchronization', () => {
                 if (callCount === 1) {
                     // First event is after adding item2
                     expect(items.length).toBe(2);
-                    expect(items.map((i) => i.id).sort()).toEqual(
-                        ['pod5:/path/file1.pod5', 'sample:sample1']
-                    );
+                    expect(items.map((i) => i.id).sort()).toEqual([
+                        'pod5:/path/file1.pod5',
+                        'sample:sample1',
+                    ]);
                     unsub.dispose();
                     done();
                 }
@@ -131,7 +132,11 @@ describe('Cross-Panel Synchronization', () => {
                 items.push(...updatedItems);
             });
 
-            const pod5Item = createLoadedItem('pod5:/path/to/file.pod5', 'pod5', '/path/to/file.pod5');
+            const pod5Item = createLoadedItem(
+                'pod5:/path/to/file.pod5',
+                'pod5',
+                '/path/to/file.pod5'
+            );
             state.addLoadedItem(pod5Item);
 
             // Simulate panel filtering for display
@@ -191,10 +196,15 @@ describe('Cross-Panel Synchronization', () => {
 
             setTimeout(() => {
                 // Update POD5 item with BAM association
-                const updatedItem = createLoadedItem('pod5:/path/file.pod5', 'pod5', '/path/file.pod5', {
-                    bamPath: '/path/file.bam',
-                    hasAlignments: true,
-                });
+                const updatedItem = createLoadedItem(
+                    'pod5:/path/file.pod5',
+                    'pod5',
+                    '/path/file.pod5',
+                    {
+                        bamPath: '/path/file.bam',
+                        hasAlignments: true,
+                    }
+                );
                 state.addLoadedItem(updatedItem);
             }, 10);
 

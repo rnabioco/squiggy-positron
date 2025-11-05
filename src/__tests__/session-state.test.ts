@@ -160,10 +160,15 @@ describe('Session State Integration', () => {
 
     describe('State Consistency', () => {
         it('should maintain consistency between unified and legacy state', () => {
-            const sampleItem = createLoadedItem('sample:consistent', 'sample', '/path/sample.pod5', {
-                sampleName: 'consistent',
-                bamPath: '/path/sample.bam',
-            });
+            const sampleItem = createLoadedItem(
+                'sample:consistent',
+                'sample',
+                '/path/sample.pod5',
+                {
+                    sampleName: 'consistent',
+                    bamPath: '/path/sample.bam',
+                }
+            );
 
             state.addLoadedItem(sampleItem);
 

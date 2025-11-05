@@ -98,7 +98,10 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             ids.filter((id) => id.startsWith('sample:')).map((id) => id.substring(7))
         );
 
-        console.log('[SamplesPanelProvider] Comparison selection changed:', Array.from(this._selectedSamples));
+        console.log(
+            '[SamplesPanelProvider] Comparison selection changed:',
+            Array.from(this._selectedSamples)
+        );
         this.updateView();
     }
 
@@ -189,7 +192,9 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                         this._selectedSamples.delete(message.oldName);
                         this._selectedSamples.add(message.newName);
                     }
-                    console.log(`[SamplesPanelProvider] Renamed sample: ${message.oldName} → ${message.newName}`);
+                    console.log(
+                        `[SamplesPanelProvider] Renamed sample: ${message.oldName} → ${message.newName}`
+                    );
                     this.updateView();
                 }
                 break;

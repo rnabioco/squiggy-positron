@@ -330,7 +330,7 @@ export class FileLoadingService {
                 lastModified: stats.mtime,
                 isReadable: (stats.mode & 0o400) !== 0,
             };
-        } catch (error) {
+        } catch (_error) {
             // Return minimal metadata if stat fails
             return {
                 fileSize: 0,

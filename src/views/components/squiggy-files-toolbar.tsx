@@ -11,7 +11,7 @@ import './squiggy-files-toolbar.css';
 
 export const FilesToolbar: React.FC<FilesToolbarProps> = ({
     onOpenPOD5,
-    onOpenBAM,
+    _onOpenBAM,
     onOpenFASTA,
 }) => {
     // onOpenPOD5 and onOpenBAM now trigger the combined file picker workflow

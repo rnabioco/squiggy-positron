@@ -614,8 +614,8 @@ squiggy.plot_signal_overlay_comparison(
             if (errorMessage.includes('not found')) {
                 throw new Error(
                     `Sample not found in Python session. ` +
-                    `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
-                    `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                        `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
+                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`
                 );
             }
 

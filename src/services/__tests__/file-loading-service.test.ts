@@ -72,8 +72,9 @@ describe('FileLoadingService', () => {
             // Mock API result
             mockAPI.loadBAM.mockResolvedValue({
                 numReads: 100,
-                references: ['ref1', 'ref2'],
                 hasModifications: true,
+                modificationTypes: [],
+                hasProbabilities: false,
                 hasEventAlignment: false,
             });
 
@@ -94,8 +95,8 @@ describe('FileLoadingService', () => {
                 mode: 0o644,
             });
 
-            // Mock API result
-            mockAPI.loadFASTA.mockResolvedValue({});
+            // Mock API result (loadFASTA returns void)
+            mockAPI.loadFASTA.mockResolvedValue(undefined);
 
             const result = await service.loadFile(filePath, 'fasta');
 
@@ -142,8 +143,10 @@ describe('FileLoadingService', () => {
         });
 
         it('should return error when API is not initialized', async () => {
-            mockState.squiggyAPI = undefined;
-            service = new FileLoadingService(mockState);
+            const stateWithoutAPI = {
+                squiggyAPI: undefined,
+            } as any;
+            service = new FileLoadingService(stateWithoutAPI);
 
             const result = await service.loadFile('/test/file.pod5', 'pod5');
 
@@ -166,8 +169,9 @@ describe('FileLoadingService', () => {
             // Mock API result
             mockAPI.loadBAM.mockResolvedValue({
                 numReads: 1234,
-                references: ['chr1', 'chr2', 'chr3'],
                 hasModifications: true,
+                modificationTypes: ['5mC', '6mA'],
+                hasProbabilities: true,
                 hasEventAlignment: true,
             });
 
@@ -176,7 +180,6 @@ describe('FileLoadingService', () => {
             expect(result.success).toBe(true);
             expect(result.fileSizeFormatted).toBe('5.0 MB');
             expect((result as any).readCount).toBe(1234);
-            expect((result as any).numReferences).toBe(3);
             expect((result as any).hasModifications).toBe(true);
             expect((result as any).hasEventAlignment).toBe(true);
         });
@@ -194,6 +197,10 @@ describe('FileLoadingService', () => {
             // Mock API result with minimal data
             mockAPI.loadBAM.mockResolvedValue({
                 numReads: 100,
+                hasModifications: false,
+                modificationTypes: [],
+                hasProbabilities: false,
+                hasEventAlignment: false,
             });
 
             const result = await service.loadFile(filePath, 'bam');
@@ -216,8 +223,8 @@ describe('FileLoadingService', () => {
                 mode: 0o644,
             });
 
-            // Mock API result
-            mockAPI.loadFASTA.mockResolvedValue({});
+            // Mock API result (loadFASTA returns void)
+            mockAPI.loadFASTA.mockResolvedValue(undefined);
 
             const result = await service.loadFile(filePath, 'fasta');
 
@@ -227,8 +234,10 @@ describe('FileLoadingService', () => {
         });
 
         it('should return error when FASTA loading not supported', async () => {
-            mockState.squiggyAPI = { ...mockAPI, loadFASTA: undefined } as any;
-            service = new FileLoadingService(mockState);
+            const stateWithoutFASTA = {
+                squiggyAPI: { ...mockAPI, loadFASTA: undefined } as any,
+            } as any;
+            service = new FileLoadingService(stateWithoutFASTA);
 
             const result = await service.loadFile('/test/ref.fasta', 'fasta');
 
@@ -254,11 +263,12 @@ describe('FileLoadingService', () => {
             mockAPI.loadPOD5.mockResolvedValue({ numReads: 100 });
             mockAPI.loadBAM.mockResolvedValue({
                 numReads: 100,
-                references: ['ref1'],
                 hasModifications: false,
+                modificationTypes: [],
+                hasProbabilities: false,
                 hasEventAlignment: true,
             });
-            mockAPI.loadFASTA.mockResolvedValue({});
+            mockAPI.loadFASTA.mockResolvedValue(undefined);
 
             const result = await service.loadSample(pod5Path, bamPath, fastaPath);
 
@@ -342,9 +352,7 @@ describe('FileLoadingService', () => {
     describe('Error handling', () => {
         it('should catch and report fs.stat errors', async () => {
             // Mock fs.stat to fail
-            (fs.stat as jest.Mock).mockRejectedValue(
-                new Error('Permission denied')
-            );
+            (fs.stat as jest.Mock).mockRejectedValue(new Error('Permission denied'));
 
             mockAPI.loadPOD5.mockResolvedValue({ numReads: 100 });
 

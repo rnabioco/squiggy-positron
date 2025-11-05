@@ -719,7 +719,8 @@ squiggy.close_fasta()
                 // Use sampleName if it's not "Default", otherwise use POD5 path
                 const pod5Path = sampleData.pod5Paths?.[0];
                 if (pod5Path) {
-                    const itemId = sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+                    const itemId =
+                        sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
                     const unifiedItem: LoadedItem = {
                         id: itemId,
                         type: sampleName === 'Default' ? 'pod5' : 'sample',
@@ -769,8 +770,9 @@ squiggy.close_fasta()
             this._selectedSamplesForComparison = session.ui.selectedSamplesForComparison || [];
 
             // Also populate unified state comparison items
-            const comparisonIds = (session.ui.selectedSamplesForComparison || [])
-                .map((sampleName) => `sample:${sampleName}`);
+            const comparisonIds = (session.ui.selectedSamplesForComparison || []).map(
+                (sampleName) => `sample:${sampleName}`
+            );
             if (comparisonIds.length > 0) {
                 this.setComparisonItems(comparisonIds);
             }
