@@ -3,6 +3,7 @@
  *
  * Manages loaded samples for multi-sample comparison with selection,
  * comparison workflow, and sample management (unload).
+ * Subscribes to unified extension state for cross-panel synchronization.
  */
 
 import * as vscode from 'vscode';
@@ -16,6 +17,7 @@ import {
     UpdateSessionFastaMessage,
 } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
+import { LoadedItem } from '../types/loaded-item';
 // SampleInfo and formatFileSize unused - reserved for future features
 
 export class SamplesPanelProvider extends BaseWebviewProvider {
@@ -24,6 +26,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     private _state: ExtensionState;
     private _samples: SampleItem[] = [];
     private _selectedSamples: Set<string> = new Set();
+    private _disposables: vscode.Disposable[] = [];
 
     // Event emitter for comparison requests
     private _onDidRequestComparison = new vscode.EventEmitter<string[]>();
@@ -45,6 +48,72 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     constructor(extensionUri: vscode.Uri, state: ExtensionState) {
         super(extensionUri);
         this._state = state;
+
+        // Subscribe to unified state changes
+        const itemsDisposable = this._state.onLoadedItemsChanged((items: LoadedItem[]) => {
+            this._handleLoadedItemsChanged(items);
+        });
+        this._disposables.push(itemsDisposable);
+
+        // Subscribe to comparison selection changes
+        const comparisonDisposable = this._state.onComparisonChanged((ids: string[]) => {
+            this._handleComparisonChanged(ids);
+        });
+        this._disposables.push(comparisonDisposable);
+    }
+
+    /**
+     * Handle unified state changes - filter samples and update display
+     * @private
+     */
+    private _handleLoadedItemsChanged(items: LoadedItem[]): void {
+        // Filter for samples only (type: 'sample')
+        this._samples = items
+            .filter((item) => item.type === 'sample')
+            .map((item) => ({
+                name: item.sampleName!,
+                pod5Path: item.pod5Path,
+                bamPath: item.bamPath,
+                fastaPath: item.fastaPath,
+                readCount: item.readCount,
+                hasBam: item.hasAlignments,
+                hasFasta: item.hasReference,
+            }));
+
+        console.log(
+            '[SamplesPanelProvider] Unified state changed, now showing',
+            this._samples.length,
+            'samples'
+        );
+        this.updateView();
+    }
+
+    /**
+     * Handle comparison selection changes from unified state
+     * @private
+     */
+    private _handleComparisonChanged(ids: string[]): void {
+        // Filter for sample IDs and extract sample names
+        this._selectedSamples = new Set(
+            ids.filter((id) => id.startsWith('sample:')).map((id) => id.substring(7))
+        );
+
+        console.log('[SamplesPanelProvider] Comparison selection changed:', Array.from(this._selectedSamples));
+        this.updateView();
+    }
+
+    /**
+     * Dispose method to clean up subscriptions
+     */
+    public dispose(): void {
+        // Clean up event subscriptions
+        for (const disposable of this._disposables) {
+            disposable.dispose();
+        }
+        this._disposables = [];
+
+        // Call parent dispose if it exists
+        super.dispose?.();
     }
 
     protected getTitle(): string {

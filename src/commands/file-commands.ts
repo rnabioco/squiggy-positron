@@ -788,38 +788,58 @@ async function loadSampleForComparison(
         return;
     }
 
-    // Load sample via API
+    // Load sample via FileLoadingService
     await safeExecuteWithProgress(
         async () => {
             if (!state.squiggyAPI) {
                 throw new Error('SquiggyAPI not initialized');
             }
 
-            const result = await state.squiggyAPI.loadSample(
+            // Use FileLoadingService for consistent loading
+            const service = new FileLoadingService(state);
+            const fileResults = await service.loadSample(pod5Path, bamPath, fastaPath);
+
+            if (!fileResults.pod5Result.success) {
+                throw new Error(fileResults.pod5Result.error || 'Failed to load POD5');
+            }
+
+            // Create LoadedItem for unified state
+            const item: LoadedItem = {
+                id: `sample:${sampleName}`,
+                type: 'sample',
                 sampleName,
                 pod5Path,
                 bamPath,
-                fastaPath
-            );
+                fastaPath,
+                readCount: fileResults.pod5Result.readCount,
+                fileSize: fileResults.pod5Result.fileSize,
+                fileSizeFormatted: fileResults.pod5Result.fileSizeFormatted,
+                hasAlignments: fileResults.bamResult?.success ?? false,
+                hasReference: fileResults.fastaResult?.success ?? false,
+                hasMods: (fileResults.bamResult as BAMLoadResult)?.hasModifications ?? false,
+                hasEvents: (fileResults.bamResult as BAMLoadResult)?.hasEventAlignment ?? false,
+            };
 
-            // Update extension state
+            // Add to unified state (triggers onLoadedItemsChanged event)
+            state.addLoadedItem(item);
+
+            // Maintain legacy state for backward compatibility
             state.addSample({
                 name: sampleName,
                 pod5Path,
                 bamPath,
                 fastaPath,
-                readCount: result.numReads,
+                readCount: fileResults.pod5Result.readCount,
                 hasBam: !!bamPath,
                 hasFasta: !!fastaPath,
             });
 
-            // Reveal and refresh samples panel
+            // Reveal samples panel (subscribed to unified state, so no refresh needed)
             await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
             await new Promise((resolve) => setTimeout(resolve, 100));
-            state.samplesProvider?.refresh();
 
             vscode.window.showInformationMessage(
-                `Sample '${sampleName}' loaded with ${result.numReads} reads`
+                `Sample '${sampleName}' loaded with ${fileResults.pod5Result.readCount} reads`
             );
         },
         ErrorContext.POD5_LOAD,
@@ -853,8 +873,6 @@ async function loadTestMultiReadDataset(
 
     try {
         console.log('[loadTestMultiReadDataset] Starting to load samples...');
-        console.log('[loadTestMultiReadDataset] state.squiggyAPI:', state.squiggyAPI);
-        console.log('[loadTestMultiReadDataset] state.samplesProvider:', state.samplesProvider);
 
         for (const sample of samples) {
             // Skip if already loaded
@@ -873,31 +891,55 @@ async function loadTestMultiReadDataset(
                         throw new Error('SquiggyAPI not initialized');
                     }
 
-                    console.log(
-                        `[loadTestMultiReadDataset] Calling loadSample for '${sample.name}'...`
-                    );
-                    const result = await state.squiggyAPI.loadSample(
-                        sample.name,
+                    // Use FileLoadingService for consistent loading
+                    const service = new FileLoadingService(state);
+                    const fileResults = await service.loadSample(
                         sample.pod5Path,
                         sample.bamPath,
                         sample.fastaPath
                     );
-                    console.log(`[loadTestMultiReadDataset] loadSample result:`, result);
 
-                    // Update extension state
-                    const sampleInfo = {
+                    if (!fileResults.pod5Result.success) {
+                        throw new Error(
+                            fileResults.pod5Result.error || 'Failed to load POD5'
+                        );
+                    }
+
+                    // Create LoadedItem for unified state
+                    const item: LoadedItem = {
+                        id: `sample:${sample.name}`,
+                        type: 'sample',
+                        sampleName: sample.name,
+                        pod5Path: sample.pod5Path,
+                        bamPath: sample.bamPath,
+                        fastaPath: sample.fastaPath,
+                        readCount: fileResults.pod5Result.readCount,
+                        fileSize: fileResults.pod5Result.fileSize,
+                        fileSizeFormatted: fileResults.pod5Result.fileSizeFormatted,
+                        hasAlignments: fileResults.bamResult?.success ?? false,
+                        hasReference: fileResults.fastaResult?.success ?? false,
+                        hasMods:
+                            (fileResults.bamResult as BAMLoadResult)?.hasModifications ?? false,
+                        hasEvents:
+                            (fileResults.bamResult as BAMLoadResult)?.hasEventAlignment ?? false,
+                    };
+
+                    // Add to unified state (triggers onLoadedItemsChanged event)
+                    state.addLoadedItem(item);
+
+                    // Maintain legacy state for backward compatibility
+                    state.addSample({
                         name: sample.name,
                         pod5Path: sample.pod5Path,
                         bamPath: sample.bamPath,
                         fastaPath: sample.fastaPath,
-                        readCount: result.numReads,
-                        hasBam: true,
-                        hasFasta: true,
-                    };
-                    console.log(`[loadTestMultiReadDataset] Adding sample to state:`, sampleInfo);
-                    state.addSample(sampleInfo);
+                        readCount: fileResults.pod5Result.readCount,
+                        hasBam: !!sample.bamPath,
+                        hasFasta: !!sample.fastaPath,
+                    });
+
                     console.log(
-                        `[loadTestMultiReadDataset] Sample added. Total samples:`,
+                        `[loadTestMultiReadDataset] Sample '${sample.name}' added. Total:`,
                         state.getAllSampleNames()
                     );
                 },
@@ -906,25 +948,16 @@ async function loadTestMultiReadDataset(
             );
         }
 
-        // Reveal and refresh samples panel
-        console.log('[loadTestMultiReadDataset] Refreshing samples panel...');
-        console.log('[loadTestMultiReadDataset] All samples in state:', state.getAllSampleNames());
-
-        // Show the samples panel in the sidebar (this creates the webview if not already visible)
+        // Reveal samples panel (already subscribed to unified state)
         console.log('[loadTestMultiReadDataset] Focusing Sample Comparison Manager panel...');
         try {
             await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
-            console.log('[loadTestMultiReadDataset] Focus command completed');
         } catch (error) {
             console.error('[loadTestMultiReadDataset] Error focusing panel:', error);
         }
 
-        // Longer delay to ensure webview is created before refreshing
-        console.log('[loadTestMultiReadDataset] Waiting for panel to initialize...');
+        // Brief delay for webview to initialize
         await new Promise((resolve) => setTimeout(resolve, 500));
-
-        console.log('[loadTestMultiReadDataset] Calling refresh...');
-        state.samplesProvider?.refresh();
 
         vscode.window.showInformationMessage(
             `Test multi-read datasets loaded: ${samples.map((s) => s.name).join(', ')}. ` +
@@ -982,21 +1015,49 @@ async function loadSamplesFromDropped(
                         }
                     }
 
-                    // Load via Python API
-                    const result = await state.squiggyAPI!.loadSample(
-                        sampleName,
+                    // Use FileLoadingService for consistent loading
+                    const service = new FileLoadingService(state);
+                    const fileResults = await service.loadSample(
                         pod5Path,
                         bamPath,
                         state.sessionFastaPath || undefined
                     );
 
-                    // Update extension state
+                    if (!fileResults.pod5Result.success) {
+                        throw new Error(
+                            fileResults.pod5Result.error || 'Failed to load POD5'
+                        );
+                    }
+
+                    // Create LoadedItem for unified state
+                    const item: LoadedItem = {
+                        id: `sample:${sampleName}`,
+                        type: 'sample',
+                        sampleName,
+                        pod5Path,
+                        bamPath,
+                        fastaPath: state.sessionFastaPath || undefined,
+                        readCount: fileResults.pod5Result.readCount,
+                        fileSize: fileResults.pod5Result.fileSize,
+                        fileSizeFormatted: fileResults.pod5Result.fileSizeFormatted,
+                        hasAlignments: fileResults.bamResult?.success ?? false,
+                        hasReference: fileResults.fastaResult?.success ?? false,
+                        hasMods:
+                            (fileResults.bamResult as BAMLoadResult)?.hasModifications ?? false,
+                        hasEvents:
+                            (fileResults.bamResult as BAMLoadResult)?.hasEventAlignment ?? false,
+                    };
+
+                    // Add to unified state (triggers onLoadedItemsChanged event)
+                    state.addLoadedItem(item);
+
+                    // Maintain legacy state for backward compatibility
                     state.addSample({
                         name: sampleName,
                         pod5Path,
                         bamPath,
                         fastaPath: state.sessionFastaPath || undefined,
-                        readCount: result.numReads,
+                        readCount: fileResults.pod5Result.readCount,
                         hasBam: !!bamPath,
                         hasFasta: !!state.sessionFastaPath,
                     });
@@ -1012,9 +1073,10 @@ async function loadSamplesFromDropped(
         }
     }
 
-    // Refresh samples panel with all loaded samples
+    // Samples panel already subscribed to unified state, so no manual refresh needed
+    // But for safety during transition, we can still call refresh if it exists
     if (state.samplesProvider) {
-        state.samplesProvider.refresh();
+        await state.samplesProvider.refresh();
     }
 
     // Show summary
