@@ -87,16 +87,13 @@ export const PlotOptionsCore: React.FC = () => {
                     }));
                     break;
                 case 'updatePod5Status':
-                    console.log('[PlotOptions React] Received POD5 status:', message.hasPod5);
                     setOptions((prev) => ({
                         ...prev,
                         hasPod5: message.hasPod5,
                     }));
                     break;
                 case 'updateBamStatus':
-                    console.log('[PlotOptions React] Received BAM status:', message.hasBam);
                     setOptions((prev) => {
-                        console.log('[PlotOptions React] Previous hasBam:', prev.hasBam);
                         const newOptions: PlotOptionsState = {
                             ...prev,
                             hasBam: message.hasBam,
@@ -109,8 +106,6 @@ export const PlotOptionsCore: React.FC = () => {
                                 | 'SINGLE'
                                 | 'AGGREGATE',
                         };
-                        console.log('[PlotOptions React] New hasBam:', newOptions.hasBam);
-                        console.log('[PlotOptions React] New plotType:', newOptions.plotType);
                         return newOptions;
                     });
                     // Request references when BAM is loaded
