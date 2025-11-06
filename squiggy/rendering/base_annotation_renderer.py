@@ -32,7 +32,7 @@ class BaseAnnotationRenderer:
         show_dwell_time: Whether to color by dwell time (vs base type)
         show_labels: Whether to show base letter labels
 
-    Example:
+    Examples:
         >>> from squiggy.base_annotation_renderer import BaseAnnotationRenderer
         >>> from squiggy.theme_manager import ThemeManager
         >>> from squiggy.constants import Theme
@@ -111,7 +111,7 @@ class BaseAnnotationRenderer:
             LinearColorMapper if show_dwell_time=True, else None
                 The color mapper can be used to add a colorbar to the plot
 
-        Example:
+        Examples:
             >>> renderer = BaseAnnotationRenderer(
             ...     base_colors={'A': '#00b388', ...},
             ...     show_dwell_time=True
@@ -197,7 +197,7 @@ class BaseAnnotationRenderer:
         Returns:
             None
 
-        Example:
+        Examples:
             >>> renderer = BaseAnnotationRenderer(
             ...     base_colors={'A': '#00b388', ...},
             ...     show_dwell_time=False,

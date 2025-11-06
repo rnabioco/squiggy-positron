@@ -574,7 +574,7 @@ def plot_motif_aggregate_all(
         Bokeh HTML string with three synchronized tracks showing aggregate
         statistics across all motif instances
 
-    Example:
+    Examples:
         >>> import squiggy
         >>> squiggy.load_pod5('data.pod5')
         >>> squiggy.load_bam('alignments.bam')
@@ -738,7 +738,7 @@ def plot_delta_comparison(
     Returns:
         Bokeh HTML string with delta comparison visualization
 
-    Example:
+    Examples:
         >>> import squiggy
         >>> squiggy.load_sample('v4.2', 'data_v4.2.pod5', 'align_v4.2.bam')
         >>> squiggy.load_sample('v5.0', 'data_v5.0.pod5', 'align_v5.0.bam')
@@ -898,7 +898,7 @@ def plot_signal_overlay_comparison(
     Returns:
         Bokeh HTML string with signal overlay comparison visualization
 
-    Example:
+    Examples:
         >>> import squiggy
         >>> squiggy.load_sample('alanine', 'ala_subset.pod5', 'ala_subset.aln.bam')
         >>> squiggy.load_sample('arginine', 'arg_subset.pod5', 'arg_subset.aln.bam')

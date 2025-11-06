@@ -285,7 +285,7 @@ def get_test_data_path():
     Raises:
         FileNotFoundError: If data directory cannot be found
 
-    Example:
+    Examples:
         >>> from pathlib import Path
         >>> data_dir = Path(get_test_data_path())
         >>> pod5_file = data_dir / 'yeast_trna_reads.pod5'
@@ -1101,7 +1101,7 @@ def calculate_aligned_move_indices(
         - aligned_indices_array: np.ndarray of move table indices for aligned bases only
         - aligned_indices_set: Set version for O(1) membership testing
 
-    Example:
+    Examples:
         >>> moves = np.array([0, 1, 0, 0, 1, 0, 1, 0, 0, 1])
         >>> # Bases are at indices: [1, 4, 6, 9] (4 bases total)
         >>> # CIGAR shows 1S2M1S (1 soft-clip start, 2 matched, 1 soft-clip end)
@@ -1171,7 +1171,7 @@ def get_aligned_move_indices_from_read(read: dict) -> tuple[np.ndarray, set[int]
         Tuple of (aligned_indices_array, aligned_indices_set)
         Same as calculate_aligned_move_indices()
 
-    Example:
+    Examples:
         >>> for read in reads_data:
         >>>     aligned_indices, aligned_set = get_aligned_move_indices_from_read(read)
         >>>     if len(aligned_indices) == 0:
@@ -1206,7 +1206,7 @@ def iter_aligned_bases(read: dict):
         - seq_idx: Index in query sequence (includes soft-clipped bases)
         - ref_pos: Reference genome position (correctly accounts for indels)
 
-    Example:
+    Examples:
         >>> for move_idx, base_idx, seq_idx, ref_pos in iter_aligned_bases(read):
         >>>     # Process this aligned base
         >>>     base = read["sequence"][seq_idx]
@@ -1939,7 +1939,7 @@ def align_reads_to_motif_center(reads_data, motif_center):
     Returns:
         List of read dicts with adjusted reference_start relative to motif_center
 
-    Example:
+    Examples:
         If motif_center=1000 and read starts at 950:
         Original: reference_start=950
         Adjusted: reference_start=-50 (50bp before motif center)

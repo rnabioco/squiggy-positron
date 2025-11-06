@@ -22,7 +22,7 @@ class OverlayPlotStrategy(PlotStrategy):
     This strategy plots multiple reads with different colors on the same
     figure, allowing easy comparison of signal patterns across reads.
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.overlay import OverlayPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>

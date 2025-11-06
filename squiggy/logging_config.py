@@ -9,7 +9,7 @@ Environment Variables:
     SQUIGGY_LOG_LEVEL: Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
                        Default: WARNING
 
-Example:
+Examples:
     >>> from squiggy.logging_config import get_logger
     >>> logger = get_logger(__name__)
     >>> logger.info("Processing read...")
@@ -40,7 +40,7 @@ def get_logger(name: str) -> logging.Logger:
     Returns:
         Configured logger instance
 
-    Example:
+    Examples:
         >>> logger = get_logger(__name__)
         >>> logger.info("Processing data...")
         >>> logger.warning("Performance may be slow")
