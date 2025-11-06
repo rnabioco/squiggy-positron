@@ -61,7 +61,7 @@ describe('PlotOptionsViewProvider', () => {
 
         it('should return correct title', () => {
             const title = (provider as any).getTitle();
-            expect(title).toBe('Advanced Plotting');
+            expect(title).toBe('Plotting');
         });
     });
 
@@ -89,7 +89,7 @@ describe('PlotOptionsViewProvider', () => {
                 expect.objectContaining({
                     type: 'updatePlotOptions',
                     options: expect.objectContaining({
-                        plotType: 'SINGLE',
+                        plotType: 'AGGREGATE',
                         mode: 'SINGLE',
                         normalization: 'ZNORM',
                     }),
@@ -220,7 +220,7 @@ describe('PlotOptionsViewProvider', () => {
             // Use objectContaining to be resilient to new properties being added
             expect(options).toEqual(
                 expect.objectContaining({
-                    plotType: 'SINGLE',
+                    plotType: 'AGGREGATE',
                     mode: 'SINGLE',
                     normalization: 'ZNORM',
                     showDwellTime: false,
@@ -316,7 +316,7 @@ describe('PlotOptionsViewProvider', () => {
             expect(options.mode).toBe('EVENTALIGN');
         });
 
-        it('should update BAM status to false and switch back to SINGLE mode', () => {
+        it('should update BAM status to false and switch back to MULTI_READ_OVERLAY mode', () => {
             // First set to true
             provider.updateBamStatus(true);
             jest.clearAllMocks();
@@ -330,7 +330,7 @@ describe('PlotOptionsViewProvider', () => {
             });
 
             const options = provider.getOptions();
-            expect(options.plotType).toBe('SINGLE');
+            expect(options.plotType).toBe('MULTI_READ_OVERLAY');
             expect(options.mode).toBe('SINGLE');
         });
 
@@ -440,7 +440,7 @@ describe('PlotOptionsViewProvider', () => {
                 expect.objectContaining({
                     type: 'updatePlotOptions',
                     options: expect.objectContaining({
-                        plotType: 'SINGLE',
+                        plotType: 'AGGREGATE',
                         mode: 'SINGLE',
                         normalization: 'ZNORM',
                     }),

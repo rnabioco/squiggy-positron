@@ -58,8 +58,6 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
     if strategy_class is None:
         valid_modes = ", ".join(m.value for m in PlotMode)
         logger.error(f"Unknown plot mode: {plot_mode}. Valid modes: {valid_modes}")
-        raise ValueError(
-            f"Unknown plot mode: {plot_mode}. Valid modes: {valid_modes}"
-        )
+        raise ValueError(f"Unknown plot mode: {plot_mode}. Valid modes: {valid_modes}")
 
     return strategy_class(theme)

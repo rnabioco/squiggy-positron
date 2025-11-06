@@ -760,7 +760,9 @@ def plot_motif_aggregate_all(
     matches = list(search_motif(fasta_file, motif, strand=strand))
 
     if not matches:
-        logger.warning(f"No matches found for motif '{motif}' in FASTA file {fasta_file}")
+        logger.warning(
+            f"No matches found for motif '{motif}' in FASTA file {fasta_file}"
+        )
         raise ValueError(f"No matches found for motif '{motif}' in FASTA file")
 
     # Extract and align reads from all motif matches

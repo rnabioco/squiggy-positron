@@ -1269,7 +1269,9 @@ def get_reads_for_reference_paginated(
         >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
     """
     if _squiggy_session.ref_mapping is None:
-        logger.error("No BAM file loaded. Call load_bam() before accessing reference reads.")
+        logger.error(
+            "No BAM file loaded. Call load_bam() before accessing reference reads."
+        )
         raise RuntimeError(
             "No BAM file loaded. Call load_bam() before accessing reference reads."
         )

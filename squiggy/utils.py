@@ -302,7 +302,9 @@ def get_test_data_path():
         # Find the squiggy package location
         spec = importlib.util.find_spec("squiggy")
         if spec is None or spec.origin is None:
-            logger.error("Could not locate squiggy package. Package may not be installed.")
+            logger.error(
+                "Could not locate squiggy package. Package may not be installed."
+            )
             raise FileNotFoundError("Could not locate squiggy package")
 
         package_dir = os.path.dirname(spec.origin)
