@@ -123,6 +123,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
 
     private _onDidRequestSignalDelta = new vscode.EventEmitter<{
         sampleNames: [string, string];
+        reference: string;
         maxReads: number;
         normalization: string;
     }>();
@@ -239,6 +240,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         if (message.type === 'generateSignalDelta') {
             this._onDidRequestSignalDelta.fire({
                 sampleNames: message.sampleNames as [string, string],
+                reference: message.reference,
                 maxReads: message.maxReads,
                 normalization: message.normalization,
             });

@@ -1015,6 +1015,7 @@ squiggy.plot_signal_overlay_comparison(
 
     async generateDeltaPlot(
         sampleNames: string[],
+        referenceName: string,
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT',
         maxReads?: number | null
@@ -1027,6 +1028,9 @@ squiggy.plot_signal_overlay_comparison(
         // Convert sample names to JSON for safe Python serialization
         const sampleNamesJson = JSON.stringify(sampleNames);
 
+        // Escape single quotes in reference name for Python strings
+        const escapedRefName = referenceName.replace(/'/g, "\\'");
+
         // Build maxReads parameter if provided
         const maxReadsParam =
             maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
@@ -1037,6 +1041,7 @@ import squiggy
 # Generate delta comparison plot - will be automatically routed to Plots pane
 squiggy.plot_delta_comparison(
     sample_names=${sampleNamesJson},
+    reference_name='${escapedRefName}',
     normalization='${normalization}',
     theme='${theme}'${maxReadsParam}
 )

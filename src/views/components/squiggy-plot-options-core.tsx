@@ -292,6 +292,7 @@ export const PlotOptionsCore: React.FC = () => {
     const handleGenerateSignalDelta = () => {
         sendMessage('generateSignalDelta', {
             sampleNames: options.selectedSamples.slice(0, 2),
+            reference: options.comparisonReference,
             maxReads: options.comparisonMaxReads,
             normalization: options.normalization,
         });
@@ -1035,6 +1036,47 @@ export const PlotOptionsCore: React.FC = () => {
                         )}
                     </div>
 
+                    {/* Reference Selection */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            Reference
+                        </div>
+                        <select
+                            value={options.comparisonReference}
+                            onChange={(e) =>
+                                setOptions((prev) => ({
+                                    ...prev,
+                                    comparisonReference: e.target.value,
+                                }))
+                            }
+                            disabled={!options.hasBam}
+                            style={{
+                                width: '100%',
+                                padding: '4px',
+                                marginBottom: '10px',
+                                background: 'var(--vscode-input-background)',
+                                color: 'var(--vscode-input-foreground)',
+                                border: '1px solid var(--vscode-input-border)',
+                                opacity: options.hasBam ? 1 : 0.5,
+                            }}
+                        >
+                            {options.availableReferences.length > 0 ? (
+                                options.availableReferences.map((ref) => (
+                                    <option key={ref} value={ref}>
+                                        {ref}
+                                    </option>
+                                ))
+                            ) : (
+                                <option value="">No references (load BAM file)</option>
+                            )}
+                        </select>
+                    </div>
 
                     {/* Max Reads */}
                     <div style={{ marginBottom: '20px' }}>
@@ -1077,7 +1119,7 @@ export const PlotOptionsCore: React.FC = () => {
                         onClick={handleGenerateSignalDelta}
                         disabled={
                             options.selectedSamples.length !== 2 ||
-                            !options.availableReferences.length
+                            !options.comparisonReference
                         }
                         style={{
                             width: '100%',
@@ -1085,13 +1127,23 @@ export const PlotOptionsCore: React.FC = () => {
                             background: 'var(--vscode-button-background)',
                             color: 'var(--vscode-button-foreground)',
                             border: 'none',
-                            cursor: 'pointer',
-                            opacity: options.selectedSamples.length === 2 ? 1 : 0.5,
+                            cursor:
+                                options.selectedSamples.length === 2 &&
+                                options.comparisonReference
+                                    ? 'pointer'
+                                    : 'not-allowed',
+                            opacity:
+                                options.selectedSamples.length === 2 &&
+                                options.comparisonReference
+                                    ? 1
+                                    : 0.5,
                         }}
                     >
                         {options.selectedSamples.length !== 2
                             ? 'Select exactly 2 samples'
-                            : 'Generate 2-Sample Delta'}
+                            : !options.comparisonReference
+                              ? 'Select reference'
+                              : 'Generate 2-Sample Delta'}
                     </button>
                 </>
             )}

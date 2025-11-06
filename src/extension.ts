@@ -296,6 +296,7 @@ export async function activate(context: vscode.ExtensionContext) {
             await vscode.commands.executeCommand(
                 'squiggy.plotDeltaComparison',
                 params.sampleNames,
+                params.reference,
                 params.maxReads
             );
         })

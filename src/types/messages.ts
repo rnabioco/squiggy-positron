@@ -215,6 +215,7 @@ export interface GenerateSignalOverlayComparisonMessage extends BaseMessage {
 export interface GenerateSignalDeltaMessage extends BaseMessage {
     type: 'generateSignalDelta';
     sampleNames: [string, string]; // Exactly 2 samples for delta
+    reference: string; // Reference sequence to align to
     maxReads: number;
     normalization: string;
 }

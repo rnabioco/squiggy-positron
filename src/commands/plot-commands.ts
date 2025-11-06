@@ -182,7 +182,7 @@ export function registerPlotCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotDeltaComparison',
-            async (sampleNames?: string[], maxReads?: number | null) => {
+            async (sampleNames?: string[], referenceName?: string, maxReads?: number | null) => {
                 // If no sample names provided, prompt user to select
                 if (!sampleNames || sampleNames.length === 0) {
                     // Get list of loaded samples
@@ -219,7 +219,15 @@ export function registerPlotCommands(
                     return;
                 }
 
-                await plotDeltaComparison(sampleNames, state, maxReads);
+                // If no reference provided, use placeholder (Python backend will handle default)
+                if (!referenceName) {
+                    vscode.window.showWarningMessage(
+                        'No reference name provided for delta plot. Please select a reference in Plot Options.'
+                    );
+                    return;
+                }
+
+                await plotDeltaComparison(sampleNames, referenceName, state, maxReads);
             }
         )
     );
@@ -533,6 +541,7 @@ async function plotSignalOverlayComparison(
  */
 async function plotDeltaComparison(
     sampleNames: string[],
+    referenceName: string,
     state: ExtensionState,
     maxReads?: number | null
 ): Promise<void> {
@@ -554,6 +563,7 @@ async function plotDeltaComparison(
             if (state.usePositron && state.positronClient) {
                 await state.squiggyAPI.generateDeltaPlot(
                     sampleNames,
+                    referenceName,
                     normalization,
                     theme,
                     maxReads
@@ -568,7 +578,7 @@ async function plotDeltaComparison(
             }
         },
         ErrorContext.PLOT_GENERATE,
-        `Comparing samples: ${sampleNames.join(', ')}...`
+        `Comparing samples: ${sampleNames.join(', ')} on reference ${referenceName}...`
     );
 }
 
