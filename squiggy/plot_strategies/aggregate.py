@@ -7,7 +7,7 @@ with synchronized tracks showing signal statistics, base pileup, and quality.
 
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
-from bokeh.models import Band, ColumnDataSource, FactorRange, HoverTool
+from bokeh.models import Band, ColumnDataSource, FactorRange, HoverTool, Range1d
 from bokeh.resources import CDN
 
 from ..constants import (
@@ -28,9 +28,9 @@ class AggregatePlotStrategy(PlotStrategy):
     synchronized tracks:
     1. Base modifications heatmap (optional, if modifications present)
     2. Base call pileup (stacked proportions)
-    3. Dwell time per base with confidence bands (optional, if data available)
-    4. Mean signal with confidence bands
-    5. Quality scores by position
+    3. Mean signal with confidence bands
+    4. Quality scores by position
+    5. Dwell time per base with confidence bands (optional, if data available)
 
     Examples:
         >>> from squiggy.plot_strategies.aggregate import AggregatePlotStrategy
@@ -177,7 +177,7 @@ class AggregatePlotStrategy(PlotStrategy):
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
 
         # Build panel list dynamically based on available data and visibility options
-        # Panel order: modifications (optional), signal, pileup, quality, dwell time (optional)
+        # Panel order: modifications (optional), pileup, signal, quality, dwell time (optional)
         panels = []
         all_figs = []  # Keep track of all figures for x-range linking
 
@@ -193,6 +193,16 @@ class AggregatePlotStrategy(PlotStrategy):
             panels.append([p_mods])
             all_figs.append(p_mods)
 
+        # Create pileup track if enabled
+        if show_pileup:
+            p_pileup = self._create_pileup_track(
+                pileup_stats=pileup_stats,
+                motif_positions=motif_positions,
+                transformation_info=transformation_info,
+            )
+            panels.append([p_pileup])
+            all_figs.append(p_pileup)
+
         # Create signal track if enabled
         if show_signal:
             p_signal = self._create_signal_track(
@@ -203,16 +213,6 @@ class AggregatePlotStrategy(PlotStrategy):
             )
             panels.append([p_signal])
             all_figs.append(p_signal)
-
-        # Create pileup track if enabled
-        if show_pileup:
-            p_pileup = self._create_pileup_track(
-                pileup_stats=pileup_stats,
-                motif_positions=motif_positions,
-                transformation_info=transformation_info,
-            )
-            panels.append([p_pileup])
-            all_figs.append(p_pileup)
 
         # Create quality track if enabled
         if show_quality:
@@ -679,8 +679,7 @@ class AggregatePlotStrategy(PlotStrategy):
                 )
 
         # Set y-axis range (extend to accommodate labels)
-        fig.y_range.start = 0
-        fig.y_range.end = 1.15  # Extended from 1.0 to fit labels above bars
+        fig.y_range = Range1d(start=0, end=1.15)  # Extended from 1.0 to fit labels above bars
 
         # Configure legend
         self.theme_manager.configure_legend(fig)
