@@ -176,7 +176,9 @@ class Pod5Index:
         return len(self._index)
 
 
-def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
+def get_reads_batch(
+    read_ids: list[str], sample_name: str | None = None
+) -> dict[str, pod5.ReadRecord]:
     """
     Fetch multiple reads in a single pass (O(n) instead of O(m×n))
 
@@ -185,6 +187,8 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
 
     Args:
         read_ids: List of read IDs to fetch
+        sample_name: (Multi-sample mode) Name of sample to get reads from.
+                     If None, uses global session reader.
 
     Returns:
         Dict mapping read_id to ReadRecord for found reads
@@ -200,15 +204,27 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
         >>> for read_id, read_obj in reads.items():
         ...     print(f"{read_id}: {len(read_obj.signal)} samples")
     """
-    if _squiggy_session.reader is None:
-        logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
-        raise RuntimeError("No POD5 file is currently loaded")
+    # Determine which reader to use
+    if sample_name:
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            logger.error(
+                f"Sample '{sample_name}' not loaded or has no POD5 file. "
+                f"Available samples: {list(_squiggy_session.samples.keys())}"
+            )
+            raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
+        reader = sample.pod5_reader
+    else:
+        if _squiggy_session.reader is None:
+            logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
+            raise RuntimeError("No POD5 file is currently loaded")
+        reader = _squiggy_session.reader
 
     needed = set(read_ids)
     found = {}
 
     logger.debug(f"Batch fetching {len(needed)} reads...")
-    for read in _squiggy_session.reader.reads():
+    for read in reader.reads():
         read_id = str(read.read_id)
         if read_id in needed:
             found[read_id] = read
@@ -223,7 +239,55 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
     return found
 
 
-def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
+def get_reads_batch_multi_sample(
+    read_sample_map: dict[str, str],
+) -> dict[str, pod5.ReadRecord]:
+    """
+    Fetch multiple reads from different samples in optimized batches
+
+    Groups reads by sample, then fetches each sample's reads in a single pass.
+    This is more efficient than fetching reads one-by-one across samples.
+
+    Args:
+        read_sample_map: Dict mapping read_id → sample_name
+
+    Returns:
+        Dict mapping read_id to ReadRecord for found reads
+
+    Raises:
+        RuntimeError: If a sample is not loaded or has no POD5 file
+
+    Examples:
+        >>> from squiggy.io import get_reads_batch_multi_sample
+        >>> read_map = {
+        ...     'read_001': 'sample_A',
+        ...     'read_002': 'sample_A',
+        ...     'read_003': 'sample_B',
+        ... }
+        >>> reads = get_reads_batch_multi_sample(read_map)
+        >>> for read_id, read_obj in reads.items():
+        ...     print(f"{read_id} from {read_map[read_id]}: {len(read_obj.signal)} samples")
+    """
+    # Group reads by sample
+    sample_to_reads = {}
+    for read_id, sample_name in read_sample_map.items():
+        if sample_name not in sample_to_reads:
+            sample_to_reads[sample_name] = []
+        sample_to_reads[sample_name].append(read_id)
+
+    # Fetch reads from each sample
+    all_reads = {}
+    for sample_name, read_ids in sample_to_reads.items():
+        logger.debug(f"Fetching {len(read_ids)} reads from sample '{sample_name}'...")
+        sample_reads = get_reads_batch(read_ids, sample_name=sample_name)
+        all_reads.update(sample_reads)
+
+    return all_reads
+
+
+def get_read_by_id(
+    read_id: str, sample_name: str | None = None
+) -> pod5.ReadRecord | None:
     """
     Get a single read by ID using index if available
 
@@ -232,6 +296,8 @@ def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
 
     Args:
         read_id: Read ID to fetch
+        sample_name: (Multi-sample mode) Name of sample to get read from.
+                     If None, uses global session reader.
 
     Returns:
         ReadRecord or None if not found
@@ -247,28 +313,43 @@ def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
         >>> if read:
         ...     print(f"Signal length: {len(read.signal)}")
     """
-    if _squiggy_session.reader is None:
-        logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
-        raise RuntimeError("No POD5 file is currently loaded")
+    # Determine which reader to use
+    if sample_name:
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            logger.error(
+                f"Sample '{sample_name}' not loaded or has no POD5 file. "
+                f"Available samples: {list(_squiggy_session.samples.keys())}"
+            )
+            raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
+        reader = sample.pod5_reader
+        pod5_index = sample.pod5_index if hasattr(sample, "pod5_index") else None
+    else:
+        if _squiggy_session.reader is None:
+            logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
+            raise RuntimeError("No POD5 file is currently loaded")
+        reader = _squiggy_session.reader
+        pod5_index = (
+            _squiggy_session.pod5_index
+            if hasattr(_squiggy_session, "pod5_index")
+            else None
+        )
 
     # Use index if available
-    if (
-        hasattr(_squiggy_session, "pod5_index")
-        and _squiggy_session.pod5_index is not None
-    ):
-        position = _squiggy_session.pod5_index.get_position(read_id)
+    if pod5_index is not None:
+        position = pod5_index.get_position(read_id)
         if position is None:
             return None
 
         # Use indexed access
-        for idx, read in enumerate(_squiggy_session.reader.reads()):
+        for idx, read in enumerate(reader.reads()):
             if idx == position:
                 return read
         return None
 
     # Fallback to linear scan
     logger.debug(f"No index available, using linear scan for {read_id}")
-    for read in _squiggy_session.reader.reads():
+    for read in reader.reads():
         if str(read.read_id) == read_id:
             return read
     return None
@@ -1188,7 +1269,9 @@ def get_reads_for_reference_paginated(
         >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
     """
     if _squiggy_session.ref_mapping is None:
-        logger.error("No BAM file loaded. Call load_bam() before accessing reference reads.")
+        logger.error(
+            "No BAM file loaded. Call load_bam() before accessing reference reads."
+        )
         raise RuntimeError(
             "No BAM file loaded. Call load_bam() before accessing reference reads."
         )

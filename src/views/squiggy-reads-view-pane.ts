@@ -71,12 +71,19 @@ export class ReadsViewPane extends BaseWebviewProvider {
         // Don't check isVisible - if we have a view and received 'ready',
         // the webview is ready to receive messages
         if (!this._view) {
+            console.log('[ReadsViewPane] updateView called but _view is null, skipping');
             return;
         }
 
         // Send available samples first
         const availableSamples = this.getAvailableSamples();
         const selectedSample = this.getSelectedSample();
+        console.log(
+            '[ReadsViewPane] Sending setAvailableSamples:',
+            availableSamples,
+            'selected:',
+            selectedSample
+        );
         this.postMessage({
             type: 'setAvailableSamples',
             samples: availableSamples,

@@ -14,7 +14,7 @@ from .constants import (
     DEFAULT_POSITION_LABEL_INTERVAL,
     PlotMode,
 )
-from .io import _squiggy_session, get_read_by_id, get_reads_batch
+from .io import _squiggy_session, get_read_by_id
 from .logging_config import get_logger
 from .motif import search_motif
 from .plot_factory import create_plot_strategy
@@ -108,7 +108,7 @@ def plot_read(
         position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
     # Get read data (optimized with index if available)
-    read_obj = get_read_by_id(read_id)
+    read_obj = get_read_by_id(read_id, sample_name=sample_name)
 
     if read_obj is None:
         logger.error(f"Read '{read_id}' not found in loaded POD5 file.")
@@ -201,6 +201,9 @@ def plot_reads(
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
     sample_name: str | None = None,
+    read_sample_map: dict[str, str] | None = None,
+    read_colors: dict[str, str] | None = None,
+    coordinate_space: str = "signal",
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -217,30 +220,30 @@ def plot_reads(
         min_mod_probability: Minimum probability threshold for displaying modifications
         enabled_mod_types: List of modification type codes to display
         show_signal_points: Show individual signal points as circles
-        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
+        sample_name: (Single-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        read_sample_map: (Multi-sample mode) Dict mapping read_id → sample_name.
+                         If provided, reads are loaded from their respective samples.
+                         Takes precedence over sample_name parameter.
+        read_colors: (Multi-sample mode) Dict mapping read_id → color hex string.
+                     If provided, each read uses its specified color instead of
+                     the default color cycling. Useful for sample-based coloring.
+        coordinate_space: Coordinate system for x-axis ('signal' or 'sequence').
+                          'signal' uses raw sample points, 'sequence' uses BAM alignment positions.
 
     Returns:
         Bokeh HTML string
 
     Examples:
+        >>> # Single sample
         >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY')
-        >>> html = plot_reads(['read_001', 'read_002'], mode='STACKED')
-        >>> html = plot_reads(['read_001', 'read_002'], mode='EVENTALIGN')
+        >>>
+        >>> # Multi-sample with custom colors
+        >>> read_map = {'read_001': 'sample_A', 'read_002': 'sample_B'}
+        >>> colors = {'read_001': '#E69F00', 'read_002': '#56B4E9'}
+        >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY',
+        ...                   read_sample_map=read_map, read_colors=colors)
     """
-
-    # Determine which POD5 reader and BAM path to use
-    if sample_name:
-        # Multi-sample mode: get reader and BAM from specific sample
-        sample = _squiggy_session.get_sample(sample_name)
-        if not sample or sample.pod5_reader is None:
-            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
-        reader = sample.pod5_reader
-    else:
-        # Single-file mode: use global reader and BAM
-        reader = _squiggy_session.reader
-        if reader is None:
-            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     if not read_ids:
         logger.error("No read IDs provided to plot_reads().")
@@ -256,8 +259,24 @@ def plot_reads(
     norm_method = params["normalization"]
     theme_enum = params["theme"]
 
-    # Collect read data (optimized batch fetching - single O(n) pass)
-    read_objs = get_reads_batch(read_ids)
+    # Collect read data - use multi-sample fetching if read_sample_map provided
+    if read_sample_map:
+        # Multi-sample mode: fetch reads from different samples
+        from .io import get_reads_batch_multi_sample
+
+        read_objs = get_reads_batch_multi_sample(read_sample_map)
+    elif sample_name:
+        # Single-sample mode: fetch from specified sample
+        from .io import get_reads_batch
+
+        read_objs = get_reads_batch(read_ids, sample_name=sample_name)
+    else:
+        # Legacy mode: fetch from global session
+        from .io import get_reads_batch
+
+        if _squiggy_session.reader is None:
+            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+        read_objs = get_reads_batch(read_ids, sample_name=None)
 
     # Verify all reads were found
     missing = set(read_ids) - set(read_objs.keys())
@@ -280,26 +299,101 @@ def plot_reads(
     # Prepare data and options based on mode
     if plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
         data = {"reads": reads_data}
+
+        # If using sequence space, we need BAM alignments
+        if coordinate_space == "sequence":
+            # Determine which BAM file(s) to use
+            if read_sample_map:
+                # Multi-sample mode: each read may come from a different BAM
+                from .alignment import extract_alignment_from_bam
+
+                aligned_reads = []
+                for read_id in read_ids:
+                    sample_name_for_read = read_sample_map[read_id]
+                    sample = _squiggy_session.get_sample(sample_name_for_read)
+                    if not sample or not sample.bam_path:
+                        raise ValueError(
+                            f"Sequence space requires BAM files. Sample '{sample_name_for_read}' has no BAM file loaded."
+                        )
+                    aligned_read = extract_alignment_from_bam(sample.bam_path, read_id)
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id} in sample '{sample_name_for_read}'."
+                        )
+                    aligned_reads.append(aligned_read)
+            elif sample_name:
+                # Single-sample mode: use sample's BAM file
+                from .alignment import extract_alignment_from_bam
+
+                sample = _squiggy_session.get_sample(sample_name)
+                if not sample or not sample.bam_path:
+                    raise ValueError(
+                        f"Sequence space requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
+                    )
+                aligned_reads = []
+                for read_id in read_ids:
+                    aligned_read = extract_alignment_from_bam(sample.bam_path, read_id)
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id} in BAM file."
+                        )
+                    aligned_reads.append(aligned_read)
+            else:
+                # Legacy mode: use global BAM file
+                from .alignment import extract_alignment_from_bam
+
+                if _squiggy_session.bam_path is None:
+                    raise ValueError(
+                        "Sequence space requires a BAM file. Call load_bam() first."
+                    )
+                aligned_reads = []
+                for read_id in read_ids:
+                    aligned_read = extract_alignment_from_bam(
+                        _squiggy_session.bam_path, read_id
+                    )
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id} in BAM file."
+                        )
+                    aligned_reads.append(aligned_read)
+
+            # Add aligned reads to data
+            data["aligned_reads"] = aligned_reads
+
         options = {
             "normalization": norm_method,
             "downsample": downsample,
             "show_signal_points": show_signal_points,
+            "coordinate_space": coordinate_space,
         }
+        # Add read colors if provided (for multi-sample coloring)
+        if read_colors:
+            options["read_colors"] = read_colors
 
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode for multiple reads
-        if _squiggy_session.bam_path is None:
-            raise ValueError(
-                "EVENTALIGN mode requires a BAM file. Call load_bam() first."
-            )
+        # Determine which BAM file to use
+        if sample_name:
+            # Multi-sample mode: use sample's BAM file
+            sample = _squiggy_session.get_sample(sample_name)
+            if not sample or not sample.bam_path:
+                raise ValueError(
+                    f"EVENTALIGN mode requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
+                )
+            bam_path = sample.bam_path
+        else:
+            # Single-file mode: use global BAM file
+            if _squiggy_session.bam_path is None:
+                raise ValueError(
+                    "EVENTALIGN mode requires a BAM file. Call load_bam() first."
+                )
+            bam_path = _squiggy_session.bam_path
 
         from .alignment import extract_alignment_from_bam
 
         aligned_reads = []
         for read_id in read_ids:
-            aligned_read = extract_alignment_from_bam(
-                _squiggy_session.bam_path, read_id
-            )
+            aligned_read = extract_alignment_from_bam(bam_path, read_id)
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
             aligned_reads.append(aligned_read)
@@ -393,17 +487,41 @@ def plot_aggregate(
         ValueError: If POD5 or BAM files not loaded
     """
 
-    # Validate state
-    if _squiggy_session.reader is None:
-        logger.error("No POD5 file loaded. Call load_pod5() first.")
-        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-    if _squiggy_session.bam_path is None:
-        logger.error(
-            "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
-        )
-        raise ValueError(
-            "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
-        )
+    # Determine which sample to use
+    if sample_name:
+        # Multi-sample mode: use sample-specific paths
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_path is None:
+            logger.error(
+                f"Sample '{sample_name}' not loaded or has no POD5 file. "
+                f"Available samples: {list(_squiggy_session.samples.keys())}"
+            )
+            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
+        if not sample.bam_path:
+            logger.error(
+                f"Sample '{sample_name}' has no BAM file loaded. Aggregate plots require alignments."
+            )
+            raise ValueError(
+                f"Sample '{sample_name}' has no BAM file loaded. Aggregate plots require alignments."
+            )
+        pod5_path = sample.pod5_path
+        bam_path = sample.bam_path
+        fasta_path = sample.fasta_path
+    else:
+        # Single-file mode: use global session paths
+        if _squiggy_session.reader is None:
+            logger.error("No POD5 file loaded. Call load_pod5() first.")
+            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+        if _squiggy_session.bam_path is None:
+            logger.error(
+                "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
+            )
+            raise ValueError(
+                "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
+            )
+        pod5_path = _squiggy_session.pod5_path
+        bam_path = _squiggy_session.bam_path
+        fasta_path = _squiggy_session.fasta_path
 
     # Parse parameters
     params = parse_plot_parameters(normalization=normalization, theme=theme)
@@ -412,8 +530,8 @@ def plot_aggregate(
 
     # Extract reads for this reference (expects file paths, not reader objects)
     reads_data = extract_reads_for_reference(
-        pod5_file=_squiggy_session.pod5_path,
-        bam_file=_squiggy_session.bam_path,
+        pod5_file=pod5_path,
+        bam_file=bam_path,
         reference_name=reference_name,
         max_reads=max_reads,
     )
@@ -433,9 +551,9 @@ def plot_aggregate(
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
     pileup_stats = calculate_base_pileup(
         reads_data,
-        bam_file=_squiggy_session.bam_path,
+        bam_file=bam_path,
         reference_name=reference_name,
-        fasta_file=_squiggy_session.fasta_path,
+        fasta_file=fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
     modification_stats = calculate_modification_statistics(
@@ -642,7 +760,9 @@ def plot_motif_aggregate_all(
     matches = list(search_motif(fasta_file, motif, strand=strand))
 
     if not matches:
-        logger.warning(f"No matches found for motif '{motif}' in FASTA file {fasta_file}")
+        logger.warning(
+            f"No matches found for motif '{motif}' in FASTA file {fasta_file}"
+        )
         raise ValueError(f"No matches found for motif '{motif}' in FASTA file")
 
     # Extract and align reads from all motif matches
@@ -887,9 +1007,12 @@ def plot_delta_comparison(
     delta_stats = calculate_delta_stats(stats_a, stats_b)
 
     # Prepare data for DeltaPlotStrategy
-    positions = stats_a.get("positions", delta_stats.get("positions"))
+    # Use positions from delta_stats (already truncated to match delta arrays)
+    positions = delta_stats.get("positions")
     if positions is None:
-        positions = np.arange(len(delta_stats.get("delta_mean_signal", [])))
+        # Fallback: create position array matching delta length
+        delta_signal = delta_stats.get("delta_mean_signal", [])
+        positions = np.arange(len(delta_signal))
 
     data = {
         "positions": positions,
@@ -1100,6 +1223,179 @@ def plot_signal_overlay_comparison(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.SIGNAL_OVERLAY_COMPARISON, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    _route_to_plots_pane(grid)
+
+    return html
+
+
+def plot_aggregate_comparison(
+    sample_names: list[str],
+    reference_name: str,
+    metrics: list[str] | None = None,
+    max_reads: int | None = None,
+    normalization: str = "ZNORM",
+    theme: str = "LIGHT",
+    sample_colors: dict[str, str] | None = None,
+) -> str:
+    """
+    Generate aggregate comparison plot for multiple samples
+
+    Creates a visualization comparing aggregate statistics (signal, dwell time,
+    quality) from 2+ samples overlaid on the same axes. Each sample is color-coded
+    for easy comparison. Includes:
+    1. Signal Statistics Track: Mean signal ± std for each sample
+    2. Dwell Time Statistics Track: Mean dwell time ± std for each sample (optional)
+    3. Quality Statistics Track: Mean quality ± std for each sample (optional)
+    4. Coverage Track: Read count per position for each sample
+
+    Args:
+        sample_names: List of sample names to compare (minimum 2 required)
+        reference_name: Name of reference sequence from BAM files
+        metrics: List of metrics to display: 'signal', 'dwell_time', 'quality'.
+                 If None, displays all available metrics (default)
+        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD) - default ZNORM
+        theme: Color theme (LIGHT, DARK)
+        sample_colors: Optional dict mapping sample names to hex colors.
+                       If None, uses Okabe-Ito palette (default)
+
+    Returns:
+        Bokeh HTML string with aggregate comparison visualization
+
+    Example:
+        >>> import squiggy
+        >>> squiggy.load_sample('control', 'control.pod5', 'control.bam')
+        >>> squiggy.load_sample('treatment', 'treatment.pod5', 'treatment.bam')
+        >>> html = squiggy.plot_aggregate_comparison(
+        ...     ['control', 'treatment'],
+        ...     reference_name='chr1',
+        ...     metrics=['signal', 'dwell_time', 'quality']
+        ... )
+        >>> # Extension displays this automatically
+
+    Raises:
+        ValueError: If fewer than 2 samples provided or samples not found
+    """
+    from .constants import MULTI_READ_COLORS, NormalizationMethod, Theme
+
+    # Validate input
+    if len(sample_names) < 2:
+        raise ValueError("Aggregate comparison requires at least 2 samples")
+
+    # Get samples
+    samples = []
+    for name in sample_names:
+        sample = _squiggy_session.get_sample(name)
+        if sample is None:
+            raise ValueError(f"Sample '{name}' not found")
+        samples.append(sample)
+
+    # Validate all samples have POD5 and BAM loaded
+    for sample in samples:
+        if sample.pod5_reader is None:
+            raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
+        if sample.bam_path is None:
+            raise ValueError(
+                f"Sample '{sample.name}' must have BAM file loaded for aggregate comparison. "
+                "BAM files are required to align signals to reference positions."
+            )
+
+    # Parse parameters
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
+
+    # Determine which metrics to display
+    if metrics is None:
+        metrics = ["signal", "dwell_time", "quality"]
+
+    # Determine max_reads if not provided
+    if max_reads is None:
+        available_reads_per_sample = []
+        for sample in samples:
+            try:
+                available = get_available_reads_for_reference(
+                    bam_file=sample.bam_path,
+                    reference_name=reference_name,
+                )
+                available_reads_per_sample.append(available)
+            except Exception as e:
+                logger.warning(
+                    f"Could not determine available reads for '{sample.name}': {e}"
+                )
+                available_reads_per_sample.append(100)  # Fallback
+
+        # Use minimum available, capped at 100
+        max_reads = (
+            min(available_reads_per_sample) if available_reads_per_sample else 100
+        )
+        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
+    # Extract and calculate statistics for each sample
+    sample_data = []
+
+    for i, sample in enumerate(samples):
+        # Extract aligned reads for this sample
+        reads = extract_reads_for_reference(
+            pod5_file=sample.pod5_path,
+            bam_file=sample.bam_path,
+            reference_name=reference_name,
+            max_reads=max_reads,
+            random_sample=True,
+        )
+
+        if not reads:
+            raise ValueError(
+                f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
+            )
+
+        # Calculate statistics based on requested metrics
+        sample_stats = {"name": sample.name}
+
+        # Assign color
+        if sample_colors and sample.name in sample_colors:
+            sample_stats["color"] = sample_colors[sample.name]
+        else:
+            sample_stats["color"] = MULTI_READ_COLORS[i % len(MULTI_READ_COLORS)]
+
+        # Calculate signal statistics (always included if 'signal' in metrics)
+        if "signal" in metrics:
+            signal_stats = calculate_aggregate_signal(reads, norm_method)
+            sample_stats["signal_stats"] = signal_stats
+            sample_stats["coverage"] = {
+                "positions": signal_stats.get(
+                    "positions", np.arange(len(signal_stats.get("mean_signal", [])))
+                ),
+                "coverage": signal_stats.get(
+                    "coverage", [1] * len(signal_stats.get("mean_signal", []))
+                ),
+            }
+
+        # Calculate dwell time statistics (if requested)
+        if "dwell_time" in metrics:
+            dwell_stats = calculate_dwell_time_statistics(reads)
+            sample_stats["dwell_stats"] = dwell_stats
+
+        # Calculate quality statistics (if requested)
+        if "quality" in metrics:
+            quality_stats = calculate_quality_by_position(reads)
+            sample_stats["quality_stats"] = quality_stats
+
+        sample_data.append(sample_stats)
+
+    # Prepare data for AggregateComparisonStrategy
+    data = {
+        "samples": sample_data,
+        "reference_name": reference_name,
+        "enabled_metrics": metrics,
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.AGGREGATE_COMPARISON, theme_enum)
     html, grid = strategy.create_plot(data, options)
 
     # Route to Positron Plots pane if running in Positron

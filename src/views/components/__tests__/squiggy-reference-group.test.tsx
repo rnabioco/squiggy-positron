@@ -13,7 +13,6 @@ import { ReferenceGroupItem } from '../../../types/squiggy-reads-types';
 
 describe('ReferenceGroupComponent', () => {
     const mockOnToggle = jest.fn();
-    const mockOnPlotAggregate = jest.fn();
 
     const baseProps = {
         item: {
@@ -27,7 +26,6 @@ describe('ReferenceGroupComponent', () => {
         nameColumnWidth: 300,
         detailsColumnWidth: 200,
         onToggle: mockOnToggle,
-        onPlotAggregate: mockOnPlotAggregate,
     };
 
     beforeEach(() => {
@@ -116,36 +114,6 @@ describe('ReferenceGroupComponent', () => {
 
             expect(mockOnToggle).toHaveBeenCalledWith('chr1');
         });
-
-        it('should call onPlotAggregate when aggregate button clicked', () => {
-            render(<ReferenceGroupComponent {...baseProps} />);
-
-            const aggregateButton = screen.getByText('Aggregate');
-            fireEvent.click(aggregateButton);
-
-            expect(mockOnPlotAggregate).toHaveBeenCalledWith('chr1');
-        });
-
-        it('should stop propagation when aggregate button clicked', () => {
-            render(<ReferenceGroupComponent {...baseProps} />);
-
-            const aggregateButton = screen.getByText('Aggregate');
-            fireEvent.click(aggregateButton);
-
-            // onPlotAggregate should be called, but onToggle should NOT be called
-            expect(mockOnPlotAggregate).toHaveBeenCalledWith('chr1');
-            expect(mockOnToggle).not.toHaveBeenCalled();
-        });
-
-        it('should not call onPlotAggregate when undefined', () => {
-            render(<ReferenceGroupComponent {...baseProps} onPlotAggregate={undefined} />);
-
-            const aggregateButton = screen.getByText('Aggregate');
-            fireEvent.click(aggregateButton);
-
-            // Should not throw error
-            expect(mockOnPlotAggregate).not.toHaveBeenCalled();
-        });
     });
 
     describe('Accessibility', () => {
@@ -154,13 +122,6 @@ describe('ReferenceGroupComponent', () => {
 
             const referenceGroup = container.querySelector('.reference-group');
             expect(referenceGroup).toHaveAttribute('title', 'chr1 (42 reads)');
-        });
-
-        it('should have descriptive button title', () => {
-            render(<ReferenceGroupComponent {...baseProps} />);
-
-            const aggregateButton = screen.getByTitle('Plot aggregate for this reference');
-            expect(aggregateButton).toBeInTheDocument();
         });
     });
 });

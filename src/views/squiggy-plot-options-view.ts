@@ -12,12 +12,25 @@ import {
     UpdateBamStatusMessage,
     UpdatePod5StatusMessage,
     UpdateReferencesMessage,
+    UpdateLoadedSamplesMessage,
+    SampleItem,
 } from '../types/messages';
+import { ExtensionState } from '../state/extension-state';
+
+type PlotType =
+    | 'MULTI_READ_OVERLAY'
+    | 'MULTI_READ_STACKED'
+    | 'AGGREGATE'
+    | 'COMPARE_SIGNAL_DELTA'
+    | 'COMPARE_AGGREGATE';
 
 export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyPlotOptions';
 
-    private _plotType: 'SINGLE' | 'AGGREGATE' = 'SINGLE';
+    private _state: ExtensionState;
+    private _disposables: vscode.Disposable[] = [];
+
+    private _plotType: PlotType = 'AGGREGATE';
     private _plotMode: string = 'SINGLE';
     private _normalization: string = 'ZNORM';
     private _showDwellTime: boolean = false;
@@ -39,14 +52,58 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showQuality: boolean = true;
     private _availableReferences: string[] = [];
 
+    // Multi-sample state
+    private _loadedSamples: SampleItem[] = [];
+
+    constructor(extensionUri: vscode.Uri, state: ExtensionState) {
+        super(extensionUri);
+        this._state = state;
+
+        // Subscribe to visualization selection changes
+        const selectionDisposable = this._state.onVisualizationSelectionChanged(
+            (selectedSamples) => {
+                this._handleVisualizationSelectionChanged(selectedSamples);
+            }
+        );
+        this._disposables.push(selectionDisposable);
+    }
+
+    /**
+     * Handle visualization selection changes from extension state
+     * Updates webview to reflect current selection
+     * @private
+     */
+    private _handleVisualizationSelectionChanged(selectedSamples: string[]): void {
+        console.log('[PlotOptionsViewProvider] Visualization selection changed:', selectedSamples);
+        // Send update to webview
+        if (this._view?.webview) {
+            this._view.webview.postMessage({
+                type: 'updateSelectedSamples',
+                selectedSamples,
+            });
+        }
+    }
+
+    /**
+     * Dispose method to clean up subscriptions
+     */
+    public dispose(): void {
+        for (const disposable of this._disposables) {
+            disposable.dispose();
+        }
+        this._disposables = [];
+    }
+
     // Event emitter for when options change that should trigger refresh
     private _onDidChangeOptions = new vscode.EventEmitter<void>();
     public readonly onDidChangeOptions = this._onDidChangeOptions.event;
 
     // Event emitter for when user requests aggregate plot generation
     private _onDidRequestAggregatePlot = new vscode.EventEmitter<{
+        sampleNames: string[]; // Now supports 1+ samples
         reference: string;
         maxReads: number;
+        viewStyle: 'overlay' | 'multi-track'; // For multi-sample: overlay or separate tracks
         normalization: string;
         showModifications: boolean;
         showPileup: boolean;
@@ -58,8 +115,50 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
+    // Event emitters for comparison plots
+    private _onDidRequestSignalOverlay = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestSignalOverlay = this._onDidRequestSignalOverlay.event;
+
+    private _onDidRequestSignalDelta = new vscode.EventEmitter<{
+        sampleNames: [string, string];
+        reference: string;
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestSignalDelta = this._onDidRequestSignalDelta.event;
+
+    private _onDidRequestAggregateComparison = new vscode.EventEmitter<{
+        sampleNames: string[];
+        reference: string;
+        metrics: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestAggregateComparison = this._onDidRequestAggregateComparison.event;
+
+    // Event emitters for multi-read plots
+    private _onDidRequestMultiReadOverlay = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+        coordinateSpace: 'signal' | 'sequence';
+    }>();
+    public readonly onDidRequestMultiReadOverlay = this._onDidRequestMultiReadOverlay.event;
+
+    private _onDidRequestMultiReadStacked = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+        coordinateSpace: 'signal' | 'sequence';
+    }>();
+    public readonly onDidRequestMultiReadStacked = this._onDidRequestMultiReadStacked.event;
+
     protected getTitle(): string {
-        return 'Advanced Plotting';
+        return 'Plotting';
     }
 
     protected async handleMessage(message: PlotOptionsIncomingMessage): Promise<void> {
@@ -119,8 +218,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         if (message.type === 'generateAggregatePlot') {
             // Fire event for extension.ts to handle
             this._onDidRequestAggregatePlot.fire({
+                sampleNames: message.sampleNames,
                 reference: message.reference,
                 maxReads: message.maxReads,
+                viewStyle: message.viewStyle,
                 normalization: message.normalization,
                 showModifications: message.showModifications,
                 showPileup: message.showPileup,
@@ -130,6 +231,64 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
                 transformCoordinates: message.transformCoordinates,
             });
+        }
+
+        if (message.type === 'generateSignalOverlayComparison') {
+            this._onDidRequestSignalOverlay.fire({
+                sampleNames: message.sampleNames,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateSignalDelta') {
+            this._onDidRequestSignalDelta.fire({
+                sampleNames: message.sampleNames as [string, string],
+                reference: message.reference,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateAggregateComparison') {
+            this._onDidRequestAggregateComparison.fire({
+                sampleNames: message.sampleNames,
+                reference: message.reference,
+                metrics: message.metrics,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateMultiReadOverlay') {
+            this._onDidRequestMultiReadOverlay.fire({
+                sampleNames: message.sampleNames,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+                coordinateSpace: message.coordinateSpace,
+            });
+        }
+
+        if (message.type === 'generateMultiReadStacked') {
+            this._onDidRequestMultiReadStacked.fire({
+                sampleNames: message.sampleNames,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+                coordinateSpace: message.coordinateSpace,
+            });
+        }
+
+        if (message.type === 'toggleSampleSelection') {
+            // Toggle sample selection in extension state
+            const isSelected = this._state.isSampleSelectedForVisualization(message.sampleName);
+            if (isSelected) {
+                this._state.removeSampleFromVisualization(message.sampleName);
+            } else {
+                this._state.addSampleToVisualization(message.sampleName);
+            }
+            console.log(
+                `[PlotOptionsViewProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
+            );
         }
     }
 
@@ -187,6 +346,19 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             };
             this.postMessage(referencesMessage);
         }
+
+        // Send loaded samples if available
+        if (this._loadedSamples.length > 0) {
+            const samplesMessage: UpdateLoadedSamplesMessage = {
+                type: 'updateLoadedSamples',
+                samples: this._loadedSamples,
+            };
+            console.log(
+                '[PlotOptions] Sending loaded samples on init:',
+                this._loadedSamples.length
+            );
+            this.postMessage(samplesMessage);
+        }
     }
 
     /**
@@ -217,6 +389,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update POD5 file status
      */
     public updatePod5Status(hasPod5: boolean) {
+        console.log('[PlotOptions] updatePod5Status called with:', hasPod5);
         this._hasPod5File = hasPod5;
 
         // Update webview
@@ -224,6 +397,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updatePod5Status',
             hasPod5: this._hasPod5File,
         };
+        console.log('[PlotOptions] Sending POD5 status:', hasPod5);
         this.postMessage(message);
     }
 
@@ -231,6 +405,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update BAM file status and available plot modes
      */
     public updateBamStatus(hasBam: boolean) {
+        console.log('[PlotOptions] updateBamStatus called with:', hasBam);
         this._hasBamFile = hasBam;
 
         // When BAM loads, switch to AGGREGATE and EVENTALIGN
@@ -239,9 +414,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._plotMode = 'EVENTALIGN';
             this._updateConfig('defaultPlotMode', 'EVENTALIGN');
         }
-        // When BAM unloads, switch back to SINGLE
+        // When BAM unloads, switch to MULTI_READ_OVERLAY
         else {
-            this._plotType = 'SINGLE';
+            this._plotType = 'MULTI_READ_OVERLAY';
             this._plotMode = 'SINGLE';
             this._updateConfig('defaultPlotMode', 'SINGLE');
         }
@@ -251,6 +426,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateBamStatus',
             hasBam: this._hasBamFile,
         };
+        console.log('[PlotOptions] Sending BAM status:', hasBam);
         this.postMessage(message);
     }
 
@@ -268,6 +444,22 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateReferences',
             references: this._availableReferences,
         };
+        this.postMessage(message);
+    }
+
+    /**
+     * Update loaded samples for comparison plots
+     */
+    public updateLoadedSamples(samples: SampleItem[]) {
+        console.log('[PlotOptions] updateLoadedSamples called with:', samples.length, 'samples');
+        this._loadedSamples = samples;
+
+        // Update webview
+        const message: UpdateLoadedSamplesMessage = {
+            type: 'updateLoadedSamples',
+            samples: this._loadedSamples,
+        };
+        console.log('[PlotOptions] Sending loaded samples:', samples.length);
         this.postMessage(message);
     }
 

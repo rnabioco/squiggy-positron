@@ -302,7 +302,9 @@ def get_test_data_path():
         # Find the squiggy package location
         spec = importlib.util.find_spec("squiggy")
         if spec is None or spec.origin is None:
-            logger.error("Could not locate squiggy package. Package may not be installed.")
+            logger.error(
+                "Could not locate squiggy package. Package may not be installed."
+            )
             raise FileNotFoundError("Could not locate squiggy package")
 
         package_dir = os.path.dirname(spec.origin)
@@ -2311,7 +2313,8 @@ def calculate_delta_stats(
             if key in stats_b and isinstance(stats_a[key], np.ndarray):
                 stat_names.append(key)
 
-    # Calculate deltas
+    # First pass: determine minimum length across all arrays
+    min_len = None
     for stat_name in stat_names:
         if stat_name not in stats_a or stat_name not in stats_b:
             continue
@@ -2320,16 +2323,33 @@ def calculate_delta_stats(
         val_b = stats_b[stat_name]
 
         if isinstance(val_a, np.ndarray) and isinstance(val_b, np.ndarray):
-            # Ensure same length
-            min_len = min(len(val_a), len(val_b))
+            curr_min = min(len(val_a), len(val_b))
+            if min_len is None:
+                min_len = curr_min
+            else:
+                min_len = min(min_len, curr_min)
+
+    # If no arrays found, return empty
+    if min_len is None:
+        return deltas
+
+    # Calculate deltas (all will be same length now)
+    for stat_name in stat_names:
+        if stat_name not in stats_a or stat_name not in stats_b:
+            continue
+
+        val_a = stats_a[stat_name]
+        val_b = stats_b[stat_name]
+
+        if isinstance(val_a, np.ndarray) and isinstance(val_b, np.ndarray):
             delta = val_b[:min_len] - val_a[:min_len]
             deltas[f"delta_{stat_name}"] = delta
 
-    # Include positions if available
+    # Include positions if available - TRUNCATE to match delta length
     if "positions" in stats_a:
-        deltas["positions"] = stats_a["positions"]
+        deltas["positions"] = stats_a["positions"][:min_len]
     elif "positions" in stats_b:
-        deltas["positions"] = stats_b["positions"]
+        deltas["positions"] = stats_b["positions"][:min_len]
 
     return deltas
 
