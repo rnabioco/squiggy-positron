@@ -321,6 +321,7 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
                     true, // showSignal
                     true, // showQuality
                     true, // clipXAxisToAlignment
+                    true, // transformCoordinates
                     state.selectedReadExplorerSample || undefined // Pass current sample for multi-sample mode
                 );
             } else if (state.pythonBackend) {
