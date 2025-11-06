@@ -133,7 +133,7 @@ def collect_candidate_reads(bam_path, target_refs, min_mapq, min_length):
             candidates[read.reference_name].append(read.query_name)
 
     # Print statistics
-    print(f"\nFound candidate reads:")
+    print("\nFound candidate reads:")
     for ref in sorted(candidates.keys()):
         print(f"  {ref}: {len(candidates[ref])} reads")
 
@@ -233,7 +233,7 @@ def extract_bam_subset(input_path, output_path, selected_reads):
     print(f"  Extracted {reads_written} alignments")
 
     # Index the output BAM
-    print(f"  Indexing BAM file...")
+    print("  Indexing BAM file...")
     pysam.index(str(output_path))
     print(f"  Created index: {output_path}.bai")
 
@@ -269,7 +269,7 @@ def generate_statistics(bam_path, pod5_path, output_refs):
                 )
 
     # Calculate coverage ranges
-    for ref, ref_stats in stats["refs"].items():
+    for _ref, ref_stats in stats["refs"].items():
         if ref_stats["positions"]:
             all_starts = [p[0] for p in ref_stats["positions"]]
             all_ends = [p[1] for p in ref_stats["positions"]]
@@ -321,7 +321,7 @@ def update_readme(output_dir, prefix, stats, target_refs):
         doc_section += f"coverage {ref_stats['min_pos']:,}-{ref_stats['max_pos']:,} "
         doc_section += f"({ref_stats['span']:,} bp span)\n"
 
-    doc_section += f"  - Note: All reads have move table (mv tag) for event-aligned plotting\n"
+    doc_section += "  - Note: All reads have move table (mv tag) for event-aligned plotting\n"
 
     print("\n" + "=" * 70)
     print("README.md section to add:")
@@ -347,7 +347,7 @@ def main():
         sys.exit(1)
 
     # Parse reference names
-    target_refs = set(ref.strip() for ref in args.references.split(","))
+    target_refs = {ref.strip() for ref in args.references.split(",")}
 
     # Create output directory
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -394,11 +394,11 @@ def main():
     print("=" * 70)
     stats = generate_statistics(output_bam, output_pod5, target_refs)
 
-    print(f"\nFinal statistics:")
+    print("\nFinal statistics:")
     print(f"  Total reads:    {stats['total_reads']}")
     print(f"  POD5 size:      {stats['pod5_size_mb']:.1f} MB")
     print(f"  BAM size:       {stats['bam_size_kb']:.0f} KB")
-    print(f"\n  Per-reference breakdown:")
+    print("\n  Per-reference breakdown:")
     for ref in sorted(stats["refs"].keys()):
         ref_stats = stats["refs"][ref]
         print(f"    {ref}:")

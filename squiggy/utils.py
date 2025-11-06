@@ -8,7 +8,6 @@ import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pod5
@@ -458,7 +457,7 @@ def validate_bam_reads_in_pod5(bam_file, pod5_file):
 
 
 def downsample_signal(
-    signal: np.ndarray, downsample_factor: Optional[int] = None
+    signal: np.ndarray, downsample_factor: int | None = None
 ) -> np.ndarray:
     """Downsample signal array by taking every Nth point
 
