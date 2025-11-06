@@ -742,15 +742,24 @@ _read_ids
 
         try {
             // Extract reference names from the sample's BAM without serializing the Sample object
-            const code = `
+            // Note: We use executeSilent + temp variable instead of getVariable
+            // because getVariable wraps code in json.dumps() which doesn't work with multi-line code
+            const tempVar = '_squiggy_temp_refs_' + Math.random().toString(36).substr(2, 9);
+
+            await this._client.executeSilent(`
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
-    _refs = list(_sample.bam_info['ref_mapping'].keys())
+    ${tempVar} = list(_sample.bam_info['ref_mapping'].keys())
 else:
-    _refs = []
-_refs
-`;
-            const references = await this._client.getVariable(code);
+    ${tempVar} = []
+`);
+
+            // Read the temp variable
+            const references = await this._client.getVariable(tempVar);
+
+            // Clean up
+            await this._client.executeSilent(`del ${tempVar}`);
+
             return (references as string[]) || [];
         } catch (error) {
             console.warn(`Failed to get references for sample '${sampleName}':`, error);
