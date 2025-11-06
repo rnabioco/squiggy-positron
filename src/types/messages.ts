@@ -375,6 +375,11 @@ export interface UpdateSessionFastaMessage extends BaseMessage {
     fastaPath: string | null;
 }
 
+export interface UpdateVisualizationSelectionMessage extends BaseMessage {
+    type: 'updateVisualizationSelection';
+    selectedSamples: string[];
+}
+
 export interface UpdateSampleNameMessage extends BaseMessage {
     type: 'updateSampleName';
     oldName: string;
@@ -418,7 +423,8 @@ export type SamplesIncomingMessage =
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage
     | ClearSamplesMessage
-    | UpdateSessionFastaMessage;
+    | UpdateSessionFastaMessage
+    | UpdateVisualizationSelectionMessage;
 
 // ========== Session Manager Messages ==========
 

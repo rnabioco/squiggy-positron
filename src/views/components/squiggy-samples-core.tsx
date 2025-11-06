@@ -148,6 +148,17 @@ export const SamplesCore: React.FC = () => {
                     }));
                     break;
 
+                case 'updateVisualizationSelection':
+                    console.log(
+                        '[SamplesCore] Updating visualization selection from extension:',
+                        message.selectedSamples
+                    );
+                    setState((prev) => ({
+                        ...prev,
+                        selectedSamplesForVisualization: new Set(message.selectedSamples),
+                    }));
+                    break;
+
                 default:
                     console.log('Unknown message type:', message.type);
             }
