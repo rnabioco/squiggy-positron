@@ -223,6 +223,53 @@ export function registerPlotCommands(
             }
         )
     );
+
+    // Plot aggregate comparison - Multi-sample aggregate statistics
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotAggregateComparison',
+            async (params?: {
+                sampleNames: string[];
+                reference: string;
+                metrics: string[];
+                maxReads?: number;
+            }) => {
+                // If no params provided, validate and prompt user
+                if (!params) {
+                    const loadedSamples = state.getAllSampleNames();
+
+                    if (loadedSamples.length < 2) {
+                        vscode.window.showErrorMessage(
+                            'Aggregate comparison requires at least 2 loaded samples. ' +
+                                'Use "Load Sample" to add samples for comparison.'
+                        );
+                        return;
+                    }
+
+                    // Check that samples have BAM files
+                    const samplesWithBam = loadedSamples.filter((name) => {
+                        const sample = state.getSample(name);
+                        return sample && sample.hasBam;
+                    });
+
+                    if (samplesWithBam.length < 2) {
+                        vscode.window.showErrorMessage(
+                            'Aggregate comparison requires at least 2 samples with BAM files. ' +
+                                'Load BAM files for your samples.'
+                        );
+                        return;
+                    }
+
+                    vscode.window.showWarningMessage(
+                        'Please use the Advanced Plotting pane to configure and generate aggregate comparison plots.'
+                    );
+                    return;
+                }
+
+                await plotAggregateComparison(params, state);
+            }
+        )
+    );
 }
 
 /**
@@ -479,5 +526,79 @@ async function plotDeltaComparison(
         },
         ErrorContext.PLOT_GENERATE,
         `Comparing samples: ${sampleNames.join(', ')}...`
+    );
+}
+
+/**
+ * Plot aggregate comparison across multiple samples
+ * Compares aggregate statistics (signal, dwell time, quality) across samples
+ */
+async function plotAggregateComparison(
+    params: {
+        sampleNames: string[];
+        reference: string;
+        metrics: string[];
+        maxReads?: number;
+    },
+    state: ExtensionState
+): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            // Validate params
+            if (params.sampleNames.length < 2) {
+                throw new Error('Aggregate comparison requires at least 2 samples');
+            }
+
+            if (!params.reference) {
+                throw new Error('Reference name is required for aggregate comparison');
+            }
+
+            if (!params.metrics || params.metrics.length === 0) {
+                throw new Error('At least one metric must be selected for comparison');
+            }
+
+            // Get plot options
+            const options = state.plotOptionsProvider?.getOptions();
+            const normalization = options?.normalization || 'ZNORM';
+
+            // Detect theme from VSCode settings
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Get sample colors from Sample Manager
+            const sampleColors: Record<string, string> = {};
+            for (const sampleName of params.sampleNames) {
+                const sample = state.getSample(sampleName);
+                if (sample && sample.color) {
+                    sampleColors[sampleName] = sample.color;
+                }
+            }
+
+            // Generate aggregate comparison plot
+            if (state.usePositron && state.positronClient) {
+                await state.squiggyAPI.generateAggregateComparison(
+                    params.sampleNames,
+                    params.reference,
+                    params.metrics,
+                    params.maxReads || null,
+                    normalization,
+                    theme,
+                    Object.keys(sampleColors).length > 0 ? sampleColors : undefined
+                );
+            } else if (state.pythonBackend) {
+                // Subprocess backend not yet implemented for aggregate comparison
+                throw new Error(
+                    'Aggregate comparison plots are only available with Positron runtime. Please use Positron IDE.'
+                );
+            } else {
+                throw new Error('No backend available');
+            }
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Comparing aggregate statistics for samples: ${params.sampleNames.join(', ')}...`
     );
 }

@@ -99,6 +99,27 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Listen for loaded items changes and sync samples to plot options pane
+    context.subscriptions.push(
+        state.onLoadedItemsChanged((items) => {
+            // Filter for samples and convert to SampleItem format
+            const samples = items
+                .filter((item) => item.type === 'sample')
+                .map((item) => ({
+                    name: item.name,
+                    pod5Path: item.pod5 || '',
+                    bamPath: item.bam,
+                    fastaPath: item.fasta,
+                    readCount: state.getSample(item.name)?.readIds?.length || 0,
+                    hasBam: !!item.bam,
+                    hasFasta: !!item.fasta,
+                }));
+
+            // Sync to plot options provider
+            plotOptionsProvider.updateLoadedSamples(samples);
+        })
+    );
+
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {
@@ -171,6 +192,40 @@ export async function activate(context: vscode.ExtensionContext) {
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
             }
+        })
+    );
+
+    // Listen for signal overlay comparison requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestSignalOverlay(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotSignalOverlayComparison',
+                params.sampleNames,
+                params.maxReads
+            );
+        })
+    );
+
+    // Listen for signal delta comparison requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestSignalDelta(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotDeltaComparison',
+                params.sampleNames,
+                params.maxReads
+            );
+        })
+    );
+
+    // Listen for aggregate comparison requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestAggregateComparison(async (params) => {
+            await vscode.commands.executeCommand('squiggy.plotAggregateComparison', {
+                sampleNames: params.sampleNames,
+                reference: params.reference,
+                metrics: params.metrics,
+                maxReads: params.maxReads,
+            });
         })
     );
 
