@@ -4,8 +4,6 @@ import pickle
 import time
 from pathlib import Path
 
-import pytest
-
 
 class TestSquiggyCacheInitialization:
     """Tests for SquiggyCache initialization"""
@@ -46,7 +44,7 @@ class TestSquiggyCacheInitialization:
         from squiggy.cache import SquiggyCache
 
         deep_dir = tmp_path / "level1" / "level2" / "cache"
-        cache = SquiggyCache(cache_dir=deep_dir)
+        SquiggyCache(cache_dir=deep_dir)
 
         assert deep_dir.exists()
 
