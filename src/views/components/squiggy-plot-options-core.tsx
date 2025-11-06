@@ -14,7 +14,6 @@ type PlotType =
     | 'MULTI_READ_OVERLAY'
     | 'MULTI_READ_STACKED'
     | 'AGGREGATE'
-    | 'COMPARE_SIGNAL_OVERLAY'
     | 'COMPARE_SIGNAL_DELTA'
     | 'COMPARE_AGGREGATE';
 
@@ -177,7 +176,6 @@ export const PlotOptionsCore: React.FC = () => {
                 return options.hasPod5;
             case 'AGGREGATE':
                 return options.hasPod5 && options.hasBam;
-            case 'COMPARE_SIGNAL_OVERLAY':
             case 'COMPARE_SIGNAL_DELTA':
                 return options.loadedSamples.length >= 2;
             case 'COMPARE_AGGREGATE':
@@ -233,14 +231,6 @@ export const PlotOptionsCore: React.FC = () => {
             showSignal: options.showSignal,
             showQuality: options.showQuality,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
-        });
-    };
-
-    const handleGenerateSignalOverlay = () => {
-        sendMessage('generateSignalOverlayComparison', {
-            sampleNames: options.selectedSamples,
-            maxReads: options.comparisonMaxReads,
-            normalization: options.normalization,
         });
     };
 
@@ -309,14 +299,11 @@ export const PlotOptionsCore: React.FC = () => {
                     <option value="AGGREGATE" disabled={!isPlotTypeAvailable('AGGREGATE')}>
                         Aggregate (Single Sample){!isPlotTypeAvailable('AGGREGATE') ? ' (requires BAM)' : ''}
                     </option>
-                    <option value="COMPARE_SIGNAL_OVERLAY" disabled={!isPlotTypeAvailable('COMPARE_SIGNAL_OVERLAY')}>
-                        Compare: Signal Overlay{!isPlotTypeAvailable('COMPARE_SIGNAL_OVERLAY') ? ' (requires 2+ samples)' : ''}
+                    <option value="COMPARE_AGGREGATE" disabled={!isPlotTypeAvailable('COMPARE_AGGREGATE')}>
+                        Multi-Sample Overlay{!isPlotTypeAvailable('COMPARE_AGGREGATE') ? ' (requires 2+ samples with BAM)' : ''}
                     </option>
                     <option value="COMPARE_SIGNAL_DELTA" disabled={!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')}>
-                        Compare: Signal Delta{!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA') ? ' (requires 2+ samples)' : ''}
-                    </option>
-                    <option value="COMPARE_AGGREGATE" disabled={!isPlotTypeAvailable('COMPARE_AGGREGATE')}>
-                        Compare: Aggregate Stats{!isPlotTypeAvailable('COMPARE_AGGREGATE') ? ' (requires 2+ samples with BAM)' : ''}
+                        2-Sample Delta{!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA') ? ' (requires 2 samples)' : ''}
                     </option>
                 </select>
                 <div
@@ -586,7 +573,7 @@ export const PlotOptionsCore: React.FC = () => {
                 </>
             )}
 
-            {(options.plotType === 'COMPARE_SIGNAL_OVERLAY' || options.plotType === 'COMPARE_SIGNAL_DELTA' || options.plotType === 'COMPARE_AGGREGATE') && (
+            {(options.plotType === 'COMPARE_SIGNAL_DELTA' || options.plotType === 'COMPARE_AGGREGATE') && (
                 <>
                     {/* Sample Selection */}
                     <div style={{ marginBottom: '20px' }}>
@@ -741,11 +728,9 @@ export const PlotOptionsCore: React.FC = () => {
                     {/* Generate Button */}
                     <button
                         onClick={
-                            options.plotType === 'COMPARE_SIGNAL_OVERLAY'
-                                ? handleGenerateSignalOverlay
-                                : options.plotType === 'COMPARE_SIGNAL_DELTA'
-                                  ? handleGenerateSignalDelta
-                                  : handleGenerateAggregateComparison
+                            options.plotType === 'COMPARE_SIGNAL_DELTA'
+                                ? handleGenerateSignalDelta
+                                : handleGenerateAggregateComparison
                         }
                         disabled={
                             options.selectedSamples.length < 2 ||
@@ -764,11 +749,9 @@ export const PlotOptionsCore: React.FC = () => {
                     >
                         {options.selectedSamples.length < 2
                             ? 'Select 2+ samples'
-                            : options.plotType === 'COMPARE_SIGNAL_OVERLAY'
-                              ? 'Generate Signal Overlay'
-                              : options.plotType === 'COMPARE_SIGNAL_DELTA'
-                                ? 'Generate Signal Delta'
-                                : 'Generate Aggregate Comparison'}
+                            : options.plotType === 'COMPARE_SIGNAL_DELTA'
+                                ? 'Generate 2-Sample Delta'
+                                : 'Generate Multi-Sample Overlay'}
                     </button>
                 </>
             )}

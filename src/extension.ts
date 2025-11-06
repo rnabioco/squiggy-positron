@@ -209,7 +209,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Get modification filters from Modifications panel
                 const modFilters = modificationsProvider.getFilters();
 
-                // Generate aggregate plot
+                // Generate aggregate plot using currently selected sample from Read Explorer
                 await state.squiggyAPI.generateAggregatePlot(
                     options.reference,
                     options.maxReads,
@@ -222,7 +222,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     options.showDwellTime,
                     options.showSignal,
                     options.showQuality,
-                    options.clipXAxisToAlignment
+                    options.clipXAxisToAlignment,
+                    state.selectedReadExplorerSample || undefined // Use current sample
                 );
 
                 vscode.window.showInformationMessage(
