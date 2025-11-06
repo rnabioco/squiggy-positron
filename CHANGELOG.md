@@ -1,5 +1,65 @@
 # Squiggy Release Notes
 
+## v0.1.13-alpha (2025-11-06)
+
+Major release with unified multi-sample workflow, Python library refactoring, performance optimizations, and comprehensive bug fixes.
+
+### Features
+
+- **Unified Multi-Sample Workflow**: Complete UI consolidation for loading and managing multiple samples with proper visualization selection (#97)
+  - New Samples Panel with expandable cards, visualization checkboxes (👁️), color pickers, and inline renaming
+  - Okabe-Ito colorblind-friendly palette auto-assigned to samples
+  - Multi-sample registry loading via `squiggy.load_sample()` API
+  - Read Explorer integration with sample selector dropdown
+  - Auto-matching of POD5/BAM files by filename stem
+  - Session-level and per-sample FASTA file support
+- **Manual File Association**: Change BAM/FASTA files for samples via [Change] buttons with validation (#107)
+  - POD5/BAM validation checks read ID overlap (blocks if 0%, warns if <20%)
+  - BAM/FASTA validation checks reference name overlap (blocks if 0%, warns if <50%)
+  - Clear error messages for mismatched files
+
+### Performance
+
+- **BAM Loading Optimization**: 3-4x faster initial loads, 74-400x faster cached loads (#96)
+  - Consolidated 4 separate file scans into 1 efficient pass
+  - Full metadata caching (references, modifications, event alignment, read mapping)
+  - 100K reads: ~8s initial vs ~30s previously, <20ms cached vs ~10s
+  - 1M reads: ~60s initial vs ~3min previously, <50ms cached vs minutes
+
+### Improvements
+
+- **Python Library Refactoring**: 84% reduction in `__init__.py` size, improved code organization (#109)
+  - Created `squiggy/plotting.py` (1,059 lines) - all 6 plotting functions moved from `__init__.py`
+  - Created `squiggy/logging_config.py` - centralized logging with `SQUIGGY_LOG_LEVEL` env var support
+  - Reduced `__init__.py` from 1,268 → 198 lines
+  - Replaced print statements with proper logging throughout codebase
+- **Test Data Consolidation**: Eliminated ~1.9 MB repository bloat (#99)
+  - Single source of truth: `squiggy/data/` (removed duplicate `tests/data/`)
+  - Added `get_test_data_path()` utility function
+  - Updated all references and Git LFS patterns
+- **Test Coverage**: Python coverage improved from 69% → 72% (#108)
+  - Added 44 new tests for `squiggy/utils.py` (47% → 56% coverage)
+  - Tests for ModelProvenance, sequence utilities, file validation, BAM analysis, comparison utilities
+
+### Fixes
+
+- **Aggregate Plot Improvements**: Fixed multiple critical bugs (#95)
+  - Fixed modification coverage calculation (was always 0)
+  - Fixed modification probability statistics bias
+  - Fixed base pileup position mapping using `get_aligned_pairs()` for correct indel handling
+  - Added relative coordinate transformation (x-axis renumbering starting at position 1)
+  - Improved Modifications Explorer panel labels ("Modification Confidence Filter")
+- **Soft-Clip Boundary Handling**: Plots no longer extend beyond aligned regions (#93)
+  - Added `get_base_annotation_boundaries()` and `get_base_annotation_range()` utilities
+  - Aggregate plots use base annotation boundaries instead of full signal length
+  - X-axis clipping feature with consensus-based thresholding (>50% max coverage)
+  - New UI toggle: "Clip x-axis to consensus region" (default: enabled)
+
+### Internal
+
+- **Version Management**: Auto-update package-lock.json in version sync script
+- **CI/CD**: Remove duplicated data from vsix bundles
+
 ## v0.1.12-alpha (2025-11-04)
 
 Aggregate plot enhancements with modification heatmaps, dwell time visualization, and improved UI clarity.
