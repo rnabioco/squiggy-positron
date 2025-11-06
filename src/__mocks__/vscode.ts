@@ -146,6 +146,13 @@ export enum ColorThemeKind {
     HighContrast = 3,
 }
 
+// Mock Configuration Target
+export enum ConfigurationTarget {
+    Global = 1,
+    Workspace = 2,
+    WorkspaceFolder = 3,
+}
+
 // Mock window API
 export const window = {
     showErrorMessage: jest.fn(),
@@ -186,5 +193,6 @@ export const commands = {
 export const workspace = {
     getConfiguration: jest.fn(() => ({
         get: jest.fn((key: string, defaultValue: any) => defaultValue),
+        update: jest.fn(),
     })),
 };
