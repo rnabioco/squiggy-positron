@@ -290,11 +290,24 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
-    const handleAddFastaForSample = (_sampleName: string) => {
-        // For now, this sets the session-level FASTA which applies to all samples
-        // Future enhancement: implement per-sample FASTA selection
+    const handleAddFastaForSample = (sampleName: string) => {
         vscode.postMessage({
-            type: 'requestSetSessionFasta',
+            type: 'requestChangeSampleFasta',
+            sampleName,
+        });
+    };
+
+    const handleChangeBam = (sampleName: string) => {
+        vscode.postMessage({
+            type: 'requestChangeSampleBam',
+            sampleName,
+        });
+    };
+
+    const handleChangeFasta = (sampleName: string) => {
+        vscode.postMessage({
+            type: 'requestChangeSampleFasta',
+            sampleName,
         });
     };
 
@@ -727,6 +740,7 @@ export const SamplesCore: React.FC = () => {
                                                         {sample.bamPath.split('/').pop()}
                                                     </div>
                                                     <button
+                                                        onClick={() => handleChangeBam(sample.name)}
                                                         style={{
                                                             padding: '2px 5px',
                                                             fontSize: '0.75em',
@@ -750,12 +764,14 @@ export const SamplesCore: React.FC = () => {
                                                             ).style.backgroundColor =
                                                                 'var(--vscode-button-background)';
                                                         }}
+                                                        title="Change BAM file for this sample"
                                                     >
                                                         [Change]
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <button
+                                                    onClick={() => handleChangeBam(sample.name)}
                                                     style={{
                                                         width: '100%',
                                                         padding: '3px',
@@ -779,6 +795,7 @@ export const SamplesCore: React.FC = () => {
                                                         ).style.backgroundColor =
                                                             'var(--vscode-button-background)';
                                                     }}
+                                                    title="Add BAM file for this sample"
                                                 >
                                                     + Add BAM
                                                 </button>
@@ -840,6 +857,11 @@ export const SamplesCore: React.FC = () => {
                                                                     )}
                                                                 </div>
                                                                 <button
+                                                                    onClick={() =>
+                                                                        handleChangeFasta(
+                                                                            sample.name
+                                                                        )
+                                                                    }
                                                                     style={{
                                                                         padding: '2px 5px',
                                                                         fontSize: '0.75em',
@@ -863,6 +885,7 @@ export const SamplesCore: React.FC = () => {
                                                                         ).style.backgroundColor =
                                                                             'var(--vscode-button-background)';
                                                                     }}
+                                                                    title="Change FASTA file for this sample"
                                                                 >
                                                                     [Change]
                                                                 </button>

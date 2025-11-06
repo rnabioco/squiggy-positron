@@ -534,6 +534,37 @@ class SquiggySession:
             sample.bam_path = abs_bam_path
             sample.bam_info = bam_info
 
+            # Validate that POD5 and BAM have overlapping read IDs
+            bam_read_ids = set()
+            for ref_read_ids in metadata["ref_mapping"].values():
+                bam_read_ids.update(ref_read_ids)
+
+            pod5_read_ids = set(sample.read_ids)
+            overlap = pod5_read_ids & bam_read_ids
+
+            if len(overlap) == 0:
+                logger.warning(
+                    f"[load_sample] WARNING: No overlapping read IDs found between POD5 and BAM! "
+                    f"POD5 has {len(pod5_read_ids)} reads, BAM has {len(bam_read_ids)} reads, "
+                    f"but 0 reads are shared. These files may be mismatched."
+                )
+                raise ValueError(
+                    f"No overlapping read IDs found between POD5 ({len(pod5_read_ids)} reads) "
+                    f"and BAM ({len(bam_read_ids)} reads). These files appear to be mismatched. "
+                    f"Please verify that the BAM file contains alignments for reads in the POD5 file."
+                )
+            else:
+                overlap_pct = (len(overlap) / len(pod5_read_ids)) * 100
+                logger.info(
+                    f"[load_sample] POD5/BAM validation: {len(overlap)}/{len(pod5_read_ids)} reads overlap ({overlap_pct:.1f}%)"
+                )
+                if overlap_pct < 20:
+                    logger.warning(
+                        f"[load_sample] WARNING: Low overlap between POD5 and BAM ({overlap_pct:.1f}%). "
+                        f"Only {len(overlap)} of {len(pod5_read_ids)} POD5 reads found in BAM. "
+                        f"These files may be partially mismatched."
+                    )
+
         # Load FASTA if provided
         if fasta_path:
             abs_fasta_path = os.path.abspath(fasta_path)
@@ -569,6 +600,38 @@ class SquiggySession:
 
             sample.fasta_path = abs_fasta_path
             sample.fasta_info = fasta_info
+
+            # Validate that FASTA and BAM have matching references (if BAM is loaded)
+            if sample.bam_info:
+                # Extract reference names from BAM metadata (stored as list of dicts)
+                bam_refs = {ref["name"] for ref in sample.bam_info["references"]}
+                fasta_refs = set(references)
+                overlap_refs = bam_refs & fasta_refs
+
+                if len(overlap_refs) == 0:
+                    logger.warning(
+                        f"[load_sample] WARNING: No overlapping reference names found between BAM and FASTA! "
+                        f"BAM has {len(bam_refs)} references: {sorted(bam_refs)[:5]}, "
+                        f"FASTA has {len(fasta_refs)} references: {sorted(fasta_refs)[:5]}. "
+                        f"These files may be mismatched."
+                    )
+                    raise ValueError(
+                        f"No overlapping reference names found between BAM ({len(bam_refs)} refs) "
+                        f"and FASTA ({len(fasta_refs)} refs). These files appear to be mismatched. "
+                        f"BAM references: {sorted(bam_refs)[:3]}, "
+                        f"FASTA references: {sorted(fasta_refs)[:3]}."
+                    )
+                else:
+                    ref_overlap_pct = (len(overlap_refs) / len(bam_refs)) * 100
+                    logger.info(
+                        f"[load_sample] BAM/FASTA validation: {len(overlap_refs)}/{len(bam_refs)} references overlap ({ref_overlap_pct:.1f}%)"
+                    )
+                    if ref_overlap_pct < 50:
+                        logger.warning(
+                            f"[load_sample] WARNING: Low reference overlap between BAM and FASTA ({ref_overlap_pct:.1f}%). "
+                            f"Only {len(overlap_refs)} of {len(bam_refs)} BAM references found in FASTA. "
+                            f"Missing references: {sorted(bam_refs - fasta_refs)[:5]}"
+                        )
 
         # Store sample
         logger.info(

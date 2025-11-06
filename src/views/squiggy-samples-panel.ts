@@ -82,6 +82,105 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
         return 'Samples';
     }
 
+    /**
+     * Handle changing BAM file for a sample
+     */
+    private async handleChangeSampleBam(sampleName: string): Promise<void> {
+        const sample = this._state.getSample(sampleName);
+        if (!sample) {
+            vscode.window.showErrorMessage(`Sample "${sampleName}" not found`);
+            return;
+        }
+
+        // Show file picker for BAM file
+        const bamUri = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            filters: {
+                'BAM files': ['bam'],
+            },
+            title: `Select BAM file for "${sampleName}"`,
+        });
+
+        if (!bamUri || bamUri.length === 0) {
+            return; // User cancelled
+        }
+
+        const bamPath = bamUri[0].fsPath;
+
+        // Check if .bai index exists
+        const baiPath = bamPath + '.bai';
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(baiPath));
+        } catch {
+            const createIndex = await vscode.window.showWarningMessage(
+                `BAM index file (.bai) not found for ${path.basename(bamPath)}. Some features may not work without an index.`,
+                'Continue Anyway',
+                'Cancel'
+            );
+            if (createIndex !== 'Continue Anyway') {
+                return;
+            }
+        }
+
+        // Update sample in state
+        sample.bamPath = bamPath;
+        sample.hasBam = true;
+
+        console.log(`[SamplesPanelProvider] Changed BAM for ${sampleName} to ${bamPath}`);
+
+        // Update via Python backend
+        await vscode.commands.executeCommand('squiggy.updateSampleFiles', sampleName, {
+            bamPath,
+        });
+
+        // Refresh view
+        this.updateView();
+    }
+
+    /**
+     * Handle changing FASTA file for a sample
+     */
+    private async handleChangeSampleFasta(sampleName: string): Promise<void> {
+        const sample = this._state.getSample(sampleName);
+        if (!sample) {
+            vscode.window.showErrorMessage(`Sample "${sampleName}" not found`);
+            return;
+        }
+
+        // Show file picker for FASTA file
+        const fastaUri = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            filters: {
+                'FASTA files': ['fasta', 'fa', 'fna'],
+            },
+            title: `Select FASTA file for "${sampleName}"`,
+        });
+
+        if (!fastaUri || fastaUri.length === 0) {
+            return; // User cancelled
+        }
+
+        const fastaPath = fastaUri[0].fsPath;
+
+        // Update sample in state
+        sample.fastaPath = fastaPath;
+        sample.hasFasta = true;
+
+        console.log(`[SamplesPanelProvider] Changed FASTA for ${sampleName} to ${fastaPath}`);
+
+        // Update via Python backend
+        await vscode.commands.executeCommand('squiggy.updateSampleFiles', sampleName, {
+            fastaPath,
+        });
+
+        // Refresh view
+        this.updateView();
+    }
+
     protected async handleMessage(message: SamplesIncomingMessage): Promise<void> {
         switch (message.type) {
             case 'ready':
@@ -163,6 +262,18 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 console.log(
                     `[SamplesPanelProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
                 );
+                break;
+            }
+
+            case 'requestChangeSampleBam': {
+                // Show file picker for BAM file
+                await this.handleChangeSampleBam(message.sampleName);
+                break;
+            }
+
+            case 'requestChangeSampleFasta': {
+                // Show file picker for FASTA file
+                await this.handleChangeSampleFasta(message.sampleName);
                 break;
             }
         }
