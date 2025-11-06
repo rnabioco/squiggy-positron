@@ -22,8 +22,8 @@ describe('PlotOptionsViewProvider', () => {
         // Create mock ExtensionState
         mockState = {
             onVisualizationSelectionChanged: jest.fn().mockReturnValue({
-                dispose: jest.fn()
-            })
+                dispose: jest.fn(),
+            }),
         };
 
         provider = new PlotOptionsViewProvider(extensionUri, mockState);
