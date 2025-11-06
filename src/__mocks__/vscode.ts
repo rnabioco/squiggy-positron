@@ -131,3 +131,84 @@ export interface WebviewView {
 export interface WebviewViewProvider {
     resolveWebviewView(webviewView: WebviewView, context: any, token: any): void | Thenable<void>;
 }
+
+// Export ProgressLocation enum for error handler
+export enum ProgressLocation {
+    SourceControl = 1,
+    Window = 10,
+    Notification = 15,
+}
+
+// Mock Color Theme Kind
+export enum ColorThemeKind {
+    Light = 1,
+    Dark = 2,
+    HighContrast = 3,
+}
+
+// Mock Configuration Target
+export enum ConfigurationTarget {
+    Global = 1,
+    Workspace = 2,
+    WorkspaceFolder = 3,
+}
+
+// Mock View Column
+export enum ViewColumn {
+    Active = -1,
+    Beside = -2,
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
+    Eight = 8,
+    Nine = 9,
+}
+
+// Mock window API
+export const window = {
+    showErrorMessage: jest.fn(),
+    showInformationMessage: jest.fn(),
+    showWarningMessage: jest.fn(),
+    showOpenDialog: jest.fn(),
+    showSaveDialog: jest.fn(),
+    showInputBox: jest.fn(),
+    withProgress: jest.fn((options, task) => task({ report: jest.fn() })),
+    activeColorTheme: {
+        kind: ColorThemeKind.Light,
+    },
+    onDidChangeActiveColorTheme: jest.fn(() => ({ dispose: jest.fn() })),
+    registerWebviewViewProvider: jest.fn(() => ({ dispose: jest.fn() })),
+    createWebviewPanel: jest.fn(),
+};
+
+// Command registry for testing
+const commandRegistry = new Map<string, (...args: any[]) => any>();
+
+// Mock commands API
+export const commands = {
+    registerCommand: jest.fn((command: string, callback: (...args: any[]) => any) => {
+        commandRegistry.set(command, callback);
+        return { dispose: jest.fn() };
+    }),
+    executeCommand: jest.fn(async (command: string, ...args: any[]) => {
+        const handler = commandRegistry.get(command);
+        if (handler) {
+            return await handler(...args);
+        }
+        throw new Error(`Command '${command}' not found`);
+    }),
+    getCommands: jest.fn(async (_filterInternal?: boolean) => {
+        return Array.from(commandRegistry.keys());
+    }),
+};
+
+export const workspace = {
+    getConfiguration: jest.fn(() => ({
+        get: jest.fn((key: string, defaultValue: any) => defaultValue),
+        update: jest.fn(),
+    })),
+};

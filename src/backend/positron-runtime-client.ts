@@ -10,7 +10,7 @@
  */
 
 import * as positron from 'positron';
-import { KernelNotAvailableError } from '../utils/error-handler';
+import { KernelNotAvailableError, retryOperation, isTransientError } from '../utils/error-handler';
 
 /**
  * Low-level client for Positron runtime API
@@ -175,6 +175,7 @@ export class PositronRuntimeClient {
      * @param allowIncomplete Whether to allow incomplete statements
      * @param mode Execution mode (silent by default to hide imports)
      * @param observer Optional observer for capturing output
+     * @param enableRetry Whether to retry on transient failures (default: false)
      * @returns Promise that resolves with the result object containing MIME type mappings
      */
     async executeCode(
@@ -182,7 +183,8 @@ export class PositronRuntimeClient {
         focus: boolean = false,
         allowIncomplete: boolean = true,
         mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent,
-        observer?: positron.RuntimeCodeExecutionObserver
+        observer?: positron.RuntimeCodeExecutionObserver,
+        enableRetry: boolean = false
     ): Promise<Record<string, unknown>> {
         if (!this.isAvailable()) {
             throw new Error('Positron runtime not available');
@@ -191,46 +193,52 @@ export class PositronRuntimeClient {
         // Ensure kernel is ready before executing code
         await this.ensureKernelReady();
 
-        try {
-            return await positron.runtime.executeCode(
-                'python',
-                code,
-                focus,
-                allowIncomplete,
-                mode,
-                undefined, // errorBehavior
-                observer
-            );
-        } catch (error) {
-            throw new Error(`Failed to execute Python code: ${error}`);
+        const executeOperation = async () => {
+            try {
+                return await positron.runtime.executeCode(
+                    'python',
+                    code,
+                    focus,
+                    allowIncomplete,
+                    mode,
+                    undefined, // errorBehavior
+                    observer
+                );
+            } catch (error) {
+                throw new Error(`Failed to execute Python code: ${error}`);
+            }
+        };
+
+        // If retry is enabled, wrap the operation with retry logic
+        if (enableRetry) {
+            return await retryOperation(executeOperation, {
+                maxAttempts: 3,
+                baseDelayMs: 500,
+                shouldRetry: (error, attempt) => {
+                    // Only retry transient errors
+                    return isTransientError(error) && attempt < 3;
+                },
+            });
         }
+
+        return await executeOperation();
     }
 
     /**
      * Execute code silently without console output
      *
      * @param code Python code to execute
+     * @param enableRetry Whether to retry on transient failures (default: false)
      * @returns Promise that resolves when execution completes
      */
-    async executeSilent(code: string): Promise<void> {
-        const startTime = Date.now();
-        const codePreview = code.substring(0, 50).replace(/\n/g, ' ');
-
-        // Check if using cache
-        const now = Date.now();
-        const cacheHit =
-            this.kernelReadyCache && now - this.kernelReadyCache.timestamp < this.KERNEL_CACHE_TTL;
-
+    async executeSilent(code: string, enableRetry: boolean = false): Promise<void> {
         await this.executeCode(
             code,
             false, // focus=false
             true,
-            positron.RuntimeCodeExecutionMode.Silent
-        );
-
-        const elapsed = Date.now() - startTime;
-        console.log(
-            `[executeSilent] ${cacheHit ? '(CACHED)' : '(CHECKED)'} ${codePreview}... took ${elapsed}ms`
+            positron.RuntimeCodeExecutionMode.Silent,
+            undefined, // observer
+            enableRetry
         );
     }
 
@@ -265,10 +273,10 @@ export class PositronRuntimeClient {
      * without polluting the console with print() statements.
      *
      * @param varName Python variable name (can include indexing like 'var[0:10]')
+     * @param enableRetry Whether to retry on transient failures (default: false)
      * @returns Promise that resolves with the variable value
      */
-    async getVariable(varName: string): Promise<unknown> {
-        const startTime = Date.now();
+    async getVariable(varName: string, enableRetry: boolean = false): Promise<unknown> {
         const session = await positron.runtime.getForegroundSession();
         if (!session || session.runtimeMetadata.languageId !== 'python') {
             throw new Error('No active Python session');
@@ -276,33 +284,29 @@ export class PositronRuntimeClient {
 
         // Convert the Python value to JSON in Python, then read that
         const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
-        console.log(`[getVariable] Starting query for: ${varName}`);
 
         try {
-            const executeTime1 = Date.now();
-            await this.executeSilent(`
+            await this.executeSilent(
+                `
 import json
 ${tempVar} = json.dumps(${varName})
-`);
-            const elapsed1 = Date.now() - executeTime1;
-            console.log(`[getVariable] Step 1 (executeSilent json.dumps): ${elapsed1}ms`);
+`,
+                enableRetry
+            );
 
-            const readTime = Date.now();
             const [[variable]] = await positron.runtime.getSessionVariables(
                 session.metadata.sessionId,
                 [[tempVar]]
             );
-            const elapsedRead = Date.now() - readTime;
-            console.log(`[getVariable] Step 2 (getSessionVariables): ${elapsedRead}ms`);
 
             // Clean up temp variable
-            const cleanupTime = Date.now();
-            await this.executeSilent(`
+            await this.executeSilent(
+                `
 if '${tempVar}' in globals():
     del ${tempVar}
-`);
-            const elapsedCleanup = Date.now() - cleanupTime;
-            console.log(`[getVariable] Step 3 (cleanup): ${elapsedCleanup}ms`);
+`,
+                false // Don't retry cleanup
+            );
 
             if (!variable) {
                 throw new Error(`Variable ${varName} not found`);
@@ -316,12 +320,7 @@ if '${tempVar}' in globals():
             // Remove outer quotes if present (Python string repr)
             const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
 
-            const result = JSON.parse(cleaned);
-            const totalElapsed = Date.now() - startTime;
-            console.log(
-                `[getVariable] Complete in ${totalElapsed}ms (exec=${elapsed1}ms, read=${elapsedRead}ms, cleanup=${elapsedCleanup}ms)`
-            );
-            return result;
+            return JSON.parse(cleaned);
         } catch (error) {
             // Clean up temp variable on error
             await this.executeSilent(
@@ -330,8 +329,7 @@ if '${tempVar}' in globals():
     del ${tempVar}
 `
             ).catch(() => {}); // Ignore cleanup errors
-            const totalElapsed = Date.now() - startTime;
-            throw new Error(`Failed to get variable ${varName} after ${totalElapsed}ms: ${error}`);
+            throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }
 }

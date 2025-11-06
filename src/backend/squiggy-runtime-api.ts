@@ -8,6 +8,13 @@
  */
 
 import { PositronRuntimeClient } from './positron-runtime-client';
+import {
+    POD5Error,
+    BAMError,
+    FASTAError,
+    PlottingError,
+    ValidationError,
+} from '../utils/error-handler';
 
 /**
  * Result from loading a POD5 file
@@ -65,23 +72,43 @@ export class SquiggyRuntimeAPI {
      * in _squiggy_session kernel variable accessible from console/notebooks.
      *
      * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
+     * @throws POD5Error if loading fails
      */
     async loadPOD5(filePath: string): Promise<POD5LoadResult> {
-        // Escape single quotes in path
-        const escapedPath = filePath.replace(/'/g, "\\'");
+        try {
+            // Validate input
+            if (!filePath || typeof filePath !== 'string') {
+                throw new ValidationError('File path must be a non-empty string', 'filePath');
+            }
 
-        // Load file silently (no console output)
-        // This populates the global _squiggy_session in Python
-        await this._client.executeSilent(`
+            // Escape single quotes in path
+            const escapedPath = filePath.replace(/'/g, "\\'");
+
+            // Load file silently (no console output)
+            // This populates the global _squiggy_session in Python
+            await this._client.executeSilent(
+                `
 import squiggy
 from squiggy.io import _squiggy_session
 squiggy.load_pod5('${escapedPath}')
-`);
+`,
+                true // Enable retry for transient failures
+            );
 
-        // Get read count by reading from session object (no print needed)
-        const numReads = await this._client.getVariable('len(_squiggy_session.read_ids)');
+            // Get read count by reading from session object (no print needed)
+            const numReads = await this._client.getVariable('len(_squiggy_session.read_ids)');
 
-        return { numReads: numReads as number };
+            return { numReads: numReads as number };
+        } catch (error) {
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while loading POD5 file';
+            throw new POD5Error(`Failed to load POD5 file '${filePath}': ${errorMessage}`);
+        }
     }
 
     /**
@@ -104,41 +131,63 @@ squiggy.load_pod5('${escapedPath}')
      *
      * Does NOT preload reference mapping - use getReferences() and getReadsForReference()
      * to fetch data on-demand.
+     * @throws BAMError if loading fails
      */
     async loadBAM(filePath: string): Promise<BAMLoadResult> {
-        const escapedPath = filePath.replace(/'/g, "\\'");
+        try {
+            // Validate input
+            if (!filePath || typeof filePath !== 'string') {
+                throw new ValidationError('File path must be a non-empty string', 'filePath');
+            }
 
-        // Load BAM silently (no console output)
-        // This populates _squiggy_session.bam_info and .bam_path
-        await this._client.executeSilent(`
+            const escapedPath = filePath.replace(/'/g, "\\'");
+
+            // Load BAM silently (no console output)
+            // This populates _squiggy_session.bam_info and .bam_path
+            await this._client.executeSilent(
+                `
 import squiggy
 from squiggy.io import _squiggy_session
 squiggy.load_bam('${escapedPath}')
 squiggy.get_read_to_reference_mapping()
-`);
+`,
+                true // Enable retry for transient failures
+            );
 
-        // Read metadata directly from session object (no print needed)
-        const numReads = await this._client.getVariable("_squiggy_session.bam_info['num_reads']");
-        const hasModifications = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('has_modifications', False)"
-        );
-        const modificationTypes = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('modification_types', [])"
-        );
-        const hasProbabilities = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('has_probabilities', False)"
-        );
-        const hasEventAlignment = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('has_event_alignment', False)"
-        );
+            // Read metadata directly from session object (no print needed)
+            const numReads = await this._client.getVariable(
+                "_squiggy_session.bam_info['num_reads']"
+            );
+            const hasModifications = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('has_modifications', False)"
+            );
+            const modificationTypes = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('modification_types', [])"
+            );
+            const hasProbabilities = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('has_probabilities', False)"
+            );
+            const hasEventAlignment = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('has_event_alignment', False)"
+            );
 
-        return {
-            numReads: numReads as number,
-            hasModifications: hasModifications as boolean,
-            modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
-            hasProbabilities: hasProbabilities as boolean,
-            hasEventAlignment: hasEventAlignment as boolean,
-        };
+            return {
+                numReads: numReads as number,
+                hasModifications: hasModifications as boolean,
+                modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
+                hasProbabilities: hasProbabilities as boolean,
+                hasEventAlignment: hasEventAlignment as boolean,
+            };
+        } catch (error) {
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while loading BAM file';
+            throw new BAMError(`Failed to load BAM file '${filePath}': ${errorMessage}`);
+        }
     }
 
     /**
@@ -196,6 +245,8 @@ squiggy.get_read_to_reference_mapping()
      *
      * Generates Bokeh plot which is automatically routed to Positron's Plots pane
      * via webbrowser.open() interception
+     * @throws PlottingError if plot generation fails
+     * @throws ValidationError if inputs are invalid
      */
     async generatePlot(
         readIds: string[],
@@ -211,13 +262,23 @@ squiggy.get_read_to_reference_mapping()
         showSignalPoints: boolean = false,
         sampleName?: string
     ): Promise<void> {
-        const readIdsJson = JSON.stringify(readIds);
-        const enabledModTypesJson = JSON.stringify(enabledModTypes);
+        try {
+            // Validate inputs
+            if (!readIds || readIds.length === 0) {
+                throw new ValidationError('At least one read ID is required', 'readIds');
+            }
 
-        // Build sample name parameter if in multi-sample mode
-        const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+            if (minModProbability < 0 || minModProbability > 1) {
+                throw new ValidationError('Must be between 0 and 1', 'minModProbability');
+            }
 
-        const code = `
+            const readIdsJson = JSON.stringify(readIds);
+            const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+            // Build sample name parameter if in multi-sample mode
+            const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+
+            const code = `
 import sys
 import squiggy
 import traceback
@@ -237,16 +298,15 @@ except Exception as e:
     print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
 `;
 
-        try {
             // Execute silently - plot will appear in Plots pane automatically
-            await this._client.executeSilent(code);
+            await this._client.executeSilent(code, true); // Enable retry
 
             // Check if there was an error during plot generation
             const plotError = await this.client
                 .getVariable('_squiggy_plot_error')
                 .catch(() => null);
             if (plotError !== null) {
-                throw new Error(`Plot generation failed:\n${plotError}`);
+                throw new PlottingError(`${plotError}`);
             }
 
             // Clean up temporary variable
@@ -264,7 +324,13 @@ if '_squiggy_plot_error' in globals():
 `
                 )
                 .catch(() => {});
-            throw error;
+
+            if (error instanceof ValidationError || error instanceof PlottingError) {
+                throw error;
+            }
+
+            const errorMessage = error instanceof Error ? error.message : 'Unknown plotting error';
+            throw new PlottingError(`Plot generation failed: ${errorMessage}`);
         }
     }
 
@@ -279,6 +345,8 @@ if '_squiggy_plot_error' in globals():
      * @param showDwellTime - Show dwell time track panel (default true)
      * @param showSignal - Show signal track panel (default true)
      * @param showQuality - Show quality track panel (default true)
+     * @throws PlottingError if plot generation fails
+     * @throws ValidationError if inputs are invalid
      */
     async generateAggregatePlot(
         referenceName: string,
@@ -296,20 +364,37 @@ if '_squiggy_plot_error' in globals():
         transformCoordinates: boolean = true,
         sampleName?: string
     ): Promise<void> {
-        // Escape single quotes in reference name and sample name for Python strings
-        const escapedRefName = referenceName.replace(/'/g, "\\'");
-        const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
+        try {
+            // Validate inputs
+            if (!referenceName || typeof referenceName !== 'string') {
+                throw new ValidationError(
+                    'Reference name must be a non-empty string',
+                    'referenceName'
+                );
+            }
 
-        // Build modification filter dict if modifications are enabled
-        const modFilterDict =
-            enabledModTypes.length > 0
-                ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
-                : 'None';
+            if (maxReads <= 0) {
+                throw new ValidationError('Must be greater than 0', 'maxReads');
+            }
 
-        // Build sample name parameter if in multi-sample mode
-        const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+            if (modificationThreshold < 0 || modificationThreshold > 1) {
+                throw new ValidationError('Must be between 0 and 1', 'modificationThreshold');
+            }
 
-        const code = `
+            // Escape single quotes in reference name and sample name for Python strings
+            const escapedRefName = referenceName.replace(/'/g, "\\'");
+            const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
+
+            // Build modification filter dict if modifications are enabled
+            const modFilterDict =
+                enabledModTypes.length > 0
+                    ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                    : 'None';
+
+            // Build sample name parameter if in multi-sample mode
+            const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+
+            const code = `
 import squiggy
 
 # Generate aggregate plot - will be automatically routed to Plots pane
@@ -329,21 +414,32 @@ squiggy.plot_aggregate(
 )
 `;
 
-        try {
             // Execute silently - plot will appear in Plots pane automatically
-            await this._client.executeSilent(code);
+            await this._client.executeSilent(code, true); // Enable retry
         } catch (error) {
-            throw new Error(`Failed to generate aggregate plot: ${error}`);
+            if (error instanceof ValidationError || error instanceof PlottingError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error ? error.message : 'Unknown aggregate plot error';
+            throw new PlottingError(`Failed to generate aggregate plot: ${errorMessage}`);
         }
     }
 
     /**
      * Load and validate a FASTA file
+     * @throws FASTAError if loading fails
      */
     async loadFASTA(fastaPath: string): Promise<void> {
-        const escapedPath = fastaPath.replace(/'/g, "\\'");
+        try {
+            // Validate input
+            if (!fastaPath || typeof fastaPath !== 'string') {
+                throw new ValidationError('File path must be a non-empty string', 'fastaPath');
+            }
 
-        const code = `
+            const escapedPath = fastaPath.replace(/'/g, "\\'");
+
+            const code = `
 import squiggy
 
 # Load FASTA file using squiggy.load_fasta()
@@ -351,10 +447,16 @@ import squiggy
 squiggy.load_fasta('${escapedPath}')
 `;
 
-        try {
-            await this._client.executeSilent(code);
+            await this._client.executeSilent(code, true); // Enable retry
         } catch (error) {
-            throw new Error(`Failed to load FASTA file: ${error}`);
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while loading FASTA file';
+            throw new FASTAError(`Failed to load FASTA file '${fastaPath}': ${errorMessage}`);
         }
     }
 
