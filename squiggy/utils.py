@@ -112,7 +112,7 @@ def get_icon_path():
     # Try multiple locations
     # 1. PyInstaller bundle location (when bundled)
     if getattr(sys, "_MEIPASS", None):
-        icon_path = Path(sys._MEIPASS) / icon_name
+        icon_path = Path(sys._MEIPASS) / icon_name  # type: ignore[attr-defined]
         if icon_path.exists():
             return icon_path
 
@@ -121,9 +121,9 @@ def get_icon_path():
         import importlib.resources as resources
 
         files = resources.files("squiggy")
-        icon_path = files / "data" / icon_name
-        if hasattr(icon_path, "as_posix"):
-            path = Path(str(icon_path))
+        icon_resource = files / "data" / icon_name
+        if hasattr(icon_resource, "as_posix"):
+            path = Path(str(icon_resource))
             if path.exists():
                 return path
     except Exception:
@@ -152,7 +152,7 @@ def get_logo_path():
     # Try multiple locations for the PNG logo
     # 1. PyInstaller bundle
     if getattr(sys, "_MEIPASS", None):
-        logo_path = Path(sys._MEIPASS) / "squiggy.png"
+        logo_path = Path(sys._MEIPASS) / "squiggy.png"  # type: ignore[attr-defined]
         if logo_path.exists():
             return logo_path
 
@@ -161,9 +161,9 @@ def get_logo_path():
         import importlib.resources as resources
 
         files = resources.files("squiggy")
-        logo_path = files / "data" / "squiggy.png"
-        if hasattr(logo_path, "as_posix"):
-            path = Path(str(logo_path))
+        logo_resource = files / "data" / "squiggy.png"
+        if hasattr(logo_resource, "as_posix"):
+            path = Path(str(logo_resource))
             if path.exists():
                 return path
     except Exception:
@@ -634,13 +634,13 @@ def get_bam_references(bam_file: Path) -> list[dict]:
     if not bam_file or not Path(bam_file).exists():
         raise FileNotFoundError(f"BAM file not found: {bam_file}")
 
-    references = []
+    references: list[dict[str, str | int | None]] = []
 
     try:
         with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
             # Get reference names and lengths from header
             for ref_name, ref_length in zip(bam.references, bam.lengths, strict=False):
-                ref_info = {
+                ref_info: dict[str, str | int | None] = {
                     "name": ref_name,
                     "length": ref_length,
                     "read_count": None,
@@ -660,7 +660,10 @@ def get_bam_references(bam_file: Path) -> list[dict]:
                 # Only include references that have reads
                 # If read_count is None (no index), include it
                 # If read_count is 0, skip it
-                if ref_info["read_count"] is None or ref_info["read_count"] > 0:
+                read_count = ref_info["read_count"]
+                if read_count is None or (
+                    isinstance(read_count, int) and read_count > 0
+                ):
                     references.append(ref_info)
 
     except Exception as e:
@@ -834,9 +837,10 @@ def get_reference_sequence_for_read(bam_file, read_id):
             ref_start = aligned_read.reference_start
 
             # Check if reference sequence is available in BAM header
-            if bam.header.get("SQ"):
+            header_dict = bam.header.to_dict()
+            if header_dict.get("SQ"):
                 # Try to get reference sequence from header (if embedded)
-                for sq in bam.header["SQ"]:
+                for sq in header_dict["SQ"]:
                     if sq["SN"] == ref_name:
                         # Some BAMs have embedded reference sequences
                         if "M5" in sq or "UR" in sq:
@@ -853,8 +857,12 @@ def get_reference_sequence_for_read(bam_file, read_id):
                     ref_positions.append(ref_pos)
                     if query_pos is not None:
                         # Match or mismatch
-                        base = aligned_read.query_sequence[query_pos]
-                        ref_seq_list.append(base)
+                        query_seq = aligned_read.query_sequence
+                        if query_seq:
+                            base = query_seq[query_pos]
+                            ref_seq_list.append(base)
+                        else:
+                            ref_seq_list.append("N")
                     else:
                         # Deletion in read (gap in query)
                         ref_seq_list.append("N")  # Use N for deletions
@@ -926,9 +934,10 @@ def extract_reads_for_reference(
             - modifications: List of ModificationAnnotation objects
     """
     import random
+    from typing import Any
 
     # First, get all reads that map to this reference from BAM
-    reads_info = []
+    reads_info: list[dict[str, Any]] = []
 
     try:
         with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
@@ -1018,9 +1027,9 @@ def extract_reads_for_reference(
                         break
 
         # Combine BAM and POD5 data
-        result = []
+        result: list[dict[str, Any]] = []
         for read_info in reads_info:
-            read_id = read_info["read_id"]
+            read_id = str(read_info["read_id"])
             if read_id in signal_data:
                 result.append(
                     {
@@ -1226,8 +1235,10 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
                 }
             - positions: Sorted list of all positions with modifications
     """
+    from typing import Any
+
     # Map genomic_pos -> mod_code -> list of probabilities
-    position_mods = {}
+    position_mods: dict[int, dict[Any, list[float]]] = {}
 
     for read in reads_data:
         modifications = read.get("modifications", [])
@@ -1267,8 +1278,8 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
             position_coverage[pos] += 1
 
     # Calculate statistics per position/mod_type
-    mod_stats = {}
-    all_positions = set()
+    mod_stats: dict[Any, dict[int, dict[str, Any]]] = {}
+    all_positions: set[int] = set()
 
     for pos, mod_dict in position_mods.items():
         all_positions.add(pos)
@@ -1321,7 +1332,7 @@ def calculate_dwell_time_statistics(reads_data):
             - coverage: Number of reads covering each position
     """
     # Map reference position -> list of dwell times (in milliseconds)
-    position_dwells = {}
+    position_dwells: dict[int, list[float]] = {}
 
     for read in reads_data:
         stride = read["stride"]
@@ -1411,8 +1422,8 @@ def calculate_aggregate_signal(reads_data, normalization_method):
     from .normalization import normalize_signal
 
     # Build a dict mapping reference positions to signal values and read IDs
-    position_signals = {}
-    position_reads = {}  # Track which reads cover each position
+    position_signals: dict[int, list[float]] = {}
+    position_reads: dict[int, set[str]] = {}  # Track which reads cover each position
 
     for read in reads_data:
         read_id = read.get(

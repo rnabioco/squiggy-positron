@@ -1,5 +1,7 @@
 """Signal normalization methods for nanopore data"""
 
+from typing import cast
+
 import numpy as np
 
 from .constants import NormalizationMethod
@@ -41,8 +43,8 @@ def z_normalize(signal: np.ndarray) -> np.ndarray:
     mean = np.mean(signal)
     std = np.std(signal)
     if std == 0:
-        return signal - mean
-    return (signal - mean) / std
+        return cast(np.ndarray, signal - mean)
+    return cast(np.ndarray, (signal - mean) / std)
 
 
 def median_normalize(signal: np.ndarray) -> np.ndarray:
@@ -58,7 +60,7 @@ def median_normalize(signal: np.ndarray) -> np.ndarray:
         Median-normalized signal
     """
     median = np.median(signal)
-    return signal - median
+    return cast(np.ndarray, signal - median)
 
 
 def mad_normalize(signal: np.ndarray) -> np.ndarray:
@@ -76,5 +78,7 @@ def mad_normalize(signal: np.ndarray) -> np.ndarray:
     median = np.median(signal)
     mad = np.median(np.abs(signal - median))
     if mad == 0:
-        return signal - median
-    return (signal - median) / (1.4826 * mad)  # 1.4826 makes MAD consistent with std
+        return cast(np.ndarray, signal - median)
+    return cast(
+        np.ndarray, (signal - median) / (1.4826 * mad)
+    )  # 1.4826 makes MAD consistent with std

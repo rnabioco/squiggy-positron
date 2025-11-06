@@ -39,7 +39,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
         >>> strategy = create_plot_strategy(PlotMode.SINGLE, Theme.LIGHT)
         >>> html, fig = strategy.create_plot(data, options)
     """
-    strategy_map = {
+    strategy_map: dict[PlotMode, type[PlotStrategy]] = {
         PlotMode.SINGLE: SingleReadPlotStrategy,
         PlotMode.OVERLAY: OverlayPlotStrategy,
         PlotMode.STACKED: StackedPlotStrategy,
@@ -56,4 +56,4 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
             f"Valid modes: {', '.join(m.value for m in PlotMode)}"
         )
 
-    return strategy_class(theme)
+    return strategy_class(theme)  # type: ignore[abstract]

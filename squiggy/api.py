@@ -176,9 +176,11 @@ class Read:
         self._parent = parent_file
 
         # Cache all properties immediately (pod5 read handle is temporary)
-        self._read_id = str(pod5_read.read_id)
-        self._signal = pod5_read.signal  # Must cache now, handle closes later
-        self._sample_rate = pod5_read.run_info.sample_rate
+        self._read_id: str = str(pod5_read.read_id)
+        self._signal: np.ndarray = (
+            pod5_read.signal
+        )  # Must cache now, handle closes later
+        self._sample_rate: int = pod5_read.run_info.sample_rate
 
     @property
     def read_id(self) -> str:
@@ -237,7 +239,12 @@ class Read:
         if bam_file is None and bam_path is None:
             raise ValueError("Must provide either bam_file or bam_path")
 
-        path = bam_path if bam_path is not None else bam_file.path
+        if bam_path is not None:
+            path = bam_path
+        elif bam_file is not None:
+            path = bam_file.path
+        else:
+            raise ValueError("Must provide either bam_file or bam_path")
         return extract_alignment_from_bam(Path(path), self.read_id)
 
     def plot(
@@ -245,10 +252,10 @@ class Read:
         mode: str = "SINGLE",
         normalization: str = "ZNORM",
         theme: str = "LIGHT",
-        downsample: int = None,
+        downsample: int | None = None,
         show_dwell_time: bool = False,
         show_labels: bool = True,
-        position_label_interval: int = None,
+        position_label_interval: int | None = None,
         scale_dwell_time: bool = False,
         min_mod_probability: float = 0.5,
         enabled_mod_types: list | None = None,
@@ -335,10 +342,12 @@ class Read:
         else:
             raise ValueError(f"Unsupported plot mode for single read: {plot_mode}")
 
+        from typing import cast
+
         strategy = create_plot_strategy(plot_mode, theme_enum)
         _, fig = strategy.create_plot(data, options)
 
-        return fig
+        return cast(BokehFigure, fig)
 
     def __repr__(self) -> str:
         return f"Read(read_id='{self.read_id}', signal_length={len(self.signal)})"
@@ -379,7 +388,9 @@ class BamFile:
                 print("Warning: BAM index not found. Region queries may not work.")
 
         # Open BAM file
-        self._bam = pysam.AlignmentFile(self.path, "rb", check_sq=False)
+        self._bam: pysam.AlignmentFile | None = pysam.AlignmentFile(
+            self.path, "rb", check_sq=False
+        )
 
         # Cache references
         self._references: list[str] | None = None
@@ -410,7 +421,7 @@ class BamFile:
             ...     for base in alignment.bases:
             ...         print(f"{base.base} at signal {base.signal_start}-{base.signal_end}")
         """
-        return extract_alignment_from_bam(self.path, read_id)
+        return extract_alignment_from_bam(Path(self.path), read_id)
 
     def iter_region(
         self, chrom: str, start: int | None = None, end: int | None = None
@@ -467,7 +478,7 @@ class BamFile:
         fasta_file: "FastaFile | str | Path",
         motif: str,
         region: str | None = None,
-        strand: str = "both",
+        strand: Literal["+", "-", "both"] = "both",
     ) -> dict[str, list[AlignedRead]]:
         """
         Find reads overlapping motif positions
@@ -494,6 +505,7 @@ class BamFile:
         from .alignment import _parse_alignment
 
         # Handle fasta_file parameter
+        fasta_path: str | Path
         if isinstance(fasta_file, FastaFile):
             fasta_path = fasta_file.path
         else:
@@ -579,7 +591,7 @@ class FastaFile:
             )
 
         # Open FASTA file
-        self._fasta = pysam.FastaFile(self.path)
+        self._fasta: pysam.FastaFile | None = pysam.FastaFile(self.path)
 
         # Cache references
         self._references: list[str] | None = None

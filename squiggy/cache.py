@@ -10,6 +10,7 @@ import logging
 import pickle
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ class SquiggyCache:
 
         try:
             with open(cache_path, "rb") as f:
-                cached = pickle.load(f)
+                cached: dict[str, Any] = pickle.load(f)
 
             # Validate file hasn't changed
             current_hash = self._file_hash(file_path)
@@ -113,7 +114,7 @@ class SquiggyCache:
             logger.info(
                 f"Loaded POD5 index from cache ({len(cached['index']):,} reads)"
             )
-            return cached["index"]
+            return cast(dict[str, int], cached["index"])
 
         except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
             logger.warning(f"Cache load failed: {e}")
@@ -172,7 +173,7 @@ class SquiggyCache:
 
         try:
             with open(cache_path, "rb") as f:
-                cached = pickle.load(f)
+                cached: dict[str, Any] = pickle.load(f)
 
             # Validate file hasn't changed
             current_hash = self._file_hash(file_path)
@@ -183,7 +184,7 @@ class SquiggyCache:
             logger.info(
                 f"Loaded read IDs from cache ({len(cached['read_ids']):,} reads)"
             )
-            return cached["read_ids"]
+            return cast(list[str], cached["read_ids"])
 
         except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
             logger.warning(f"Cache load failed: {e}")
@@ -239,7 +240,7 @@ class SquiggyCache:
 
         try:
             with open(cache_path, "rb") as f:
-                cached = pickle.load(f)
+                cached: dict[str, Any] = pickle.load(f)
 
             # Validate file hasn't changed
             current_hash = self._file_hash(file_path)
@@ -250,7 +251,7 @@ class SquiggyCache:
             logger.info(
                 f"Loaded BAM reference mapping from cache ({len(cached['ref_mapping'])} refs)"
             )
-            return cached["ref_mapping"]
+            return cast(dict[str, list[str]], cached["ref_mapping"])
 
         except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
             logger.warning(f"Cache load failed: {e}")
@@ -328,7 +329,7 @@ class SquiggyCache:
 
         try:
             with open(cache_path, "rb") as f:
-                cached = pickle.load(f)
+                cached: dict[str, Any] = pickle.load(f)
 
             # Validate file hasn't changed (using mtime for faster check)
             current_mtime = file_path.stat().st_mtime
@@ -341,7 +342,7 @@ class SquiggyCache:
                 f"({cached['metadata']['num_reads']:,} reads, "
                 f"{len(cached['metadata']['references'])} refs)"
             )
-            return cached["metadata"]
+            return cast(dict[Any, Any], cached["metadata"])
 
         except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
             logger.warning(f"Cache load failed: {e}")
