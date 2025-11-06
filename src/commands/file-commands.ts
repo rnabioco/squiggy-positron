@@ -272,10 +272,7 @@ export function registerFileCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.updateSampleFiles',
-            async (
-                sampleName: string,
-                files: { bamPath?: string; fastaPath?: string }
-            ) => {
+            async (sampleName: string, files: { bamPath?: string; fastaPath?: string }) => {
                 await updateSampleFiles(sampleName, files, state);
             }
         )
@@ -1411,9 +1408,7 @@ async function updateSampleFiles(
             files.fastaPath || sample.fastaPath
         );
 
-        vscode.window.showInformationMessage(
-            `Updated files for sample "${sampleName}"`
-        );
+        vscode.window.showInformationMessage(`Updated files for sample "${sampleName}"`);
 
         console.log(`[updateSampleFiles] Successfully updated files for '${sampleName}'`);
     } catch (error) {

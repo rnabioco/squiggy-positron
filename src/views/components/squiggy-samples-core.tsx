@@ -858,7 +858,9 @@ export const SamplesCore: React.FC = () => {
                                                                 </div>
                                                                 <button
                                                                     onClick={() =>
-                                                                        handleChangeFasta(sample.name)
+                                                                        handleChangeFasta(
+                                                                            sample.name
+                                                                        )
                                                                     }
                                                                     style={{
                                                                         padding: '2px 5px',
