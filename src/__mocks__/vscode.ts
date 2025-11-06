@@ -170,9 +170,9 @@ export enum ViewColumn {
 
 // Mock window API
 export const window = {
-    showErrorMessage: jest.fn(),
-    showInformationMessage: jest.fn(),
-    showWarningMessage: jest.fn(),
+    showErrorMessage: jest.fn().mockResolvedValue(undefined),
+    showInformationMessage: jest.fn().mockResolvedValue(undefined),
+    showWarningMessage: jest.fn().mockResolvedValue(undefined),
     showOpenDialog: jest.fn(),
     showSaveDialog: jest.fn(),
     showInputBox: jest.fn(),
@@ -183,6 +183,14 @@ export const window = {
     onDidChangeActiveColorTheme: jest.fn(() => ({ dispose: jest.fn() })),
     registerWebviewViewProvider: jest.fn(() => ({ dispose: jest.fn() })),
     createWebviewPanel: jest.fn(),
+    createOutputChannel: jest.fn(() => ({
+        appendLine: jest.fn(),
+        append: jest.fn(),
+        clear: jest.fn(),
+        show: jest.fn(),
+        hide: jest.fn(),
+        dispose: jest.fn(),
+    })),
 };
 
 // Command registry for testing

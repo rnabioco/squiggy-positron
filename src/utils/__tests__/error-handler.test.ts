@@ -155,7 +155,8 @@ describe('Error Handler', () => {
             handleError(error, ErrorContext.POD5_LOAD);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                'Failed loading POD5 file: Test error'
+                'Failed loading POD5 file: Test error',
+                'Show Logs'
             );
         });
 
@@ -165,7 +166,8 @@ describe('Error Handler', () => {
             handleError(error, ErrorContext.BAM_LOAD);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                'Failed loading BAM file: Standard error'
+                'Failed loading BAM file: Standard error',
+                'Show Logs'
             );
         });
 
@@ -175,7 +177,8 @@ describe('Error Handler', () => {
             handleError(error, ErrorContext.PLOT_GENERATE);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('No Python kernel is running')
+                expect.stringContaining('No Python kernel is running'),
+                'Show Logs'
             );
         });
 
@@ -185,7 +188,8 @@ describe('Error Handler', () => {
             handleError(error, ErrorContext.PLOT_GENERATE);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('No Python kernel is running')
+                expect.stringContaining('No Python kernel is running'),
+                'Show Logs'
             );
         });
 
@@ -195,7 +199,8 @@ describe('Error Handler', () => {
             handleError(error, ErrorContext.PACKAGE_INSTALL);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('EXTERNALLY_MANAGED')
+                expect.stringContaining('EXTERNALLY_MANAGED'),
+                'Show Logs'
             );
         });
 
@@ -205,7 +210,8 @@ describe('Error Handler', () => {
             handleError(error, ErrorContext.KERNEL_COMMUNICATION);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('squiggy Python package is not installed')
+                expect.stringContaining('squiggy Python package is not installed'),
+                'Show Logs'
             );
         });
 
@@ -213,7 +219,8 @@ describe('Error Handler', () => {
             handleError('string error', ErrorContext.STATE_CLEAR);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                'Failed clearing extension state: string error'
+                'Failed clearing extension state: string error',
+                'Show Logs'
             );
         });
 
@@ -221,7 +228,8 @@ describe('Error Handler', () => {
             handleError(null, ErrorContext.MOTIF_SEARCH);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                'Failed searching for motif matches: null'
+                'Failed searching for motif matches: null',
+                'Show Logs'
             );
         });
     });
@@ -233,7 +241,8 @@ describe('Error Handler', () => {
             handleErrorWithProgress(error, ErrorContext.PLOT_GENERATE);
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                'Failed generating plot: Progress error'
+                'Failed generating plot: Progress error',
+                'Show Logs'
             );
         });
     });
@@ -278,7 +287,8 @@ describe('Error Handler', () => {
 
             expect(result).toBeUndefined();
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Bokeh failed')
+                expect.stringContaining('Bokeh failed'),
+                'Show Logs'
             );
         });
     });

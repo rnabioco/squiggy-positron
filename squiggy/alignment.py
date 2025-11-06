@@ -6,6 +6,10 @@ from pathlib import Path
 import numpy as np
 import pysam
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class BaseAnnotation:
@@ -52,7 +56,9 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | No
                 if alignment.query_name == read_id:
                     return _parse_alignment(alignment)
     except Exception as e:
-        print(f"Warning: Error reading BAM file for {read_id}: {e}")
+        logger.warning(
+            f"Error reading BAM file for read '{read_id}': {e}", exc_info=True
+        )
 
     return None
 
@@ -147,7 +153,7 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         modifications = extract_modifications_from_alignment(alignment, bases)
     except Exception as e:
         # Modifications are optional, don't fail if extraction fails
-        print(f"Warning: Could not extract modifications: {e}")
+        logger.debug(f"Could not extract modifications for read: {e}")
 
     return AlignedRead(
         read_id=alignment.query_name,

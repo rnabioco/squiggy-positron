@@ -22,6 +22,10 @@ from typing import Literal
 
 import pysam
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 # IUPAC nucleotide codes mapping
 IUPAC_CODES = {
     "A": "A",
@@ -101,9 +105,14 @@ def iupac_to_regex(pattern: str) -> str:
 
     for char in pattern.upper():
         if char not in IUPAC_CODES:
+            valid_codes = ", ".join(sorted(IUPAC_CODES.keys()))
+            logger.error(
+                f"Invalid IUPAC code '{char}' in motif pattern '{pattern}'. "
+                f"Valid codes: {valid_codes}"
+            )
             raise ValueError(
                 f"Invalid IUPAC code '{char}' in pattern '{pattern}'. "
-                f"Valid codes: {', '.join(sorted(IUPAC_CODES.keys()))}"
+                f"Valid codes: {valid_codes}"
             )
         regex_parts.append(IUPAC_CODES[char])
 
@@ -182,6 +191,10 @@ def parse_region(region: str) -> tuple[str, int | None, int | None]:
 
     parts = region.split(":")
     if len(parts) != 2:
+        logger.error(
+            f"Invalid region format: '{region}'. "
+            f"Expected format: 'chrom:start-end' or 'chrom:position'"
+        )
         raise ValueError(f"Invalid region format: {region}")
 
     chrom = parts[0]
@@ -194,11 +207,14 @@ def parse_region(region: str) -> tuple[str, int | None, int | None]:
             start = int(start_str) - 1  # Convert to 0-based
             end = int(end_str)  # End is exclusive
         except ValueError as e:
+            logger.error(f"Invalid coordinates in region '{region}': {e}")
             raise ValueError(f"Invalid coordinates in region: {region}") from e
 
         if start < 0:
+            logger.error(f"Start position must be >= 1 in region '{region}'")
             raise ValueError(f"Start position must be >= 1: {region}")
         if end <= start:
+            logger.error(f"End must be greater than start in region '{region}'")
             raise ValueError(f"End must be greater than start: {region}")
 
         return chrom, start, end
@@ -207,6 +223,7 @@ def parse_region(region: str) -> tuple[str, int | None, int | None]:
         try:
             start = int(coord_str) - 1  # Convert to 0-based
         except ValueError as e:
+            logger.error(f"Invalid start position in region '{region}': {e}")
             raise ValueError(f"Invalid start position in region: {region}") from e
 
         if start < 0:

@@ -5,6 +5,11 @@ This module provides a centralized logging configuration that can be used
 across all modules. The logging level can be controlled via the SQUIGGY_LOG_LEVEL
 environment variable.
 
+Log Output Location:
+    - In Positron: Logs appear in the Python Console by default
+    - To reduce console clutter, set SQUIGGY_LOG_LEVEL to 'ERROR' or higher
+    - For full logging documentation, see docs/LOGGING.md
+
 Environment Variables:
     SQUIGGY_LOG_LEVEL: Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
                        Default: WARNING
@@ -21,6 +26,9 @@ Examples:
     >>> os.environ['SQUIGGY_LOG_LEVEL'] = 'INFO'
     >>> from squiggy.logging_config import get_logger
     >>> logger = get_logger(__name__)
+
+    # Reduce console output to errors only:
+    >>> os.environ['SQUIGGY_LOG_LEVEL'] = 'ERROR'
 """
 
 import logging

@@ -14,6 +14,7 @@ import { ErrorContext, handleError, safeExecuteWithProgress } from '../utils/err
 import { FileLoadingService } from '../services/file-loading-service';
 import { LoadedItem } from '../types/loaded-item';
 import { POD5LoadResult, BAMLoadResult } from '../types/file-loading-types';
+import { logger } from '../utils/logger';
 
 /**
  * Register file-related commands
@@ -530,6 +531,8 @@ async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
  * Uses FileLoadingService for centralized loading and unified state integration
  */
 async function openPOD5File(filePath: string, state: ExtensionState): Promise<void> {
+    logger.info(`Loading POD5 file: ${path.basename(filePath)}`);
+
     // Ensure squiggy is available (check if installed, prompt if needed)
     const squiggyAvailable = await ensureSquiggyAvailable(state);
 
@@ -584,7 +587,9 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
             // Update plot options to enable controls
             state.plotOptionsProvider?.updatePod5Status(true);
 
-            console.log(`[openPOD5File] Successfully loaded: ${path.basename(filePath)}`);
+            logger.info(
+                `Successfully loaded POD5 file: ${path.basename(filePath)} (${pod5Result.readCount.toLocaleString()} reads)`
+            );
         },
         ErrorContext.POD5_LOAD,
         'Opening POD5 file...'
@@ -596,6 +601,8 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
  * Uses FileLoadingService for centralized loading and unified state integration
  */
 async function openBAMFile(filePath: string, state: ExtensionState): Promise<void> {
+    logger.info(`Loading BAM file: ${path.basename(filePath)}`);
+
     // Ensure squiggy is available (check if installed, prompt if needed)
     const squiggyAvailable = await ensureSquiggyAvailable(state);
 
@@ -692,7 +699,10 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 state.plotOptionsProvider?.updateReferences(references);
             }
 
-            console.log(`[openBAMFile] Successfully loaded: ${path.basename(filePath)}`);
+            logger.info(
+                `Successfully loaded BAM file: ${path.basename(filePath)} ` +
+                    `(${references.length} reference${references.length !== 1 ? 's' : ''}${bamResult.hasModifications ? ', with modifications' : ''})`
+            );
         },
         ErrorContext.BAM_LOAD,
         'Opening BAM file...'
