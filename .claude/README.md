@@ -136,7 +136,7 @@ python3.12 -m ruff check squiggy/ tests/
 
 ### Sample Data
 
-Located in `tests/data/`:
+Located in `squiggy/data/`:
 - `yeast_trna_reads.pod5` - POD5 file with 180 reads
 - `yeast_trna_mappings.bam` - BAM file with alignments
 

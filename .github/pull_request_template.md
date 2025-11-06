@@ -27,7 +27,7 @@ List the main changes in this PR:
 
 Describe how you tested these changes:
 
-- [ ] Tested manually with sample data (`tests/data/simplex_reads.pod5`)
+- [ ] Tested manually with sample data (`squiggy/data/yeast_trna_reads.pod5`)
 - [ ] Tested with custom POD5 files
 - [ ] Tested with BAM files
 - [ ] All existing tests pass (`pytest tests/`)
@@ -38,7 +38,6 @@ Describe how you tested these changes:
 ```bash
 # Example test commands
 pytest tests/
-squiggy -p tests/data/simplex_reads.pod5
 ```
 
 ## Screenshots (if applicable)

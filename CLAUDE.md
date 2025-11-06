@@ -605,7 +605,7 @@ Test extension ↔ Python communication:
 
 ### Manual Testing
 
-Use sample data in `tests/data/`:
+Use sample data in `squiggy/data/`:
 - `yeast_trna_reads.pod5` - 180 reads
 - `yeast_trna_mappings.bam` - Corresponding alignments
 
@@ -677,7 +677,7 @@ npm run package
 
 - TypeScript tests excluded from compilation (see `tsconfig.json`)
 - Python tests require Git LFS data: `git lfs pull`
-- Sample data in `tests/data/` used for manual testing
+- Sample data in `squiggy/data/` used for demos and testing
 
 ## Resources
 
