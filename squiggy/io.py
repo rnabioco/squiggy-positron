@@ -175,7 +175,7 @@ class Pod5Index:
         return len(self._index)
 
 
-def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
+def get_reads_batch(read_ids: list[str], sample_name: str | None = None) -> dict[str, pod5.ReadRecord]:
     """
     Fetch multiple reads in a single pass (O(n) instead of O(m×n))
 
@@ -184,6 +184,8 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
 
     Args:
         read_ids: List of read IDs to fetch
+        sample_name: (Multi-sample mode) Name of sample to get reads from.
+                     If None, uses global session reader.
 
     Returns:
         Dict mapping read_id to ReadRecord for found reads
@@ -199,14 +201,22 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
         >>> for read_id, read_obj in reads.items():
         ...     print(f"{read_id}: {len(read_obj.signal)} samples")
     """
-    if _squiggy_session.reader is None:
-        raise RuntimeError("No POD5 file is currently loaded")
+    # Determine which reader to use
+    if sample_name:
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
+        reader = sample.pod5_reader
+    else:
+        if _squiggy_session.reader is None:
+            raise RuntimeError("No POD5 file is currently loaded")
+        reader = _squiggy_session.reader
 
     needed = set(read_ids)
     found = {}
 
     logger.debug(f"Batch fetching {len(needed)} reads...")
-    for read in _squiggy_session.reader.reads():
+    for read in reader.reads():
         read_id = str(read.read_id)
         if read_id in needed:
             found[read_id] = read
