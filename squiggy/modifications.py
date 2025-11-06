@@ -66,7 +66,7 @@ def extract_modifications_from_alignment(
         >>> for mod in mods:
         ...     print(f"{mod.mod_code} at pos {mod.position}: p={mod.probability}")
     """
-    modifications = []
+    modifications: list[ModificationAnnotation] = []
 
     # Check if modifications are present
     if not hasattr(alignment, "modified_bases") or not alignment.modified_bases:

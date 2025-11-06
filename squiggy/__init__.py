@@ -98,13 +98,13 @@ from .utils import (
 try:
     import pod5
 except ImportError:
-    pod5 = None
+    pod5 = None  # type: ignore[assignment]
 
 # Import pysam for user convenience
 try:
     import pysam
 except ImportError:
-    pysam = None
+    pysam = None  # type: ignore[assignment]
 
 
 def plot_read(
@@ -314,6 +314,9 @@ def plot_reads(
     ]
 
     # Prepare data and options based on mode
+    from typing import Any
+
+    data: dict[str, Any]
     if plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
         data = {"reads": reads_data}
         options = {
