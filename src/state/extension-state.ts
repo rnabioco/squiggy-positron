@@ -113,6 +113,7 @@ export class ExtensionState {
     private _onLoadedItemsChanged: vscode.EventEmitter<LoadedItem[]> = new vscode.EventEmitter();
     private _onSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
     private _onComparisonChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
+    private _onVisualizationSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -355,6 +356,14 @@ squiggy.close_fasta()
         return this._onComparisonChanged.event;
     }
 
+    /**
+     * Event fired when visualization selection changes (samples selected for plotting)
+     * Listened to by: Samples Panel and Plotting Panel for UI synchronization
+     */
+    get onVisualizationSelectionChanged(): vscode.Event<string[]> {
+        return this._onVisualizationSelectionChanged.event;
+    }
+
     // ========== UNIFIED ITEM MANAGEMENT (Issue #92) ==========
 
     /**
@@ -525,6 +534,14 @@ squiggy.close_fasta()
         this._onComparisonChanged.fire(this.getComparisonItems());
     }
 
+    /**
+     * Notify all listeners that visualization selection changed
+     * @private
+     */
+    private _notifyVisualizationSelectionChanged(): void {
+        this._onVisualizationSelectionChanged.fire(this.getSamplesForVisualization());
+    }
+
     // ========== Multi-Sample Management (Phase 4) ==========
 
     get loadedSamples(): Map<string, SampleInfo> {
@@ -614,6 +631,7 @@ squiggy.close_fasta()
      */
     addSampleToVisualization(sampleName: string): void {
         this._samplesForVisualization.add(sampleName);
+        this._notifyVisualizationSelectionChanged();
     }
 
     /**
@@ -621,6 +639,15 @@ squiggy.close_fasta()
      */
     removeSampleFromVisualization(sampleName: string): void {
         this._samplesForVisualization.delete(sampleName);
+        this._notifyVisualizationSelectionChanged();
+    }
+
+    /**
+     * Set visualization selection (bulk update)
+     */
+    setVisualizationSelection(sampleNames: string[]): void {
+        this._samplesForVisualization = new Set(sampleNames);
+        this._notifyVisualizationSelectionChanged();
     }
 
     /**

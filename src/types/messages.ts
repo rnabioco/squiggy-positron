@@ -231,6 +231,11 @@ export interface UpdateLoadedSamplesMessage extends BaseMessage {
     samples: SampleItem[];
 }
 
+export interface UpdateSelectedSamplesMessage extends BaseMessage {
+    type: 'updateSelectedSamples';
+    selectedSamples: string[];
+}
+
 export interface PlotOptions {
     // Analysis Type - 5 plot types (removed SINGLE_READ - use Read Explorer instead)
     plotType:
@@ -278,13 +283,15 @@ export type PlotOptionsIncomingMessage =
     | GenerateSignalOverlayComparisonMessage
     | GenerateSignalDeltaMessage
     | GenerateAggregateComparisonMessage
+    | ToggleSampleSelectionMessage
     | ReadyMessage;
 export type PlotOptionsOutgoingMessage =
     | UpdatePlotOptionsMessage
     | UpdateBamStatusMessage
     | UpdatePod5StatusMessage
     | UpdateReferencesMessage
-    | UpdateLoadedSamplesMessage;
+    | UpdateLoadedSamplesMessage
+    | UpdateSelectedSamplesMessage;
 
 // ========== Modifications Panel Messages ==========
 

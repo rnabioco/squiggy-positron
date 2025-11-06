@@ -15,6 +15,7 @@ import {
     UpdateLoadedSamplesMessage,
     SampleItem,
 } from '../types/messages';
+import { ExtensionState } from '../state/extension-state';
 
 type PlotType =
     | 'MULTI_READ_OVERLAY'
@@ -25,6 +26,9 @@ type PlotType =
 
 export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyPlotOptions';
+
+    private _state: ExtensionState;
+    private _disposables: vscode.Disposable[] = [];
 
     private _plotType: PlotType = 'AGGREGATE';
     private _plotMode: string = 'SINGLE';
@@ -50,6 +54,43 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
 
     // Multi-sample state
     private _loadedSamples: SampleItem[] = [];
+
+    constructor(extensionUri: vscode.Uri, state: ExtensionState) {
+        super(extensionUri);
+        this._state = state;
+
+        // Subscribe to visualization selection changes
+        const selectionDisposable = this._state.onVisualizationSelectionChanged((selectedSamples) => {
+            this._handleVisualizationSelectionChanged(selectedSamples);
+        });
+        this._disposables.push(selectionDisposable);
+    }
+
+    /**
+     * Handle visualization selection changes from extension state
+     * Updates webview to reflect current selection
+     * @private
+     */
+    private _handleVisualizationSelectionChanged(selectedSamples: string[]): void {
+        console.log('[PlotOptionsViewProvider] Visualization selection changed:', selectedSamples);
+        // Send update to webview
+        if (this._view?.webview) {
+            this._view.webview.postMessage({
+                type: 'updateSelectedSamples',
+                selectedSamples,
+            });
+        }
+    }
+
+    /**
+     * Dispose method to clean up subscriptions
+     */
+    public dispose(): void {
+        for (const disposable of this._disposables) {
+            disposable.dispose();
+        }
+        this._disposables = [];
+    }
 
     // Event emitter for when options change that should trigger refresh
     private _onDidChangeOptions = new vscode.EventEmitter<void>();
@@ -223,6 +264,19 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 maxReads: message.maxReads,
                 normalization: message.normalization,
             });
+        }
+
+        if (message.type === 'toggleSampleSelection') {
+            // Toggle sample selection in extension state
+            const isSelected = this._state.isSampleSelectedForVisualization(message.sampleName);
+            if (isSelected) {
+                this._state.removeSampleFromVisualization(message.sampleName);
+            } else {
+                this._state.addSampleToVisualization(message.sampleName);
+            }
+            console.log(
+                `[PlotOptionsViewProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
+            );
         }
     }
 

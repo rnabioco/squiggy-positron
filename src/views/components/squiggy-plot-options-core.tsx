@@ -178,6 +178,16 @@ export const PlotOptionsCore: React.FC = () => {
                         selectedSamples: message.samples.slice(0, 2).map((s: SampleItem) => s.name),
                     }));
                     break;
+                case 'updateSelectedSamples':
+                    console.log(
+                        '[PlotOptions React] Updating selectedSamples from extension:',
+                        message.selectedSamples
+                    );
+                    setOptions((prev) => ({
+                        ...prev,
+                        selectedSamples: message.selectedSamples,
+                    }));
+                    break;
             }
         };
 
@@ -231,6 +241,12 @@ export const PlotOptionsCore: React.FC = () => {
                 ? [...prev.selectedSamples, sampleName]
                 : prev.selectedSamples.filter((s) => s !== sampleName);
             return { ...prev, selectedSamples: newSelected };
+        });
+
+        // Notify extension state to keep Samples panel in sync
+        vscode.postMessage({
+            type: 'toggleSampleSelection',
+            sampleName: sampleName,
         });
     };
 

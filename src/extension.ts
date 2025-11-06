@@ -32,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create and register UI panel providers
     const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
     const readsViewPane = new ReadsViewPane(context.extensionUri, state);
-    const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
+    const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri, state);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
