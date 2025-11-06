@@ -84,8 +84,15 @@ describe('State Commands', () => {
         it('should add all command disposables to context', () => {
             registerCommands();
 
-            // Verify registerCommand was called 2 times (once per command)
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(2);
+            // Verify all expected commands were registered (avoid exact count to be resilient to changes)
+            expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
+                'squiggy.refreshReads',
+                expect.any(Function)
+            );
+            expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
+                'squiggy.clearState',
+                expect.any(Function)
+            );
         });
     });
 

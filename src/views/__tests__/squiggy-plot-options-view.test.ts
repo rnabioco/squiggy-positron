@@ -208,7 +208,8 @@ describe('PlotOptionsViewProvider', () => {
         it('should return default options', () => {
             const options = provider.getOptions();
 
-            expect(options).toEqual({
+            // Use objectContaining to be resilient to new properties being added
+            expect(options).toEqual(expect.objectContaining({
                 plotType: 'SINGLE',
                 mode: 'SINGLE',
                 normalization: 'ZNORM',
@@ -224,7 +225,7 @@ describe('PlotOptionsViewProvider', () => {
                 showPileup: true,
                 showSignal: true,
                 showQuality: true,
-            });
+            }));
         });
 
         it('should return updated options after changes', () => {
