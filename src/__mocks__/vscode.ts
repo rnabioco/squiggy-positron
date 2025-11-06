@@ -152,6 +152,8 @@ export const window = {
     showInformationMessage: jest.fn(),
     showWarningMessage: jest.fn(),
     showOpenDialog: jest.fn(),
+    showSaveDialog: jest.fn(),
+    showInputBox: jest.fn(),
     withProgress: jest.fn((options, task) => task()),
     activeColorTheme: {
         kind: ColorThemeKind.Light,
