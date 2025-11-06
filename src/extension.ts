@@ -36,7 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create and register UI panel providers
     const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
     const readsViewPane = new ReadsViewPane(context.extensionUri, state);
-    const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
+    const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri, state);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
@@ -103,6 +103,71 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Listen for loaded items changes and sync samples to plot options pane
+    context.subscriptions.push(
+        state.onLoadedItemsChanged((items) => {
+            console.log('[extension.ts] onLoadedItemsChanged fired, items:', items.length);
+
+            // Filter for samples and convert to SampleItem format
+            const samples = items
+                .filter((item) => item.type === 'sample')
+                .map((item) => ({
+                    name: item.sampleName || '',
+                    pod5Path: item.pod5Path || '',
+                    bamPath: item.bamPath,
+                    fastaPath: item.fastaPath,
+                    readCount: item.readCount, // Use unified state directly (already populated)
+                    hasBam: !!item.bamPath,
+                    hasFasta: !!item.fastaPath,
+                }));
+
+            console.log('[extension.ts] Filtered samples:', samples.length, samples);
+
+            // Sync to plot options provider
+            console.log('[extension.ts] plotOptionsProvider exists?', !!plotOptionsProvider);
+            if (plotOptionsProvider) {
+                plotOptionsProvider.updateLoadedSamples(samples);
+            } else {
+                console.error('[extension.ts] plotOptionsProvider is undefined!');
+            }
+
+            // Update POD5/BAM status in plot options pane based on loaded samples
+            const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
+            const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
+
+            console.log('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam);
+
+            if (plotOptionsProvider) {
+                plotOptionsProvider.updatePod5Status(hasPod5);
+                plotOptionsProvider.updateBamStatus(hasBam);
+            }
+
+            // If we have BAM files, fetch and update references
+            if (hasBam && state.squiggyAPI && plotOptionsProvider) {
+                // Get references from the first sample with BAM
+                const sampleWithBam = samples.find((s) => s.hasBam);
+                if (sampleWithBam) {
+                    console.log(
+                        '[extension.ts] Fetching references for sample:',
+                        sampleWithBam.name
+                    );
+                    state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
+                        console.log('[extension.ts] Got references:', refs);
+                        if (plotOptionsProvider) {
+                            plotOptionsProvider.updateReferences(refs);
+                        }
+                    });
+                }
+            }
+
+            // Refresh Read Explorer to update available samples dropdown
+            const allSamples = state.getAllSampleNames();
+            console.log('[extension.ts] Sample loaded. All samples:', allSamples);
+            console.log('[extension.ts] Refreshing Read Explorer');
+            readsViewPane?.refresh();
+        })
+    );
+
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {
@@ -139,6 +204,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for aggregate plot generation requests from plot options panel
     context.subscriptions.push(
         plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
+            console.log('[Extension] Aggregate plot requested with samples:', options.sampleNames);
+
             if (!state.squiggyAPI) {
                 vscode.window.showErrorMessage('API not available');
                 return;
@@ -153,29 +220,126 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Get modification filters from Modifications panel
                 const modFilters = modificationsProvider.getFilters();
 
-                // Generate aggregate plot
-                await state.squiggyAPI.generateAggregatePlot(
-                    options.reference,
-                    options.maxReads,
-                    options.normalization,
-                    theme,
-                    options.showModifications,
-                    modFilters.minProbability,
-                    modFilters.enabledModTypes,
-                    options.showPileup,
-                    options.showDwellTime,
-                    options.showSignal,
-                    options.showQuality,
-                    options.clipXAxisToAlignment,
-                    options.transformCoordinates
-                );
+                // Route based on number of samples selected
+                if (options.sampleNames.length === 1) {
+                    // Single-sample aggregate plot
+                    await state.squiggyAPI.generateAggregatePlot(
+                        options.reference,
+                        options.maxReads,
+                        options.normalization,
+                        theme,
+                        options.showModifications,
+                        modFilters.minProbability,
+                        modFilters.enabledModTypes,
+                        options.showPileup,
+                        options.showDwellTime,
+                        options.showSignal,
+                        options.showQuality,
+                        options.clipXAxisToAlignment,
+                        options.transformCoordinates,
+                        options.sampleNames[0]
+                    );
 
-                vscode.window.showInformationMessage(
-                    `Generated aggregate plot for ${options.reference}`
-                );
+                    vscode.window.showInformationMessage(
+                        `Generated aggregate plot for ${options.reference}`
+                    );
+                } else if (options.sampleNames.length > 1) {
+                    // Multi-sample aggregate plot
+                    if (options.viewStyle === 'overlay') {
+                        // Use aggregate comparison (overlays mean signals)
+                        // Convert boolean flags to metrics array
+                        const metrics: string[] = [];
+                        if (options.showSignal) {
+                            metrics.push('signal');
+                        }
+                        if (options.showDwellTime) {
+                            metrics.push('dwell_time');
+                        }
+                        if (options.showQuality) {
+                            metrics.push('quality');
+                        }
+
+                        await vscode.commands.executeCommand('squiggy.plotAggregateComparison', {
+                            sampleNames: options.sampleNames,
+                            reference: options.reference,
+                            metrics: metrics,
+                            maxReads: options.maxReads,
+                        });
+
+                        vscode.window.showInformationMessage(
+                            `Generated aggregate comparison for ${options.sampleNames.length} samples`
+                        );
+                    } else {
+                        // Multi-track mode (separate detailed tracks per sample)
+                        vscode.window.showWarningMessage(
+                            'Multi-track aggregate view not yet implemented. Use overlay mode for now.'
+                        );
+                    }
+                } else {
+                    vscode.window.showErrorMessage('No samples selected for aggregate plot');
+                }
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
             }
+        })
+    );
+
+    // Listen for signal overlay comparison requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestSignalOverlay(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotSignalOverlayComparison',
+                params.sampleNames,
+                params.maxReads
+            );
+        })
+    );
+
+    // Listen for signal delta comparison requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestSignalDelta(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotDeltaComparison',
+                params.sampleNames,
+                params.reference,
+                params.maxReads
+            );
+        })
+    );
+
+    // Listen for aggregate comparison requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestAggregateComparison(async (params) => {
+            await vscode.commands.executeCommand('squiggy.plotAggregateComparison', {
+                sampleNames: params.sampleNames,
+                reference: params.reference,
+                metrics: params.metrics,
+                maxReads: params.maxReads,
+            });
+        })
+    );
+
+    // Listen for multi-read overlay requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestMultiReadOverlay(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotMultiReadOverlay',
+                params.sampleNames,
+                params.maxReads,
+                params.coordinateSpace
+            );
+        })
+    );
+
+    // Listen for multi-read stacked requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestMultiReadStacked(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotMultiReadStacked',
+                params.sampleNames,
+                params.maxReads,
+                params.coordinateSpace
+            );
         })
     );
 

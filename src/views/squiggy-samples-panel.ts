@@ -39,6 +39,30 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             this._handleLoadedItemsChanged(items);
         });
         this._disposables.push(itemsDisposable);
+
+        // Subscribe to visualization selection changes
+        const selectionDisposable = this._state.onVisualizationSelectionChanged(
+            (selectedSamples) => {
+                this._handleVisualizationSelectionChanged(selectedSamples);
+            }
+        );
+        this._disposables.push(selectionDisposable);
+    }
+
+    /**
+     * Handle visualization selection changes from extension state
+     * Updates webview to reflect current selection
+     * @private
+     */
+    private _handleVisualizationSelectionChanged(selectedSamples: string[]): void {
+        console.log('[SamplesPanelProvider] Visualization selection changed:', selectedSamples);
+        // Send update to webview
+        if (this._view?.webview) {
+            this._view.webview.postMessage({
+                type: 'updateVisualizationSelection',
+                selectedSamples,
+            });
+        }
     }
 
     /**

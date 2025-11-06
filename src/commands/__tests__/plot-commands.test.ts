@@ -112,8 +112,8 @@ describe('Plot Commands', () => {
         it('should add all command disposables to context', () => {
             registerCommands();
 
-            // Verify registerCommand was called 5 times (once per command)
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(5);
+            // Verify registerCommand was called 8 times (once per command)
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(8);
         });
     });
 

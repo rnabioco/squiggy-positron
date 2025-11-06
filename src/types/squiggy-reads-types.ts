@@ -97,7 +97,6 @@ export type ReadsViewMessage =
  */
 export interface ReadsViewProps {
     onPlotRead: (readId: string) => void;
-    onPlotAggregate: (referenceName: string) => void;
     onSelectRead: (readId: string, multiSelect: boolean) => void;
     onToggleReference: (referenceName: string) => void;
     onSearch: (searchText: string) => void;
@@ -134,7 +133,6 @@ export interface ReferenceGroupProps {
     nameColumnWidth: number;
     detailsColumnWidth: number;
     onToggle: (referenceName: string) => void;
-    onPlotAggregate?: (referenceName: string) => void;
 }
 
 /**
