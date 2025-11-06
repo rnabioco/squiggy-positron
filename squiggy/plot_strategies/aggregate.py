@@ -679,7 +679,9 @@ class AggregatePlotStrategy(PlotStrategy):
                 )
 
         # Set y-axis range (extend to accommodate labels)
-        fig.y_range = Range1d(start=0, end=1.15)  # Extended from 1.0 to fit labels above bars
+        fig.y_range = Range1d(
+            start=0, end=1.15
+        )  # Extended from 1.0 to fit labels above bars
 
         # Configure legend
         self.theme_manager.configure_legend(fig)
