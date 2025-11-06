@@ -9,6 +9,7 @@ src/**
 tsconfig.json
 jest.config.js
 htmlcov/**
+.mypy_cache/**
 
 # Tests (exclude all test code and data)
 tests/**
