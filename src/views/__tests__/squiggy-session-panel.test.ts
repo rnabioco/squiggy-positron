@@ -109,9 +109,7 @@ describe('SessionPanelProvider', () => {
 
             await messageHandler({ type: 'loadDemo' });
 
-            expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-                'squiggy.loadDemoSession'
-            );
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('squiggy.loadDemoSession');
         });
 
         it('should handle save message', async () => {

@@ -291,9 +291,7 @@ export async function retryOperation<T>(
             }
 
             // Calculate delay with optional exponential backoff
-            const delay = exponentialBackoff
-                ? baseDelayMs * Math.pow(2, attempt - 1)
-                : baseDelayMs;
+            const delay = exponentialBackoff ? baseDelayMs * Math.pow(2, attempt - 1) : baseDelayMs;
 
             console.log(
                 `[Retry] Attempt ${attempt}/${maxAttempts} failed: ${lastError.message}. Retrying in ${delay}ms...`

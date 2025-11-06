@@ -8,7 +8,7 @@
 import * as vscode from 'vscode';
 import { getReactWebviewHtml, getWebviewOptions } from '../utils/webview-utils';
 import { IncomingWebviewMessage, OutgoingWebviewMessage } from '../types/messages';
-import { SquiggyError, handleError, ErrorContext } from '../utils/error-handler';
+import { SquiggyError, handleError } from '../utils/error-handler';
 
 /**
  * Abstract base class for webview providers
@@ -132,10 +132,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
         const command = (message as any).command || 'unknown';
 
         // Log the error with context
-        console.error(
-            `[${this.getTitle()}] Error handling message '${command}':`,
-            error
-        );
+        console.error(`[${this.getTitle()}] Error handling message '${command}':`, error);
 
         // Send error to webview for UI display
         this.sendErrorToWebview(error, `Failed to handle '${command}' command`);
@@ -145,9 +142,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
             if (error instanceof SquiggyError) {
                 handleError(error, error.context);
             } else {
-                vscode.window.showErrorMessage(
-                    `${this.getTitle()}: ${error.message}`
-                );
+                vscode.window.showErrorMessage(`${this.getTitle()}: ${error.message}`);
             }
         }
     }

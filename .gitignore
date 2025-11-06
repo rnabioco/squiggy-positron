@@ -44,6 +44,7 @@ site/
 node_modules/
 build/
 *.vsix
+coverage/
 
 # Test workspace - used for extension development
 test-workspace/

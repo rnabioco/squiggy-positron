@@ -246,9 +246,7 @@ describe('SquigglePlotPanel', () => {
         it('should handle file write errors', async () => {
             (fs.writeFile as any).mockRejectedValue(new Error('Write failed'));
 
-            await expect(panel.exportPlot('/path/to/output.html')).rejects.toThrow(
-                'Write failed'
-            );
+            await expect(panel.exportPlot('/path/to/output.html')).rejects.toThrow('Write failed');
         });
     });
 

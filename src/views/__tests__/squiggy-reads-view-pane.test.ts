@@ -189,8 +189,28 @@ describe('ReadsViewPane', () => {
 
         it('should set reads grouped by reference', () => {
             const referenceToReads = new Map([
-                ['chr1', [{ type: 'read' as const, readId: 'read_001', referenceName: 'chr1', indentLevel: 1 as 0 | 1 }]],
-                ['chr2', [{ type: 'read' as const, readId: 'read_002', referenceName: 'chr2', indentLevel: 1 as 0 | 1 }]],
+                [
+                    'chr1',
+                    [
+                        {
+                            type: 'read' as const,
+                            readId: 'read_001',
+                            referenceName: 'chr1',
+                            indentLevel: 1 as 0 | 1,
+                        },
+                    ],
+                ],
+                [
+                    'chr2',
+                    [
+                        {
+                            type: 'read' as const,
+                            readId: 'read_002',
+                            referenceName: 'chr2',
+                            indentLevel: 1 as 0 | 1,
+                        },
+                    ],
+                ],
             ]);
 
             provider.setReadsGrouped(referenceToReads);

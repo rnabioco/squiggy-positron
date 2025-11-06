@@ -302,7 +302,9 @@ except Exception as e:
             await this._client.executeSilent(code, true); // Enable retry
 
             // Check if there was an error during plot generation
-            const plotError = await this.client.getVariable('_squiggy_plot_error').catch(() => null);
+            const plotError = await this.client
+                .getVariable('_squiggy_plot_error')
+                .catch(() => null);
             if (plotError !== null) {
                 throw new PlottingError(`${plotError}`);
             }
@@ -327,8 +329,7 @@ if '_squiggy_plot_error' in globals():
                 throw error;
             }
 
-            const errorMessage =
-                error instanceof Error ? error.message : 'Unknown plotting error';
+            const errorMessage = error instanceof Error ? error.message : 'Unknown plotting error';
             throw new PlottingError(`Plot generation failed: ${errorMessage}`);
         }
     }
@@ -365,7 +366,10 @@ if '_squiggy_plot_error' in globals():
         try {
             // Validate inputs
             if (!referenceName || typeof referenceName !== 'string') {
-                throw new ValidationError('Reference name must be a non-empty string', 'referenceName');
+                throw new ValidationError(
+                    'Reference name must be a non-empty string',
+                    'referenceName'
+                );
             }
 
             if (maxReads <= 0) {

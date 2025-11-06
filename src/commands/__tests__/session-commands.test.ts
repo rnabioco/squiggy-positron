@@ -196,9 +196,7 @@ describe('Session Commands', () => {
         });
 
         it('should handle errors during restore', async () => {
-            (SessionStateManager.loadSession as any).mockRejectedValue(
-                new Error('Load failed')
-            );
+            (SessionStateManager.loadSession as any).mockRejectedValue(new Error('Load failed'));
 
             await restoreSessionCommand(mockState, mockContext);
 
@@ -318,9 +316,7 @@ describe('Session Commands', () => {
 
         it('should handle errors during clear', async () => {
             (vscode.window.showWarningMessage as any).mockResolvedValue('Clear');
-            (SessionStateManager.clearSession as any).mockRejectedValue(
-                new Error('Clear failed')
-            );
+            (SessionStateManager.clearSession as any).mockRejectedValue(new Error('Clear failed'));
 
             await clearSessionCommand(mockContext);
 

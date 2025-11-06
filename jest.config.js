@@ -1,16 +1,18 @@
 module.exports = {
   preset: 'ts-jest',
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom', // Changed from 'node' to support React
   roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  testMatch: ['**/__tests__/**/*.ts', '**/__tests__/**/*.tsx', '**/?(*.)+(spec|test).ts', '**/?(*.)+(spec|test).tsx'],
   collectCoverageFrom: [
     'src/**/*.ts',
+    'src/**/*.tsx',
     '!src/**/*.d.ts',
     '!src/**/__tests__/**',
     '!src/**/__mocks__/**',
     '!src/types/**', // Type definitions only
     '!src/extension.ts', // Entry point - tested via integration
   ],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
 
@@ -49,21 +51,23 @@ module.exports = {
     },
   },
 
-  moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
-    '^vscode$': '<rootDir>/src/__mocks__/vscode.ts'
+    '^vscode$': '<rootDir>/src/__mocks__/vscode.ts',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
   },
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
       tsconfig: {
         module: 'commonjs',
         target: 'ES2020',
-        lib: ['ES2020'],
+        lib: ['ES2020', 'DOM'],
+        jsx: 'react',
         strict: true,
         esModuleInterop: true,
         skipLibCheck: true,
         resolveJsonModule: true,
-        types: ['node', 'jest']
+        types: ['node', 'jest', '@testing-library/jest-dom']
       }
     }]
   },

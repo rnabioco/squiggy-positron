@@ -145,10 +145,7 @@ describe('State Commands', () => {
             expect(mockState.squiggyAPI.getReadIds).toHaveBeenCalledWith(0, 1000);
 
             // Should display reads
-            expect(mockState.readsViewPane.setReads).toHaveBeenCalledWith([
-                'read_001',
-                'read_002',
-            ]);
+            expect(mockState.readsViewPane.setReads).toHaveBeenCalledWith(['read_001', 'read_002']);
 
             // Should update pod5LoadContext
             expect(mockState.pod5LoadContext).toEqual({

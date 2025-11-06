@@ -200,8 +200,7 @@ describe('MotifSearchPanelProvider', () => {
             mockState.usePositron = true;
             mockState.squiggyAPI = {
                 searchMotif: (jest.fn() as any).mockImplementation(
-                    () =>
-                        new Promise((resolve) => setTimeout(() => resolve([]), 10))
+                    () => new Promise((resolve) => setTimeout(() => resolve([]), 10))
                 ),
             };
 

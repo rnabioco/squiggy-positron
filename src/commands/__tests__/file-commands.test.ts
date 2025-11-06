@@ -96,7 +96,6 @@ describe('File Commands', () => {
             // Mock file dialog returning undefined (cancelled)
             (vscode.window.showOpenDialog as any).mockResolvedValue(undefined);
 
-
             registerCommands();
             const handler = commandHandlers.get('squiggy.openPOD5');
 
@@ -107,7 +106,6 @@ describe('File Commands', () => {
 
     describe('squiggy.openBAM', () => {
         it('should register the openBAM command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.openBAM',
@@ -118,7 +116,6 @@ describe('File Commands', () => {
         it('should show file picker for BAM files', async () => {
             const mockFileUri = vscode.Uri.file('/path/to/test.bam');
             (vscode.window.showOpenDialog as any).mockResolvedValue([mockFileUri]);
-
 
             registerCommands();
             const handler = commandHandlers.get('squiggy.openBAM');
@@ -135,7 +132,6 @@ describe('File Commands', () => {
 
     describe('squiggy.openFASTA', () => {
         it('should register the openFASTA command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.openFASTA',
@@ -146,7 +142,6 @@ describe('File Commands', () => {
         it('should show file picker for FASTA files', async () => {
             const mockFileUri = vscode.Uri.file('/path/to/reference.fasta');
             (vscode.window.showOpenDialog as any).mockResolvedValue([mockFileUri]);
-
 
             registerCommands();
             const handler = commandHandlers.get('squiggy.openFASTA');
@@ -163,7 +158,6 @@ describe('File Commands', () => {
 
     describe('squiggy.closePOD5', () => {
         it('should register the closePOD5 command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.closePOD5',
@@ -173,7 +167,6 @@ describe('File Commands', () => {
 
         it('should show confirmation dialog when closing POD5', async () => {
             (vscode.window.showWarningMessage as any).mockResolvedValue(undefined);
-
 
             registerCommands();
             const handler = commandHandlers.get('squiggy.closePOD5');
@@ -189,7 +182,6 @@ describe('File Commands', () => {
         it('should handle user canceling close', async () => {
             (vscode.window.showWarningMessage as any).mockResolvedValue(undefined);
 
-
             registerCommands();
             const handler = commandHandlers.get('squiggy.closePOD5');
 
@@ -200,7 +192,6 @@ describe('File Commands', () => {
 
     describe('squiggy.closeBAM', () => {
         it('should register the closeBAM command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.closeBAM',
@@ -210,7 +201,6 @@ describe('File Commands', () => {
 
         it('should show confirmation dialog', async () => {
             (vscode.window.showWarningMessage as any).mockResolvedValue(undefined);
-
 
             registerCommands();
             const handler = commandHandlers.get('squiggy.closeBAM');
@@ -226,7 +216,6 @@ describe('File Commands', () => {
 
     describe('squiggy.closeFASTA', () => {
         it('should register the closeFASTA command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.closeFASTA',
@@ -237,7 +226,6 @@ describe('File Commands', () => {
 
     describe('squiggy.loadTestData', () => {
         it('should register the loadTestData command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.loadTestData',
@@ -248,7 +236,6 @@ describe('File Commands', () => {
 
     describe('squiggy.loadSample', () => {
         it('should register the loadSample command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.loadSample',
@@ -259,7 +246,6 @@ describe('File Commands', () => {
 
     describe('squiggy.loadTestMultiReadDataset', () => {
         it('should register the loadTestMultiReadDataset command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.loadTestMultiReadDataset',
@@ -270,7 +256,6 @@ describe('File Commands', () => {
 
     describe('squiggy.setSessionFasta', () => {
         it('should register the setSessionFasta command', () => {
-
             registerCommands();
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
                 'squiggy.setSessionFasta',
