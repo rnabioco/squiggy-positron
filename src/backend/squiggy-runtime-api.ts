@@ -217,6 +217,36 @@ squiggy.get_read_to_reference_mapping()
         // Build sample name parameter if in multi-sample mode
         const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
 
+        // Build the plot function call with proper multi-line formatting
+        const plotCall =
+            readIds.length === 1
+                ? `squiggy.plot_read(
+    '${readIds[0]}',
+    mode='${mode}',
+    normalization='${normalization}',
+    theme='${theme}',
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_labels=${showBaseAnnotations ? 'True' : 'False'},
+    scale_dwell_time=${scaleDwellTime ? 'True' : 'False'},
+    min_mod_probability=${minModProbability},
+    enabled_mod_types=${enabledModTypesJson},
+    downsample=${downsample},
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}
+)`
+                : `squiggy.plot_reads(
+    ${readIdsJson},
+    mode='${mode}',
+    normalization='${normalization}',
+    theme='${theme}',
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_labels=${showBaseAnnotations ? 'True' : 'False'},
+    scale_dwell_time=${scaleDwellTime ? 'True' : 'False'},
+    min_mod_probability=${minModProbability},
+    enabled_mod_types=${enabledModTypesJson},
+    downsample=${downsample},
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}
+)`;
+
         const code = `
 import sys
 import squiggy
@@ -227,11 +257,7 @@ _squiggy_plot_error = None
 
 try:
     # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
-    ${
-        readIds.length === 1
-            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
-            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
-    }
+    ${plotCall}
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
     print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)

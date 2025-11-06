@@ -244,6 +244,16 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             };
             this.postMessage(referencesMessage);
         }
+
+        // Send loaded samples if available
+        if (this._loadedSamples.length > 0) {
+            const samplesMessage: UpdateLoadedSamplesMessage = {
+                type: 'updateLoadedSamples',
+                samples: this._loadedSamples,
+            };
+            console.log('[PlotOptions] Sending loaded samples on init:', this._loadedSamples.length);
+            this.postMessage(samplesMessage);
+        }
     }
 
     /**

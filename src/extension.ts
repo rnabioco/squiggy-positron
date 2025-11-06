@@ -102,6 +102,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for loaded items changes and sync samples to plot options pane
     context.subscriptions.push(
         state.onLoadedItemsChanged((items) => {
+            console.log('[extension.ts] onLoadedItemsChanged fired, items:', items.length);
+
             // Filter for samples and convert to SampleItem format
             const samples = items
                 .filter((item) => item.type === 'sample')
@@ -115,12 +117,16 @@ export async function activate(context: vscode.ExtensionContext) {
                     hasFasta: !!item.fastaPath,
                 }));
 
+            console.log('[extension.ts] Filtered samples:', samples.length, samples);
+
             // Sync to plot options provider
             plotOptionsProvider.updateLoadedSamples(samples);
 
             // Update POD5/BAM status in plot options pane based on loaded samples
             const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
             const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
+
+            console.log('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam);
 
             plotOptionsProvider.updatePod5Status(hasPod5);
             plotOptionsProvider.updateBamStatus(hasBam);
@@ -130,13 +136,16 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Get references from the first sample with BAM
                 const sampleWithBam = samples.find((s) => s.hasBam);
                 if (sampleWithBam) {
+                    console.log('[extension.ts] Fetching references for sample:', sampleWithBam.name);
                     state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
+                        console.log('[extension.ts] Got references:', refs);
                         plotOptionsProvider.updateReferences(refs);
                     });
                 }
             }
 
             // Refresh Read Explorer to update available samples dropdown
+            console.log('[extension.ts] Refreshing Read Explorer');
             readsViewPane?.refresh();
         })
     );
