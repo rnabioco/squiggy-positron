@@ -954,7 +954,7 @@ class TestGetReadsInRegion:
         assert len(reads) > 0
 
         # Check structure of first read
-        for read_id, read_info in reads.items():
+        for _read_id, read_info in reads.items():
             assert "read_id" in read_info
             assert "chromosome" in read_info
             assert "start" in read_info
