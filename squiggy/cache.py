@@ -6,12 +6,13 @@ enabling instant subsequent loads of large files.
 """
 
 import hashlib
-import logging
 import pickle
 from datetime import datetime
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class SquiggyCache:

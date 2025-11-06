@@ -4,7 +4,6 @@ I/O functions for loading POD5 and BAM files
 These functions are called from the Positron extension via the Jupyter kernel.
 """
 
-import logging
 import os
 from collections import defaultdict
 from collections.abc import Iterator
@@ -13,7 +12,9 @@ from pathlib import Path
 import pod5
 import pysam
 
-logger = logging.getLogger(__name__)
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 # ============================================================================
@@ -200,6 +201,7 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
         ...     print(f"{read_id}: {len(read_obj.signal)} samples")
     """
     if _squiggy_session.reader is None:
+        logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
         raise RuntimeError("No POD5 file is currently loaded")
 
     needed = set(read_ids)
@@ -246,6 +248,7 @@ def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
         ...     print(f"Signal length: {len(read.signal)}")
     """
     if _squiggy_session.reader is None:
+        logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
         raise RuntimeError("No POD5 file is currently loaded")
 
     # Use index if available
@@ -772,6 +775,7 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
     abs_path = Path(file_path).resolve()
 
     if not abs_path.exists():
+        logger.error(f"POD5 file not found at path: {abs_path}")
         raise FileNotFoundError(f"Failed to open pod5 file at: {abs_path}")
 
     # Close previous reader if exists
@@ -840,6 +844,7 @@ def get_bam_event_alignment_status(file_path: str) -> bool:
     from .constants import BAM_SAMPLE_SIZE
 
     if not os.path.exists(file_path):
+        logger.error(f"BAM file not found at path: {file_path}")
         raise FileNotFoundError(f"BAM file not found: {file_path}")
 
     max_reads_to_check = BAM_SAMPLE_SIZE  # Sample first N reads
@@ -885,6 +890,7 @@ def get_bam_modification_info(file_path: str) -> dict:
         ...     print(f"Found modifications: {mod_info['modification_types']}")
     """
     if not os.path.exists(file_path):
+        logger.error(f"BAM file not found at path: {file_path}")
         raise FileNotFoundError(f"BAM file not found: {file_path}")
 
     from .constants import BAM_SAMPLE_SIZE
@@ -1098,6 +1104,7 @@ def load_bam(
     abs_path = Path(file_path).resolve()
 
     if not abs_path.exists():
+        logger.error(f"BAM file not found at path: {abs_path}")
         raise FileNotFoundError(f"BAM file not found: {abs_path}")
 
     # Try cache first for complete metadata (Phase 2 optimization)
@@ -1181,12 +1188,17 @@ def get_reads_for_reference_paginated(
         >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
     """
     if _squiggy_session.ref_mapping is None:
+        logger.error("No BAM file loaded. Call load_bam() before accessing reference reads.")
         raise RuntimeError(
             "No BAM file loaded. Call load_bam() before accessing reference reads."
         )
 
     if reference_name not in _squiggy_session.ref_mapping:
         available_refs = list(_squiggy_session.ref_mapping.keys())
+        logger.error(
+            f"Reference '{reference_name}' not found in BAM file. "
+            f"Available references: {available_refs[:5]}"
+        )
         raise KeyError(
             f"Reference '{reference_name}' not found. "
             f"Available references: {available_refs[:5]}..."
@@ -1229,6 +1241,7 @@ def load_fasta(file_path: str) -> None:
     abs_path = os.path.abspath(file_path)
 
     if not os.path.exists(abs_path):
+        logger.error(f"FASTA file not found at path: {abs_path}")
         raise FileNotFoundError(f"FASTA file not found: {abs_path}")
 
     # Check for index, create if missing
@@ -1285,9 +1298,11 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
         >>> print(f"References: {list(mapping.keys())}")
     """
     if _squiggy_session.bam_path is None:
+        logger.error("No BAM file is currently loaded. Call load_bam() first.")
         raise RuntimeError("No BAM file is currently loaded")
 
     if not os.path.exists(_squiggy_session.bam_path):
+        logger.error(f"BAM file not found at path: {_squiggy_session.bam_path}")
         raise FileNotFoundError(f"BAM file not found: {_squiggy_session.bam_path}")
 
     # Open BAM file
@@ -1339,6 +1354,7 @@ def get_read_ids() -> list[str]:
         List of read ID strings (materialized from lazy list if needed)
     """
     if not _squiggy_session.read_ids:
+        logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
         raise ValueError("No POD5 file is currently loaded")
 
     # Convert LazyReadList to list if needed
@@ -1514,6 +1530,10 @@ def get_common_reads(sample_names: list[str]) -> set[str]:
     # Get first sample
     first_sample = _squiggy_session.get_sample(sample_names[0])
     if first_sample is None:
+        logger.error(
+            f"Sample '{sample_names[0]}' not found. "
+            f"Available samples: {list(_squiggy_session.samples.keys())}"
+        )
         raise ValueError(f"Sample '{sample_names[0]}' not found")
 
     # Start with reads from first sample
@@ -1602,6 +1622,10 @@ def compare_samples(sample_names: list[str]) -> dict:
     # Validate samples exist
     for name in sample_names:
         if _squiggy_session.get_sample(name) is None:
+            logger.error(
+                f"Sample '{name}' not found. "
+                f"Available samples: {list(_squiggy_session.samples.keys())}"
+            )
             raise ValueError(f"Sample '{name}' not found")
 
     result = {

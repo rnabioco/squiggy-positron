@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { logger } from './logger';
 
 /**
  * Error context for better error messages
@@ -122,11 +123,15 @@ export class ValidationError extends SquiggyError {
 export function handleError(error: unknown, context: ErrorContext): void {
     const errorMessage = formatErrorMessage(error, context);
 
-    // Show error message to user
-    vscode.window.showErrorMessage(errorMessage);
+    // Show error message to user with option to show logs
+    vscode.window.showErrorMessage(errorMessage, 'Show Logs').then((selection) => {
+        if (selection === 'Show Logs') {
+            logger.show();
+        }
+    });
 
-    // Log to extension output channel for debugging
-    console.error(`[Squiggy] Error while ${context}:`, error);
+    // Log to Output Channel (Output panel → Squiggy)
+    logger.error(`Error while ${context}`, error);
 }
 
 /**
@@ -139,8 +144,12 @@ export function handleError(error: unknown, context: ErrorContext): void {
  */
 export function handleErrorWithProgress(error: unknown, context: ErrorContext): void {
     const errorMessage = formatErrorMessage(error, context);
-    vscode.window.showErrorMessage(errorMessage);
-    console.error(`[Squiggy] Error while ${context}:`, error);
+    vscode.window.showErrorMessage(errorMessage, 'Show Logs').then((selection) => {
+        if (selection === 'Show Logs') {
+            logger.show();
+        }
+    });
+    logger.error(`Error while ${context}`, error);
 }
 
 /**
@@ -293,8 +302,8 @@ export async function retryOperation<T>(
             // Calculate delay with optional exponential backoff
             const delay = exponentialBackoff ? baseDelayMs * Math.pow(2, attempt - 1) : baseDelayMs;
 
-            console.log(
-                `[Retry] Attempt ${attempt}/${maxAttempts} failed: ${lastError.message}. Retrying in ${delay}ms...`
+            logger.warning(
+                `Retry attempt ${attempt}/${maxAttempts} failed: ${lastError.message}. Retrying in ${delay}ms...`
             );
 
             // Wait before retrying
