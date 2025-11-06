@@ -20,6 +20,10 @@ from typing import Any
 
 import pysam
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class ModificationAnnotation:
@@ -97,9 +101,9 @@ def extract_modifications_from_alignment(
             # Get signal positions from the base annotation
             if position not in base_lookup:
                 # Position not in base annotations (shouldn't happen, but be defensive)
-                print(
-                    f"Warning: Modification at position {position} "
-                    f"not found in base annotations"
+                logger.warning(
+                    "Modification at position %d not found in base annotations",
+                    position,
                 )
                 continue
 
@@ -205,6 +209,6 @@ def detect_modification_provenance(bam_file: Path) -> dict[str, Any]:
                     break
 
     except Exception as e:
-        print(f"Warning: Error reading BAM header: {e}")
+        logger.warning("Error reading BAM header: %s", e)
 
     return result
