@@ -205,14 +205,26 @@ def plot_read(
 
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode: requires alignment
-        if _squiggy_session.bam_path is None:
-            raise ValueError(
-                "EVENTALIGN mode requires a BAM file. Call load_bam() first."
-            )
+        # Determine which BAM file to use
+        if sample_name:
+            # Multi-sample mode: use sample's BAM file
+            sample = _squiggy_session.get_sample(sample_name)
+            if not sample or not sample.bam_path:
+                raise ValueError(
+                    f"EVENTALIGN mode requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
+                )
+            bam_path = sample.bam_path
+        else:
+            # Single-file mode: use global BAM file
+            if _squiggy_session.bam_path is None:
+                raise ValueError(
+                    "EVENTALIGN mode requires a BAM file. Call load_bam() first."
+                )
+            bam_path = _squiggy_session.bam_path
 
         from .alignment import extract_alignment_from_bam
 
-        aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
+        aligned_read = extract_alignment_from_bam(bam_path, read_id)
         if aligned_read is None:
             raise ValueError(f"No alignment found for read {read_id} in BAM file.")
 
@@ -345,17 +357,29 @@ def plot_reads(
 
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode for multiple reads
-        if _squiggy_session.bam_path is None:
-            raise ValueError(
-                "EVENTALIGN mode requires a BAM file. Call load_bam() first."
-            )
+        # Determine which BAM file to use
+        if sample_name:
+            # Multi-sample mode: use sample's BAM file
+            sample = _squiggy_session.get_sample(sample_name)
+            if not sample or not sample.bam_path:
+                raise ValueError(
+                    f"EVENTALIGN mode requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
+                )
+            bam_path = sample.bam_path
+        else:
+            # Single-file mode: use global BAM file
+            if _squiggy_session.bam_path is None:
+                raise ValueError(
+                    "EVENTALIGN mode requires a BAM file. Call load_bam() first."
+                )
+            bam_path = _squiggy_session.bam_path
 
         from .alignment import extract_alignment_from_bam
 
         aligned_reads = []
         for read_id in read_ids:
             aligned_read = extract_alignment_from_bam(
-                _squiggy_session.bam_path, read_id
+                bam_path, read_id
             )
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
