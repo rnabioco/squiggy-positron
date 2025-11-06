@@ -14,7 +14,6 @@ from bokeh.models import Band, ColumnDataSource, HoverTool, Legend, LegendItem
 
 from ..constants import (
     MULTI_READ_COLORS,
-    NormalizationMethod,
     Theme,
 )
 from ..rendering.theme_manager import ThemeManager
@@ -109,9 +108,7 @@ class AggregateComparisonStrategy(PlotStrategy):
         if "enabled_metrics" not in data:
             raise ValueError("Missing required key: 'enabled_metrics'")
 
-    def _create_signal_track(
-        self, samples: list[dict], reference_name: str
-    ):
+    def _create_signal_track(self, samples: list[dict], reference_name: str):
         """
         Create signal statistics comparison track
 
@@ -209,9 +206,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
-    def _create_dwell_track(
-        self, samples: list[dict], reference_name: str
-    ):
+    def _create_dwell_track(self, samples: list[dict], reference_name: str):
         """
         Create dwell time statistics comparison track
 
@@ -309,9 +304,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
-    def _create_quality_track(
-        self, samples: list[dict], reference_name: str
-    ):
+    def _create_quality_track(self, samples: list[dict], reference_name: str):
         """
         Create quality statistics comparison track
 
@@ -409,9 +402,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
-    def _create_coverage_track(
-        self, samples: list[dict], reference_name: str
-    ):
+    def _create_coverage_track(self, samples: list[dict], reference_name: str):
         """
         Create coverage comparison track
 
@@ -525,7 +516,9 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         samples = data["samples"]
         reference_name = data.get("reference_name", "Unknown Reference")
-        enabled_metrics = data.get("enabled_metrics", ["signal", "dwell_time", "quality"])
+        enabled_metrics = data.get(
+            "enabled_metrics", ["signal", "dwell_time", "quality"]
+        )
 
         # Create tracks based on enabled metrics
         tracks = []

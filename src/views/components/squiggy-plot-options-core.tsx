@@ -108,15 +108,21 @@ export const PlotOptionsCore: React.FC = () => {
                         plotMode: message.options.mode || prev.plotMode,
                         normalization: message.options.normalization || prev.normalization,
                         showDwellTime: message.options.showDwellTime ?? prev.showDwellTime,
-                        showBaseAnnotations: message.options.showBaseAnnotations ?? prev.showBaseAnnotations,
+                        showBaseAnnotations:
+                            message.options.showBaseAnnotations ?? prev.showBaseAnnotations,
                         scaleDwellTime: message.options.scaleDwellTime ?? prev.scaleDwellTime,
                         downsample: message.options.downsample ?? prev.downsample,
                         showSignalPoints: message.options.showSignalPoints ?? prev.showSignalPoints,
-                        clipXAxisToAlignment: message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
-                        transformCoordinates: message.options.transformCoordinates ?? prev.transformCoordinates,
-                        aggregateReference: message.options.aggregateReference || prev.aggregateReference,
-                        aggregateMaxReads: message.options.aggregateMaxReads ?? prev.aggregateMaxReads,
-                        showModifications: message.options.showModifications ?? prev.showModifications,
+                        clipXAxisToAlignment:
+                            message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
+                        transformCoordinates:
+                            message.options.transformCoordinates ?? prev.transformCoordinates,
+                        aggregateReference:
+                            message.options.aggregateReference || prev.aggregateReference,
+                        aggregateMaxReads:
+                            message.options.aggregateMaxReads ?? prev.aggregateMaxReads,
+                        showModifications:
+                            message.options.showModifications ?? prev.showModifications,
                         showPileup: message.options.showPileup ?? prev.showPileup,
                         showSignal: message.options.showSignal ?? prev.showSignal,
                         showQuality: message.options.showQuality ?? prev.showQuality,
@@ -140,7 +146,9 @@ export const PlotOptionsCore: React.FC = () => {
                             plotMode: (message.hasBam ? 'EVENTALIGN' : 'SINGLE') as
                                 | 'SINGLE'
                                 | 'EVENTALIGN',
-                            plotType: (message.hasBam ? 'AGGREGATE' : 'MULTI_READ_OVERLAY') as PlotType,
+                            plotType: (message.hasBam
+                                ? 'AGGREGATE'
+                                : 'MULTI_READ_OVERLAY') as PlotType,
                         };
                         return newOptions;
                     });
@@ -158,7 +166,11 @@ export const PlotOptionsCore: React.FC = () => {
                     }));
                     break;
                 case 'updateLoadedSamples':
-                    console.log('[PlotOptions React] Updating loadedSamples:', message.samples.length, 'samples');
+                    console.log(
+                        '[PlotOptions React] Updating loadedSamples:',
+                        message.samples.length,
+                        'samples'
+                    );
                     setOptions((prev) => ({
                         ...prev,
                         loadedSamples: message.samples,
@@ -188,7 +200,10 @@ export const PlotOptionsCore: React.FC = () => {
             case 'COMPARE_SIGNAL_DELTA':
                 return options.loadedSamples.length >= 2;
             case 'COMPARE_AGGREGATE':
-                return options.loadedSamples.length >= 2 && options.loadedSamples.every(s => s.hasBam);
+                return (
+                    options.loadedSamples.length >= 2 &&
+                    options.loadedSamples.every((s) => s.hasBam)
+                );
             default:
                 return false;
         }
@@ -214,7 +229,7 @@ export const PlotOptionsCore: React.FC = () => {
         setOptions((prev) => {
             const newSelected = checked
                 ? [...prev.selectedSamples, sampleName]
-                : prev.selectedSamples.filter(s => s !== sampleName);
+                : prev.selectedSamples.filter((s) => s !== sampleName);
             return { ...prev, selectedSamples: newSelected };
         });
     };
@@ -223,7 +238,7 @@ export const PlotOptionsCore: React.FC = () => {
         setOptions((prev) => {
             const newMetrics = checked
                 ? [...prev.comparisonMetrics, metric]
-                : prev.comparisonMetrics.filter(m => m !== metric);
+                : prev.comparisonMetrics.filter((m) => m !== metric);
             return { ...prev, comparisonMetrics: newMetrics };
         });
     };
@@ -297,20 +312,41 @@ export const PlotOptionsCore: React.FC = () => {
                         cursor: options.hasPod5 ? 'default' : 'not-allowed',
                     }}
                 >
-                    <option value="MULTI_READ_OVERLAY" disabled={!isPlotTypeAvailable('MULTI_READ_OVERLAY')}>
-                        Multi-Read Overlay{!isPlotTypeAvailable('MULTI_READ_OVERLAY') ? ' (requires POD5)' : ''}
+                    <option
+                        value="MULTI_READ_OVERLAY"
+                        disabled={!isPlotTypeAvailable('MULTI_READ_OVERLAY')}
+                    >
+                        Multi-Read Overlay
+                        {!isPlotTypeAvailable('MULTI_READ_OVERLAY') ? ' (requires POD5)' : ''}
                     </option>
-                    <option value="MULTI_READ_STACKED" disabled={!isPlotTypeAvailable('MULTI_READ_STACKED')}>
-                        Multi-Read Stacked{!isPlotTypeAvailable('MULTI_READ_STACKED') ? ' (requires POD5)' : ''}
+                    <option
+                        value="MULTI_READ_STACKED"
+                        disabled={!isPlotTypeAvailable('MULTI_READ_STACKED')}
+                    >
+                        Multi-Read Stacked
+                        {!isPlotTypeAvailable('MULTI_READ_STACKED') ? ' (requires POD5)' : ''}
                     </option>
                     <option value="AGGREGATE" disabled={!isPlotTypeAvailable('AGGREGATE')}>
-                        Aggregate (Single Sample){!isPlotTypeAvailable('AGGREGATE') ? ' (requires BAM)' : ''}
+                        Aggregate (Single Sample)
+                        {!isPlotTypeAvailable('AGGREGATE') ? ' (requires BAM)' : ''}
                     </option>
-                    <option value="COMPARE_AGGREGATE" disabled={!isPlotTypeAvailable('COMPARE_AGGREGATE')}>
-                        Multi-Sample Overlay{!isPlotTypeAvailable('COMPARE_AGGREGATE') ? ' (requires 2+ samples with BAM)' : ''}
+                    <option
+                        value="COMPARE_AGGREGATE"
+                        disabled={!isPlotTypeAvailable('COMPARE_AGGREGATE')}
+                    >
+                        Multi-Sample Overlay
+                        {!isPlotTypeAvailable('COMPARE_AGGREGATE')
+                            ? ' (requires 2+ samples with BAM)'
+                            : ''}
                     </option>
-                    <option value="COMPARE_SIGNAL_DELTA" disabled={!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')}>
-                        2-Sample Delta{!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA') ? ' (requires 2 samples)' : ''}
+                    <option
+                        value="COMPARE_SIGNAL_DELTA"
+                        disabled={!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')}
+                    >
+                        2-Sample Delta
+                        {!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')
+                            ? ' (requires 2 samples)'
+                            : ''}
                     </option>
                 </select>
                 <div
@@ -321,7 +357,9 @@ export const PlotOptionsCore: React.FC = () => {
                     }}
                 >
                     {!options.hasPod5 && 'Load POD5 file to enable plotting'}
-                    {options.hasPod5 && options.loadedSamples.length < 2 && options.plotType.startsWith('COMPARE') &&
+                    {options.hasPod5 &&
+                        options.loadedSamples.length < 2 &&
+                        options.plotType.startsWith('COMPARE') &&
                         'Load 2+ samples in Sample Manager for comparisons'}
                 </div>
             </div>
@@ -357,7 +395,8 @@ export const PlotOptionsCore: React.FC = () => {
             </div>
 
             {/* Dynamic UI based on plot type */}
-            {(options.plotType === 'MULTI_READ_OVERLAY' || options.plotType === 'MULTI_READ_STACKED') && (
+            {(options.plotType === 'MULTI_READ_OVERLAY' ||
+                options.plotType === 'MULTI_READ_STACKED') && (
                 <div>
                     <div style={{ marginBottom: '20px' }}>
                         <div
@@ -384,7 +423,12 @@ export const PlotOptionsCore: React.FC = () => {
                             max="100"
                             step="1"
                             value={options.maxReadsMulti}
-                            onChange={(e) => setOptions(prev => ({ ...prev, maxReadsMulti: parseInt(e.target.value) }))}
+                            onChange={(e) =>
+                                setOptions((prev) => ({
+                                    ...prev,
+                                    maxReadsMulti: parseInt(e.target.value),
+                                }))
+                            }
                             style={{ width: '100%', marginBottom: '4px' }}
                         />
                         <div
@@ -394,7 +438,8 @@ export const PlotOptionsCore: React.FC = () => {
                                 fontStyle: 'italic',
                             }}
                         >
-                            Number of reads to {options.plotType === 'MULTI_READ_OVERLAY' ? 'overlay' : 'stack'}
+                            Number of reads to{' '}
+                            {options.plotType === 'MULTI_READ_OVERLAY' ? 'overlay' : 'stack'}
                         </div>
                     </div>
                     <div
@@ -404,7 +449,8 @@ export const PlotOptionsCore: React.FC = () => {
                             fontStyle: 'italic',
                         }}
                     >
-                        Select multiple reads in the Reads Explorer panel, then right-click to generate plot.
+                        Select multiple reads in the Reads Explorer panel, then right-click to
+                        generate plot.
                     </div>
                 </div>
             )}
@@ -424,7 +470,12 @@ export const PlotOptionsCore: React.FC = () => {
                         </div>
                         <select
                             value={options.aggregateReference}
-                            onChange={(e) => setOptions(prev => ({ ...prev, aggregateReference: e.target.value }))}
+                            onChange={(e) =>
+                                setOptions((prev) => ({
+                                    ...prev,
+                                    aggregateReference: e.target.value,
+                                }))
+                            }
                             disabled={!options.hasBam}
                             style={{
                                 width: '100%',
@@ -474,7 +525,12 @@ export const PlotOptionsCore: React.FC = () => {
                             max="500"
                             step="10"
                             value={options.aggregateMaxReads}
-                            onChange={(e) => setOptions(prev => ({ ...prev, aggregateMaxReads: parseInt(e.target.value) }))}
+                            onChange={(e) =>
+                                setOptions((prev) => ({
+                                    ...prev,
+                                    aggregateMaxReads: parseInt(e.target.value),
+                                }))
+                            }
                             disabled={!options.hasBam}
                             style={{
                                 width: '100%',
@@ -502,7 +558,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="showModifications"
                                 checked={options.showModifications}
-                                onChange={(e) => setOptions(prev => ({ ...prev, showModifications: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showModifications: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -529,7 +590,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="showPileup"
                                 checked={options.showPileup}
-                                onChange={(e) => setOptions(prev => ({ ...prev, showPileup: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showPileup: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -544,7 +610,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="showDwellTimeAggregate"
                                 checked={options.showDwellTime}
-                                onChange={(e) => setOptions(prev => ({ ...prev, showDwellTime: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showDwellTime: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -559,7 +630,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="showSignalAggregate"
                                 checked={options.showSignal}
-                                onChange={(e) => setOptions(prev => ({ ...prev, showSignal: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showSignal: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -574,7 +650,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="showQualityAggregate"
                                 checked={options.showQuality}
-                                onChange={(e) => setOptions(prev => ({ ...prev, showQuality: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showQuality: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -608,7 +689,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="clipXAxisToAlignmentAggregate"
                                 checked={options.clipXAxisToAlignment}
-                                onChange={(e) => setOptions(prev => ({ ...prev, clipXAxisToAlignment: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        clipXAxisToAlignment: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -637,7 +723,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 type="checkbox"
                                 id="transformCoordinatesAggregate"
                                 checked={options.transformCoordinates}
-                                onChange={(e) => setOptions(prev => ({ ...prev, transformCoordinates: e.target.checked }))}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        transformCoordinates: e.target.checked,
+                                    }))
+                                }
                                 disabled={!options.hasBam}
                                 style={{ marginRight: '6px' }}
                             />
@@ -672,7 +763,10 @@ export const PlotOptionsCore: React.FC = () => {
                             background: 'var(--vscode-button-background)',
                             color: 'var(--vscode-button-foreground)',
                             border: 'none',
-                            cursor: options.hasBam && options.aggregateReference ? 'pointer' : 'not-allowed',
+                            cursor:
+                                options.hasBam && options.aggregateReference
+                                    ? 'pointer'
+                                    : 'not-allowed',
                             opacity: options.hasBam && options.aggregateReference ? 1 : 0.5,
                         }}
                     >
@@ -681,7 +775,8 @@ export const PlotOptionsCore: React.FC = () => {
                 </>
             )}
 
-            {(options.plotType === 'COMPARE_SIGNAL_DELTA' || options.plotType === 'COMPARE_AGGREGATE') && (
+            {(options.plotType === 'COMPARE_SIGNAL_DELTA' ||
+                options.plotType === 'COMPARE_AGGREGATE') && (
                 <>
                     {/* Sample Selection */}
                     <div style={{ marginBottom: '20px' }}>
@@ -705,18 +800,44 @@ export const PlotOptionsCore: React.FC = () => {
                                 Load samples in Sample Manager to enable comparisons
                             </div>
                         ) : (
-                            <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid var(--vscode-input-border)', padding: '4px' }}>
+                            <div
+                                style={{
+                                    maxHeight: '150px',
+                                    overflowY: 'auto',
+                                    border: '1px solid var(--vscode-input-border)',
+                                    padding: '4px',
+                                }}
+                            >
                                 {options.loadedSamples.map((sample) => (
-                                    <div key={sample.name} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                                    <div
+                                        key={sample.name}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: '4px',
+                                        }}
+                                    >
                                         <input
                                             type="checkbox"
                                             id={`sample-${sample.name}`}
                                             checked={options.selectedSamples.includes(sample.name)}
-                                            onChange={(e) => handleSampleSelectionChange(sample.name, e.target.checked)}
-                                            disabled={options.plotType === 'COMPARE_SIGNAL_DELTA' && options.selectedSamples.length >= 2 && !options.selectedSamples.includes(sample.name)}
+                                            onChange={(e) =>
+                                                handleSampleSelectionChange(
+                                                    sample.name,
+                                                    e.target.checked
+                                                )
+                                            }
+                                            disabled={
+                                                options.plotType === 'COMPARE_SIGNAL_DELTA' &&
+                                                options.selectedSamples.length >= 2 &&
+                                                !options.selectedSamples.includes(sample.name)
+                                            }
                                             style={{ marginRight: '6px' }}
                                         />
-                                        <label htmlFor={`sample-${sample.name}`} style={{ fontSize: '0.9em' }}>
+                                        <label
+                                            htmlFor={`sample-${sample.name}`}
+                                            style={{ fontSize: '0.9em' }}
+                                        >
                                             {sample.name} ({sample.readCount} reads)
                                         </label>
                                     </div>
@@ -752,7 +873,12 @@ export const PlotOptionsCore: React.FC = () => {
                                 </div>
                                 <select
                                     value={options.comparisonReference}
-                                    onChange={(e) => setOptions(prev => ({ ...prev, comparisonReference: e.target.value }))}
+                                    onChange={(e) =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            comparisonReference: e.target.value,
+                                        }))
+                                    }
                                     style={{
                                         width: '100%',
                                         padding: '4px',
@@ -785,15 +911,27 @@ export const PlotOptionsCore: React.FC = () => {
                                     { key: 'dwell_time', label: 'Dwell time statistics' },
                                     { key: 'quality', label: 'Quality statistics' },
                                 ].map(({ key, label }) => (
-                                    <div key={key} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                                    <div
+                                        key={key}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: '8px',
+                                        }}
+                                    >
                                         <input
                                             type="checkbox"
                                             id={`metric-${key}`}
                                             checked={options.comparisonMetrics.includes(key)}
-                                            onChange={(e) => handleMetricToggle(key, e.target.checked)}
+                                            onChange={(e) =>
+                                                handleMetricToggle(key, e.target.checked)
+                                            }
                                             style={{ marginRight: '6px' }}
                                         />
-                                        <label htmlFor={`metric-${key}`} style={{ fontSize: '0.9em' }}>
+                                        <label
+                                            htmlFor={`metric-${key}`}
+                                            style={{ fontSize: '0.9em' }}
+                                        >
                                             {label}
                                         </label>
                                     </div>
@@ -828,7 +966,12 @@ export const PlotOptionsCore: React.FC = () => {
                             max="500"
                             step="10"
                             value={options.comparisonMaxReads}
-                            onChange={(e) => setOptions(prev => ({ ...prev, comparisonMaxReads: parseInt(e.target.value) }))}
+                            onChange={(e) =>
+                                setOptions((prev) => ({
+                                    ...prev,
+                                    comparisonMaxReads: parseInt(e.target.value),
+                                }))
+                            }
                             style={{ width: '100%', marginBottom: '4px' }}
                         />
                     </div>
@@ -842,8 +985,11 @@ export const PlotOptionsCore: React.FC = () => {
                         }
                         disabled={
                             options.selectedSamples.length < 2 ||
-                            (options.plotType === 'COMPARE_SIGNAL_DELTA' && options.selectedSamples.length !== 2) ||
-                            (options.plotType === 'COMPARE_AGGREGATE' && (!options.comparisonReference || options.comparisonMetrics.length === 0))
+                            (options.plotType === 'COMPARE_SIGNAL_DELTA' &&
+                                options.selectedSamples.length !== 2) ||
+                            (options.plotType === 'COMPARE_AGGREGATE' &&
+                                (!options.comparisonReference ||
+                                    options.comparisonMetrics.length === 0))
                         }
                         style={{
                             width: '100%',
@@ -858,8 +1004,8 @@ export const PlotOptionsCore: React.FC = () => {
                         {options.selectedSamples.length < 2
                             ? 'Select 2+ samples'
                             : options.plotType === 'COMPARE_SIGNAL_DELTA'
-                                ? 'Generate 2-Sample Delta'
-                                : 'Generate Multi-Sample Overlay'}
+                              ? 'Generate 2-Sample Delta'
+                              : 'Generate Multi-Sample Overlay'}
                     </button>
                 </>
             )}

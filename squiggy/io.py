@@ -175,7 +175,9 @@ class Pod5Index:
         return len(self._index)
 
 
-def get_reads_batch(read_ids: list[str], sample_name: str | None = None) -> dict[str, pod5.ReadRecord]:
+def get_reads_batch(
+    read_ids: list[str], sample_name: str | None = None
+) -> dict[str, pod5.ReadRecord]:
     """
     Fetch multiple reads in a single pass (O(n) instead of O(m×n))
 
@@ -231,7 +233,9 @@ def get_reads_batch(read_ids: list[str], sample_name: str | None = None) -> dict
     return found
 
 
-def get_read_by_id(read_id: str, sample_name: str | None = None) -> pod5.ReadRecord | None:
+def get_read_by_id(
+    read_id: str, sample_name: str | None = None
+) -> pod5.ReadRecord | None:
     """
     Get a single read by ID using index if available
 
@@ -263,12 +267,16 @@ def get_read_by_id(read_id: str, sample_name: str | None = None) -> pod5.ReadRec
         if not sample or sample.pod5_reader is None:
             raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
         reader = sample.pod5_reader
-        pod5_index = sample.pod5_index if hasattr(sample, 'pod5_index') else None
+        pod5_index = sample.pod5_index if hasattr(sample, "pod5_index") else None
     else:
         if _squiggy_session.reader is None:
             raise RuntimeError("No POD5 file is currently loaded")
         reader = _squiggy_session.reader
-        pod5_index = _squiggy_session.pod5_index if hasattr(_squiggy_session, 'pod5_index') else None
+        pod5_index = (
+            _squiggy_session.pod5_index
+            if hasattr(_squiggy_session, "pod5_index")
+            else None
+        )
 
     # Use index if available
     if pod5_index is not None:

@@ -143,7 +143,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Get references from the first sample with BAM
                 const sampleWithBam = samples.find((s) => s.hasBam);
                 if (sampleWithBam) {
-                    console.log('[extension.ts] Fetching references for sample:', sampleWithBam.name);
+                    console.log(
+                        '[extension.ts] Fetching references for sample:',
+                        sampleWithBam.name
+                    );
                     state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
                         console.log('[extension.ts] Got references:', refs);
                         if (plotOptionsProvider) {

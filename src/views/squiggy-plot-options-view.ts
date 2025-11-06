@@ -256,7 +256,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 type: 'updateLoadedSamples',
                 samples: this._loadedSamples,
             };
-            console.log('[PlotOptions] Sending loaded samples on init:', this._loadedSamples.length);
+            console.log(
+                '[PlotOptions] Sending loaded samples on init:',
+                this._loadedSamples.length
+            );
             this.postMessage(samplesMessage);
         }
     }
