@@ -29,7 +29,7 @@ class ModificationTrackBuilder:
         overlay_opacity: Base opacity for modification rectangles (0-1)
         theme: Color theme (LIGHT or DARK)
 
-    Example:
+    Examples:
         >>> from squiggy.modification_track_builder import ModificationTrackBuilder
         >>> from squiggy.constants import Theme
         >>>
@@ -102,7 +102,7 @@ class ModificationTrackBuilder:
             - No modifications pass filters
             - Sequence or mapping is missing
 
-        Example:
+        Examples:
             >>> builder = ModificationTrackBuilder(min_probability=0.7)
             >>> mod_fig = builder.build_track(
             ...     sequence="ACGT",
@@ -311,7 +311,7 @@ class ModificationTrackBuilder:
             min_probability: New minimum probability threshold (None = no change)
             enabled_types: New list of enabled types (None = no change)
 
-        Example:
+        Examples:
             >>> builder = ModificationTrackBuilder()
             >>> builder.update_filters(min_probability=0.8)
             >>> builder.update_filters(enabled_types=['m', 'a'])
@@ -339,7 +339,7 @@ class ModificationTrackBuilder:
                 - enabled_mods: Number passing type filter
                 - mod_types: Set of unique modification types present
 
-        Example:
+        Examples:
             >>> builder = ModificationTrackBuilder(min_probability=0.7)
             >>> summary = builder.get_modification_summary(mod_list)
             >>> print(f"Showing {summary['enabled_mods']} of {summary['total_mods']} mods")

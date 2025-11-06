@@ -484,7 +484,7 @@ class BamFile:
             Dict mapping motif position keys to lists of AlignedRead objects
             Position key format: "chrom:position:strand"
 
-        Example:
+        Examples:
             >>> bam = BamFile('alignments.bam')
             >>> fasta = FastaFile('genome.fa')
             >>> overlaps = bam.get_reads_overlapping_motif(fasta, 'DRACH', region='chr1:1000-2000')
@@ -555,7 +555,7 @@ class FastaFile:
     Args:
         path: Path to FASTA file (must be indexed with .fai)
 
-    Example:
+    Examples:
         >>> with FastaFile('genome.fa') as fasta:
         ...     # Search for DRACH motif
         ...     for match in fasta.search_motif('DRACH', region='chr1:1000-2000'):
@@ -607,7 +607,7 @@ class FastaFile:
         Returns:
             DNA sequence string
 
-        Example:
+        Examples:
             >>> fasta = FastaFile('genome.fa')
             >>> seq = fasta.fetch('chr1', 1000, 1100)
             >>> print(seq)  # 100 bp sequence
@@ -632,7 +632,7 @@ class FastaFile:
         Yields:
             MotifMatch objects for each match found
 
-        Example:
+        Examples:
             >>> fasta = FastaFile('genome.fa')
             >>> matches = list(fasta.search_motif('DRACH', region='chr1:1000-2000'))
             >>> for match in matches:
@@ -657,7 +657,7 @@ class FastaFile:
         Returns:
             Total number of matches
 
-        Example:
+        Examples:
             >>> fasta = FastaFile('genome.fa')
             >>> count = fasta.count_motifs('DRACH', region='chr1')
             >>> print(f"Found {count} DRACH motifs")

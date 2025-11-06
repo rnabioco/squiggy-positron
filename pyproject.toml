@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rnabioco/squiggy-positron"
+Homepage = "https://rnabioco.github.io/squiggy-positron/"
 Issues = "https://github.com/rnabioco/squiggy-positron/issues"
 Repository = "https://github.com/rnabioco/squiggy-positron"
 

@@ -32,7 +32,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
     Raises:
         ValueError: If plot_mode is not recognized
 
-    Example:
+    Examples:
         >>> from squiggy.plot_factory import create_plot_strategy
         >>> from squiggy.constants import PlotMode, Theme
         >>>

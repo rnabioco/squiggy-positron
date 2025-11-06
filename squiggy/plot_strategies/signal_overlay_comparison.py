@@ -42,7 +42,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
     Attributes:
         theme: Theme enum (LIGHT or DARK) for plot styling
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.signal_overlay_comparison import (
         ...     SignalOverlayComparisonStrategy
         ... )

@@ -4,7 +4,7 @@ Motif search functionality with IUPAC nucleotide code support
 This module provides utilities for searching genomic sequences for motif patterns
 using IUPAC nucleotide codes (e.g., DRACH for m6A motif).
 
-Example:
+Examples:
     >>> from squiggy.motif import iupac_to_regex, search_motif
     >>> pattern = iupac_to_regex("DRACH")
     >>> # pattern = "[AGT][AG]AC[ACT]"
@@ -88,7 +88,7 @@ def iupac_to_regex(pattern: str) -> str:
     Returns:
         Regular expression pattern string
 
-    Example:
+    Examples:
         >>> iupac_to_regex("DRACH")
         '[AGT][AG]AC[ACT]'
         >>> iupac_to_regex("YGCY")
@@ -120,7 +120,7 @@ def reverse_complement(seq: str) -> str:
     Returns:
         Reverse complement sequence
 
-    Example:
+    Examples:
         >>> reverse_complement("ATCG")
         'CGAT'
         >>> reverse_complement("DRACH")
@@ -165,7 +165,7 @@ def parse_region(region: str) -> tuple[str, int | None, int | None]:
         Tuple of (chrom, start, end) where start/end are 0-based
         start and end can be None if not specified
 
-    Example:
+    Examples:
         >>> parse_region("chrI")
         ('chrI', None, None)
         >>> parse_region("chrI:1000-2000")
@@ -236,7 +236,7 @@ def search_motif(
     Yields:
         MotifMatch objects for each match found
 
-    Example:
+    Examples:
         >>> matches = list(search_motif("genome.fa", "DRACH", region="chr1:1000-2000"))
         >>> for match in matches:
         ...     print(f"{match.chrom}:{match.position+1} {match.sequence} ({match.strand})")
@@ -346,7 +346,7 @@ def count_motifs(
     Returns:
         Total number of matches
 
-    Example:
+    Examples:
         >>> count = count_motifs("genome.fa", "DRACH", region="chr1")
         >>> print(f"Found {count} DRACH motifs on chr1")
     """
