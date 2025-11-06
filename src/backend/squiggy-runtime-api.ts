@@ -28,6 +28,23 @@ export interface BAMLoadResult {
 }
 
 /**
+ * Result from loading a sample (POD5 + optional BAM/FASTA)
+ */
+export interface SampleLoadResult {
+    name: string;
+    numReads: number;
+    hasBAM: boolean;
+    hasFASTA: boolean;
+    bamNumReads?: number;
+    bamInfo?: {
+        hasModifications: boolean;
+        modificationTypes: string[];
+        hasProbabilities: boolean;
+        hasEventAlignment: boolean;
+    };
+}
+
+/**
  * High-level API for squiggy operations in the Python kernel
  */
 export class SquiggyRuntimeAPI {
@@ -191,10 +208,14 @@ squiggy.get_read_to_reference_mapping()
         minModProbability: number = 0.5,
         enabledModTypes: string[] = [],
         downsample: number = 5,
-        showSignalPoints: boolean = false
+        showSignalPoints: boolean = false,
+        sampleName?: string
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
         const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+        // Build sample name parameter if in multi-sample mode
+        const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
 
         const code = `
 import sys
@@ -208,8 +229,8 @@ try:
     # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
     ${
         readIds.length === 1
-            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
-            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
+            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
     }
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
@@ -271,16 +292,21 @@ if '_squiggy_plot_error' in globals():
         showDwellTime: boolean = true,
         showSignal: boolean = true,
         showQuality: boolean = true,
-        clipXAxisToAlignment: boolean = true
+        clipXAxisToAlignment: boolean = true,
+        sampleName?: string
     ): Promise<void> {
-        // Escape single quotes in reference name for Python string
+        // Escape single quotes in reference name and sample name for Python strings
         const escapedRefName = referenceName.replace(/'/g, "\\'");
+        const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
 
         // Build modification filter dict if modifications are enabled
         const modFilterDict =
             enabledModTypes.length > 0
                 ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
                 : 'None';
+
+        // Build sample name parameter if in multi-sample mode
+        const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
 
         const code = `
 import squiggy
@@ -297,7 +323,7 @@ squiggy.plot_aggregate(
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
-    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 
@@ -459,16 +485,32 @@ squiggy.load_sample(
         code += `\n)`;
 
         try {
+            console.log(
+                `[loadSample] Starting to load sample '${sampleName}' with POD5: ${pod5Path}${bamPath ? ` BAM: ${bamPath}` : ''}`
+            );
+            const startTime = Date.now();
+
             // Load sample silently
+            console.log(`[loadSample] Executing Python code to load sample...`);
             await this._client.executeSilent(code);
+            const executeSilentTime = Date.now();
+            console.log(
+                `[loadSample] executeSilent completed in ${executeSilentTime - startTime}ms`
+            );
 
             // Get read count for this sample
+            console.log(`[loadSample] Querying read count for sample '${sampleName}'...`);
             const numReads = await this._client.getVariable(
                 `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
+            );
+            const queryTime = Date.now();
+            console.log(
+                `[loadSample] Got ${numReads} reads in ${queryTime - executeSilentTime}ms (total: ${queryTime - startTime}ms)`
             );
 
             return { numReads: numReads as number };
         } catch (error) {
+            console.error(`[loadSample] Error loading sample '${sampleName}':`, error);
             throw new Error(`Failed to load sample '${sampleName}': ${error}`);
         }
     }
@@ -511,7 +553,7 @@ _sample_info_json = json.dumps(_sample_info)
 `;
 
             await this._client.executeSilent(code);
-            const sampleInfo = await this._client.getVariable('_sample_info_json');
+            const sampleInfoJson = await this._client.getVariable('_sample_info_json');
 
             // Clean up temporary variables
             await this.client
@@ -527,7 +569,21 @@ if '_sample_info_json' in globals():
                 )
                 .catch(() => {});
 
-            return sampleInfo ? JSON.parse(sampleInfo as string) : null;
+            // Handle the case where sampleInfoJson is a string representation of JSON
+            if (!sampleInfoJson) {
+                return null;
+            }
+
+            try {
+                // If it's a string like "null", parse it correctly
+                const jsonString = String(sampleInfoJson);
+                const parsed = JSON.parse(jsonString);
+                return parsed;
+            } catch (parseError) {
+                // If parsing fails, sample likely doesn't exist in registry
+                console.warn(`Could not parse sample info for '${escapedName}':`, parseError);
+                return null;
+            }
         } catch (error) {
             throw new Error(`Failed to get sample info: ${error}`);
         }
@@ -549,6 +605,199 @@ squiggy.remove_sample('${escapedName}')
             await this._client.executeSilent(code);
         } catch (error) {
             throw new Error(`Failed to remove sample '${sampleName}': ${error}`);
+        }
+    }
+
+    /**
+     * Get read IDs and references for a sample in a single query (optimized batch)
+     *
+     * This combines two expensive getVariable() calls into one to reduce kernel round-trips.
+     * Each getVariable() call requires 3 sequential executeSilent() calls (json.dumps, getSessionVariables, cleanup),
+     * so batching two queries saves significant overhead.
+     *
+     * @param sampleName - Name of the sample
+     * @returns Object with readIds and references
+     */
+    async getReadIdsAndReferencesForSample(
+        sampleName: string
+    ): Promise<{ readIds: string[]; references: string[] }> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            console.log(
+                `[getReadIdsAndReferencesForSample] Fetching data for sample '${sampleName}'...`
+            );
+            const startTime = Date.now();
+
+            // Execute setup code first to create variables
+            // Uses ref_counts (reference → read count) which is built once during sample load
+            const setupCode = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample:
+    _read_ids = _sample.read_ids
+    if _sample.bam_info and 'ref_counts' in _sample.bam_info:
+        _refs = list(_sample.bam_info['ref_counts'].keys())
+    else:
+        _refs = []
+else:
+    _read_ids = []
+    _refs = []
+_result = {'read_ids': _read_ids, 'references': _refs}
+`;
+            await this._client.executeSilent(setupCode);
+            const result = await this._client.getVariable('_result');
+            const elapsed = Date.now() - startTime;
+
+            const data = (result as { read_ids: string[]; references: string[] }) || {
+                read_ids: [],
+                references: [],
+            };
+            console.log(
+                `[getReadIdsAndReferencesForSample] Got ${data.read_ids?.length || 0} reads and ${data.references?.length || 0} references in ${elapsed}ms`
+            );
+
+            return {
+                readIds: data.read_ids || [],
+                references: data.references || [],
+            };
+        } catch (error) {
+            console.warn(
+                `Failed to get read IDs and references for sample '${sampleName}':`,
+                error
+            );
+            return { readIds: [], references: [] };
+        }
+    }
+
+    /**
+     * Get read IDs for a specific sample from the multi-sample registry
+     *
+     * @param sampleName - Name of the sample
+     * @returns Array of read IDs in that sample
+     *
+     * NOTE: Prefer getReadIdsAndReferencesForSample() when you also need references,
+     * as it batches both queries into a single call.
+     */
+    async getReadIdsForSample(sampleName: string): Promise<string[]> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            console.log(`[getReadIdsForSample] Fetching read IDs for sample '${sampleName}'...`);
+            const startTime = Date.now();
+
+            // Extract read IDs safely without trying to serialize the Sample object
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+_read_ids = _sample.read_ids if _sample else []
+_read_ids
+`;
+            const readIds = await this._client.getVariable(code);
+            const elapsed = Date.now() - startTime;
+            const readIdArray = (readIds as string[]) || [];
+            console.log(`[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`);
+            return readIdArray;
+        } catch (error) {
+            console.warn(`Failed to get read IDs for sample '${sampleName}':`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Get reference names for a specific sample from the multi-sample registry
+     *
+     * @param sampleName - Name of the sample
+     * @returns Array of reference names from that sample's BAM
+     *
+     * NOTE: Prefer getReadIdsAndReferencesForSample() when you also need read IDs,
+     * as it batches both queries into a single call.
+     */
+    async getReferencesForSample(sampleName: string): Promise<string[]> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            // Extract reference names from the sample's BAM without serializing the Sample object
+            const code = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
+    _refs = list(_sample.bam_info['ref_mapping'].keys())
+else:
+    _refs = []
+_refs
+`;
+            const references = await this._client.getVariable(code);
+            return (references as string[]) || [];
+        } catch (error) {
+            console.warn(`Failed to get references for sample '${sampleName}':`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Get read counts for all references in a sample (optimized batch)
+     *
+     * This fetches read counts for all references in a single query,
+     * avoiding N separate getVariable() calls when you have multiple references.
+     *
+     * Uses pre-computed ref_counts (built during sample load), so this is instant.
+     *
+     * @param sampleName - Name of the sample
+     * @returns Map of reference name to read count
+     */
+    async getReadsCountForAllReferencesSample(
+        sampleName: string
+    ): Promise<{ [referenceName: string]: number }> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+
+        try {
+            // Execute setup code first to create variables
+            const setupCode = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample and _sample.bam_info and 'ref_counts' in _sample.bam_info:
+    _counts = _sample.bam_info['ref_counts']
+else:
+    _counts = {}
+`;
+            await this._client.executeSilent(setupCode);
+            const counts = await this._client.getVariable('_counts');
+            return (counts as { [referenceName: string]: number }) || {};
+        } catch (error) {
+            console.warn(`Failed to get reference read counts for sample '${sampleName}':`, error);
+            return {};
+        }
+    }
+
+    /**
+     * Get read IDs for a specific reference within a specific sample
+     *
+     * @param sampleName - Name of the sample
+     * @param referenceName - Name of the reference
+     * @returns Array of read IDs aligned to that reference
+     *
+     * NOTE: Prefer getReadsCountForAllReferencesSample() when you need counts for all references,
+     * as it batches all queries into a single call.
+     */
+    async getReadsForReferenceSample(sampleName: string, referenceName: string): Promise<string[]> {
+        const escapedName = sampleName.replace(/'/g, "\\'");
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        try {
+            // Execute setup code first to create variables
+            const setupCode = `
+_sample = _squiggy_session.get_sample('${escapedName}')
+if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
+    _reads = _sample.bam_info['ref_mapping'].get('${escapedRef}', [])
+else:
+    _reads = []
+`;
+            await this._client.executeSilent(setupCode);
+            const readIds = await this._client.getVariable('_reads');
+            return (readIds as string[]) || [];
+        } catch (error) {
+            console.warn(
+                `Failed to get reads for reference '${referenceName}' in sample '${sampleName}':`,
+                error
+            );
+            return [];
         }
     }
 
@@ -593,7 +842,18 @@ squiggy.plot_signal_overlay_comparison(
             // Execute silently - plot will appear in Plots pane automatically
             await this.client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate signal overlay comparison plot: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Provide helpful error messages for common issues
+            if (errorMessage.includes('not found')) {
+                throw new Error(
+                    `Sample not found in Python session. ` +
+                        `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
+                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                );
+            }
+
+            throw new Error(`Failed to generate signal overlay comparison plot: ${errorMessage}`);
         }
     }
 

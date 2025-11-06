@@ -9,7 +9,6 @@ import * as vscode from 'vscode';
 import { ExtensionState } from './state/extension-state';
 import { ReadsViewPane } from './views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
-import { FilePanelProvider } from './views/squiggy-file-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { SamplesPanelProvider } from './views/squiggy-samples-panel';
@@ -32,19 +31,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Create and register UI panel providers
     const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
-    const filePanelProvider = new FilePanelProvider(context.extensionUri);
-    const readsViewPane = new ReadsViewPane(context.extensionUri);
+    const readsViewPane = new ReadsViewPane(context.extensionUri, state);
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
 
     context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(SamplesPanelProvider.viewType, samplesProvider),
         vscode.window.registerWebviewViewProvider(
             SessionPanelProvider.viewType,
             sessionPanelProvider
         ),
-        vscode.window.registerWebviewViewProvider(FilePanelProvider.viewType, filePanelProvider),
         vscode.window.registerWebviewViewProvider(ReadsViewPane.viewType, readsViewPane),
         vscode.window.registerWebviewViewProvider(
             PlotOptionsViewProvider.viewType,
@@ -57,15 +55,13 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(
             MotifSearchPanelProvider.viewType,
             motifSearchProvider
-        ),
-        vscode.window.registerWebviewViewProvider(SamplesPanelProvider.viewType, samplesProvider)
+        )
     );
 
     // Initialize state with panel references
     state.initializePanels(
         readsViewPane,
         plotOptionsProvider,
-        filePanelProvider,
         modificationsProvider,
         samplesProvider
     );
@@ -129,18 +125,6 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Listen for sample comparison requests and trigger signal overlay plot (default)
-    context.subscriptions.push(
-        samplesProvider.onDidRequestComparison((sampleNames) => {
-            const maxReads = samplesProvider.getPendingMaxReads();
-            vscode.commands.executeCommand(
-                'squiggy.plotSignalOverlayComparison',
-                sampleNames,
-                maxReads
-            );
-        })
-    );
-
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {
@@ -152,10 +136,21 @@ export async function activate(context: vscode.ExtensionContext) {
             try {
                 // Call Python to remove sample
                 await state.squiggyAPI.removeSample(sampleName);
+
                 // Update extension state
                 state.removeSample(sampleName);
-                // Refresh panel
+                state.removeLoadedItem(`sample:${sampleName}`);
+
+                // If this was the selected sample in Read Explorer, clear selection and reset view
+                if (state.selectedReadExplorerSample === sampleName) {
+                    state.selectedReadExplorerSample = null;
+                    readsViewPane?.setReads([]);
+                }
+
+                // Refresh panels
                 samplesProvider.refresh();
+                readsViewPane?.refresh();
+
                 vscode.window.showInformationMessage(`Sample '${sampleName}' unloaded`);
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to unload sample: ${error}`);

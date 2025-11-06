@@ -1,8 +1,8 @@
 /**
- * Sample Comparison Panel Webview View
+ * Samples Panel Webview View
  *
- * Manages loaded samples for multi-sample comparison with selection,
- * comparison workflow, and sample management (unload).
+ * Manages loaded samples for organization and configuration (naming, colors, metadata).
+ * Subscribes to unified extension state for cross-panel synchronization.
  */
 
 import * as vscode from 'vscode';
@@ -16,6 +16,7 @@ import {
     UpdateSessionFastaMessage,
 } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
+import { LoadedItem } from '../types/loaded-item';
 // SampleInfo and formatFileSize unused - reserved for future features
 
 export class SamplesPanelProvider extends BaseWebviewProvider {
@@ -23,32 +24,161 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
     private _state: ExtensionState;
     private _samples: SampleItem[] = [];
-    private _selectedSamples: Set<string> = new Set();
-
-    // Event emitter for comparison requests
-    private _onDidRequestComparison = new vscode.EventEmitter<string[]>();
-    public readonly onDidRequestComparison = this._onDidRequestComparison.event;
+    private _disposables: vscode.Disposable[] = [];
 
     // Event emitter for sample unload requests
     private _onDidRequestUnload = new vscode.EventEmitter<string>();
     public readonly onDidRequestUnload = this._onDidRequestUnload.event;
 
-    // Store pending maxReads value for comparison
-    private _pendingMaxReads: number | null = null;
-
-    getPendingMaxReads(): number | null {
-        const value = this._pendingMaxReads;
-        this._pendingMaxReads = null; // Clear after reading
-        return value;
-    }
-
     constructor(extensionUri: vscode.Uri, state: ExtensionState) {
         super(extensionUri);
         this._state = state;
+
+        // Subscribe to unified state changes
+        const itemsDisposable = this._state.onLoadedItemsChanged((items: LoadedItem[]) => {
+            this._handleLoadedItemsChanged(items);
+        });
+        this._disposables.push(itemsDisposable);
+    }
+
+    /**
+     * Handle unified state changes - filter samples and update display
+     * @private
+     */
+    private _handleLoadedItemsChanged(items: LoadedItem[]): void {
+        // Filter for samples only (type: 'sample')
+        this._samples = items
+            .filter((item) => item.type === 'sample')
+            .map((item) => ({
+                name: item.sampleName!,
+                pod5Path: item.pod5Path,
+                bamPath: item.bamPath,
+                fastaPath: item.fastaPath,
+                readCount: item.readCount,
+                hasBam: item.hasAlignments,
+                hasFasta: item.hasReference,
+            }));
+
+        console.log(
+            '[SamplesPanelProvider] Unified state changed, now showing',
+            this._samples.length,
+            'samples'
+        );
+        this.updateView();
+    }
+
+    /**
+     * Dispose method to clean up subscriptions
+     */
+    public dispose(): void {
+        // Clean up event subscriptions
+        for (const disposable of this._disposables) {
+            disposable.dispose();
+        }
+        this._disposables = [];
     }
 
     protected getTitle(): string {
-        return 'Sample Comparison Manager';
+        return 'Samples';
+    }
+
+    /**
+     * Handle changing BAM file for a sample
+     */
+    private async handleChangeSampleBam(sampleName: string): Promise<void> {
+        const sample = this._state.getSample(sampleName);
+        if (!sample) {
+            vscode.window.showErrorMessage(`Sample "${sampleName}" not found`);
+            return;
+        }
+
+        // Show file picker for BAM file
+        const bamUri = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            filters: {
+                'BAM files': ['bam'],
+            },
+            title: `Select BAM file for "${sampleName}"`,
+        });
+
+        if (!bamUri || bamUri.length === 0) {
+            return; // User cancelled
+        }
+
+        const bamPath = bamUri[0].fsPath;
+
+        // Check if .bai index exists
+        const baiPath = bamPath + '.bai';
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(baiPath));
+        } catch {
+            const createIndex = await vscode.window.showWarningMessage(
+                `BAM index file (.bai) not found for ${path.basename(bamPath)}. Some features may not work without an index.`,
+                'Continue Anyway',
+                'Cancel'
+            );
+            if (createIndex !== 'Continue Anyway') {
+                return;
+            }
+        }
+
+        // Update sample in state
+        sample.bamPath = bamPath;
+        sample.hasBam = true;
+
+        console.log(`[SamplesPanelProvider] Changed BAM for ${sampleName} to ${bamPath}`);
+
+        // Update via Python backend
+        await vscode.commands.executeCommand('squiggy.updateSampleFiles', sampleName, {
+            bamPath,
+        });
+
+        // Refresh view
+        this.updateView();
+    }
+
+    /**
+     * Handle changing FASTA file for a sample
+     */
+    private async handleChangeSampleFasta(sampleName: string): Promise<void> {
+        const sample = this._state.getSample(sampleName);
+        if (!sample) {
+            vscode.window.showErrorMessage(`Sample "${sampleName}" not found`);
+            return;
+        }
+
+        // Show file picker for FASTA file
+        const fastaUri = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            filters: {
+                'FASTA files': ['fasta', 'fa', 'fna'],
+            },
+            title: `Select FASTA file for "${sampleName}"`,
+        });
+
+        if (!fastaUri || fastaUri.length === 0) {
+            return; // User cancelled
+        }
+
+        const fastaPath = fastaUri[0].fsPath;
+
+        // Update sample in state
+        sample.fastaPath = fastaPath;
+        sample.hasFasta = true;
+
+        console.log(`[SamplesPanelProvider] Changed FASTA for ${sampleName} to ${fastaPath}`);
+
+        // Update via Python backend
+        await vscode.commands.executeCommand('squiggy.updateSampleFiles', sampleName, {
+            fastaPath,
+        });
+
+        // Refresh view
+        this.updateView();
     }
 
     protected async handleMessage(message: SamplesIncomingMessage): Promise<void> {
@@ -56,26 +186,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             case 'ready':
                 // Webview is ready, send initial state
                 this.updateView();
-                break;
-
-            case 'selectSample':
-                if (message.selected) {
-                    this._selectedSamples.add(message.sampleName);
-                } else {
-                    this._selectedSamples.delete(message.sampleName);
-                }
-                break;
-
-            case 'startComparison':
-                if (message.sampleNames.length >= 2) {
-                    // Store maxReads for the command handler to access
-                    this._pendingMaxReads = message.maxReads || null;
-                    this._onDidRequestComparison.fire(message.sampleNames);
-                } else {
-                    vscode.window.showWarningMessage(
-                        'Please select at least 2 samples for comparison'
-                    );
-                }
                 break;
 
             case 'unloadSample': {
@@ -89,7 +199,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
                 if (confirm === 'Yes') {
                     this._onDidRequestUnload.fire(message.sampleName);
-                    this._selectedSamples.delete(message.sampleName);
                 }
                 break;
             }
@@ -109,6 +218,64 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             case 'setSessionFasta':
                 this._state.setSessionFasta(message.fastaPath);
                 break;
+
+            case 'updateSampleName': {
+                // Rename a sample in the state
+                const sample = this._state.getSample(message.oldName);
+                if (sample) {
+                    sample.displayName = message.newName;
+                    // Update map key: remove old, add new
+                    this._state.removeSample(message.oldName);
+                    this._state.addSample(sample);
+                    console.log(
+                        `[SamplesPanelProvider] Renamed sample: ${message.oldName} → ${message.newName}`
+                    );
+                    this.updateView();
+                }
+                break;
+            }
+
+            case 'updateSampleColor': {
+                // Update sample color
+                const sample = this._state.getSample(message.sampleName);
+                if (sample) {
+                    if (!sample.metadata) {
+                        sample.metadata = {};
+                    }
+                    sample.metadata.displayColor = message.color || undefined;
+                    console.log(
+                        `[SamplesPanelProvider] Updated color for ${message.sampleName}: ${message.color}`
+                    );
+                    this.updateView();
+                }
+                break;
+            }
+
+            case 'toggleSampleSelection': {
+                // Toggle sample selection for visualization
+                const isSelected = this._state.isSampleSelectedForVisualization(message.sampleName);
+                if (isSelected) {
+                    this._state.removeSampleFromVisualization(message.sampleName);
+                } else {
+                    this._state.addSampleToVisualization(message.sampleName);
+                }
+                console.log(
+                    `[SamplesPanelProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
+                );
+                break;
+            }
+
+            case 'requestChangeSampleBam': {
+                // Show file picker for BAM file
+                await this.handleChangeSampleBam(message.sampleName);
+                break;
+            }
+
+            case 'requestChangeSampleFasta': {
+                // Show file picker for FASTA file
+                await this.handleChangeSampleFasta(message.sampleName);
+                break;
+            }
         }
     }
 
@@ -134,7 +301,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 }
 
                 const sampleItem: SampleItem = {
-                    name: sampleInfo.name,
+                    name: sampleInfo.displayName, // User-facing display name (editable)
                     pod5Path: sampleInfo.pod5Path,
                     bamPath: sampleInfo.bamPath,
                     fastaPath: sampleInfo.fastaPath,
@@ -185,20 +352,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
         }
 
         this.updateView();
-    }
-
-    /**
-     * Get currently selected sample names
-     */
-    public getSelectedSamples(): string[] {
-        return Array.from(this._selectedSamples);
-    }
-
-    /**
-     * Clear selection
-     */
-    public clearSelection(): void {
-        this._selectedSamples.clear();
     }
 
     /**

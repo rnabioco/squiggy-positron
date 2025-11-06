@@ -33,7 +33,7 @@ Short, actionable guidance to help an AI coding agent be productive in this repo
 5) Where to add tests & what to run
   - TypeScript tests use Jest; look under `src/**/__tests__/` and run `npm test`.
   - Python tests live in `tests/` and use pytest. Use `pytest tests/ -v`.
-  - Unit tests generally avoid real POD5 files; integration tests use `tests/data/` (Git LFS) — run `git lfs pull` before running tests that need data.
+  - Tests use sample data from `squiggy/data/` which is bundled with the package.
 
 6) Small, high-value examples for automation
   - Re-run a plot with changed options (TypeScript): `vscode.commands.executeCommand('squiggy.plotRead', readId)` — used throughout `src/extension.ts` to refresh when options change.
