@@ -14,10 +14,19 @@ describe('PlotOptionsViewProvider', () => {
     let mockWebviewView: any;
     let optionsChangeListener: jest.Mock;
     let aggregatePlotListener: jest.Mock;
+    let mockState: any;
 
     beforeEach(() => {
         const extensionUri = vscode.Uri.file('/mock/extension');
-        provider = new PlotOptionsViewProvider(extensionUri);
+
+        // Create mock ExtensionState
+        mockState = {
+            onVisualizationSelectionChanged: jest.fn().mockReturnValue({
+                dispose: jest.fn()
+            })
+        };
+
+        provider = new PlotOptionsViewProvider(extensionUri, mockState);
 
         // Mock webview view
         mockWebviewView = {
@@ -280,7 +289,7 @@ describe('PlotOptionsViewProvider', () => {
         });
 
         it('should not post message if view not available', () => {
-            const newProvider = new PlotOptionsViewProvider(vscode.Uri.file('/mock'));
+            const newProvider = new PlotOptionsViewProvider(vscode.Uri.file('/mock'), mockState);
 
             newProvider.updatePod5Status(true);
 
@@ -468,7 +477,7 @@ describe('PlotOptionsViewProvider', () => {
 
         it('should not post message if view not available', () => {
             // Create provider without resolving view
-            const newProvider = new PlotOptionsViewProvider(vscode.Uri.file('/mock'));
+            const newProvider = new PlotOptionsViewProvider(vscode.Uri.file('/mock'), mockState);
 
             (newProvider as any).updateView();
 
