@@ -120,7 +120,12 @@ export async function activate(context: vscode.ExtensionContext) {
             console.log('[extension.ts] Filtered samples:', samples.length, samples);
 
             // Sync to plot options provider
-            plotOptionsProvider.updateLoadedSamples(samples);
+            console.log('[extension.ts] plotOptionsProvider exists?', !!plotOptionsProvider);
+            if (plotOptionsProvider) {
+                plotOptionsProvider.updateLoadedSamples(samples);
+            } else {
+                console.error('[extension.ts] plotOptionsProvider is undefined!');
+            }
 
             // Update POD5/BAM status in plot options pane based on loaded samples
             const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
@@ -128,18 +133,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
             console.log('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam);
 
-            plotOptionsProvider.updatePod5Status(hasPod5);
-            plotOptionsProvider.updateBamStatus(hasBam);
+            if (plotOptionsProvider) {
+                plotOptionsProvider.updatePod5Status(hasPod5);
+                plotOptionsProvider.updateBamStatus(hasBam);
+            }
 
             // If we have BAM files, fetch and update references
-            if (hasBam && state.squiggyAPI) {
+            if (hasBam && state.squiggyAPI && plotOptionsProvider) {
                 // Get references from the first sample with BAM
                 const sampleWithBam = samples.find((s) => s.hasBam);
                 if (sampleWithBam) {
                     console.log('[extension.ts] Fetching references for sample:', sampleWithBam.name);
                     state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
                         console.log('[extension.ts] Got references:', refs);
-                        plotOptionsProvider.updateReferences(refs);
+                        if (plotOptionsProvider) {
+                            plotOptionsProvider.updateReferences(refs);
+                        }
                     });
                 }
             }

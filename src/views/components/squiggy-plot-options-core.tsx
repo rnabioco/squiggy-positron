@@ -99,6 +99,7 @@ export const PlotOptionsCore: React.FC = () => {
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
+            console.log('[PlotOptions React] Received message:', message.type, message);
             switch (message.type) {
                 case 'updatePlotOptions':
                     setOptions((prev) => ({
@@ -121,12 +122,14 @@ export const PlotOptionsCore: React.FC = () => {
                     }));
                     break;
                 case 'updatePod5Status':
+                    console.log('[PlotOptions React] Updating hasPod5:', message.hasPod5);
                     setOptions((prev) => ({
                         ...prev,
                         hasPod5: message.hasPod5,
                     }));
                     break;
                 case 'updateBamStatus':
+                    console.log('[PlotOptions React] Updating hasBam:', message.hasBam);
                     setOptions((prev) => ({
                         ...prev,
                         hasBam: message.hasBam,
@@ -145,6 +148,7 @@ export const PlotOptionsCore: React.FC = () => {
                     }));
                     break;
                 case 'updateLoadedSamples':
+                    console.log('[PlotOptions React] Updating loadedSamples:', message.samples.length, 'samples');
                     setOptions((prev) => ({
                         ...prev,
                         loadedSamples: message.samples,
