@@ -1005,11 +1005,11 @@ squiggy.close_fasta()
             }
 
             // Update modifications panel
-            if (bamResult.hasModifications && this._modificationsProvider) {
+            if (_bamResult.hasModifications && this._modificationsProvider) {
                 this._modificationsProvider.setModificationInfo(
-                    bamResult.hasModifications,
-                    bamResult.modificationTypes,
-                    bamResult.hasProbabilities
+                    _bamResult.hasModifications,
+                    _bamResult.modificationTypes,
+                    _bamResult.hasProbabilities
                 );
             } else if (this._modificationsProvider) {
                 this._modificationsProvider.clear();
