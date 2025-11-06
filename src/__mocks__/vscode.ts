@@ -180,3 +180,9 @@ export const commands = {
         return Array.from(commandRegistry.keys());
     }),
 };
+
+export const workspace = {
+    getConfiguration: jest.fn(() => ({
+        get: jest.fn((key: string, defaultValue: any) => defaultValue),
+    })),
+};
