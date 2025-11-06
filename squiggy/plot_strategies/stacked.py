@@ -106,6 +106,7 @@ class StackedPlotStrategy(PlotStrategy):
         normalization = options.get("normalization", NormalizationMethod.NONE)
         downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
         show_signal_points = options.get("show_signal_points", False)
+        read_colors = options.get("read_colors", None)  # Optional: per-read colors
 
         # First pass: process all signals and determine offset
         processed_reads = []
@@ -147,8 +148,11 @@ class StackedPlotStrategy(PlotStrategy):
                 }
             )
 
-            # Get color for this read
-            color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
+            # Get color for this read - use read_colors if provided, otherwise cycle through defaults
+            if read_colors and read_id in read_colors:
+                color = read_colors[read_id]
+            else:
+                color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
 
             # Add renderers
             renderers = self._add_signal_renderers(

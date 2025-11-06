@@ -277,6 +277,22 @@ export const PlotOptionsCore: React.FC = () => {
         });
     };
 
+    const handleGenerateMultiReadOverlay = () => {
+        sendMessage('generateMultiReadOverlay', {
+            sampleNames: options.selectedSamples,
+            maxReads: options.maxReadsMulti,
+            normalization: options.normalization,
+        });
+    };
+
+    const handleGenerateMultiReadStacked = () => {
+        sendMessage('generateMultiReadStacked', {
+            sampleNames: options.selectedSamples,
+            maxReads: options.maxReadsMulti,
+            normalization: options.normalization,
+        });
+    };
+
     return (
         <div
             style={{
@@ -398,6 +414,72 @@ export const PlotOptionsCore: React.FC = () => {
             {(options.plotType === 'MULTI_READ_OVERLAY' ||
                 options.plotType === 'MULTI_READ_STACKED') && (
                 <div>
+                    {/* Sample Selection */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            Samples to Plot
+                        </div>
+                        {options.loadedSamples.length === 0 ? (
+                            <div
+                                style={{
+                                    fontSize: '0.85em',
+                                    color: 'var(--vscode-descriptionForeground)',
+                                    fontStyle: 'italic',
+                                }}
+                            >
+                                Load samples in Sample Manager to enable multi-read plots
+                            </div>
+                        ) : (
+                            <>
+                            <div
+                                style={{
+                                    maxHeight: '150px',
+                                    overflowY: 'auto',
+                                    border: '1px solid var(--vscode-input-border)',
+                                    padding: '4px',
+                                }}
+                            >
+                                {options.loadedSamples.map((sample) => (
+                                    <div
+                                        key={sample.name}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: '4px',
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            id={`multiread-sample-${sample.name}`}
+                                            checked={options.selectedSamples.includes(sample.name)}
+                                            onChange={(e) =>
+                                                handleSampleSelectionChange(
+                                                    sample.name,
+                                                    e.target.checked
+                                                )
+                                            }
+                                            style={{ marginRight: '6px' }}
+                                        />
+                                        <label
+                                            htmlFor={`multiread-sample-${sample.name}`}
+                                            style={{ fontSize: '0.9em' }}
+                                        >
+                                            {sample.name} ({sample.readCount} reads)
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Max Reads per Sample */}
                     <div style={{ marginBottom: '20px' }}>
                         <div
                             style={{
@@ -407,7 +489,7 @@ export const PlotOptionsCore: React.FC = () => {
                                 fontSize: '0.9em',
                             }}
                         >
-                            <span>Maximum reads:</span>
+                            <span>Max reads per sample:</span>
                             <span
                                 style={{
                                     fontWeight: 'bold',
@@ -438,20 +520,55 @@ export const PlotOptionsCore: React.FC = () => {
                                 fontStyle: 'italic',
                             }}
                         >
-                            Number of reads to{' '}
-                            {options.plotType === 'MULTI_READ_OVERLAY' ? 'overlay' : 'stack'}
+                            Number of reads to extract from each sample
                         </div>
                     </div>
-                    <div
+
+                    {/* Warning for stacked plots with too many reads */}
+                    {options.plotType === 'MULTI_READ_STACKED' &&
+                        options.selectedSamples.length * options.maxReadsMulti > 20 && (
+                            <div
+                                style={{
+                                    fontSize: '0.85em',
+                                    color: 'var(--vscode-editorWarning-foreground)',
+                                    marginBottom: '10px',
+                                    padding: '6px',
+                                    border: '1px solid var(--vscode-editorWarning-foreground)',
+                                    borderRadius: '3px',
+                                }}
+                            >
+                                ⚠️ Stacked plots work best with ≤20 total reads (currently:{' '}
+                                {options.selectedSamples.length * options.maxReadsMulti})
+                            </div>
+                        )}
+
+                    {/* Generate Button */}
+                    <button
+                        onClick={
+                            options.plotType === 'MULTI_READ_OVERLAY'
+                                ? handleGenerateMultiReadOverlay
+                                : handleGenerateMultiReadStacked
+                        }
+                        disabled={options.selectedSamples.length === 0 || !options.hasPod5}
                         style={{
-                            fontSize: '0.85em',
-                            color: 'var(--vscode-descriptionForeground)',
-                            fontStyle: 'italic',
+                            width: '100%',
+                            padding: '8px',
+                            background: 'var(--vscode-button-background)',
+                            color: 'var(--vscode-button-foreground)',
+                            border: 'none',
+                            cursor: 'pointer',
+                            opacity:
+                                options.selectedSamples.length > 0 && options.hasPod5 ? 1 : 0.5,
                         }}
                     >
-                        Select multiple reads in the Reads Explorer panel, then right-click to
-                        generate plot.
-                    </div>
+                        {!options.hasPod5
+                            ? 'Load samples to generate'
+                            : options.selectedSamples.length === 0
+                            ? 'Select samples to generate'
+                            : `Generate ${
+                                  options.plotType === 'MULTI_READ_OVERLAY' ? 'Overlay' : 'Stacked'
+                              } Plot`}
+                    </button>
                 </div>
             )}
 

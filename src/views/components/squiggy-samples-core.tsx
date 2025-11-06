@@ -92,14 +92,30 @@ export const SamplesCore: React.FC = () => {
                         }
 
                         // Assign default Okabe-Ito colors to new samples (that don't already have colors)
+                        const newlyAssignedColors: Array<{ name: string; color: string }> = [];
                         samples.forEach((sample, index) => {
                             if (!newColors.has(sample.name)) {
                                 const colorIndex = index % OKABE_ITO_PALETTE.length;
-                                newColors.set(sample.name, OKABE_ITO_PALETTE[colorIndex]);
+                                const color = OKABE_ITO_PALETTE[colorIndex];
+                                newColors.set(sample.name, color);
+                                newlyAssignedColors.push({ name: sample.name, color });
                             }
                             // Default all samples to selected for visualization
                             newSelected.add(sample.name);
                         });
+
+                        // Persist auto-assigned colors to extension state
+                        if (newlyAssignedColors.length > 0) {
+                            setTimeout(() => {
+                                newlyAssignedColors.forEach(({ name, color }) => {
+                                    vscode.postMessage({
+                                        type: 'updateSampleColor',
+                                        sampleName: name,
+                                        color: color,
+                                    });
+                                });
+                            }, 0);
+                        }
 
                         return {
                             ...prev,

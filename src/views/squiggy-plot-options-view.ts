@@ -94,6 +94,21 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     }>();
     public readonly onDidRequestAggregateComparison = this._onDidRequestAggregateComparison.event;
 
+    // Event emitters for multi-read plots
+    private _onDidRequestMultiReadOverlay = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestMultiReadOverlay = this._onDidRequestMultiReadOverlay.event;
+
+    private _onDidRequestMultiReadStacked = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestMultiReadStacked = this._onDidRequestMultiReadStacked.event;
+
     protected getTitle(): string {
         return 'Plotting';
     }
@@ -189,6 +204,22 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 sampleNames: message.sampleNames,
                 reference: message.reference,
                 metrics: message.metrics,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateMultiReadOverlay') {
+            this._onDidRequestMultiReadOverlay.fire({
+                sampleNames: message.sampleNames,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateMultiReadStacked') {
+            this._onDidRequestMultiReadStacked.fire({
+                sampleNames: message.sampleNames,
                 maxReads: message.maxReads,
                 normalization: message.normalization,
             });

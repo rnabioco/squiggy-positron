@@ -295,6 +295,108 @@ if '_squiggy_plot_error' in globals():
     }
 
     /**
+     * Generate a multi-sample plot with per-read color assignment
+     *
+     * Supports plotting reads from multiple samples with sample-based coloring.
+     * Each read is colored according to its sample, with alpha = 1/N for better
+     * visualization of overlapping reads.
+     *
+     * @param readIds - List of read IDs to plot
+     * @param readSampleMap - Dict mapping read_id → sample_name
+     * @param readColors - Dict mapping read_id → color hex string
+     * @param mode - Plot mode (OVERLAY or STACKED)
+     * @param normalization - Normalization method (ZNORM, MAD, etc.)
+     * @param theme - Color theme (LIGHT or DARK)
+     * @param showDwellTime - Show dwell time coloring (EVENTALIGN only)
+     * @param showBaseAnnotations - Show base annotations (EVENTALIGN only)
+     * @param scaleDwellTime - Scale x-axis by dwell time (EVENTALIGN only)
+     * @param minModProbability - Minimum modification probability threshold
+     * @param enabledModTypes - List of modification types to display
+     * @param downsample - Downsampling factor
+     * @param showSignalPoints - Show individual signal points
+     */
+    async generateMultiSamplePlot(
+        readIds: string[],
+        readSampleMap: Record<string, string>,
+        readColors: Record<string, string>,
+        mode: string = 'OVERLAY',
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        showDwellTime: boolean = false,
+        showBaseAnnotations: boolean = true,
+        scaleDwellTime: boolean = false,
+        minModProbability: number = 0.5,
+        enabledModTypes: string[] = [],
+        downsample: number = 5,
+        showSignalPoints: boolean = false
+    ): Promise<void> {
+        const readIdsJson = JSON.stringify(readIds);
+        const readSampleMapJson = JSON.stringify(readSampleMap);
+        const readColorsJson = JSON.stringify(readColors);
+        const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+        const code = `
+import sys
+import squiggy
+import traceback
+
+# Initialize error tracking
+_squiggy_plot_error = None
+
+try:
+    # Generate multi-sample plot
+    squiggy.plot_reads(
+        ${readIdsJson},
+        mode='${mode}',
+        normalization='${normalization}',
+        theme='${theme}',
+        show_dwell_time=${showDwellTime ? 'True' : 'False'},
+        show_labels=${showBaseAnnotations ? 'True' : 'False'},
+        scale_dwell_time=${scaleDwellTime ? 'True' : 'False'},
+        min_mod_probability=${minModProbability},
+        enabled_mod_types=${enabledModTypesJson},
+        downsample=${downsample},
+        show_signal_points=${showSignalPoints ? 'True' : 'False'},
+        read_sample_map=${readSampleMapJson},
+        read_colors=${readColorsJson}
+    )
+except Exception as e:
+    _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
+    print(f"ERROR generating multi-sample plot: {_squiggy_plot_error}", file=sys.stderr)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this._client.executeSilent(code);
+
+            // Check if there was an error during plot generation
+            const plotError = await this.client
+                .getVariable('_squiggy_plot_error')
+                .catch(() => null);
+            if (plotError !== null) {
+                throw new Error(`Multi-sample plot generation failed:\n${plotError}`);
+            }
+
+            // Clean up temporary variable
+            await this._client.executeSilent(`
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`);
+        } catch (error) {
+            // Clean up on error
+            await this.client
+                .executeSilent(
+                    `
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`
+                )
+                .catch(() => {});
+            throw error;
+        }
+    }
+
+    /**
      * Generate an aggregate plot for a reference sequence and route to Plots pane
      * @param referenceName - Name of reference sequence from BAM file
      * @param maxReads - Maximum number of reads to sample (default 100)
@@ -706,20 +808,37 @@ _result = {'read_ids': _read_ids, 'references': _refs}
      * NOTE: Prefer getReadIdsAndReferencesForSample() when you also need references,
      * as it batches both queries into a single call.
      */
-    async getReadIdsForSample(sampleName: string): Promise<string[]> {
+    async getReadIdsForSample(
+        sampleName: string,
+        offset: number = 0,
+        limit?: number
+    ): Promise<string[]> {
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
-            console.log(`[getReadIdsForSample] Fetching read IDs for sample '${sampleName}'...`);
+            console.log(
+                `[getReadIdsForSample] Fetching read IDs for sample '${sampleName}' (offset: ${offset}, limit: ${limit || 'all'})...`
+            );
             const startTime = Date.now();
 
-            // Extract read IDs safely without trying to serialize the Sample object
-            const code = `
+            // Build slice string for read IDs
+            const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
+
+            // Two-step approach: execute code to create temp variable, then read it
+            // This avoids the syntax error from passing statements to getVariable()
+            const tempVar = '_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
+
+            await this._client.executeSilent(`
 _sample = _squiggy_session.get_sample('${escapedName}')
-_read_ids = _sample.read_ids if _sample else []
-_read_ids
-`;
-            const readIds = await this._client.getVariable(code);
+${tempVar} = _sample.read_ids${sliceStr} if _sample else []
+`);
+
+            // Now read the temp variable as a single expression
+            const readIds = await this._client.getVariable(tempVar);
+
+            // Clean up temp variable
+            await this._client.executeSilent(`del ${tempVar}`);
+
             const elapsed = Date.now() - startTime;
             const readIdArray = (readIds as string[]) || [];
             console.log(`[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`);

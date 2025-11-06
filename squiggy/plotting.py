@@ -186,6 +186,8 @@ def plot_reads(
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
     sample_name: str | None = None,
+    read_sample_map: dict[str, str] | None = None,
+    read_colors: dict[str, str] | None = None,
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -202,30 +204,28 @@ def plot_reads(
         min_mod_probability: Minimum probability threshold for displaying modifications
         enabled_mod_types: List of modification type codes to display
         show_signal_points: Show individual signal points as circles
-        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
+        sample_name: (Single-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        read_sample_map: (Multi-sample mode) Dict mapping read_id → sample_name.
+                         If provided, reads are loaded from their respective samples.
+                         Takes precedence over sample_name parameter.
+        read_colors: (Multi-sample mode) Dict mapping read_id → color hex string.
+                     If provided, each read uses its specified color instead of
+                     the default color cycling. Useful for sample-based coloring.
 
     Returns:
         Bokeh HTML string
 
     Examples:
+        >>> # Single sample
         >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY')
-        >>> html = plot_reads(['read_001', 'read_002'], mode='STACKED')
-        >>> html = plot_reads(['read_001', 'read_002'], mode='EVENTALIGN')
+        >>>
+        >>> # Multi-sample with custom colors
+        >>> read_map = {'read_001': 'sample_A', 'read_002': 'sample_B'}
+        >>> colors = {'read_001': '#E69F00', 'read_002': '#56B4E9'}
+        >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY',
+        ...                   read_sample_map=read_map, read_colors=colors)
     """
-
-    # Determine which POD5 reader and BAM path to use
-    if sample_name:
-        # Multi-sample mode: get reader and BAM from specific sample
-        sample = _squiggy_session.get_sample(sample_name)
-        if not sample or sample.pod5_reader is None:
-            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
-        reader = sample.pod5_reader
-    else:
-        # Single-file mode: use global reader and BAM
-        reader = _squiggy_session.reader
-        if reader is None:
-            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     if not read_ids:
         raise ValueError("No read IDs provided.")
@@ -240,8 +240,24 @@ def plot_reads(
     norm_method = params["normalization"]
     theme_enum = params["theme"]
 
-    # Collect read data (optimized batch fetching - single O(n) pass)
-    read_objs = get_reads_batch(read_ids, sample_name=sample_name)
+    # Collect read data - use multi-sample fetching if read_sample_map provided
+    if read_sample_map:
+        # Multi-sample mode: fetch reads from different samples
+        from .io import get_reads_batch_multi_sample
+
+        read_objs = get_reads_batch_multi_sample(read_sample_map)
+    elif sample_name:
+        # Single-sample mode: fetch from specified sample
+        from .io import get_reads_batch
+
+        read_objs = get_reads_batch(read_ids, sample_name=sample_name)
+    else:
+        # Legacy mode: fetch from global session
+        from .io import get_reads_batch
+
+        if _squiggy_session.reader is None:
+            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+        read_objs = get_reads_batch(read_ids, sample_name=None)
 
     # Verify all reads were found
     missing = set(read_ids) - set(read_objs.keys())
@@ -265,6 +281,9 @@ def plot_reads(
             "downsample": downsample,
             "show_signal_points": show_signal_points,
         }
+        # Add read colors if provided (for multi-sample coloring)
+        if read_colors:
+            options["read_colors"] = read_colors
 
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode for multiple reads

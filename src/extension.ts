@@ -112,7 +112,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     pod5Path: item.pod5Path || '',
                     bamPath: item.bamPath,
                     fastaPath: item.fastaPath,
-                    readCount: state.getSample(item.sampleName || '')?.readCount || 0,
+                    readCount: item.readCount, // Use unified state directly (already populated)
                     hasBam: !!item.bamPath,
                     hasFasta: !!item.fastaPath,
                 }));
@@ -270,6 +270,28 @@ export async function activate(context: vscode.ExtensionContext) {
                 metrics: params.metrics,
                 maxReads: params.maxReads,
             });
+        })
+    );
+
+    // Listen for multi-read overlay requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestMultiReadOverlay(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotMultiReadOverlay',
+                params.sampleNames,
+                params.maxReads
+            );
+        })
+    );
+
+    // Listen for multi-read stacked requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestMultiReadStacked(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotMultiReadStacked',
+                params.sampleNames,
+                params.maxReads
+            );
         })
     );
 

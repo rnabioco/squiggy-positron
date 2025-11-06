@@ -191,15 +191,15 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
     type: 'generateMultiReadOverlay';
-    readIds: string[];
-    maxReads: number;
+    sampleNames: string[];
+    maxReads: number; // Max reads per sample
     normalization: string;
 }
 
 export interface GenerateMultiReadStackedMessage extends BaseMessage {
     type: 'generateMultiReadStacked';
-    readIds: string[];
-    maxReads: number;
+    sampleNames: string[];
+    maxReads: number; // Max reads per sample
     normalization: string;
 }
 

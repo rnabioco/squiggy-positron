@@ -270,6 +270,48 @@ export function registerPlotCommands(
             }
         )
     );
+
+    // Plot multi-read overlay - Overlay reads from multiple samples
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotMultiReadOverlay',
+            async (sampleNames?: string[], maxReads?: number) => {
+                // If no params provided, show error
+                if (!sampleNames || sampleNames.length === 0) {
+                    vscode.window.showErrorMessage(
+                        'Please select samples in the Plotting panel to generate multi-read overlay plots.'
+                    );
+                    return;
+                }
+
+                // Default to 10 reads per sample if not specified
+                const maxReadsPerSample = maxReads || 10;
+
+                await plotMultiReadOverlay(sampleNames, maxReadsPerSample, state);
+            }
+        )
+    );
+
+    // Plot multi-read stacked - Stack reads from multiple samples
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotMultiReadStacked',
+            async (sampleNames?: string[], maxReads?: number) => {
+                // If no params provided, show error
+                if (!sampleNames || sampleNames.length === 0) {
+                    vscode.window.showErrorMessage(
+                        'Please select samples in the Plotting panel to generate multi-read stacked plots.'
+                    );
+                    return;
+                }
+
+                // Default to 5 reads per sample if not specified (stacked needs fewer)
+                const maxReadsPerSample = maxReads || 5;
+
+                await plotMultiReadStacked(sampleNames, maxReadsPerSample, state);
+            }
+        )
+    );
 }
 
 /**
@@ -601,5 +643,204 @@ async function plotAggregateComparison(
         },
         ErrorContext.PLOT_GENERATE,
         `Comparing aggregate statistics for samples: ${params.sampleNames.join(', ')}...`
+    );
+}
+
+/**
+ * Generate multi-read overlay plot from selected samples
+ * Extracts N reads from each sample and overlays them with sample-based coloring
+ */
+async function plotMultiReadOverlay(
+    sampleNames: string[],
+    maxReadsPerSample: number,
+    state: ExtensionState
+): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            // Validate params
+            if (sampleNames.length === 0) {
+                throw new Error('At least one sample must be selected');
+            }
+
+            // Extract reads from each sample and build mappings
+            const allReadIds: string[] = [];
+            const readSampleMap: Record<string, string> = {};
+            const readColors: Record<string, string> = {};
+
+            for (const sampleName of sampleNames) {
+                const sample = state.getSample(sampleName);
+                if (!sample) {
+                    throw new Error(`Sample '${sampleName}' not found`);
+                }
+
+                // Get sample color (default to a color if not set)
+                const sampleColor = sample.metadata?.displayColor || '#888888';
+
+                // Get read IDs for this sample
+                const readIds = await state.squiggyAPI.getReadIdsForSample(
+                    sampleName,
+                    0,
+                    maxReadsPerSample
+                );
+
+                // Add to combined list and build mappings
+                for (const readId of readIds) {
+                    allReadIds.push(readId);
+                    readSampleMap[readId] = sampleName;
+                    readColors[readId] = sampleColor;
+                }
+            }
+
+            if (allReadIds.length === 0) {
+                throw new Error('No reads found in selected samples');
+            }
+
+            // Get plot options
+            const options = state.plotOptionsProvider?.getOptions();
+            if (!options) {
+                throw new Error('Plot options not available');
+            }
+
+            const normalization = options.normalization;
+
+            // Get modification filters
+            const modFilters = state.modificationsProvider?.getFilters();
+            if (!modFilters) {
+                throw new Error('Modification filters not available');
+            }
+
+            // Detect theme
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Generate plot with OVERLAY mode using multi-sample support
+            await state.squiggyAPI.generateMultiSamplePlot(
+                allReadIds,
+                readSampleMap,
+                readColors,
+                'OVERLAY',
+                normalization,
+                theme,
+                options.showDwellTime,
+                options.showBaseAnnotations,
+                options.scaleDwellTime,
+                modFilters.minProbability,
+                modFilters.enabledModTypes,
+                options.downsample,
+                options.showSignalPoints
+            );
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Generating overlay plot with ${maxReadsPerSample} reads per sample from ${sampleNames.length} sample(s)...`
+    );
+}
+
+/**
+ * Generate multi-read stacked plot from selected samples
+ * Extracts N reads from each sample and stacks them vertically with sample-based coloring
+ */
+async function plotMultiReadStacked(
+    sampleNames: string[],
+    maxReadsPerSample: number,
+    state: ExtensionState
+): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.squiggyAPI) {
+                throw new Error('SquiggyAPI not initialized');
+            }
+
+            // Validate params
+            if (sampleNames.length === 0) {
+                throw new Error('At least one sample must be selected');
+            }
+
+            // Extract reads from each sample and build mappings
+            const allReadIds: string[] = [];
+            const readSampleMap: Record<string, string> = {};
+            const readColors: Record<string, string> = {};
+
+            for (const sampleName of sampleNames) {
+                const sample = state.getSample(sampleName);
+                if (!sample) {
+                    throw new Error(`Sample '${sampleName}' not found`);
+                }
+
+                // Get sample color (default to a color if not set)
+                const sampleColor = sample.metadata?.displayColor || '#888888';
+
+                // Get read IDs for this sample
+                const readIds = await state.squiggyAPI.getReadIdsForSample(
+                    sampleName,
+                    0,
+                    maxReadsPerSample
+                );
+
+                // Add to combined list and build mappings
+                for (const readId of readIds) {
+                    allReadIds.push(readId);
+                    readSampleMap[readId] = sampleName;
+                    readColors[readId] = sampleColor;
+                }
+            }
+
+            if (allReadIds.length === 0) {
+                throw new Error('No reads found in selected samples');
+            }
+
+            // Warn if too many reads for stacking
+            const totalReads = allReadIds.length;
+            if (totalReads > 20) {
+                const result = await vscode.window.showWarningMessage(
+                    `You're about to stack ${totalReads} reads. This may be hard to read. Continue?`,
+                    'Yes',
+                    'No'
+                );
+                if (result !== 'Yes') {
+                    return;
+                }
+            }
+
+            // Get plot options
+            const options = state.plotOptionsProvider?.getOptions();
+            if (!options) {
+                throw new Error('Plot options not available');
+            }
+
+            const normalization = options.normalization;
+
+            // Get modification filters
+            const modFilters = state.modificationsProvider?.getFilters();
+            if (!modFilters) {
+                throw new Error('Modification filters not available');
+            }
+
+            // Detect theme
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Generate plot with STACKED mode using multi-sample support
+            await state.squiggyAPI.generateMultiSamplePlot(
+                allReadIds,
+                readSampleMap,
+                readColors,
+                'STACKED',
+                normalization,
+                theme,
+                options.showDwellTime,
+                options.showBaseAnnotations,
+                options.scaleDwellTime,
+                modFilters.minProbability,
+                modFilters.enabledModTypes,
+                options.downsample,
+                options.showSignalPoints
+            );
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Generating stacked plot with ${maxReadsPerSample} reads per sample from ${sampleNames.length} sample(s)...`
     );
 }

@@ -233,6 +233,52 @@ def get_reads_batch(
     return found
 
 
+def get_reads_batch_multi_sample(
+    read_sample_map: dict[str, str]
+) -> dict[str, pod5.ReadRecord]:
+    """
+    Fetch multiple reads from different samples in optimized batches
+
+    Groups reads by sample, then fetches each sample's reads in a single pass.
+    This is more efficient than fetching reads one-by-one across samples.
+
+    Args:
+        read_sample_map: Dict mapping read_id → sample_name
+
+    Returns:
+        Dict mapping read_id to ReadRecord for found reads
+
+    Raises:
+        RuntimeError: If a sample is not loaded or has no POD5 file
+
+    Examples:
+        >>> from squiggy.io import get_reads_batch_multi_sample
+        >>> read_map = {
+        ...     'read_001': 'sample_A',
+        ...     'read_002': 'sample_A',
+        ...     'read_003': 'sample_B',
+        ... }
+        >>> reads = get_reads_batch_multi_sample(read_map)
+        >>> for read_id, read_obj in reads.items():
+        ...     print(f"{read_id} from {read_map[read_id]}: {len(read_obj.signal)} samples")
+    """
+    # Group reads by sample
+    sample_to_reads = {}
+    for read_id, sample_name in read_sample_map.items():
+        if sample_name not in sample_to_reads:
+            sample_to_reads[sample_name] = []
+        sample_to_reads[sample_name].append(read_id)
+
+    # Fetch reads from each sample
+    all_reads = {}
+    for sample_name, read_ids in sample_to_reads.items():
+        logger.debug(f"Fetching {len(read_ids)} reads from sample '{sample_name}'...")
+        sample_reads = get_reads_batch(read_ids, sample_name=sample_name)
+        all_reads.update(sample_reads)
+
+    return all_reads
+
+
 def get_read_by_id(
     read_id: str, sample_name: str | None = None
 ) -> pod5.ReadRecord | None:

@@ -106,6 +106,21 @@ class OverlayPlotStrategy(PlotStrategy):
         normalization = options.get("normalization", NormalizationMethod.NONE)
         downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
         show_signal_points = options.get("show_signal_points", False)
+        read_colors = options.get("read_colors", None)  # Optional: per-read colors
+
+        # Calculate alpha blending with a floor to prevent over-transparency
+        # Use tiered approach to keep between 0.3 and 0.8 for better visibility
+        num_reads = len(reads_data)
+        if num_reads == 1:
+            alpha = 0.8
+        elif num_reads <= 5:
+            alpha = 0.7
+        elif num_reads <= 20:
+            alpha = 0.5  # For ~20 reads, use higher opacity
+        elif num_reads <= 50:
+            alpha = 0.4
+        else:
+            alpha = max(0.3, 1.0 / (num_reads ** 0.5))  # sqrt scaling with floor
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)
@@ -134,14 +149,18 @@ class OverlayPlotStrategy(PlotStrategy):
                 }
             )
 
-            # Get color for this read
-            color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
+            # Get color for this read - use read_colors if provided, otherwise cycle through defaults
+            if read_colors and read_id in read_colors:
+                color = read_colors[read_id]
+            else:
+                color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
 
-            # Add renderers
+            # Add renderers with calculated alpha
             renderers = self._add_signal_renderers(
                 fig=fig,
                 source=source,
                 color=color,
+                alpha=alpha,
                 show_signal_points=show_signal_points,
                 legend_label=read_id[:12],  # Truncate long read IDs
             )
@@ -180,10 +199,11 @@ class OverlayPlotStrategy(PlotStrategy):
         fig,
         source: ColumnDataSource,
         color: str,
+        alpha: float,
         show_signal_points: bool,
         legend_label: str,
     ) -> list:
-        """Add signal line and optional points"""
+        """Add signal line and optional points with configurable alpha"""
         renderers = []
 
         # Add line
@@ -193,12 +213,12 @@ class OverlayPlotStrategy(PlotStrategy):
             source=source,
             color=color,
             line_width=1,
-            alpha=0.7,
+            alpha=alpha,
             legend_label=legend_label,
         )
         renderers.append(line_renderer)
 
-        # Add points if requested
+        # Add points if requested (use slightly lower alpha for points)
         if show_signal_points:
             circle_renderer = fig.scatter(
                 x="x",
@@ -206,7 +226,7 @@ class OverlayPlotStrategy(PlotStrategy):
                 source=source,
                 size=3,
                 color=color,
-                alpha=0.5,
+                alpha=alpha * 0.7,  # Slightly more transparent than lines
                 legend_label=legend_label,
             )
             renderers.append(circle_renderer)
