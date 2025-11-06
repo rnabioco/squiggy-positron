@@ -41,7 +41,7 @@ plot = squiggy.plot_read('read_001', plot_mode='EVENTALIGN')
 
 ## Data Source
 
-These files are a subset of the test data used in the squiggy test suite, located in `tests/data/`.
+These files are used for both demos and the squiggy test suite.
 
 ## Size
 

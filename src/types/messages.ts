@@ -25,6 +25,16 @@ export interface CloseFileMessage extends BaseMessage {
     fileType: 'POD5' | 'BAM' | 'FASTA';
 }
 
+export interface AddFilesMessage extends BaseMessage {
+    type: 'addFiles';
+    // No parameters - triggers file picker in extension
+}
+
+export interface AddReferenceMessage extends BaseMessage {
+    type: 'addReference';
+    // No parameters - triggers file picker in extension
+}
+
 export interface UpdateFilesMessage extends BaseMessage {
     type: 'updateFiles';
     files: FileItem[];
@@ -46,7 +56,12 @@ export interface FileItem {
     hasEvents?: boolean;
 }
 
-export type FilePanelIncomingMessage = OpenFileMessage | CloseFileMessage | ReadyMessage;
+export type FilePanelIncomingMessage =
+    | OpenFileMessage
+    | CloseFileMessage
+    | AddFilesMessage
+    | AddReferenceMessage
+    | ReadyMessage;
 export type FilePanelOutgoingMessage = UpdateFilesMessage;
 
 // ========== Reads View Messages ==========
@@ -63,6 +78,11 @@ export interface PlotAggregateMessage extends BaseMessage {
 
 export interface LoadMoreReadsMessage extends BaseMessage {
     type: 'loadMore';
+}
+
+export interface SelectReadExplorerSampleMessage extends BaseMessage {
+    type: 'selectSample';
+    sampleName: string;
 }
 
 export interface ExpandReferenceMessage extends BaseMessage {
@@ -103,18 +123,26 @@ export interface SetLoadingMessage extends BaseMessage {
     message?: string;
 }
 
+export interface SetAvailableSamplesMessage extends BaseMessage {
+    type: 'setAvailableSamples';
+    samples: string[];
+    selectedSample: string | null;
+}
+
 export type ReadsViewIncomingMessage =
     | PlotReadMessage
     | PlotAggregateMessage
     | LoadMoreReadsMessage
     | ExpandReferenceMessage
+    | SelectReadExplorerSampleMessage
     | ReadyMessage;
 export type ReadsViewOutgoingMessage =
     | UpdateReadsMessage
     | SetReferencesOnlyMessage
     | AppendReadsMessage
     | SetReadsForReferenceMessage
-    | SetLoadingMessage;
+    | SetLoadingMessage
+    | SetAvailableSamplesMessage;
 
 // ========== Plot Options Messages ==========
 
@@ -240,12 +268,6 @@ export interface SelectSampleMessage extends BaseMessage {
     selected: boolean;
 }
 
-export interface StartComparisonMessage extends BaseMessage {
-    type: 'startComparison';
-    sampleNames: string[];
-    maxReads?: number | null; // null means use default
-}
-
 export interface UnloadSampleMessage extends BaseMessage {
     type: 'unloadSample';
     sampleName: string;
@@ -278,14 +300,45 @@ export interface UpdateSessionFastaMessage extends BaseMessage {
     fastaPath: string | null;
 }
 
+export interface UpdateSampleNameMessage extends BaseMessage {
+    type: 'updateSampleName';
+    oldName: string;
+    newName: string;
+}
+
+export interface UpdateSampleColorMessage extends BaseMessage {
+    type: 'updateSampleColor';
+    sampleName: string;
+    color: string | null; // null to clear color
+}
+
+export interface ToggleSampleSelectionMessage extends BaseMessage {
+    type: 'toggleSampleSelection';
+    sampleName: string;
+}
+
+export interface RequestChangeSampleBamMessage extends BaseMessage {
+    type: 'requestChangeSampleBam';
+    sampleName: string;
+}
+
+export interface RequestChangeSampleFastaMessage extends BaseMessage {
+    type: 'requestChangeSampleFasta';
+    sampleName: string;
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
-    | StartComparisonMessage
     | UnloadSampleMessage
     | FilesDroppedMessage
     | RequestSetSessionFastaMessage
     | RequestLoadSamplesMessage
     | SetSessionFastaMessage
+    | UpdateSampleNameMessage
+    | UpdateSampleColorMessage
+    | ToggleSampleSelectionMessage
+    | RequestChangeSampleBamMessage
+    | RequestChangeSampleFastaMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage
