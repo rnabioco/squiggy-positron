@@ -1,6 +1,6 @@
 [project]
 name = "squiggy"
-version = "0.1.13"
+version = "0.1.14"
 description = "Nanopore squiggle visualization tool for POD5 files"
 readme = "README.md"
 requires-python = ">=3.12"
