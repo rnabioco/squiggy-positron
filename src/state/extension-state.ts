@@ -953,7 +953,7 @@ squiggy.close_fasta()
         // Load POD5 (assuming single POD5 for now)
         if (resolvedPod5Paths.length > 0) {
             const pod5Path = resolvedPod5Paths[0];
-            const pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
+            const _pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
             this._currentPod5File = pod5Path;
 
             // Get first 1000 read IDs for reads view (lazy loading)
@@ -968,7 +968,7 @@ squiggy.close_fasta()
 
         // Load BAM if present
         if (resolvedBamPath) {
-            const bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
+            const _bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
             this._currentBamFile = resolvedBamPath;
 
             // Get references only (lazy loading - don't fetch reads yet)

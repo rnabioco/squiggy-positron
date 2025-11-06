@@ -409,8 +409,9 @@ export const SamplesCore: React.FC = () => {
                         <strong>No samples loaded yet.</strong>
                     </p>
                     <p style={{ margin: '5px 0' }}>
-                        Click <strong>"Load Sample(s)"</strong> to add POD5 and BAM files, or <strong>"Set Reference"</strong> to add a shared reference genome.
-                        Samples will appear here for naming, coloring, and organization.
+                        Click <strong>"Load Sample(s)"</strong> to add POD5 and BAM files, or{' '}
+                        <strong>"Set Reference"</strong> to add a shared reference genome. Samples
+                        will appear here for naming, coloring, and organization.
                     </p>
                 </div>
             )}

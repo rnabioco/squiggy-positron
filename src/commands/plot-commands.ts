@@ -22,6 +22,17 @@ export function registerPlotCommands(
         vscode.commands.registerCommand(
             'squiggy.plotRead',
             async (readIdOrItem?: string | ReadItem) => {
+                // Validate that at least one sample is loaded (for multi-sample mode)
+                const hasSamples = state.getAllSampleNames().length > 0;
+                const hasLegacyPod5 = !!state.currentPod5File;
+
+                if (!hasSamples && !hasLegacyPod5) {
+                    vscode.window.showErrorMessage(
+                        'No POD5 file loaded. Use "Load Sample(s)" in the Samples panel.'
+                    );
+                    return;
+                }
+
                 let readIds: string[];
 
                 // If called with a readId string (from React view)
@@ -48,12 +59,31 @@ export function registerPlotCommands(
     // Plot aggregate for reference
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.plotAggregate', async (referenceName?: string) => {
-            // Validate that both POD5 and BAM are loaded
-            if (!state.currentPod5File) {
-                vscode.window.showErrorMessage('No POD5 file loaded. Use "Open POD5 File" first.');
+            // Validate that at least one sample is loaded (for multi-sample mode)
+            const hasSamples = state.getAllSampleNames().length > 0;
+            const hasLegacyPod5 = !!state.currentPod5File;
+
+            if (!hasSamples && !hasLegacyPod5) {
+                vscode.window.showErrorMessage(
+                    'No POD5 file loaded. Use "Load Sample(s)" in the Samples panel.'
+                );
                 return;
             }
-            if (!state.currentBamFile) {
+
+            // For multi-sample mode: check if selected sample has BAM
+            if (hasSamples) {
+                const selectedSample = state.selectedReadExplorerSample;
+                if (selectedSample) {
+                    const sample = state.getSample(selectedSample);
+                    if (sample && !sample.hasBam) {
+                        vscode.window.showErrorMessage(
+                            `Sample "${selectedSample}" does not have BAM alignment data. Aggregate plots require BAM files.`
+                        );
+                        return;
+                    }
+                }
+            } else if (!state.currentBamFile) {
+                // Legacy mode: check currentBamFile
                 vscode.window.showErrorMessage(
                     'Aggregate plots require a BAM file. Use "Open BAM File" first.'
                 );
