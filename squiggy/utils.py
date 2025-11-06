@@ -243,14 +243,9 @@ def get_sample_data_path():
                 # Source is in writable location, return as-is
                 return source_path
 
-        # Last resort: look in package directory or development location
+        # Last resort: look in package directory
         package_dir = Path(__file__).parent
         sample_path = package_dir / "data" / "yeast_trna_reads.pod5"
-
-        # Try development location (tests/data relative to project root)
-        if not sample_path.exists():
-            project_root = package_dir.parent.parent
-            sample_path = project_root / "tests" / "data" / "yeast_trna_reads.pod5"
 
         if sample_path.exists():
             # Always copy when running from PyInstaller bundle
@@ -272,6 +267,48 @@ def get_sample_data_path():
 
     except Exception as e:
         raise FileNotFoundError(f"Sample data not found. Error: {e}") from None
+
+
+def get_test_data_path():
+    """Get the path to the bundled test data directory
+
+    Returns the path to the squiggy/data directory which contains test/demo files:
+    - yeast_trna_reads.pod5
+    - yeast_trna_mappings.bam
+    - yeast_trna_mappings.bam.bai
+    - yeast_trna.fa
+    - yeast_trna.fa.fai
+
+    Returns:
+        str: Path to the squiggy/data directory
+
+    Raises:
+        FileNotFoundError: If data directory cannot be found
+
+    Example:
+        >>> from pathlib import Path
+        >>> data_dir = Path(get_test_data_path())
+        >>> pod5_file = data_dir / 'yeast_trna_reads.pod5'
+    """
+    import importlib.util
+
+    try:
+        # Find the squiggy package location
+        spec = importlib.util.find_spec("squiggy")
+        if spec is None or spec.origin is None:
+            raise FileNotFoundError("Could not locate squiggy package")
+
+        package_dir = os.path.dirname(spec.origin)
+        data_dir = os.path.join(package_dir, "data")
+
+        # Verify the directory exists
+        if not os.path.isdir(data_dir):
+            raise FileNotFoundError(f"Data directory not found at {data_dir}")
+
+        return data_dir
+
+    except Exception as e:
+        raise FileNotFoundError(f"Test data directory not found. Error: {e}") from None
 
 
 def _is_writable_dir(dir_path):
@@ -368,16 +405,10 @@ def get_sample_bam_path():
                 # Source is in writable location, return as-is
                 return source_bam
 
-        # Last resort: look in package directory or development location
+        # Last resort: look in package directory
         package_dir = Path(__file__).parent
         sample_bam = package_dir / "data" / "yeast_trna_mappings.bam"
         sample_bai = package_dir / "data" / "yeast_trna_mappings.bam.bai"
-
-        # Try development location (tests/data relative to project root)
-        if not sample_bam.exists():
-            project_root = package_dir.parent.parent
-            sample_bam = project_root / "tests" / "data" / "yeast_trna_mappings.bam"
-            sample_bai = project_root / "tests" / "data" / "yeast_trna_mappings.bam.bai"
 
         if sample_bam.exists():
             # Always copy when running from PyInstaller bundle

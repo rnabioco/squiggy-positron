@@ -28,7 +28,9 @@ def clean_squiggy_state():
 @pytest.fixture
 def test_data_dir():
     """Return the path to the test data directory."""
-    return Path(__file__).parent / "data"
+    from squiggy import get_test_data_path
+
+    return Path(get_test_data_path())
 
 
 @pytest.fixture

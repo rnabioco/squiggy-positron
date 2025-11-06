@@ -34,8 +34,6 @@ uv.lock
 .coverage
 htmlcov/
 coverage.xml
-tests/data/sample.pod5
-tests/data/*.arrow
 tests/*.arrow
 *.arrow
 
@@ -62,6 +60,3 @@ positron/
 remora/
 squigualiser/
 TASK.md
-
-# Private test data (not for public repo)
-tests/data/private-*
