@@ -629,7 +629,7 @@ export const PlotOptionsCore: React.FC = () => {
                         </select>
                     </div>
 
-                    {/* View Style (for multi-sample) */}
+                    {/* View Style (for multi-sample) - only show if 2+ samples selected in Samples panel */}
                     {options.selectedSamples.length > 1 && (
                         <div style={{ marginBottom: '20px' }}>
                             <div
