@@ -156,6 +156,20 @@ export class ReadsViewPane extends BaseWebviewProvider {
         this._hasReferences = true;
         this._referenceToReads = new Map(); // Empty initially
 
+        // Build _readItems with reference headers so state persists across visibility changes
+        const items: ReadListItem[] = [];
+        for (const ref of references) {
+            items.push({
+                type: 'reference',
+                referenceName: ref.referenceName,
+                readCount: ref.readCount,
+                isExpanded: false,
+                indentLevel: 0,
+            } as ReferenceGroupItem);
+        }
+        this._readItems = items;
+
+        // Send specific message for initial load, but also update persistent state
         this.postMessage({
             type: 'setReferencesOnly',
             references,

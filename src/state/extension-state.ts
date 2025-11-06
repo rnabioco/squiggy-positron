@@ -858,6 +858,31 @@ squiggy.close_fasta()
             if (comparisonIds.length > 0) {
                 this.setComparisonItems(comparisonIds);
             }
+
+            // Restore selected Read Explorer sample and auto-load its reads
+            if (session.ui.selectedReadExplorerSample) {
+                this._selectedReadExplorerSample = session.ui.selectedReadExplorerSample;
+                const sampleName = session.ui.selectedReadExplorerSample;
+
+                // Trigger reads view to load for the selected sample
+                // Delay to ensure sample is fully registered in Python registry
+                setTimeout(() => {
+                    console.log(
+                        `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
+                    );
+                    Promise.resolve(
+                        vscode.commands.executeCommand(
+                            'squiggy.internal.loadReadsForSample',
+                            sampleName
+                        )
+                    ).catch((err: unknown) => {
+                        console.error(
+                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}':`,
+                            err
+                        );
+                    });
+                }, 1500); // Wait 1.5s to ensure sample is registered
+            }
         }
 
         // Show errors if any
