@@ -106,13 +106,13 @@ export async function activate(context: vscode.ExtensionContext) {
             const samples = items
                 .filter((item) => item.type === 'sample')
                 .map((item) => ({
-                    name: item.name,
-                    pod5Path: item.pod5 || '',
-                    bamPath: item.bam,
-                    fastaPath: item.fasta,
-                    readCount: state.getSample(item.name)?.readIds?.length || 0,
-                    hasBam: !!item.bam,
-                    hasFasta: !!item.fasta,
+                    name: item.sampleName || '',
+                    pod5Path: item.pod5Path || '',
+                    bamPath: item.bamPath,
+                    fastaPath: item.fastaPath,
+                    readCount: state.getSample(item.sampleName || '')?.readCount || 0,
+                    hasBam: !!item.bamPath,
+                    hasFasta: !!item.fastaPath,
                 }));
 
             // Sync to plot options provider

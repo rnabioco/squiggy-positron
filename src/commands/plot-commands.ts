@@ -573,8 +573,8 @@ async function plotAggregateComparison(
             const sampleColors: Record<string, string> = {};
             for (const sampleName of params.sampleNames) {
                 const sample = state.getSample(sampleName);
-                if (sample && sample.color) {
-                    sampleColors[sampleName] = sample.color;
+                if (sample && sample.metadata?.displayColor) {
+                    sampleColors[sampleName] = sample.metadata.displayColor;
                 }
             }
 

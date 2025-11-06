@@ -295,9 +295,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._plotMode = 'EVENTALIGN';
             this._updateConfig('defaultPlotMode', 'EVENTALIGN');
         }
-        // When BAM unloads, switch back to SINGLE
+        // When BAM unloads, switch back to SINGLE_READ
         else {
-            this._plotType = 'SINGLE';
+            this._plotType = 'SINGLE_READ';
             this._plotMode = 'SINGLE';
             this._updateConfig('defaultPlotMode', 'SINGLE');
         }
