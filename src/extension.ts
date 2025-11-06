@@ -212,27 +212,67 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Get modification filters from Modifications panel
                 const modFilters = modificationsProvider.getFilters();
 
-                // Generate aggregate plot using currently selected sample from Read Explorer
-                await state.squiggyAPI.generateAggregatePlot(
-                    options.reference,
-                    options.maxReads,
-                    options.normalization,
-                    theme,
-                    options.showModifications,
-                    modFilters.minProbability,
-                    modFilters.enabledModTypes,
-                    options.showPileup,
-                    options.showDwellTime,
-                    options.showSignal,
-                    options.showQuality,
-                    options.clipXAxisToAlignment,
-                    options.transformCoordinates,
-                    state.selectedReadExplorerSample || undefined // Use current sample
-                );
+                // Route based on number of samples selected
+                if (options.sampleNames.length === 1) {
+                    // Single-sample aggregate plot
+                    await state.squiggyAPI.generateAggregatePlot(
+                        options.reference,
+                        options.maxReads,
+                        options.normalization,
+                        theme,
+                        options.showModifications,
+                        modFilters.minProbability,
+                        modFilters.enabledModTypes,
+                        options.showPileup,
+                        options.showDwellTime,
+                        options.showSignal,
+                        options.showQuality,
+                        options.clipXAxisToAlignment,
+                        options.transformCoordinates,
+                        options.sampleNames[0]
+                    );
 
-                vscode.window.showInformationMessage(
-                    `Generated aggregate plot for ${options.reference}`
-                );
+                    vscode.window.showInformationMessage(
+                        `Generated aggregate plot for ${options.reference}`
+                    );
+                } else if (options.sampleNames.length > 1) {
+                    // Multi-sample aggregate plot
+                    if (options.viewStyle === 'overlay') {
+                        // Use aggregate comparison (overlays mean signals)
+                        // Convert boolean flags to metrics array
+                        const metrics: string[] = [];
+                        if (options.showSignal) {
+                            metrics.push('signal');
+                        }
+                        if (options.showDwellTime) {
+                            metrics.push('dwell_time');
+                        }
+                        if (options.showQuality) {
+                            metrics.push('quality');
+                        }
+
+                        await vscode.commands.executeCommand(
+                            'squiggy.plotAggregateComparison',
+                            {
+                                sampleNames: options.sampleNames,
+                                reference: options.reference,
+                                metrics: metrics,
+                                maxReads: options.maxReads,
+                            }
+                        );
+
+                        vscode.window.showInformationMessage(
+                            `Generated aggregate comparison for ${options.sampleNames.length} samples`
+                        );
+                    } else {
+                        // Multi-track mode (separate detailed tracks per sample)
+                        vscode.window.showWarningMessage(
+                            'Multi-track aggregate view not yet implemented. Use overlay mode for now.'
+                        );
+                    }
+                } else {
+                    vscode.window.showErrorMessage('No samples selected for aggregate plot');
+                }
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
             }

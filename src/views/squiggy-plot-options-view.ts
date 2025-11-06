@@ -98,8 +98,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
 
     // Event emitter for when user requests aggregate plot generation
     private _onDidRequestAggregatePlot = new vscode.EventEmitter<{
+        sampleNames: string[]; // Now supports 1+ samples
         reference: string;
         maxReads: number;
+        viewStyle: 'overlay' | 'multi-track'; // For multi-sample: overlay or separate tracks
         normalization: string;
         showModifications: boolean;
         showPileup: boolean;
@@ -211,8 +213,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         if (message.type === 'generateAggregatePlot') {
             // Fire event for extension.ts to handle
             this._onDidRequestAggregatePlot.fire({
+                sampleNames: message.sampleNames,
                 reference: message.reference,
                 maxReads: message.maxReads,
+                viewStyle: message.viewStyle,
                 normalization: message.normalization,
                 showModifications: message.showModifications,
                 showPileup: message.showPileup,

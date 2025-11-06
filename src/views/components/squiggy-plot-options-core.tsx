@@ -65,7 +65,7 @@ export const PlotOptionsCore: React.FC = () => {
         normalization: 'ZNORM',
         // Single Read options (used by Read Explorer clicks, not this panel)
         plotMode: 'SINGLE',
-        showDwellTime: false,
+        showDwellTime: true,
         showBaseAnnotations: true,
         scaleDwellTime: false,
         downsample: 5,
@@ -172,12 +172,20 @@ export const PlotOptionsCore: React.FC = () => {
                         message.samples.length,
                         'samples'
                     );
-                    setOptions((prev) => ({
-                        ...prev,
-                        loadedSamples: message.samples,
-                        // Auto-select first 2 samples for comparison
-                        selectedSamples: message.samples.slice(0, 2).map((s: SampleItem) => s.name),
-                    }));
+                    setOptions((prev) => {
+                        // Only auto-select first 2 samples if nothing is currently selected (initial load)
+                        // Otherwise preserve existing selections to avoid overwriting user choices
+                        const shouldAutoSelect = prev.selectedSamples.length === 0;
+                        const newSelectedSamples = shouldAutoSelect
+                            ? message.samples.slice(0, 2).map((s: SampleItem) => s.name)
+                            : prev.selectedSamples;
+
+                        return {
+                            ...prev,
+                            loadedSamples: message.samples,
+                            selectedSamples: newSelectedSamples,
+                        };
+                    });
                     break;
                 case 'updateSelectedSamples':
                     console.log(
