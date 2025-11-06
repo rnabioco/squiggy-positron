@@ -13,25 +13,57 @@ import { PackageManager } from '../backend/package-manager';
 import { PythonBackend } from '../backend/squiggy-python-backend';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
-import { FilePanelProvider } from '../views/squiggy-file-panel';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
 import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
 import { SessionState, SampleSessionState } from '../types/squiggy-session-types';
+import { LoadedItem } from '../types/loaded-item';
 import { SessionStateManager } from './session-state-manager';
 import { PathResolver } from './path-resolver';
 import { FileResolver } from './file-resolver';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
+ *
+ * Phase 3 refactor: Designed to support future TSV import and sample management.
+ * - `sampleId`: Unique identifier (can be UUID or file-based)
+ * - `displayName`: User-facing name (editable), separate from POD5 filename
+ * - `pod5Path`: Single POD5 file (Phase 3), extensible to array for multi-POD5 future
+ * - `isLoaded`: Tracks kernel state (prepares for lazy loading in #79 TSV import)
+ * - `metadata`: Extensible object for future attributes without interface changes
  */
 export interface SampleInfo {
-    name: string;
-    pod5Path: string;
+    // Core identifiers
+    sampleId: string; // Unique ID (can be UUID or derived from pod5 path)
+    displayName: string; // User-facing name (editable in Sample Manager)
+
+    // File associations
+    pod5Path: string; // Single POD5 per sample (Phase 3)
     bamPath?: string;
     fastaPath?: string;
+
+    // File metadata
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+
+    // Kernel state (for lazy loading)
+    isLoaded: boolean; // Whether files are loaded into kernel
+
+    // Extensible metadata (for future features without refactoring)
+    metadata?: {
+        // Sample identification
+        autoDetected?: boolean; // Was sample auto-detected from file names?
+
+        // UI preferences
+        displayColor?: string; // Hex or CSS color for plot rendering
+
+        // TSV import tracking (future #79)
+        sourceType?: 'manual' | 'tsv'; // Origin of sample (manual UI or TSV import)
+        tsvGroup?: string; // Batch grouping if loaded from same TSV
+
+        // Additional notes or tags (extensible)
+        tags?: string[];
+    };
 }
 
 /**
@@ -48,7 +80,6 @@ export class ExtensionState {
     // UI panel providers
     private _readsViewPane?: ReadsViewPane;
     private _plotOptionsProvider?: PlotOptionsViewProvider;
-    private _filePanelProvider?: FilePanelProvider;
     private _modificationsProvider?: ModificationsPanelProvider;
     private _samplesProvider?: SamplesPanelProvider;
 
@@ -68,7 +99,20 @@ export class ExtensionState {
     // Multi-sample state (Phase 4)
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
+    private _samplesForVisualization: Set<string> = new Set(); // Samples selected for plotting
     private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
+    private _selectedReadExplorerSample: string | null = null; // Currently selected sample in Read Explorer
+
+    // ========== UNIFIED STATE (Issue #92) ==========
+    // Consolidated registry replacing fragmented state silos
+    private _loadedItems: Map<string, LoadedItem> = new Map();
+    private _selectedItemIds: Set<string> = new Set();
+    private _itemsForComparison: Set<string> = new Set();
+
+    // Event emitters for cross-panel synchronization
+    private _onLoadedItemsChanged: vscode.EventEmitter<LoadedItem[]> = new vscode.EventEmitter();
+    private _onSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
+    private _onComparisonChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -119,13 +163,11 @@ export class ExtensionState {
     initializePanels(
         readsViewPane: ReadsViewPane,
         plotOptionsProvider: PlotOptionsViewProvider,
-        filePanelProvider: FilePanelProvider,
         modificationsProvider: ModificationsPanelProvider,
         samplesProvider?: SamplesPanelProvider
     ): void {
         this._readsViewPane = readsViewPane;
         this._plotOptionsProvider = plotOptionsProvider;
-        this._filePanelProvider = filePanelProvider;
         this._modificationsProvider = modificationsProvider;
         this._samplesProvider = samplesProvider;
     }
@@ -146,9 +188,6 @@ export class ExtensionState {
 
         // Clear UI panels
         this._readsViewPane?.setReads([]);
-        this._filePanelProvider?.clearPOD5();
-        this._filePanelProvider?.clearBAM();
-        this._filePanelProvider?.clearFASTA?.();
         this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
@@ -210,10 +249,6 @@ squiggy.close_fasta()
         return this._plotOptionsProvider;
     }
 
-    get filePanelProvider(): FilePanelProvider | undefined {
-        return this._filePanelProvider;
-    }
-
     get modificationsProvider(): ModificationsPanelProvider | undefined {
         return this._modificationsProvider;
     }
@@ -254,6 +289,14 @@ squiggy.close_fasta()
         this._currentPlotReadIds = value;
     }
 
+    get selectedReadExplorerSample(): string | null {
+        return this._selectedReadExplorerSample;
+    }
+
+    set selectedReadExplorerSample(value: string | null) {
+        this._selectedReadExplorerSample = value;
+    }
+
     get squiggyInstallChecked(): boolean {
         return this._squiggyInstallChecked;
     }
@@ -286,26 +329,251 @@ squiggy.close_fasta()
         this._pod5LoadContext = value;
     }
 
+    // ========== UNIFIED STATE EVENTS (Issue #92) ==========
+
+    /**
+     * Event fired when loaded items change (add/remove)
+     * Listened to by: File Panel, Samples Panel, Reads View, etc.
+     */
+    get onLoadedItemsChanged(): vscode.Event<LoadedItem[]> {
+        return this._onLoadedItemsChanged.event;
+    }
+
+    /**
+     * Event fired when selection changes
+     * Listened to by: UI panels for local selection state
+     */
+    get onSelectionChanged(): vscode.Event<string[]> {
+        return this._onSelectionChanged.event;
+    }
+
+    /**
+     * Event fired when comparison selection changes
+     * Listened to by: Samples Panel for comparison mode
+     */
+    get onComparisonChanged(): vscode.Event<string[]> {
+        return this._onComparisonChanged.event;
+    }
+
+    // ========== UNIFIED ITEM MANAGEMENT (Issue #92) ==========
+
+    /**
+     * Add or update a loaded item in the unified registry
+     * Fires onLoadedItemsChanged event to notify all listeners
+     *
+     * @param item - LoadedItem to add or update
+     */
+    addLoadedItem(item: LoadedItem): void {
+        this._loadedItems.set(item.id, item);
+        this._notifyLoadedItemsChanged();
+    }
+
+    /**
+     * Remove a loaded item from the unified registry
+     * Also removes from selection sets and fires notifications
+     *
+     * @param id - Item ID to remove
+     */
+    removeLoadedItem(id: string): void {
+        this._loadedItems.delete(id);
+        // Also remove from selections
+        this._selectedItemIds.delete(id);
+        this._itemsForComparison.delete(id);
+        this._notifyLoadedItemsChanged();
+        this._notifySelectionChanged();
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Get all loaded items
+     * @returns Array of all LoadedItem objects
+     */
+    getLoadedItems(): LoadedItem[] {
+        return Array.from(this._loadedItems.values());
+    }
+
+    /**
+     * Get a specific item by ID
+     * @param id - Item ID
+     * @returns LoadedItem if found, undefined otherwise
+     */
+    getLoadedItem(id: string): LoadedItem | undefined {
+        return this._loadedItems.get(id);
+    }
+
+    /**
+     * Clear all loaded items (e.g., on reset)
+     */
+    clearLoadedItems(): void {
+        this._loadedItems.clear();
+        this._selectedItemIds.clear();
+        this._itemsForComparison.clear();
+        this._notifyLoadedItemsChanged();
+        this._notifySelectionChanged();
+        this._notifyComparisonChanged();
+    }
+
+    // ========== SELECTION MANAGEMENT (Issue #92) ==========
+
+    /**
+     * Update selection in UI (e.g., checkbox clicked)
+     * @param ids - Array of selected item IDs
+     */
+    setSelectedItems(ids: string[]): void {
+        this._selectedItemIds = new Set(ids);
+        this._notifySelectionChanged();
+    }
+
+    /**
+     * Get currently selected items
+     * @returns Array of selected item IDs
+     */
+    getSelectedItems(): string[] {
+        return Array.from(this._selectedItemIds);
+    }
+
+    /**
+     * Toggle selection of an item
+     * @param id - Item ID to toggle
+     */
+    toggleItemSelection(id: string): void {
+        if (this._selectedItemIds.has(id)) {
+            this._selectedItemIds.delete(id);
+        } else {
+            this._selectedItemIds.add(id);
+        }
+        this._notifySelectionChanged();
+    }
+
+    /**
+     * Check if an item is selected
+     * @param id - Item ID to check
+     * @returns true if selected, false otherwise
+     */
+    isItemSelected(id: string): boolean {
+        return this._selectedItemIds.has(id);
+    }
+
+    // ========== COMPARISON MANAGEMENT (Issue #92) ==========
+
+    /**
+     * Update items selected for comparison
+     * @param ids - Array of item IDs for comparison
+     */
+    setComparisonItems(ids: string[]): void {
+        this._itemsForComparison = new Set(ids);
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Get items selected for comparison
+     * @returns Array of item IDs for comparison
+     */
+    getComparisonItems(): string[] {
+        return Array.from(this._itemsForComparison);
+    }
+
+    /**
+     * Add item to comparison selection
+     * @param id - Item ID to add
+     */
+    addToComparison(id: string): void {
+        this._itemsForComparison.add(id);
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Remove item from comparison selection
+     * @param id - Item ID to remove
+     */
+    removeFromComparison(id: string): void {
+        this._itemsForComparison.delete(id);
+        this._notifyComparisonChanged();
+    }
+
+    /**
+     * Clear comparison selection
+     */
+    clearComparison(): void {
+        this._itemsForComparison.clear();
+        this._notifyComparisonChanged();
+    }
+
+    // ========== PRIVATE NOTIFICATION HELPERS ==========
+
+    /**
+     * Notify all listeners that loaded items changed
+     * @private
+     */
+    private _notifyLoadedItemsChanged(): void {
+        this._onLoadedItemsChanged.fire(this.getLoadedItems());
+    }
+
+    /**
+     * Notify all listeners that selection changed
+     * @private
+     */
+    private _notifySelectionChanged(): void {
+        this._onSelectionChanged.fire(this.getSelectedItems());
+    }
+
+    /**
+     * Notify all listeners that comparison selection changed
+     * @private
+     */
+    private _notifyComparisonChanged(): void {
+        this._onComparisonChanged.fire(this.getComparisonItems());
+    }
+
     // ========== Multi-Sample Management (Phase 4) ==========
 
     get loadedSamples(): Map<string, SampleInfo> {
         return this._loadedSamples;
     }
 
-    getSample(name: string): SampleInfo | undefined {
-        return this._loadedSamples.get(name);
+    getSample(nameOrId: string): SampleInfo | undefined {
+        // First try direct lookup by sampleId
+        const bySampleId = this._loadedSamples.get(nameOrId);
+        if (bySampleId) {
+            return bySampleId;
+        }
+
+        // Fall back to search by displayName
+        for (const sample of this._loadedSamples.values()) {
+            if (sample.displayName === nameOrId) {
+                return sample;
+            }
+        }
+
+        return undefined;
     }
 
     addSample(sample: SampleInfo): void {
-        this._loadedSamples.set(sample.name, sample);
+        // Use sampleId as the key to preserve insertion order during renames
+        // displayName can be edited in Sample Manager without moving the sample in the list
+        this._loadedSamples.set(sample.sampleId, sample);
     }
 
     removeSample(name: string): void {
-        this._loadedSamples.delete(name);
+        // Support removal by displayName (for backward compatibility) or by sampleId
+        // First try direct lookup by sampleId
+        if (this._loadedSamples.has(name)) {
+            this._loadedSamples.delete(name);
+            return;
+        }
+
+        // Fall back to search by displayName
+        for (const [sampleId, sample] of this._loadedSamples) {
+            if (sample.displayName === name) {
+                this._loadedSamples.delete(sampleId);
+                return;
+            }
+        }
     }
 
     getAllSampleNames(): string[] {
-        return Array.from(this._loadedSamples.keys());
+        // Return displayNames (user-facing names) in insertion order
+        return Array.from(this._loadedSamples.values()).map((sample) => sample.displayName);
     }
 
     get selectedSamplesForComparison(): string[] {
@@ -342,6 +610,34 @@ squiggy.close_fasta()
     }
 
     /**
+     * Add sample to visualization selection (for plotting)
+     */
+    addSampleToVisualization(sampleName: string): void {
+        this._samplesForVisualization.add(sampleName);
+    }
+
+    /**
+     * Remove sample from visualization selection
+     */
+    removeSampleFromVisualization(sampleName: string): void {
+        this._samplesForVisualization.delete(sampleName);
+    }
+
+    /**
+     * Check if sample is selected for visualization
+     */
+    isSampleSelectedForVisualization(sampleName: string): boolean {
+        return this._samplesForVisualization.has(sampleName);
+    }
+
+    /**
+     * Get all samples selected for visualization
+     */
+    getSamplesForVisualization(): string[] {
+        return Array.from(this._samplesForVisualization);
+    }
+
+    /**
      * Get session-level FASTA file path
      */
     get sessionFastaPath(): string | null {
@@ -368,11 +664,35 @@ squiggy.close_fasta()
      * Serialize current extension state to SessionState format
      */
     toSessionState(): SessionState {
-        // Build samples object from current state
+        // Build samples object from unified state first, fall back to legacy state
         const samples: { [sampleName: string]: SampleSessionState } = {};
 
-        // If using multi-sample mode (when implemented)
-        if (this._loadedSamples.size > 0) {
+        // Use unified state (_loadedItems) if available
+        if (this._loadedItems.size > 0) {
+            // Process unified state items
+            for (const [id, item] of this._loadedItems.entries()) {
+                if (item.type === 'sample') {
+                    // Sample from unified state
+                    const sampleName = item.sampleName || id.substring(7); // Extract name after "sample:"
+                    samples[sampleName] = {
+                        pod5Paths: [item.pod5Path],
+                        bamPath: item.bamPath,
+                        fastaPath: item.fastaPath,
+                    };
+                } else if (item.type === 'pod5' && id.startsWith('pod5:')) {
+                    // Standalone POD5 file from unified state
+                    const sampleName = 'Default';
+                    if (!samples[sampleName]) {
+                        samples[sampleName] = {
+                            pod5Paths: [item.pod5Path],
+                            bamPath: item.bamPath,
+                            fastaPath: item.fastaPath,
+                        };
+                    }
+                }
+            }
+        } else if (this._loadedSamples.size > 0) {
+            // Fall back to legacy multi-sample mode
             for (const [sampleName, sampleInfo] of this._loadedSamples.entries()) {
                 samples[sampleName] = {
                     pod5Paths: [sampleInfo.pod5Path],
@@ -381,7 +701,7 @@ squiggy.close_fasta()
                 };
             }
         } else {
-            // Legacy single-file mode - create a default sample
+            // Fall back to legacy single-file mode
             if (this._currentPod5File) {
                 samples['Default'] = {
                     pod5Paths: [this._currentPod5File],
@@ -448,6 +768,30 @@ squiggy.close_fasta()
         for (const [sampleName, sampleData] of Object.entries(session.samples)) {
             try {
                 await this.restoreSample(sampleName, sampleData, isDemo, extensionUri);
+
+                // Also add to unified state for cross-panel synchronization
+                // Use sampleName if it's not "Default", otherwise use POD5 path
+                const pod5Path = sampleData.pod5Paths?.[0];
+                if (pod5Path) {
+                    const itemId =
+                        sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+                    const unifiedItem: LoadedItem = {
+                        id: itemId,
+                        type: sampleName === 'Default' ? 'pod5' : 'sample',
+                        pod5Path: pod5Path,
+                        bamPath: sampleData.bamPath,
+                        fastaPath: sampleData.fastaPath,
+                        sampleName: sampleName === 'Default' ? undefined : sampleName,
+                        readCount: 0, // Will be populated by restoreSample
+                        fileSize: 0, // Will be populated by restoreSample
+                        fileSizeFormatted: 'Unknown',
+                        hasAlignments: !!sampleData.bamPath,
+                        hasReference: !!sampleData.fastaPath,
+                        hasMods: false, // Will be determined when loading BAM
+                        hasEvents: false, // Will be determined when loading BAM
+                    };
+                    this.addLoadedItem(unifiedItem);
+                }
             } catch (error) {
                 errors.push(`Failed to restore sample ${sampleName}: ${error}`);
             }
@@ -478,6 +822,14 @@ squiggy.close_fasta()
         // Restore UI state
         if (session.ui) {
             this._selectedSamplesForComparison = session.ui.selectedSamplesForComparison || [];
+
+            // Also populate unified state comparison items
+            const comparisonIds = (session.ui.selectedSamplesForComparison || []).map(
+                (sampleName) => `sample:${sampleName}`
+            );
+            if (comparisonIds.length > 0) {
+                this.setComparisonItems(comparisonIds);
+            }
         }
 
         // Show errors if any
@@ -601,7 +953,7 @@ squiggy.close_fasta()
         // Load POD5 (assuming single POD5 for now)
         if (resolvedPod5Paths.length > 0) {
             const pod5Path = resolvedPod5Paths[0];
-            const pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
+            const _pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
             this._currentPod5File = pod5Path;
 
             // Get first 1000 read IDs for reads view (lazy loading)
@@ -610,22 +962,13 @@ squiggy.close_fasta()
                 this._readsViewPane?.setReads(readIds);
             }
 
-            // Update file panel and plot options
-            if (this._filePanelProvider) {
-                const fs = await import('fs/promises');
-                const stats = await fs.stat(pod5Path);
-                this._filePanelProvider.setPOD5({
-                    path: pod5Path,
-                    numReads: pod5Result.numReads,
-                    size: stats.size,
-                });
-            }
+            // Update plot options
             this._plotOptionsProvider?.updatePod5Status(true);
         }
 
         // Load BAM if present
         if (resolvedBamPath) {
-            const bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
+            const _bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
             this._currentBamFile = resolvedBamPath;
 
             // Get references only (lazy loading - don't fetch reads yet)
@@ -651,21 +994,6 @@ squiggy.close_fasta()
                 this._readsViewPane?.setReferencesOnly(referenceList);
             }
 
-            // Update file panel
-            if (this._filePanelProvider) {
-                const fs = await import('fs/promises');
-                const stats = await fs.stat(resolvedBamPath);
-
-                this._filePanelProvider.setBAM({
-                    path: resolvedBamPath,
-                    numReads: bamResult.numReads,
-                    numRefs: Object.keys(referenceToReads).length,
-                    size: stats.size,
-                    hasMods: bamResult.hasModifications,
-                    hasEvents: bamResult.hasEventAlignment,
-                });
-            }
-
             // Update plot options BAM status
             if (this._plotOptionsProvider) {
                 this._plotOptionsProvider.updateBamStatus(true);
@@ -681,28 +1009,48 @@ squiggy.close_fasta()
         if (resolvedFastaPath) {
             await this._squiggyAPI.loadFASTA?.(resolvedFastaPath);
             this._currentFastaFile = resolvedFastaPath;
-
-            // Update file panel
-            if (this._filePanelProvider) {
-                const fs = await import('fs/promises');
-                const stats = await fs.stat(resolvedFastaPath);
-                this._filePanelProvider.setFASTA?.({
-                    path: resolvedFastaPath,
-                    size: stats.size,
-                });
-            }
         }
 
         // Add to loaded samples if multi-sample mode
         if (resolvedPod5Paths.length > 0) {
+            // CRITICAL: Load sample into Python registry so TypeScript queries work
+            try {
+                console.log(
+                    `[restoreSample] Loading sample '${sampleName}' into Python registry...`
+                );
+                await this._squiggyAPI.loadSample(
+                    sampleName,
+                    resolvedPod5Paths[0],
+                    resolvedBamPath,
+                    resolvedFastaPath
+                );
+                console.log(
+                    `[restoreSample] Sample '${sampleName}' successfully loaded into Python registry`
+                );
+            } catch (error) {
+                console.error(`[restoreSample] Failed to load sample into Python registry:`, error);
+                // Continue anyway - sample is in TypeScript state
+            }
+
             const sampleInfo: SampleInfo = {
-                name: sampleName,
+                // Core identifiers
+                sampleId: `sample:${sampleName}`, // Consistent with LoadedItem ID format
+                displayName: sampleName, // Can be edited later in Sample Manager
+                // File associations
                 pod5Path: resolvedPod5Paths[0],
                 bamPath: resolvedBamPath,
                 fastaPath: resolvedFastaPath,
+                // File metadata
                 readCount: 0, // Will be populated by loadPOD5
                 hasBam: !!resolvedBamPath,
                 hasFasta: !!resolvedFastaPath,
+                // Kernel state
+                isLoaded: true, // Files have been loaded to kernel
+                // Extensible metadata
+                metadata: {
+                    autoDetected: false, // Manual sample creation for now
+                    sourceType: 'manual', // Manual UI creation (not from TSV)
+                },
             };
             this._loadedSamples.set(sampleName, sampleInfo);
         }
