@@ -153,6 +153,21 @@ export enum ConfigurationTarget {
     WorkspaceFolder = 3,
 }
 
+// Mock View Column
+export enum ViewColumn {
+    Active = -1,
+    Beside = -2,
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
+    Eight = 8,
+    Nine = 9,
+}
+
 // Mock window API
 export const window = {
     showErrorMessage: jest.fn(),
@@ -167,6 +182,7 @@ export const window = {
     },
     onDidChangeActiveColorTheme: jest.fn(() => ({ dispose: jest.fn() })),
     registerWebviewViewProvider: jest.fn(() => ({ dispose: jest.fn() })),
+    createWebviewPanel: jest.fn(),
 };
 
 // Command registry for testing
