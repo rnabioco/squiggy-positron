@@ -154,6 +154,12 @@
         "title": "Clear Saved Session",
         "category": "Squiggy",
         "icon": "$(trash)"
+      },
+      {
+        "command": "squiggy.showLogs",
+        "title": "Show Extension Logs",
+        "category": "Squiggy",
+        "icon": "$(output)"
       }
     ],
     "viewsContainers": {

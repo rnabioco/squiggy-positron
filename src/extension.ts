@@ -18,6 +18,7 @@ import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
 import { registerSessionCommands } from './commands/session-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
+import { logger } from './utils/logger';
 
 // Global extension state
 const state = new ExtensionState();
@@ -26,6 +27,9 @@ const state = new ExtensionState();
  * Extension activation
  */
 export async function activate(context: vscode.ExtensionContext) {
+    // Initialize centralized logger (creates Output Channel)
+    logger.initialize(context);
+
     // Initialize backends (Positron or subprocess fallback)
     await state.initializeBackends(context);
 
@@ -183,6 +187,13 @@ export async function activate(context: vscode.ExtensionContext) {
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
     registerSessionCommands(context, state);
+
+    // Register command to show logs
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.showLogs', () => {
+            logger.show();
+        })
+    );
 
     // Extension activated silently - no welcome message needed
 }
