@@ -168,35 +168,26 @@ export const ModificationsCore: React.FC = () => {
                 color: 'var(--vscode-foreground)',
             }}
         >
-            {/* Probability Threshold */}
+            {/* Probability Filter */}
             {state.hasProbabilities && (
                 <div style={{ marginBottom: '20px' }}>
                     <div
                         style={{
                             fontWeight: 'bold',
-                            marginBottom: '8px',
+                            marginBottom: '4px',
                             color: 'var(--vscode-foreground)',
                         }}
                     >
-                        Probability Threshold
+                        Modification Confidence Filter
                     </div>
                     <div
                         style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            marginBottom: '4px',
-                            fontSize: '0.9em',
+                            fontSize: '0.85em',
+                            marginBottom: '8px',
+                            color: 'var(--vscode-descriptionForeground)',
                         }}
                     >
-                        <span>Minimum probability:</span>
-                        <span
-                            style={{
-                                fontWeight: 'bold',
-                                color: 'var(--vscode-input-foreground)',
-                            }}
-                        >
-                            {state.minProbability.toFixed(2)}
-                        </span>
+                        Minimum basecaller probability to count a read as modified
                     </div>
                     <input
                         type="range"
@@ -209,15 +200,38 @@ export const ModificationsCore: React.FC = () => {
                     />
                     <div
                         style={{
-                            fontSize: '0.85em',
-                            color: 'var(--vscode-descriptionForeground)',
-                            fontStyle: 'italic',
+                            textAlign: 'right',
+                            fontSize: '0.9em',
+                            fontWeight: 'bold',
+                            color: 'var(--vscode-input-foreground)',
                         }}
                     >
-                        Only show modifications with probability ≥ {state.minProbability.toFixed(2)}
+                        ≥ {state.minProbability.toFixed(2)}
                     </div>
                 </div>
             )}
+
+            {/* Info Box */}
+            <div
+                style={{
+                    padding: '8px',
+                    marginBottom: '20px',
+                    backgroundColor: 'var(--vscode-textBlockQuote-background)',
+                    borderLeft: '3px solid var(--vscode-textLink-foreground)',
+                    fontSize: '0.85em',
+                    color: 'var(--vscode-foreground)',
+                }}
+            >
+                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Aggregate plots show:</div>
+                <ul style={{ marginTop: '4px', marginBottom: '0', paddingLeft: '20px' }}>
+                    <li style={{ marginBottom: '4px' }}>
+                        <strong>Frequency:</strong> % of reads modified at each position
+                    </li>
+                    <li>
+                        <strong>Mean Prob:</strong> Average confidence among modified reads
+                    </li>
+                </ul>
+            </div>
 
             {/* Modification Types */}
             <div style={{ marginBottom: '20px' }}>

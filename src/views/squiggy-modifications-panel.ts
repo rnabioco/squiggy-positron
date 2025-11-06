@@ -30,7 +30,13 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
     }
 
     protected async handleMessage(message: ModificationsIncomingMessage): Promise<void> {
+        console.log('[ModificationsPanel] Received message:', message);
+
         if (message.type === 'ready') {
+            console.log(
+                '[ModificationsPanel] Webview ready, hasModifications:',
+                this._hasModifications
+            );
             this.updateView();
             return;
         }
@@ -46,6 +52,9 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         // Don't check isVisible here - if we have a view and received 'ready',
         // the webview is ready to receive messages even if not technically "visible" yet
         if (!this._view) {
+            console.log(
+                '[ModificationsPanel] updateView: No view available, data will be sent when webview is ready'
+            );
             return;
         }
 
@@ -56,11 +65,13 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
                 modificationTypes: this._modificationTypes,
                 hasProbabilities: this._hasProbabilities,
             };
+            console.log('[ModificationsPanel] Sending updateModInfo message:', message);
             this.postMessage(message);
         } else {
             const message: ClearModsMessage = {
                 type: 'clearMods',
             };
+            console.log('[ModificationsPanel] Sending clearMods message');
             this.postMessage(message);
         }
     }
@@ -73,6 +84,11 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         modificationTypes: string[],
         hasProbabilities: boolean
     ) {
+        console.log(
+            '[ModificationsPanel] setModificationInfo called:',
+            hasModifications,
+            modificationTypes
+        );
         this._hasModifications = hasModifications;
         this._modificationTypes = modificationTypes;
         this._hasProbabilities = hasProbabilities;
@@ -80,6 +96,7 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         // Initialize all modification types as enabled by default
         this._enabledModTypes = new Set(modificationTypes);
 
+        console.log('[ModificationsPanel] Calling updateView, _view exists:', !!this._view);
         this.updateView();
     }
 

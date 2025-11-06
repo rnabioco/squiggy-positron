@@ -23,7 +23,6 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     sortBy,
     sortOrder,
     onPlotRead,
-    onPlotAggregate,
     onSelectRead,
     onToggleReference,
     onUpdateColumnWidths,
@@ -233,7 +232,6 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                         nameColumnWidth={nameColumnWidth}
                         detailsColumnWidth={detailsColumnWidth}
                         onToggle={onToggleReference}
-                        onPlotAggregate={onPlotAggregate}
                     />
                 </div>
             );
@@ -305,7 +303,6 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                                     nameColumnWidth={nameColumnWidth}
                                     detailsColumnWidth={detailsColumnWidth}
                                     onToggle={onToggleReference}
-                                    onPlotAggregate={onPlotAggregate}
                                 />
                             </div>
                         )}

@@ -32,6 +32,13 @@ export function registerStateCommands(
             );
         })
     );
+
+    // Debug: Check modifications panel status
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.debugModificationsPanel', async () => {
+            await debugModificationsPanel(state);
+        })
+    );
 }
 
 /**
@@ -133,4 +140,69 @@ async function refreshWithBAM(state: ExtensionState): Promise<void> {
 
     // Display in reads view (lazy loading mode)
     state.readsViewPane?.setReferencesOnly(referenceList);
+}
+
+/**
+ * Debug modifications panel - check Python state and sync context variable
+ */
+async function debugModificationsPanel(state: ExtensionState): Promise<void> {
+    if (!state.usePositron || !state.squiggyAPI) {
+        vscode.window.showWarningMessage(
+            'Debug requires Positron runtime with active Python kernel'
+        );
+        return;
+    }
+
+    try {
+        // Check if BAM is loaded in Python
+        const hasBAM = await state.squiggyAPI.client.getVariable(
+            '_squiggy_session.bam_path is not None'
+        );
+
+        if (!hasBAM) {
+            vscode.window.showInformationMessage(
+                'No BAM file loaded. Panel will not appear without modifications.'
+            );
+            await vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
+            return;
+        }
+
+        // Get BAM info
+        const bamInfo = await state.squiggyAPI.client.getVariable('_squiggy_session.bam_info');
+
+        if (!bamInfo || typeof bamInfo !== 'object') {
+            vscode.window.showWarningMessage('BAM loaded but no metadata found');
+            return;
+        }
+
+        const hasModifications = (bamInfo as any).has_modifications || false;
+        const modificationTypes = (bamInfo as any).modification_types || [];
+        const hasProbabilities = (bamInfo as any).has_probabilities || false;
+
+        // Show diagnostic info
+        const message = hasModifications
+            ? `Modifications detected! Types: ${JSON.stringify(modificationTypes)}, Probabilities: ${hasProbabilities}`
+            : 'BAM loaded but no modifications found';
+
+        vscode.window.showInformationMessage(message);
+
+        // Sync context with Python state
+        await vscode.commands.executeCommand(
+            'setContext',
+            'squiggy.hasModifications',
+            hasModifications
+        );
+
+        // Update modifications provider
+        if (hasModifications) {
+            state.modificationsProvider?.setModificationInfo(
+                hasModifications,
+                modificationTypes,
+                hasProbabilities
+            );
+            vscode.window.showInformationMessage('Modifications panel should now be visible!');
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(`Debug failed: ${error}`);
+    }
 }

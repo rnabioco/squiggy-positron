@@ -177,8 +177,10 @@ export interface UpdateReferencesMessage extends BaseMessage {
 
 export interface GenerateAggregatePlotMessage extends BaseMessage {
     type: 'generateAggregatePlot';
+    sampleNames: string[]; // Now supports 1+ samples
     reference: string;
     maxReads: number;
+    viewStyle: 'overlay' | 'multi-track'; // For multi-sample: overlay or separate tracks
     normalization: string;
     showModifications: boolean;
     showPileup: boolean;
@@ -186,10 +188,69 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showSignal: boolean;
     showQuality: boolean;
     clipXAxisToAlignment: boolean;
+    transformCoordinates: boolean;
+}
+
+export interface GenerateMultiReadOverlayMessage extends BaseMessage {
+    type: 'generateMultiReadOverlay';
+    sampleNames: string[];
+    maxReads: number; // Max reads per sample
+    normalization: string;
+    coordinateSpace: 'signal' | 'sequence';
+}
+
+export interface GenerateMultiReadStackedMessage extends BaseMessage {
+    type: 'generateMultiReadStacked';
+    sampleNames: string[];
+    maxReads: number; // Max reads per sample
+    normalization: string;
+    coordinateSpace: 'signal' | 'sequence';
+}
+
+export interface GenerateSignalOverlayComparisonMessage extends BaseMessage {
+    type: 'generateSignalOverlayComparison';
+    sampleNames: string[];
+    maxReads: number;
+    normalization: string;
+}
+
+export interface GenerateSignalDeltaMessage extends BaseMessage {
+    type: 'generateSignalDelta';
+    sampleNames: [string, string]; // Exactly 2 samples for delta
+    reference: string; // Reference sequence to align to
+    maxReads: number;
+    normalization: string;
+}
+
+export interface GenerateAggregateComparisonMessage extends BaseMessage {
+    type: 'generateAggregateComparison';
+    sampleNames: string[];
+    reference: string;
+    metrics: string[]; // ['signal', 'dwell_time', 'quality']
+    maxReads: number;
+    normalization: string;
+}
+
+export interface UpdateLoadedSamplesMessage extends BaseMessage {
+    type: 'updateLoadedSamples';
+    samples: SampleItem[];
+}
+
+export interface UpdateSelectedSamplesMessage extends BaseMessage {
+    type: 'updateSelectedSamples';
+    selectedSamples: string[];
 }
 
 export interface PlotOptions {
-    plotType: 'SINGLE' | 'AGGREGATE';
+    // Analysis Type - 5 plot types (removed SINGLE_READ - use Read Explorer instead)
+    plotType:
+        | 'MULTI_READ_OVERLAY'
+        | 'MULTI_READ_STACKED'
+        | 'AGGREGATE'
+        | 'COMPARE_SIGNAL_DELTA'
+        | 'COMPARE_AGGREGATE';
+
+    // Single Read options
     mode: 'SINGLE' | 'EVENTALIGN';
     normalization: 'ZNORM' | 'MAD' | 'MEDIAN' | 'NONE';
     showDwellTime: boolean;
@@ -198,25 +259,44 @@ export interface PlotOptions {
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment?: boolean;
-    // Aggregate-specific options
+    transformCoordinates?: boolean;
+
+    // Multi-Read Overlay/Stacked options
+    maxReadsMulti?: number;
+
+    // Aggregate (Single Sample) options
     aggregateReference?: string;
     aggregateMaxReads?: number;
     showModifications?: boolean;
     showPileup?: boolean;
     showSignal?: boolean;
     showQuality?: boolean;
+
+    // Comparison options
+    selectedSamples?: string[]; // For multi-sample comparisons
+    comparisonReference?: string; // Reference for aggregate comparison
+    comparisonMetrics?: string[]; // Metrics for aggregate comparison
+    comparisonMaxReads?: number;
 }
 
 export type PlotOptionsIncomingMessage =
     | PlotOptionsChangedMessage
     | RequestReferencesMessage
     | GenerateAggregatePlotMessage
+    | GenerateMultiReadOverlayMessage
+    | GenerateMultiReadStackedMessage
+    | GenerateSignalOverlayComparisonMessage
+    | GenerateSignalDeltaMessage
+    | GenerateAggregateComparisonMessage
+    | ToggleSampleSelectionMessage
     | ReadyMessage;
 export type PlotOptionsOutgoingMessage =
     | UpdatePlotOptionsMessage
     | UpdateBamStatusMessage
     | UpdatePod5StatusMessage
-    | UpdateReferencesMessage;
+    | UpdateReferencesMessage
+    | UpdateLoadedSamplesMessage
+    | UpdateSelectedSamplesMessage;
 
 // ========== Modifications Panel Messages ==========
 
@@ -300,6 +380,11 @@ export interface UpdateSessionFastaMessage extends BaseMessage {
     fastaPath: string | null;
 }
 
+export interface UpdateVisualizationSelectionMessage extends BaseMessage {
+    type: 'updateVisualizationSelection';
+    selectedSamples: string[];
+}
+
 export interface UpdateSampleNameMessage extends BaseMessage {
     type: 'updateSampleName';
     oldName: string;
@@ -343,7 +428,8 @@ export type SamplesIncomingMessage =
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage
     | ClearSamplesMessage
-    | UpdateSessionFastaMessage;
+    | UpdateSessionFastaMessage
+    | UpdateVisualizationSelectionMessage;
 
 // ========== Session Manager Messages ==========
 
@@ -400,10 +486,23 @@ export type IncomingWebviewMessage =
     | SamplesIncomingMessage
     | SessionPanelIncomingMessage;
 
+/**
+ * Common error message sent to any webview
+ */
+export interface ErrorOutgoingMessage {
+    command: 'error';
+    error: {
+        message: string;
+        context?: string;
+        type?: string;
+    };
+}
+
 export type OutgoingWebviewMessage =
     | FilePanelOutgoingMessage
     | ReadsViewOutgoingMessage
     | PlotOptionsOutgoingMessage
     | ModificationsOutgoingMessage
     | SamplesOutgoingMessage
-    | SessionPanelOutgoingMessage;
+    | SessionPanelOutgoingMessage
+    | ErrorOutgoingMessage;

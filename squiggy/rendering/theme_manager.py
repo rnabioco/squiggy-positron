@@ -29,7 +29,7 @@ class ThemeManager:
         colors: Dictionary of theme colors for plots
         base_colors: Dictionary of base nucleotide colors
 
-    Example:
+    Examples:
         >>> from squiggy.theme_manager import ThemeManager
         >>> from squiggy.constants import Theme
         >>>
@@ -60,7 +60,7 @@ class ThemeManager:
         Returns:
             Hex color string for signal line
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.LIGHT)
             >>> manager.get_signal_color()
             '#000000'
@@ -75,7 +75,7 @@ class ThemeManager:
             Dictionary mapping base letter to hex color
             Keys: 'A', 'C', 'G', 'T', 'U', 'N'
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.LIGHT)
             >>> colors = manager.get_base_colors()
             >>> colors['A']  # Adenine color
@@ -114,7 +114,7 @@ class ThemeManager:
         Returns:
             Themed Bokeh figure ready for plotting
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.DARK)
             >>> fig = manager.create_figure(
             ...     title="Signal Plot",
@@ -168,7 +168,7 @@ class ThemeManager:
         Args:
             fig: Bokeh figure to style
 
-        Example:
+        Examples:
             >>> from bokeh.plotting import figure
             >>> fig = figure(width=800, height=400)
             >>> manager = ThemeManager(Theme.DARK)
@@ -216,7 +216,7 @@ class ThemeManager:
         Args:
             fig: Bokeh figure with legend to configure
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.LIGHT)
             >>> fig = manager.create_figure("Plot", "X", "Y")
             >>> fig.line([1, 2, 3], [1, 4, 9], legend_label="Data")
@@ -247,7 +247,7 @@ class ThemeManager:
         Raises:
             KeyError: If color_key not found in theme
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.LIGHT)
             >>> manager.get_color('plot_bg')
             '#ffffff'
@@ -264,7 +264,7 @@ class ThemeManager:
         Returns:
             Hex color string
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.LIGHT)
             >>> manager.get_signal_band_color()
             '#56B4E9'  # Light blue for light theme
@@ -281,7 +281,7 @@ class ThemeManager:
         Returns:
             Hex color string
 
-        Example:
+        Examples:
             >>> manager = ThemeManager(Theme.DARK)
             >>> manager.get_quality_band_color()
             '#FF8C00'  # Dark orange for dark theme

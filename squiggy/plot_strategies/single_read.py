@@ -29,7 +29,7 @@ class SingleReadPlotStrategy(PlotStrategy):
     The strategy uses composition of ThemeManager, BaseAnnotationRenderer,
     and ModificationTrackBuilder to create plots.
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.single_read import SingleReadPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>

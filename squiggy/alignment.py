@@ -6,6 +6,10 @@ from pathlib import Path
 import numpy as np
 import pysam
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class BaseAnnotation:
@@ -52,7 +56,9 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | No
                 if alignment.query_name == read_id:
                     return _parse_alignment(alignment)
     except Exception as e:
-        print(f"Warning: Error reading BAM file for {read_id}: {e}")
+        logger.warning(
+            f"Error reading BAM file for read '{read_id}': {e}", exc_info=True
+        )
 
     return None
 
@@ -83,6 +89,14 @@ def _parse_alignment(alignment) -> AlignedRead | None:
     stride = int(move_table[0])
     moves = move_table[1:]
 
+    # Build query_pos -> ref_pos mapping using get_aligned_pairs()
+    # This properly handles insertions, deletions, and matches
+    query_to_ref = {}
+    if not alignment.is_unmapped:
+        for query_pos, ref_pos in alignment.get_aligned_pairs():
+            if query_pos is not None and ref_pos is not None:
+                query_to_ref[query_pos] = ref_pos
+
     # Convert move table to base annotations
     bases = []
     signal_pos = 0
@@ -104,10 +118,8 @@ def _parse_alignment(alignment) -> AlignedRead | None:
                     # No next base found, extend to end of signal
                     signal_end = signal_pos + ((len(moves) - move_idx) * stride)
 
-                # Get genomic position if aligned
-                genomic_pos = None
-                if not alignment.is_unmapped and alignment.reference_start is not None:
-                    genomic_pos = alignment.reference_start + base_idx
+                # Get genomic position using aligned_pairs (handles indels correctly)
+                genomic_pos = query_to_ref.get(base_idx)
 
                 # Get quality score
                 quality = None
@@ -141,7 +153,7 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         modifications = extract_modifications_from_alignment(alignment, bases)
     except Exception as e:
         # Modifications are optional, don't fail if extraction fails
-        print(f"Warning: Could not extract modifications: {e}")
+        logger.debug(f"Could not extract modifications for read: {e}")
 
     return AlignedRead(
         read_id=alignment.query_name,

@@ -62,6 +62,12 @@ export const ReadsCore: React.FC = () => {
 
             switch (message.type) {
                 case 'setAvailableSamples':
+                    console.log(
+                        '[ReadsCore] Received setAvailableSamples:',
+                        message.samples,
+                        'selected:',
+                        message.selectedSample
+                    );
                     setAvailableSamples(message.samples);
                     setSelectedSample(message.selectedSample);
                     break;
@@ -415,10 +421,6 @@ export const ReadsCore: React.FC = () => {
         vscode.postMessage({ type: 'plotRead', readId });
     };
 
-    const handlePlotAggregate = (referenceName: string) => {
-        vscode.postMessage({ type: 'plotAggregate', referenceName });
-    };
-
     const handleSelectRead = (readId: string, multiSelect: boolean) => {
         setState((prev) => {
             const selectedReadIds = new Set(prev.selectedReadIds);
@@ -502,7 +504,7 @@ export const ReadsCore: React.FC = () => {
             )}
 
             {/* Empty state when no samples loaded */}
-            {availableSamples.length === 0 && (
+            {state.totalReadCount === 0 && availableSamples.length === 0 && (
                 <div className="reads-empty-state">
                     <p>No samples loaded. Load POD5 files to get started.</p>
                 </div>
@@ -550,7 +552,6 @@ export const ReadsCore: React.FC = () => {
                 sortBy={state.sortBy}
                 sortOrder={state.sortOrder}
                 onPlotRead={handlePlotRead}
-                onPlotAggregate={handlePlotAggregate}
                 onSelectRead={handleSelectRead}
                 onToggleReference={handleToggleReference}
                 onSearch={handleSearch}

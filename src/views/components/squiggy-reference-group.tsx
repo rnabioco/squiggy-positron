@@ -15,17 +15,9 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
     nameColumnWidth,
     detailsColumnWidth,
     onToggle,
-    onPlotAggregate,
 }) => {
     const handleClick = () => {
         onToggle(item.referenceName);
-    };
-
-    const handlePlotClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (onPlotAggregate) {
-            onPlotAggregate(item.referenceName);
-        }
     };
 
     return (
@@ -55,17 +47,6 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
                 style={{ width: `${detailsColumnWidth}px` }}
             >
                 <span className="reference-group-count">{item.readCount}</span>
-            </div>
-
-            {/* Actions column - Aggregate plot button */}
-            <div className="reference-group-column reference-group-actions">
-                <button
-                    className="reference-group-action-button"
-                    onClick={handlePlotClick}
-                    title="Plot aggregate for this reference"
-                >
-                    Aggregate
-                </button>
             </div>
         </div>
     );

@@ -6,7 +6,9 @@ plot strategy based on the plot mode.
 """
 
 from .constants import PlotMode, Theme
+from .logging_config import get_logger
 from .plot_strategies.aggregate import AggregatePlotStrategy
+from .plot_strategies.aggregate_comparison import AggregateComparisonStrategy
 from .plot_strategies.base import PlotStrategy
 from .plot_strategies.delta import DeltaPlotStrategy
 from .plot_strategies.eventalign import EventAlignPlotStrategy
@@ -16,6 +18,8 @@ from .plot_strategies.signal_overlay_comparison import (
 )
 from .plot_strategies.single_read import SingleReadPlotStrategy
 from .plot_strategies.stacked import StackedPlotStrategy
+
+logger = get_logger(__name__)
 
 
 def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
@@ -32,7 +36,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
     Raises:
         ValueError: If plot_mode is not recognized
 
-    Example:
+    Examples:
         >>> from squiggy.plot_factory import create_plot_strategy
         >>> from squiggy.constants import PlotMode, Theme
         >>>
@@ -47,13 +51,13 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
         PlotMode.AGGREGATE: AggregatePlotStrategy,
         PlotMode.DELTA: DeltaPlotStrategy,
         PlotMode.SIGNAL_OVERLAY_COMPARISON: SignalOverlayComparisonStrategy,
+        PlotMode.AGGREGATE_COMPARISON: AggregateComparisonStrategy,
     }
 
     strategy_class = strategy_map.get(plot_mode)
     if strategy_class is None:
-        raise ValueError(
-            f"Unknown plot mode: {plot_mode}. "
-            f"Valid modes: {', '.join(m.value for m in PlotMode)}"
-        )
+        valid_modes = ", ".join(m.value for m in PlotMode)
+        logger.error(f"Unknown plot mode: {plot_mode}. Valid modes: {valid_modes}")
+        raise ValueError(f"Unknown plot mode: {plot_mode}. Valid modes: {valid_modes}")
 
     return strategy_class(theme)

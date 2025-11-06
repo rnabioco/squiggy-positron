@@ -48,8 +48,8 @@ jobs:
             - name: Run Python tests with coverage
               run: pixi run pytest tests/ --cov=squiggy --cov-report=xml --cov-report=term
 
-            - name: Run TypeScript tests with coverage
-              run: npm run test:coverage
+            - name: Run TypeScript tests
+              run: npm test
 
             - name: Upload Python coverage to Codecov
               if: matrix.os == 'ubuntu-latest'

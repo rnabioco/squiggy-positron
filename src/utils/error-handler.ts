@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { logger } from './logger';
 
 /**
  * Error context for better error messages
@@ -75,6 +76,44 @@ export class ExternallyManagedEnvironmentError extends SquiggyError {
     }
 }
 
+export class POD5Error extends SquiggyError {
+    constructor(message: string, cause?: Error) {
+        super(message, ErrorContext.POD5_LOAD, cause);
+        this.name = 'POD5Error';
+    }
+}
+
+export class BAMError extends SquiggyError {
+    constructor(message: string, cause?: Error) {
+        super(message, ErrorContext.BAM_LOAD, cause);
+        this.name = 'BAMError';
+    }
+}
+
+export class FASTAError extends SquiggyError {
+    constructor(message: string, cause?: Error) {
+        super(message, ErrorContext.FASTA_LOAD, cause);
+        this.name = 'FASTAError';
+    }
+}
+
+export class PlottingError extends SquiggyError {
+    constructor(message: string, cause?: Error) {
+        super(message, ErrorContext.PLOT_GENERATE, cause);
+        this.name = 'PlottingError';
+    }
+}
+
+export class ValidationError extends SquiggyError {
+    constructor(message: string, parameterName?: string) {
+        const fullMessage = parameterName
+            ? `Invalid parameter '${parameterName}': ${message}`
+            : message;
+        super(fullMessage, ErrorContext.KERNEL_COMMUNICATION);
+        this.name = 'ValidationError';
+    }
+}
+
 /**
  * Handle errors with context-aware user messaging
  *
@@ -84,11 +123,15 @@ export class ExternallyManagedEnvironmentError extends SquiggyError {
 export function handleError(error: unknown, context: ErrorContext): void {
     const errorMessage = formatErrorMessage(error, context);
 
-    // Show error message to user
-    vscode.window.showErrorMessage(errorMessage);
+    // Show error message to user with option to show logs
+    vscode.window.showErrorMessage(errorMessage, 'Show Logs').then((selection) => {
+        if (selection === 'Show Logs') {
+            logger.show();
+        }
+    });
 
-    // Log to extension output channel for debugging
-    console.error(`[Squiggy] Error while ${context}:`, error);
+    // Log to Output Channel (Output panel → Squiggy)
+    logger.error(`Error while ${context}`, error);
 }
 
 /**
@@ -101,8 +144,12 @@ export function handleError(error: unknown, context: ErrorContext): void {
  */
 export function handleErrorWithProgress(error: unknown, context: ErrorContext): void {
     const errorMessage = formatErrorMessage(error, context);
-    vscode.window.showErrorMessage(errorMessage);
-    console.error(`[Squiggy] Error while ${context}:`, error);
+    vscode.window.showErrorMessage(errorMessage, 'Show Logs').then((selection) => {
+        if (selection === 'Show Logs') {
+            logger.show();
+        }
+    });
+    logger.error(`Error while ${context}`, error);
 }
 
 /**
@@ -197,4 +244,105 @@ export async function safeExecuteWithProgress<T>(
         handleErrorWithProgress(error, context);
         return undefined;
     }
+}
+
+/**
+ * Options for retry behavior
+ */
+export interface RetryOptions {
+    /** Maximum number of retry attempts (default: 3) */
+    maxAttempts?: number;
+    /** Base delay in milliseconds between retries (default: 1000) */
+    baseDelayMs?: number;
+    /** Whether to use exponential backoff (default: true) */
+    exponentialBackoff?: boolean;
+    /** Predicate to determine if an error should trigger a retry (default: all errors) */
+    shouldRetry?: (error: Error, attempt: number) => boolean;
+}
+
+/**
+ * Retry an async operation with exponential backoff
+ *
+ * Useful for handling transient failures like network issues or temporary kernel unavailability.
+ *
+ * @param operation - Async function to execute
+ * @param options - Retry configuration options
+ * @returns Promise that resolves with the operation result
+ * @throws Error if all retry attempts fail
+ */
+export async function retryOperation<T>(
+    operation: () => Promise<T>,
+    options: RetryOptions = {}
+): Promise<T> {
+    const {
+        maxAttempts = 3,
+        baseDelayMs = 1000,
+        exponentialBackoff = true,
+        shouldRetry = () => true,
+    } = options;
+
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+
+            // Check if we should retry this error
+            if (!shouldRetry(lastError, attempt)) {
+                throw lastError;
+            }
+
+            // If this was the last attempt, throw the error
+            if (attempt === maxAttempts) {
+                throw lastError;
+            }
+
+            // Calculate delay with optional exponential backoff
+            const delay = exponentialBackoff ? baseDelayMs * Math.pow(2, attempt - 1) : baseDelayMs;
+
+            logger.warning(
+                `Retry attempt ${attempt}/${maxAttempts} failed: ${lastError.message}. Retrying in ${delay}ms...`
+            );
+
+            // Wait before retrying
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+    }
+
+    // This should never be reached due to the throw in the loop, but TypeScript doesn't know that
+    throw lastError || new Error('Retry operation failed with no error');
+}
+
+/**
+ * Check if an error is a transient failure that should be retried
+ *
+ * Transient errors include:
+ * - Network timeouts
+ * - Kernel busy/not ready
+ * - Temporary file locks
+ *
+ * @param error - Error to check
+ * @returns True if the error indicates a transient failure
+ */
+export function isTransientError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+
+    // Kernel-related transient errors
+    if (message.includes('timeout') || message.includes('kernel') || message.includes('busy')) {
+        return true;
+    }
+
+    // File lock errors (can be transient)
+    if (message.includes('lock') || message.includes('in use')) {
+        return true;
+    }
+
+    // Network errors (if using subprocess backend)
+    if (message.includes('econnrefused') || message.includes('econnreset')) {
+        return true;
+    }
+
+    return false;
 }
