@@ -131,3 +131,52 @@ export interface WebviewView {
 export interface WebviewViewProvider {
     resolveWebviewView(webviewView: WebviewView, context: any, token: any): void | Thenable<void>;
 }
+
+// Export ProgressLocation enum for error handler
+export enum ProgressLocation {
+    SourceControl = 1,
+    Window = 10,
+    Notification = 15,
+}
+
+// Mock Color Theme Kind
+export enum ColorThemeKind {
+    Light = 1,
+    Dark = 2,
+    HighContrast = 3,
+}
+
+// Mock window API
+export const window = {
+    showErrorMessage: jest.fn(),
+    showInformationMessage: jest.fn(),
+    showWarningMessage: jest.fn(),
+    showOpenDialog: jest.fn(),
+    withProgress: jest.fn((options, task) => task()),
+    activeColorTheme: {
+        kind: ColorThemeKind.Light,
+    },
+    onDidChangeActiveColorTheme: jest.fn(() => ({ dispose: jest.fn() })),
+    registerWebviewViewProvider: jest.fn(() => ({ dispose: jest.fn() })),
+};
+
+// Command registry for testing
+const commandRegistry = new Map<string, (...args: any[]) => any>();
+
+// Mock commands API
+export const commands = {
+    registerCommand: jest.fn((command: string, callback: (...args: any[]) => any) => {
+        commandRegistry.set(command, callback);
+        return { dispose: jest.fn() };
+    }),
+    executeCommand: jest.fn(async (command: string, ...args: any[]) => {
+        const handler = commandRegistry.get(command);
+        if (handler) {
+            return await handler(...args);
+        }
+        throw new Error(`Command '${command}' not found`);
+    }),
+    getCommands: jest.fn(async (_filterInternal?: boolean) => {
+        return Array.from(commandRegistry.keys());
+    }),
+};

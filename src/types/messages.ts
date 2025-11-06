@@ -400,10 +400,23 @@ export type IncomingWebviewMessage =
     | SamplesIncomingMessage
     | SessionPanelIncomingMessage;
 
+/**
+ * Common error message sent to any webview
+ */
+export interface ErrorOutgoingMessage {
+    command: 'error';
+    error: {
+        message: string;
+        context?: string;
+        type?: string;
+    };
+}
+
 export type OutgoingWebviewMessage =
     | FilePanelOutgoingMessage
     | ReadsViewOutgoingMessage
     | PlotOptionsOutgoingMessage
     | ModificationsOutgoingMessage
     | SamplesOutgoingMessage
-    | SessionPanelOutgoingMessage;
+    | SessionPanelOutgoingMessage
+    | ErrorOutgoingMessage;
