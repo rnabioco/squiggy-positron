@@ -177,7 +177,7 @@ class AggregatePlotStrategy(PlotStrategy):
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
 
         # Build panel list dynamically based on available data and visibility options
-        # Panel order: modifications, pileup, dwell time, signal, quality
+        # Panel order: modifications (optional), signal, pileup, quality, dwell time (optional)
         panels = []
         all_figs = []  # Keep track of all figures for x-range linking
 
@@ -193,26 +193,6 @@ class AggregatePlotStrategy(PlotStrategy):
             panels.append([p_mods])
             all_figs.append(p_mods)
 
-        # Create pileup track if enabled
-        if show_pileup:
-            p_pileup = self._create_pileup_track(
-                pileup_stats=pileup_stats,
-                motif_positions=motif_positions,
-                transformation_info=transformation_info,
-            )
-            panels.append([p_pileup])
-            all_figs.append(p_pileup)
-
-        # Create dwell time track if data exists and panel is enabled
-        if (
-            show_dwell_time
-            and dwell_stats
-            and len(dwell_stats.get("positions", [])) > 0
-        ):
-            p_dwell = self._create_dwell_time_track(dwell_stats=dwell_stats)
-            panels.append([p_dwell])
-            all_figs.append(p_dwell)
-
         # Create signal track if enabled
         if show_signal:
             p_signal = self._create_signal_track(
@@ -224,11 +204,31 @@ class AggregatePlotStrategy(PlotStrategy):
             panels.append([p_signal])
             all_figs.append(p_signal)
 
+        # Create pileup track if enabled
+        if show_pileup:
+            p_pileup = self._create_pileup_track(
+                pileup_stats=pileup_stats,
+                motif_positions=motif_positions,
+                transformation_info=transformation_info,
+            )
+            panels.append([p_pileup])
+            all_figs.append(p_pileup)
+
         # Create quality track if enabled
         if show_quality:
             p_quality = self._create_quality_track(quality_stats=quality_stats)
             panels.append([p_quality])
             all_figs.append(p_quality)
+
+        # Create dwell time track if data exists and panel is enabled
+        if (
+            show_dwell_time
+            and dwell_stats
+            and len(dwell_stats.get("positions", [])) > 0
+        ):
+            p_dwell = self._create_dwell_time_track(dwell_stats=dwell_stats)
+            panels.append([p_dwell])
+            all_figs.append(p_dwell)
 
         # Link x-axes for synchronized zoom/pan
         # Use first figure as base for x_range
