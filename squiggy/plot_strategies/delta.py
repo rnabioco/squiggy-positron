@@ -44,7 +44,7 @@ class DeltaPlotStrategy(PlotStrategy):
     Attributes:
         theme: Theme enum (LIGHT or DARK) for plot styling
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.delta import DeltaPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>

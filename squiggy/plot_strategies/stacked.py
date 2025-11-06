@@ -22,7 +22,7 @@ class StackedPlotStrategy(PlotStrategy):
     This strategy plots multiple reads vertically offset to prevent overlap,
     making it easy to compare signals across many reads.
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.stacked import StackedPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>

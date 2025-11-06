@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
 import { ReadItem } from '../types/squiggy-reads-types';
 import { ErrorContext, safeExecuteWithProgress } from '../utils/error-handler';
+import { logger } from '../utils/logger';
 
 /**
  * Register plot-related commands
@@ -350,6 +351,10 @@ async function plotReads(readIds: string[], state: ExtensionState): Promise<void
             const mode = options.mode;
             const normalization = options.normalization;
 
+            logger.info(
+                `Generating ${mode} plot for ${readIds.length} read${readIds.length !== 1 ? 's' : ''} (normalization: ${normalization})`
+            );
+
             // Get modification filters
             const modFilters = state.modificationsProvider?.getFilters();
             if (!modFilters) {
@@ -376,6 +381,7 @@ async function plotReads(readIds: string[], state: ExtensionState): Promise<void
                     options.showSignalPoints,
                     state.selectedReadExplorerSample || undefined // Pass current sample for multi-sample mode
                 );
+                logger.info('Plot generated successfully');
             } else if (state.pythonBackend) {
                 // Use subprocess backend - still need webview fallback
                 // TODO: subprocess backend doesn't have Plots pane integration

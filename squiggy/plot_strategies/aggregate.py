@@ -32,7 +32,7 @@ class AggregatePlotStrategy(PlotStrategy):
     4. Mean signal with confidence bands
     5. Quality scores by position
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.aggregate import AggregatePlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>

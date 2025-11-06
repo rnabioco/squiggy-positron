@@ -44,6 +44,7 @@ site/
 node_modules/
 build/
 *.vsix
+coverage/
 
 # Test workspace - used for extension development
 test-workspace/
@@ -60,3 +61,4 @@ positron/
 remora/
 squigualiser/
 TASK.md
+coverage-report.json
