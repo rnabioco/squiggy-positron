@@ -1,33 +1,55 @@
 /**
- * Sample Comparison Panel Core Component
+ * Samples Panel Core Component
  *
- * React-based UI for managing samples and initiating multi-sample comparisons
+ * React-based UI for managing samples (loading, naming, coloring, metadata)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { vscode } from './vscode-api';
 import { SampleItem } from '../../types/messages';
 
+// Okabe-Ito colorblind-friendly palette
+// Reference: https://jfly.uni-koeln.de/color/
+const OKABE_ITO_PALETTE = [
+    '#E69F00', // Orange
+    '#56B4E9', // Sky Blue
+    '#009E73', // Bluish Green
+    '#F0E442', // Yellow
+    '#0072B2', // Blue
+    '#D55E00', // Vermillion
+    '#CC79A7', // Reddish Purple
+];
+
 interface SamplesState {
     samples: SampleItem[];
-    selectedSamples: Set<string>;
     sessionFastaPath: string | null; // Session-level FASTA file path
     editingSampleName: string | null; // Which sample name is being edited
     editInputValue: string; // Current value in edit input
     sampleColors: Map<string, string>; // Map of sample names to hex colors
     expandedSamples: Set<string>; // Which samples have their details expanded
+    selectedSamplesForVisualization: Set<string>; // Which samples are selected for plotting
 }
 
 export const SamplesCore: React.FC = () => {
     const [state, setState] = useState<SamplesState>({
         samples: [],
-        selectedSamples: new Set(),
         sessionFastaPath: null,
         editingSampleName: null,
         editInputValue: '',
         sampleColors: new Map(),
         expandedSamples: new Set(), // Start with all samples collapsed
+        selectedSamplesForVisualization: new Set(), // Start with no samples selected
     });
+    const editInputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-select text in rename input when entering edit mode
+    useEffect(() => {
+        if (state.editingSampleName && editInputRef.current) {
+            // Focus and select all text
+            editInputRef.current.focus();
+            editInputRef.current.select();
+        }
+    }, [state.editingSampleName]);
 
     // Listen for messages from extension
     useEffect(() => {
@@ -39,20 +61,51 @@ export const SamplesCore: React.FC = () => {
                 case 'updateSamples': {
                     console.log('Updating samples:', message.samples);
                     setState((prev) => {
-                        // Auto-select newly added samples
                         const samples = (message as any).samples as SampleItem[];
-                        const newSampleNames = new Set(samples.map((s: SampleItem) => s.name));
-                        const updatedSelected = new Set(prev.selectedSamples);
-                        newSampleNames.forEach((name: string) => {
-                            if (!prev.selectedSamples.has(name)) {
-                                updatedSelected.add(name);
+                        const newColors = new Map(prev.sampleColors);
+                        const newSelected = new Set(prev.selectedSamplesForVisualization);
+
+                        // Migrate colors for renamed samples by matching file paths
+                        // This preserves colors when a sample is renamed (same files, different name)
+                        for (const [oldName, oldColor] of prev.sampleColors) {
+                            // If the old name is not in the new samples list
+                            if (!samples.some((s) => s.name === oldName)) {
+                                // Find the old sample by name to get its file paths
+                                const oldSample = prev.samples.find((s) => s.name === oldName);
+                                if (oldSample) {
+                                    // Find matching new sample by comparing file paths (unique identifiers)
+                                    const matchingNewSample = samples.find(
+                                        (s) =>
+                                            s.pod5Path === oldSample.pod5Path &&
+                                            s.bamPath === oldSample.bamPath
+                                    );
+                                    if (matchingNewSample) {
+                                        // Migrate the color to the new sample name
+                                        console.log(
+                                            `[SamplesCore] Migrating color for renamed sample: ${oldName} → ${matchingNewSample.name}`
+                                        );
+                                        newColors.delete(oldName);
+                                        newColors.set(matchingNewSample.name, oldColor);
+                                    }
+                                }
                             }
+                        }
+
+                        // Assign default Okabe-Ito colors to new samples (that don't already have colors)
+                        samples.forEach((sample, index) => {
+                            if (!newColors.has(sample.name)) {
+                                const colorIndex = index % OKABE_ITO_PALETTE.length;
+                                newColors.set(sample.name, OKABE_ITO_PALETTE[colorIndex]);
+                            }
+                            // Default all samples to selected for visualization
+                            newSelected.add(sample.name);
                         });
 
                         return {
                             ...prev,
                             samples,
-                            selectedSamples: updatedSelected,
+                            sampleColors: newColors,
+                            selectedSamplesForVisualization: newSelected,
                         };
                     });
                     break;
@@ -62,12 +115,12 @@ export const SamplesCore: React.FC = () => {
                     console.log('Clearing samples');
                     setState({
                         samples: [],
-                        selectedSamples: new Set(),
                         sessionFastaPath: null,
                         editingSampleName: null,
                         editInputValue: '',
                         sampleColors: new Map(),
                         expandedSamples: new Set(),
+                        selectedSamplesForVisualization: new Set(),
                     });
                     break;
 
@@ -91,26 +144,6 @@ export const SamplesCore: React.FC = () => {
 
         return () => window.removeEventListener('message', handleMessage);
     }, []);
-
-    const handleSampleToggle = (sampleName: string) => {
-        setState((prev) => {
-            const newSelected = new Set(prev.selectedSamples);
-            if (newSelected.has(sampleName)) {
-                newSelected.delete(sampleName);
-            } else {
-                newSelected.add(sampleName);
-            }
-
-            // Send update to extension
-            vscode.postMessage({
-                type: 'selectSample',
-                sampleName,
-                selected: newSelected.has(sampleName),
-            });
-
-            return { ...prev, selectedSamples: newSelected };
-        });
-    };
 
     const handleUnloadSample = (sampleName: string) => {
         console.log('Requesting unload of sample:', sampleName);
@@ -230,6 +263,27 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
+    const handleToggleSampleSelection = (sampleName: string) => {
+        setState((prev) => {
+            const newSelected = new Set(prev.selectedSamplesForVisualization);
+            if (newSelected.has(sampleName)) {
+                newSelected.delete(sampleName);
+            } else {
+                newSelected.add(sampleName);
+            }
+            return {
+                ...prev,
+                selectedSamplesForVisualization: newSelected,
+            };
+        });
+
+        // Send selection change to extension
+        vscode.postMessage({
+            type: 'toggleSampleSelection',
+            sampleName: sampleName,
+        });
+    };
+
     const handleSetFastaForAll = () => {
         vscode.postMessage({
             type: 'requestSetSessionFasta',
@@ -259,56 +313,23 @@ export const SamplesCore: React.FC = () => {
     //     return 'unknown';
     // };
 
-    if (state.samples.length === 0) {
-        return (
-            <div
-                style={{
-                    padding: '10px',
-                    fontFamily: 'var(--vscode-font-family)',
-                    fontSize: 'var(--vscode-font-size)',
-                    color: 'var(--vscode-foreground)',
-                }}
-            >
-                <div
-                    style={{
-                        padding: '12px',
-                        backgroundColor: 'var(--vscode-input-background)',
-                        border: '1px solid var(--vscode-widget-border)',
-                        borderRadius: '4px',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontSize: '0.9em',
-                        lineHeight: '1.5',
-                    }}
-                >
-                    <p style={{ marginTop: 0 }}>
-                        <strong>No samples loaded yet.</strong>
-                    </p>
-                    <p style={{ margin: '8px 0' }}>
-                        Use the "Load Sample Data" button in the <strong>File Explorer</strong>{' '}
-                        panel to add POD5 and BAM files. Samples will appear here for organization
-                        and comparison.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div
             style={{
-                padding: '10px',
+                padding: '6px',
                 fontFamily: 'var(--vscode-font-family)',
                 fontSize: 'var(--vscode-font-size)',
                 color: 'var(--vscode-foreground)',
             }}
         >
-            {/* "Set FASTA for All Samples" Button */}
-            <div style={{ marginBottom: '12px' }}>
+            {/* Toolbar Buttons */}
+            <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+                {/* "Load Sample" Button */}
                 <button
-                    onClick={handleSetFastaForAll}
+                    onClick={_handleLoadSamplesClick}
                     style={{
-                        width: '100%',
-                        padding: '6px 8px',
+                        flex: 1,
+                        padding: '4px 5px',
                         backgroundColor: 'var(--vscode-button-background)',
                         color: 'var(--vscode-button-foreground)',
                         border: 'none',
@@ -316,7 +337,33 @@ export const SamplesCore: React.FC = () => {
                         cursor: 'pointer',
                         fontSize: 'var(--vscode-font-size)',
                         fontFamily: 'var(--vscode-font-family)',
-                        marginBottom: '4px',
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-hoverBackground)';
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.backgroundColor =
+                            'var(--vscode-button-background)';
+                    }}
+                    title="Load POD5 and optional BAM/FASTA files as samples"
+                >
+                    Load Sample(s)
+                </button>
+
+                {/* "Set Reference" Button */}
+                <button
+                    onClick={handleSetFastaForAll}
+                    style={{
+                        flex: 1,
+                        padding: '4px 5px',
+                        backgroundColor: 'var(--vscode-button-background)',
+                        color: 'var(--vscode-button-foreground)',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontSize: 'var(--vscode-font-size)',
+                        fontFamily: 'var(--vscode-font-family)',
                     }}
                     onMouseEnter={(e) => {
                         (e.target as HTMLButtonElement).style.backgroundColor =
@@ -327,35 +374,60 @@ export const SamplesCore: React.FC = () => {
                             'var(--vscode-button-background)';
                     }}
                 >
-                    {state.sessionFastaPath ? '✓ Set FASTA for All' : 'Set FASTA for All'}
+                    {state.sessionFastaPath ? '✓ Set Reference' : 'Set Reference'}
                 </button>
-                {state.sessionFastaPath && (
-                    <div
-                        style={{
-                            fontSize: '0.75em',
-                            color: 'var(--vscode-descriptionForeground)',
-                            padding: '4px',
-                            wordBreak: 'break-word',
-                        }}
-                    >
-                        {state.sessionFastaPath.split('/').pop()}
-                    </div>
-                )}
             </div>
+            {state.sessionFastaPath && (
+                <div
+                    style={{
+                        fontSize: '0.75em',
+                        color: 'var(--vscode-descriptionForeground)',
+                        padding: '2px',
+                        wordBreak: 'break-word',
+                        marginBottom: '8px',
+                    }}
+                >
+                    {state.sessionFastaPath.split('/').pop()}
+                </div>
+            )}
+
+            {/* Empty State Message */}
+            {state.samples.length === 0 && (
+                <div
+                    style={{
+                        padding: '8px',
+                        backgroundColor: 'var(--vscode-input-background)',
+                        border: '1px solid var(--vscode-widget-border)',
+                        borderRadius: '4px',
+                        color: 'var(--vscode-descriptionForeground)',
+                        fontSize: '0.9em',
+                        lineHeight: '1.5',
+                        marginBottom: '8px',
+                    }}
+                >
+                    <p style={{ marginTop: 0 }}>
+                        <strong>No samples loaded yet.</strong>
+                    </p>
+                    <p style={{ margin: '5px 0' }}>
+                        Click <strong>"Load Sample(s)"</strong> to add POD5 and BAM files, or <strong>"Set Reference"</strong> to add a shared reference genome.
+                        Samples will appear here for naming, coloring, and organization.
+                    </p>
+                </div>
+            )}
 
             {/* Samples List - Collapsible Rows */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
                 <div
                     style={{
                         fontWeight: 'bold',
-                        marginBottom: '8px',
+                        marginBottom: '5px',
                         color: 'var(--vscode-foreground)',
                     }}
                 >
                     Loaded Samples ({state.samples.length})
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {state.samples.map((sample) => {
                         const isExpanded = state.expandedSamples.has(sample.name);
                         return (
@@ -373,8 +445,8 @@ export const SamplesCore: React.FC = () => {
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '8px',
+                                        gap: '4px',
+                                        padding: '5px',
                                         cursor: 'pointer',
                                         backgroundColor: isExpanded
                                             ? 'var(--vscode-input-background)'
@@ -385,6 +457,53 @@ export const SamplesCore: React.FC = () => {
                                     }}
                                     onClick={() => toggleSampleExpanded(sample.name)}
                                 >
+                                    {/* Selection Checkbox with Eye Icon */}
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '3px',
+                                            cursor: 'pointer',
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleSampleSelection(sample.name);
+                                        }}
+                                        title="Include this sample in plot visualizations"
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: '0.85em',
+                                                opacity: state.selectedSamplesForVisualization.has(
+                                                    sample.name
+                                                )
+                                                    ? 1
+                                                    : 0.3,
+                                                transition: 'opacity 0.2s',
+                                            }}
+                                        >
+                                            👁️
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={state.selectedSamplesForVisualization.has(
+                                                sample.name
+                                            )}
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleSampleSelection(sample.name);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                cursor: 'pointer',
+                                                flexShrink: 0,
+                                                margin: 0,
+                                            }}
+                                        />
+                                    </div>
+
                                     {/* Expand/Collapse Toggle */}
                                     <div
                                         style={{
@@ -400,22 +519,6 @@ export const SamplesCore: React.FC = () => {
                                     >
                                         {isExpanded ? '▼' : '▶'}
                                     </div>
-
-                                    {/* Selection Checkbox */}
-                                    <input
-                                        type="checkbox"
-                                        id={`sample-${sample.name}`}
-                                        checked={state.selectedSamples.has(sample.name)}
-                                        onChange={(e) => {
-                                            e.stopPropagation();
-                                            handleSampleToggle(sample.name);
-                                        }}
-                                        style={{
-                                            marginRight: '0px',
-                                            flexShrink: 0,
-                                            cursor: 'pointer',
-                                        }}
-                                    />
 
                                     {/* Color Picker */}
                                     <input
@@ -448,6 +551,7 @@ export const SamplesCore: React.FC = () => {
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <input
+                                                ref={editInputRef}
                                                 type="text"
                                                 value={state.editInputValue}
                                                 onChange={(e) =>
@@ -469,7 +573,7 @@ export const SamplesCore: React.FC = () => {
                                                 }}
                                                 style={{
                                                     flex: 1,
-                                                    padding: '4px',
+                                                    padding: '3px',
                                                     backgroundColor:
                                                         'var(--vscode-input-background)',
                                                     color: 'var(--vscode-input-foreground)',
@@ -479,7 +583,6 @@ export const SamplesCore: React.FC = () => {
                                                     fontFamily: 'var(--vscode-font-family)',
                                                     fontSize: '0.95em',
                                                 }}
-                                                autoFocus
                                             />
                                             <button
                                                 onClick={(e) => {
@@ -490,7 +593,7 @@ export const SamplesCore: React.FC = () => {
                                                     );
                                                 }}
                                                 style={{
-                                                    padding: '2px 6px',
+                                                    padding: '2px 4px',
                                                     backgroundColor:
                                                         'var(--vscode-button-background)',
                                                     color: 'var(--vscode-button-foreground)',
@@ -509,7 +612,7 @@ export const SamplesCore: React.FC = () => {
                                                     handleCancelNameEdit();
                                                 }}
                                                 style={{
-                                                    padding: '2px 6px',
+                                                    padding: '2px 4px',
                                                     backgroundColor:
                                                         'var(--vscode-errorForeground)',
                                                     color: 'var(--vscode-editor-background)',
@@ -547,7 +650,7 @@ export const SamplesCore: React.FC = () => {
                                             fontSize: '0.75em',
                                             backgroundColor: 'var(--vscode-badge-background)',
                                             color: 'var(--vscode-badge-foreground)',
-                                            padding: '2px 6px',
+                                            padding: '2px 4px',
                                             borderRadius: '2px',
                                             flexShrink: 0,
                                         }}
@@ -560,7 +663,7 @@ export const SamplesCore: React.FC = () => {
                                 {isExpanded && (
                                     <div
                                         style={{
-                                            padding: '8px',
+                                            padding: '5px',
                                             backgroundColor: 'var(--vscode-input-background)',
                                             fontSize: '0.85em',
                                             color: 'var(--vscode-foreground)',
@@ -568,7 +671,7 @@ export const SamplesCore: React.FC = () => {
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {/* POD5 File */}
-                                        <div style={{ marginBottom: '6px' }}>
+                                        <div style={{ marginBottom: '4px' }}>
                                             <div
                                                 style={{
                                                     color: 'var(--vscode-descriptionForeground)',
@@ -580,7 +683,7 @@ export const SamplesCore: React.FC = () => {
                                             </div>
                                             <div
                                                 style={{
-                                                    padding: '4px 6px',
+                                                    padding: '3px 4px',
                                                     backgroundColor:
                                                         'var(--vscode-editor-background)',
                                                     borderRadius: '2px',
@@ -592,7 +695,7 @@ export const SamplesCore: React.FC = () => {
                                         </div>
 
                                         {/* BAM File */}
-                                        <div style={{ marginBottom: '6px' }}>
+                                        <div style={{ marginBottom: '4px' }}>
                                             <div
                                                 style={{
                                                     color: 'var(--vscode-descriptionForeground)',
@@ -613,7 +716,7 @@ export const SamplesCore: React.FC = () => {
                                                     <div
                                                         style={{
                                                             flex: 1,
-                                                            padding: '4px 6px',
+                                                            padding: '3px 4px',
                                                             backgroundColor:
                                                                 'var(--vscode-editor-background)',
                                                             borderRadius: '2px',
@@ -624,7 +727,7 @@ export const SamplesCore: React.FC = () => {
                                                     </div>
                                                     <button
                                                         style={{
-                                                            padding: '2px 8px',
+                                                            padding: '2px 5px',
                                                             fontSize: '0.75em',
                                                             backgroundColor:
                                                                 'var(--vscode-button-background)',
@@ -654,7 +757,7 @@ export const SamplesCore: React.FC = () => {
                                                 <button
                                                     style={{
                                                         width: '100%',
-                                                        padding: '4px',
+                                                        padding: '3px',
                                                         fontSize: '0.85em',
                                                         backgroundColor:
                                                             'var(--vscode-button-background)',
@@ -682,7 +785,7 @@ export const SamplesCore: React.FC = () => {
                                         </div>
 
                                         {/* FASTA File - Show sample FASTA or session FASTA */}
-                                        <div style={{ marginBottom: '6px' }}>
+                                        <div style={{ marginBottom: '4px' }}>
                                             {(() => {
                                                 const fastaPath =
                                                     sample.fastaPath || state.sessionFastaPath;
@@ -708,14 +811,14 @@ export const SamplesCore: React.FC = () => {
                                                             <div
                                                                 style={{
                                                                     display: 'flex',
-                                                                    gap: '4px',
+                                                                    gap: '3px',
                                                                     alignItems: 'center',
                                                                 }}
                                                             >
                                                                 <div
                                                                     style={{
                                                                         flex: 1,
-                                                                        padding: '4px 6px',
+                                                                        padding: '3px 4px',
                                                                         backgroundColor:
                                                                             'var(--vscode-editor-background)',
                                                                         borderRadius: '2px',
@@ -723,36 +826,45 @@ export const SamplesCore: React.FC = () => {
                                                                     }}
                                                                 >
                                                                     {fastaPath.split('/').pop()}
+                                                                    {isSessionFasta && (
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '0.75em',
+                                                                                color: 'var(--vscode-descriptionForeground)',
+                                                                                marginLeft: '3px',
+                                                                            }}
+                                                                        >
+                                                                            (session)
+                                                                        </span>
+                                                                    )}
                                                                 </div>
-                                                                {!isSessionFasta && (
-                                                                    <button
-                                                                        style={{
-                                                                            padding: '2px 8px',
-                                                                            fontSize: '0.75em',
-                                                                            backgroundColor:
-                                                                                'var(--vscode-button-background)',
-                                                                            color: 'var(--vscode-button-foreground)',
-                                                                            border: 'none',
-                                                                            borderRadius: '2px',
-                                                                            cursor: 'pointer',
-                                                                            flexShrink: 0,
-                                                                        }}
-                                                                        onMouseEnter={(e) => {
-                                                                            (
-                                                                                e.target as HTMLButtonElement
-                                                                            ).style.backgroundColor =
-                                                                                'var(--vscode-button-hoverBackground)';
-                                                                        }}
-                                                                        onMouseLeave={(e) => {
-                                                                            (
-                                                                                e.target as HTMLButtonElement
-                                                                            ).style.backgroundColor =
-                                                                                'var(--vscode-button-background)';
-                                                                        }}
-                                                                    >
-                                                                        [Change]
-                                                                    </button>
-                                                                )}
+                                                                <button
+                                                                    style={{
+                                                                        padding: '2px 5px',
+                                                                        fontSize: '0.75em',
+                                                                        backgroundColor:
+                                                                            'var(--vscode-button-background)',
+                                                                        color: 'var(--vscode-button-foreground)',
+                                                                        border: 'none',
+                                                                        borderRadius: '2px',
+                                                                        cursor: 'pointer',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        (
+                                                                            e.target as HTMLButtonElement
+                                                                        ).style.backgroundColor =
+                                                                            'var(--vscode-button-hoverBackground)';
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        (
+                                                                            e.target as HTMLButtonElement
+                                                                        ).style.backgroundColor =
+                                                                            'var(--vscode-button-background)';
+                                                                    }}
+                                                                >
+                                                                    [Change]
+                                                                </button>
                                                             </div>
                                                         ) : (
                                                             <button
@@ -763,7 +875,7 @@ export const SamplesCore: React.FC = () => {
                                                                 }
                                                                 style={{
                                                                     width: '100%',
-                                                                    padding: '4px',
+                                                                    padding: '3px',
                                                                     fontSize: '0.85em',
                                                                     backgroundColor:
                                                                         'var(--vscode-button-background)',
@@ -796,16 +908,16 @@ export const SamplesCore: React.FC = () => {
                                         {/* Unload Button */}
                                         <div
                                             style={{
-                                                marginTop: '8px',
+                                                marginTop: '5px',
                                                 borderTop: '1px solid var(--vscode-widget-border)',
-                                                paddingTop: '8px',
+                                                paddingTop: '5px',
                                             }}
                                         >
                                             <button
                                                 onClick={() => handleUnloadSample(sample.name)}
                                                 style={{
                                                     width: '100%',
-                                                    padding: '4px',
+                                                    padding: '3px',
                                                     fontSize: '0.85em',
                                                     backgroundColor:
                                                         'var(--vscode-button-background)',

@@ -13,7 +13,6 @@ import { PackageManager } from '../backend/package-manager';
 import { PythonBackend } from '../backend/squiggy-python-backend';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
-import { FilePanelProvider } from '../views/squiggy-file-panel';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
 import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
 import { SessionState, SampleSessionState } from '../types/squiggy-session-types';
@@ -81,7 +80,6 @@ export class ExtensionState {
     // UI panel providers
     private _readsViewPane?: ReadsViewPane;
     private _plotOptionsProvider?: PlotOptionsViewProvider;
-    private _filePanelProvider?: FilePanelProvider;
     private _modificationsProvider?: ModificationsPanelProvider;
     private _samplesProvider?: SamplesPanelProvider;
 
@@ -101,6 +99,7 @@ export class ExtensionState {
     // Multi-sample state (Phase 4)
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
+    private _samplesForVisualization: Set<string> = new Set(); // Samples selected for plotting
     private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
     private _selectedReadExplorerSample: string | null = null; // Currently selected sample in Read Explorer
 
@@ -164,13 +163,11 @@ export class ExtensionState {
     initializePanels(
         readsViewPane: ReadsViewPane,
         plotOptionsProvider: PlotOptionsViewProvider,
-        filePanelProvider: FilePanelProvider,
         modificationsProvider: ModificationsPanelProvider,
         samplesProvider?: SamplesPanelProvider
     ): void {
         this._readsViewPane = readsViewPane;
         this._plotOptionsProvider = plotOptionsProvider;
-        this._filePanelProvider = filePanelProvider;
         this._modificationsProvider = modificationsProvider;
         this._samplesProvider = samplesProvider;
     }
@@ -191,9 +188,6 @@ export class ExtensionState {
 
         // Clear UI panels
         this._readsViewPane?.setReads([]);
-        this._filePanelProvider?.clearPOD5();
-        this._filePanelProvider?.clearBAM();
-        this._filePanelProvider?.clearFASTA?.();
         this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
@@ -253,10 +247,6 @@ squiggy.close_fasta()
 
     get plotOptionsProvider(): PlotOptionsViewProvider | undefined {
         return this._plotOptionsProvider;
-    }
-
-    get filePanelProvider(): FilePanelProvider | undefined {
-        return this._filePanelProvider;
     }
 
     get modificationsProvider(): ModificationsPanelProvider | undefined {
@@ -541,22 +531,49 @@ squiggy.close_fasta()
         return this._loadedSamples;
     }
 
-    getSample(name: string): SampleInfo | undefined {
-        return this._loadedSamples.get(name);
+    getSample(nameOrId: string): SampleInfo | undefined {
+        // First try direct lookup by sampleId
+        const bySampleId = this._loadedSamples.get(nameOrId);
+        if (bySampleId) {
+            return bySampleId;
+        }
+
+        // Fall back to search by displayName
+        for (const sample of this._loadedSamples.values()) {
+            if (sample.displayName === nameOrId) {
+                return sample;
+            }
+        }
+
+        return undefined;
     }
 
     addSample(sample: SampleInfo): void {
-        // Use displayName as the key for backward compatibility
-        // displayName can be edited in Sample Manager, but the key stays stable
-        this._loadedSamples.set(sample.displayName, sample);
+        // Use sampleId as the key to preserve insertion order during renames
+        // displayName can be edited in Sample Manager without moving the sample in the list
+        this._loadedSamples.set(sample.sampleId, sample);
     }
 
     removeSample(name: string): void {
-        this._loadedSamples.delete(name);
+        // Support removal by displayName (for backward compatibility) or by sampleId
+        // First try direct lookup by sampleId
+        if (this._loadedSamples.has(name)) {
+            this._loadedSamples.delete(name);
+            return;
+        }
+
+        // Fall back to search by displayName
+        for (const [sampleId, sample] of this._loadedSamples) {
+            if (sample.displayName === name) {
+                this._loadedSamples.delete(sampleId);
+                return;
+            }
+        }
     }
 
     getAllSampleNames(): string[] {
-        return Array.from(this._loadedSamples.keys());
+        // Return displayNames (user-facing names) in insertion order
+        return Array.from(this._loadedSamples.values()).map((sample) => sample.displayName);
     }
 
     get selectedSamplesForComparison(): string[] {
@@ -590,6 +607,34 @@ squiggy.close_fasta()
      */
     clearComparisonSelection(): void {
         this._selectedSamplesForComparison = [];
+    }
+
+    /**
+     * Add sample to visualization selection (for plotting)
+     */
+    addSampleToVisualization(sampleName: string): void {
+        this._samplesForVisualization.add(sampleName);
+    }
+
+    /**
+     * Remove sample from visualization selection
+     */
+    removeSampleFromVisualization(sampleName: string): void {
+        this._samplesForVisualization.delete(sampleName);
+    }
+
+    /**
+     * Check if sample is selected for visualization
+     */
+    isSampleSelectedForVisualization(sampleName: string): boolean {
+        return this._samplesForVisualization.has(sampleName);
+    }
+
+    /**
+     * Get all samples selected for visualization
+     */
+    getSamplesForVisualization(): string[] {
+        return Array.from(this._samplesForVisualization);
     }
 
     /**
@@ -917,16 +962,7 @@ squiggy.close_fasta()
                 this._readsViewPane?.setReads(readIds);
             }
 
-            // Update file panel and plot options
-            if (this._filePanelProvider) {
-                const fs = await import('fs/promises');
-                const stats = await fs.stat(pod5Path);
-                this._filePanelProvider.setPOD5({
-                    path: pod5Path,
-                    numReads: pod5Result.numReads,
-                    size: stats.size,
-                });
-            }
+            // Update plot options
             this._plotOptionsProvider?.updatePod5Status(true);
         }
 
@@ -958,21 +994,6 @@ squiggy.close_fasta()
                 this._readsViewPane?.setReferencesOnly(referenceList);
             }
 
-            // Update file panel
-            if (this._filePanelProvider) {
-                const fs = await import('fs/promises');
-                const stats = await fs.stat(resolvedBamPath);
-
-                this._filePanelProvider.setBAM({
-                    path: resolvedBamPath,
-                    numReads: bamResult.numReads,
-                    numRefs: Object.keys(referenceToReads).length,
-                    size: stats.size,
-                    hasMods: bamResult.hasModifications,
-                    hasEvents: bamResult.hasEventAlignment,
-                });
-            }
-
             // Update plot options BAM status
             if (this._plotOptionsProvider) {
                 this._plotOptionsProvider.updateBamStatus(true);
@@ -988,16 +1009,6 @@ squiggy.close_fasta()
         if (resolvedFastaPath) {
             await this._squiggyAPI.loadFASTA?.(resolvedFastaPath);
             this._currentFastaFile = resolvedFastaPath;
-
-            // Update file panel
-            if (this._filePanelProvider) {
-                const fs = await import('fs/promises');
-                const stats = await fs.stat(resolvedFastaPath);
-                this._filePanelProvider.setFASTA?.({
-                    path: resolvedFastaPath,
-                    size: stats.size,
-                });
-            }
         }
 
         // Add to loaded samples if multi-sample mode

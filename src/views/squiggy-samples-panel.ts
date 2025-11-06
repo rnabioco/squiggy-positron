@@ -1,8 +1,7 @@
 /**
- * Sample Comparison Panel Webview View
+ * Samples Panel Webview View
  *
- * Manages loaded samples for multi-sample comparison with selection,
- * comparison workflow, and sample management (unload).
+ * Manages loaded samples for organization and configuration (naming, colors, metadata).
  * Subscribes to unified extension state for cross-panel synchronization.
  */
 
@@ -25,7 +24,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
     private _state: ExtensionState;
     private _samples: SampleItem[] = [];
-    private _selectedSamples: Set<string> = new Set();
     private _disposables: vscode.Disposable[] = [];
 
     // Event emitter for sample unload requests
@@ -41,12 +39,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             this._handleLoadedItemsChanged(items);
         });
         this._disposables.push(itemsDisposable);
-
-        // Subscribe to comparison selection changes
-        const comparisonDisposable = this._state.onComparisonChanged((ids: string[]) => {
-            this._handleComparisonChanged(ids);
-        });
-        this._disposables.push(comparisonDisposable);
     }
 
     /**
@@ -76,23 +68,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     }
 
     /**
-     * Handle comparison selection changes from unified state
-     * @private
-     */
-    private _handleComparisonChanged(ids: string[]): void {
-        // Filter for sample IDs and extract sample names
-        this._selectedSamples = new Set(
-            ids.filter((id) => id.startsWith('sample:')).map((id) => id.substring(7))
-        );
-
-        console.log(
-            '[SamplesPanelProvider] Comparison selection changed:',
-            Array.from(this._selectedSamples)
-        );
-        this.updateView();
-    }
-
-    /**
      * Dispose method to clean up subscriptions
      */
     public dispose(): void {
@@ -104,7 +79,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     }
 
     protected getTitle(): string {
-        return 'Sample Manager';
+        return 'Samples';
     }
 
     protected async handleMessage(message: SamplesIncomingMessage): Promise<void> {
@@ -112,14 +87,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             case 'ready':
                 // Webview is ready, send initial state
                 this.updateView();
-                break;
-
-            case 'selectSample':
-                if (message.selected) {
-                    this._selectedSamples.add(message.sampleName);
-                } else {
-                    this._selectedSamples.delete(message.sampleName);
-                }
                 break;
 
             case 'unloadSample': {
@@ -133,7 +100,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
                 if (confirm === 'Yes') {
                     this._onDidRequestUnload.fire(message.sampleName);
-                    this._selectedSamples.delete(message.sampleName);
                 }
                 break;
             }
@@ -162,11 +128,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     // Update map key: remove old, add new
                     this._state.removeSample(message.oldName);
                     this._state.addSample(sample);
-                    // If sample was selected, update selection
-                    if (this._selectedSamples.has(message.oldName)) {
-                        this._selectedSamples.delete(message.oldName);
-                        this._selectedSamples.add(message.newName);
-                    }
                     console.log(
                         `[SamplesPanelProvider] Renamed sample: ${message.oldName} → ${message.newName}`
                     );
@@ -188,6 +149,20 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     );
                     this.updateView();
                 }
+                break;
+            }
+
+            case 'toggleSampleSelection': {
+                // Toggle sample selection for visualization
+                const isSelected = this._state.isSampleSelectedForVisualization(message.sampleName);
+                if (isSelected) {
+                    this._state.removeSampleFromVisualization(message.sampleName);
+                } else {
+                    this._state.addSampleToVisualization(message.sampleName);
+                }
+                console.log(
+                    `[SamplesPanelProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
+                );
                 break;
             }
         }
@@ -266,20 +241,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
         }
 
         this.updateView();
-    }
-
-    /**
-     * Get currently selected sample names
-     */
-    public getSelectedSamples(): string[] {
-        return Array.from(this._selectedSamples);
-    }
-
-    /**
-     * Clear selection
-     */
-    public clearSelection(): void {
-        this._selectedSamples.clear();
     }
 
     /**

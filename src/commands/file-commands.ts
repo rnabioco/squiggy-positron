@@ -712,7 +712,6 @@ squiggy.close_pod5()
         state.currentPod5File = undefined;
 
         // Clear UI
-        state.filePanelProvider?.clearPOD5();
         state.readsViewPane?.setReads([]);
         state.plotOptionsProvider?.updatePod5Status(false);
 
@@ -756,7 +755,6 @@ squiggy.close_bam()
         state.currentBamFile = undefined;
 
         // Clear UI
-        state.filePanelProvider?.clearBAM();
         state.modificationsProvider?.clear();
         state.plotOptionsProvider?.updateBamStatus(false);
         vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
@@ -848,9 +846,6 @@ squiggy.close_fasta()
 
         // Clear extension state (legacy)
         state.currentFastaFile = undefined;
-
-        // Clear UI
-        state.filePanelProvider?.clearFASTA?.();
 
         vscode.window.showInformationMessage('FASTA file closed');
     } catch (error) {

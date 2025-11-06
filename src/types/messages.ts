@@ -312,6 +312,11 @@ export interface UpdateSampleColorMessage extends BaseMessage {
     color: string | null; // null to clear color
 }
 
+export interface ToggleSampleSelectionMessage extends BaseMessage {
+    type: 'toggleSampleSelection';
+    sampleName: string;
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | UnloadSampleMessage
@@ -321,6 +326,7 @@ export type SamplesIncomingMessage =
     | SetSessionFastaMessage
     | UpdateSampleNameMessage
     | UpdateSampleColorMessage
+    | ToggleSampleSelectionMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage
