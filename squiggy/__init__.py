@@ -26,7 +26,7 @@ Example usage in Jupyter notebook:
 __version__ = "0.1.12"
 
 # Standard library
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 
@@ -112,13 +112,13 @@ def plot_read(
     mode: str = "SINGLE",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: Optional[int] = None,
+    downsample: int | None = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
-    position_label_interval: Optional[int] = None,
+    position_label_interval: int | None = None,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
-    enabled_mod_types: Optional[list] = None,
+    enabled_mod_types: list | None = None,
     show_signal_points: bool = False,
     clip_x_to_alignment: bool = True,
 ) -> str:
@@ -245,12 +245,12 @@ def plot_reads(
     mode: str = "OVERLAY",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
-    downsample: Optional[int] = None,
+    downsample: int | None = None,
     show_dwell_time: bool = False,
     show_labels: bool = True,
     scale_dwell_time: bool = False,
     min_mod_probability: float = 0.5,
-    enabled_mod_types: Optional[list] = None,
+    enabled_mod_types: list | None = None,
     show_signal_points: bool = False,
 ) -> str:
     """
@@ -514,8 +514,8 @@ def plot_aggregate(
 def plot_motif_aggregate_all(
     fasta_file: str,
     motif: str,
-    upstream: Optional[int] = None,
-    downstream: Optional[int] = None,
+    upstream: int | None = None,
+    downstream: int | None = None,
     max_reads_per_motif: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
