@@ -317,6 +317,16 @@ export interface ToggleSampleSelectionMessage extends BaseMessage {
     sampleName: string;
 }
 
+export interface RequestChangeSampleBamMessage extends BaseMessage {
+    type: 'requestChangeSampleBam';
+    sampleName: string;
+}
+
+export interface RequestChangeSampleFastaMessage extends BaseMessage {
+    type: 'requestChangeSampleFasta';
+    sampleName: string;
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | UnloadSampleMessage
@@ -327,6 +337,8 @@ export type SamplesIncomingMessage =
     | UpdateSampleNameMessage
     | UpdateSampleColorMessage
     | ToggleSampleSelectionMessage
+    | RequestChangeSampleBamMessage
+    | RequestChangeSampleFastaMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage
