@@ -862,15 +862,26 @@ squiggy.close_fasta()
             // Restore selected Read Explorer sample and auto-load its reads
             if (session.ui.selectedReadExplorerSample) {
                 this._selectedReadExplorerSample = session.ui.selectedReadExplorerSample;
+                const sampleName = session.ui.selectedReadExplorerSample;
 
                 // Trigger reads view to load for the selected sample
-                // Use a small delay to ensure sample is fully registered in Python
+                // Delay to ensure sample is fully registered in Python registry
                 setTimeout(() => {
-                    vscode.commands.executeCommand(
-                        'squiggy.internal.loadReadsForSample',
-                        session.ui!.selectedReadExplorerSample
+                    console.log(
+                        `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
                     );
-                }, 500);
+                    Promise.resolve(
+                        vscode.commands.executeCommand(
+                            'squiggy.internal.loadReadsForSample',
+                            sampleName
+                        )
+                    ).catch((err: unknown) => {
+                        console.error(
+                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}':`,
+                            err
+                        );
+                    });
+                }, 1500); // Wait 1.5s to ensure sample is registered
             }
         }
 
