@@ -213,7 +213,9 @@ squiggy-positron-extension/
 │   │   ├── overlay.py          # OverlayPlotStrategy
 │   │   ├── stacked.py          # StackedPlotStrategy
 │   │   ├── eventalign.py       # EventAlignPlotStrategy
-│   │   └── aggregate.py        # AggregatePlotStrategy
+│   │   ├── aggregate.py        # AggregatePlotStrategy
+│   │   ├── delta.py            # DeltaPlotStrategy (multi-sample comparison)
+│   │   └── signal_overlay_comparison.py  # SignalOverlayComparisonStrategy
 │   │
 │   └── rendering/              # Reusable rendering components
 │       ├── theme_manager.py        # Centralized theme management
@@ -317,7 +319,9 @@ Squiggy uses the **Strategy Pattern** for plot generation, making it easy to add
 | `OverlayPlotStrategy` | `OVERLAY` | Multiple reads overlaid with transparency | Compare signals across reads |
 | `StackedPlotStrategy` | `STACKED` | Multiple reads vertically offset | View multiple reads without overlap |
 | `EventAlignPlotStrategy` | `EVENTALIGN` | Reads aligned to basecalls | Analyze signal per base position |
-| `AggregatePlotStrategy` | `AGGREGATE` | 3-track aggregate view | Multi-read statistics and pileup |
+| `AggregatePlotStrategy` | `AGGREGATE` | Multi-track aggregate view | Multi-read statistics and pileup |
+| `DeltaPlotStrategy` | `DELTA` | Delta track comparing two samples | Multi-sample comparison showing differences |
+| `SignalOverlayComparisonStrategy` | `SIGNAL_OVERLAY_COMPARISON` | Multiple samples overlaid | Compare signal characteristics across samples |
 
 #### Adding a New Plot Type
 
@@ -369,6 +373,8 @@ To add a new plot type (e.g., A/B comparison from issue #61):
        STACKED = "stacked"
        EVENTALIGN = "eventalign"
        AGGREGATE = "aggregate"
+       DELTA = "delta"  # Multi-sample delta comparison
+       SIGNAL_OVERLAY_COMPARISON = "signal_overlay_comparison"  # Multi-sample overlay
        COMPARISON = "comparison"  # NEW
    ```
 

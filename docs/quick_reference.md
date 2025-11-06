@@ -15,6 +15,7 @@ Fast lookup for common tasks and commands.
 | `squiggy.closeBAM` | Close BAM file |
 | `squiggy.closeFASTA` | Close FASTA file |
 | `squiggy.loadTestData` | Load example test files |
+| `squiggy.loadDemoSession` | Load pre-configured demo session |
 
 ### Plotting
 
@@ -31,13 +32,18 @@ Fast lookup for common tasks and commands.
 |---------|-------------|
 | `squiggy.loadSample` | Load sample for comparison |
 | `squiggy.plotDeltaComparison` | Compare loaded samples |
+| `squiggy.loadTestMultiReadDataset` | Load test multi-read dataset |
 
-### UI
+### UI & Session Management
 
 | Command | Description |
 |---------|-------------|
 | `squiggy.refreshReads` | Refresh read list |
 | `squiggy.clearState` | Clear all extension state |
+| `squiggy.saveSession` | Save current session |
+| `squiggy.restoreSession` | Restore saved session |
+| `squiggy.exportSession` | Export session to file |
+| `squiggy.importSession` | Import session from file |
 
 ## Keyboard Shortcuts
 
