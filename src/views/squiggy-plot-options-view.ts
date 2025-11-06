@@ -283,6 +283,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update POD5 file status
      */
     public updatePod5Status(hasPod5: boolean) {
+        console.log('[PlotOptions] updatePod5Status called with:', hasPod5);
         this._hasPod5File = hasPod5;
 
         // Update webview
@@ -290,6 +291,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updatePod5Status',
             hasPod5: this._hasPod5File,
         };
+        console.log('[PlotOptions] Sending POD5 status:', hasPod5);
         this.postMessage(message);
     }
 
@@ -297,6 +299,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update BAM file status and available plot modes
      */
     public updateBamStatus(hasBam: boolean) {
+        console.log('[PlotOptions] updateBamStatus called with:', hasBam);
         this._hasBamFile = hasBam;
 
         // When BAM loads, switch to AGGREGATE and EVENTALIGN
@@ -317,6 +320,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateBamStatus',
             hasBam: this._hasBamFile,
         };
+        console.log('[PlotOptions] Sending BAM status:', hasBam);
         this.postMessage(message);
     }
 
@@ -341,6 +345,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update loaded samples for comparison plots
      */
     public updateLoadedSamples(samples: SampleItem[]) {
+        console.log('[PlotOptions] updateLoadedSamples called with:', samples.length, 'samples');
         this._loadedSamples = samples;
 
         // Update webview
@@ -348,6 +353,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateLoadedSamples',
             samples: this._loadedSamples,
         };
+        console.log('[PlotOptions] Sending loaded samples:', samples.length);
         this.postMessage(message);
     }
 
