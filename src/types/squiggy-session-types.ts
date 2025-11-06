@@ -40,6 +40,7 @@ export interface SampleSessionState {
 export interface UIState {
     expandedSamples?: string[];
     selectedSamplesForComparison?: string[];
+    selectedReadExplorerSample?: string; // Currently selected sample in Read Explorer dropdown
 }
 
 /**

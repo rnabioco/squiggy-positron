@@ -6,6 +6,10 @@ repo_url: https://github.com/rnabioco/squiggy-positron
 repo_name: rnabioco/squiggy-positron
 edit_uri: edit/main/docs/
 
+# Exclude archive directory from the docs build
+exclude_docs: |
+  archive/
+
 theme:
   name: material
   logo: assets/logo.svg

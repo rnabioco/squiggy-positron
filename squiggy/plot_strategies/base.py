@@ -27,7 +27,7 @@ class PlotStrategy(ABC):
     Attributes:
         theme: Theme enum (LIGHT or DARK) for plot styling
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.single_read import SingleReadPlotStrategy
         >>> from squiggy.constants import Theme
         >>>
@@ -89,7 +89,7 @@ class PlotStrategy(ABC):
         Raises:
             ValueError: If required data is missing (checked by validate_data)
 
-        Example:
+        Examples:
             >>> data = {'signal': signal_array, 'read_id': 'read_001', 'sample_rate': 4000}
             >>> options = {'normalization': NormalizationMethod.ZNORM, 'downsample': 1}
             >>> html, fig = strategy.create_plot(data, options)
@@ -114,7 +114,7 @@ class PlotStrategy(ABC):
             ValueError: If required data is missing, with descriptive message
                 indicating which keys are required
 
-        Example:
+        Examples:
             >>> def validate_data(self, data):
             ...     required = ['signal', 'read_id', 'sample_rate']
             ...     missing = [k for k in required if k not in data]
@@ -138,7 +138,7 @@ class PlotStrategy(ABC):
         Returns:
             Complete HTML document as string
 
-        Example:
+        Examples:
             >>> fig = figure(width=800, height=400)
             >>> fig.line([1, 2, 3], [1, 4, 9])
             >>> html = self._figure_to_html(fig)
@@ -173,7 +173,7 @@ class PlotStrategy(ABC):
             - If seq_to_sig_map was None, returns (signal, None)
             - If seq_to_sig_map provided and downsample > 1, indices are adjusted
 
-        Example:
+        Examples:
             >>> signal = np.array([1, 2, 3, 4, 5, 6])
             >>> processed, _ = self._process_signal(
             ...     signal,
@@ -212,7 +212,7 @@ class PlotStrategy(ABC):
         Raises:
             ValueError: If validation fails with descriptive message
 
-        Example:
+        Examples:
             >>> reads = [
             ...     ("read_001", np.array([1, 2, 3]), 4000),
             ...     ("read_002", np.array([4, 5, 6]), 4000),
@@ -262,7 +262,7 @@ class PlotStrategy(ABC):
         Returns:
             Formatted title string
 
-        Example:
+        Examples:
             >>> title = self._build_title(
             ...     "Single Read: read_001",
             ...     NormalizationMethod.ZNORM,
@@ -294,7 +294,7 @@ class PlotStrategy(ABC):
         Returns:
             Formatted HTML title string
 
-        Example:
+        Examples:
             >>> title = self._build_html_title("Overlay", "5 reads")
             >>> print(title)
             "Squiggy Overlay: 5 reads"

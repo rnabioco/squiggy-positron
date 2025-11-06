@@ -22,7 +22,7 @@ class StackedPlotStrategy(PlotStrategy):
     This strategy plots multiple reads vertically offset to prevent overlap,
     making it easy to compare signals across many reads.
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.stacked import StackedPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>
@@ -82,11 +82,13 @@ class StackedPlotStrategy(PlotStrategy):
         Args:
             data: Plot data dictionary containing:
                 - reads (required): list of (read_id, signal, sample_rate) tuples
+                - aligned_reads (optional): list of AlignedRead objects for sequence space
 
             options: Plot options dictionary containing:
                 - normalization: NormalizationMethod enum (default: NONE)
                 - downsample: int downsampling factor (default: 1)
                 - show_signal_points: bool show individual points (default: False)
+                - coordinate_space: str ('signal' or 'sequence', default: 'signal')
 
         Returns:
             Tuple of (html_string, bokeh_figure)
@@ -99,6 +101,7 @@ class StackedPlotStrategy(PlotStrategy):
 
         # Extract data
         reads_data = data["reads"]
+        aligned_reads = data.get("aligned_reads", None)
 
         from ..constants import DEFAULT_DOWNSAMPLE
 
@@ -106,6 +109,8 @@ class StackedPlotStrategy(PlotStrategy):
         normalization = options.get("normalization", NormalizationMethod.NONE)
         downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
         show_signal_points = options.get("show_signal_points", False)
+        read_colors = options.get("read_colors", None)  # Optional: per-read colors
+        coordinate_space = options.get("coordinate_space", "signal")
 
         # First pass: process all signals and determine offset
         processed_reads = []
@@ -123,9 +128,10 @@ class StackedPlotStrategy(PlotStrategy):
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)
+        x_label = "Reference Position" if coordinate_space == "sequence" else "Sample"
         fig = self.theme_manager.create_figure(
             title=title,
-            x_label="Sample",
+            x_label=x_label,
             y_label=f"Signal ({normalization.value}) + offset",
             height=400,
         )
@@ -137,8 +143,43 @@ class StackedPlotStrategy(PlotStrategy):
             offset = idx * offset_step
             y_offset = signal + offset
 
-            # Create data source
-            x = np.arange(len(signal))
+            # Determine x-coordinates based on coordinate space
+            if coordinate_space == "sequence" and aligned_reads:
+                # Use BAM alignment positions
+                aligned_read = aligned_reads[idx]
+                # Extract query-to-reference mapping from move table
+                if aligned_read.moves is None:
+                    raise ValueError(
+                        f"Read {read_id} has no move table. Cannot use sequence space."
+                    )
+
+                # Build position array: maps signal index -> reference position
+                # moves table: 1 = base call (increment ref pos), 0 = stay (same ref pos)
+                ref_positions = []
+                current_ref_pos = aligned_read.query_alignment_start
+                for move in aligned_read.moves:
+                    ref_positions.append(current_ref_pos)
+                    if move == 1:
+                        current_ref_pos += 1
+
+                # Ensure we have positions for all signal points
+                ref_positions = np.array(ref_positions)
+                if len(ref_positions) < len(signal):
+                    # Pad with last position if needed
+                    ref_positions = np.pad(
+                        ref_positions,
+                        (0, len(signal) - len(ref_positions)),
+                        mode="edge",
+                    )
+                elif len(ref_positions) > len(signal):
+                    # Truncate if too long
+                    ref_positions = ref_positions[: len(signal)]
+
+                x = ref_positions
+            else:
+                # Use raw sample indices (signal space)
+                x = np.arange(len(signal))
+
             source = ColumnDataSource(
                 data={
                     "x": x,
@@ -147,8 +188,11 @@ class StackedPlotStrategy(PlotStrategy):
                 }
             )
 
-            # Get color for this read
-            color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
+            # Get color for this read - use read_colors if provided, otherwise cycle through defaults
+            if read_colors and read_id in read_colors:
+                color = read_colors[read_id]
+            else:
+                color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
 
             # Add renderers
             renderers = self._add_signal_renderers(

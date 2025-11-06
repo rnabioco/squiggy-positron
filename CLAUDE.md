@@ -367,7 +367,7 @@ _squiggy_session.close_all()  # Or close everything via session
 
 **Plotting** (Strategy Pattern - `squiggy/plot_factory.py` + `squiggy/plot_strategies/`):
 - Uses Strategy Pattern via PlotFactory to generate plots
-- Supports 5 plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE
+- Supports 7 plot modes: SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE, DELTA, SIGNAL_OVERLAY_COMPARISON
 - Reusable rendering components in `squiggy/rendering/`:
   - ThemeManager: Centralized theme configuration (light/dark mode)
   - BaseAnnotationRenderer: Color-coded base annotations

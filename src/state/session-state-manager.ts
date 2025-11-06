@@ -217,6 +217,7 @@ export class SessionStateManager {
             ui: {
                 expandedSamples: ['Yeast_tRNA'],
                 selectedSamplesForComparison: [],
+                selectedReadExplorerSample: 'Yeast_tRNA', // Auto-select the demo sample
             },
         };
     }

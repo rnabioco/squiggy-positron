@@ -113,6 +113,8 @@ export class ExtensionState {
     private _onLoadedItemsChanged: vscode.EventEmitter<LoadedItem[]> = new vscode.EventEmitter();
     private _onSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
     private _onComparisonChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
+    private _onVisualizationSelectionChanged: vscode.EventEmitter<string[]> =
+        new vscode.EventEmitter();
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;
@@ -355,6 +357,14 @@ squiggy.close_fasta()
         return this._onComparisonChanged.event;
     }
 
+    /**
+     * Event fired when visualization selection changes (samples selected for plotting)
+     * Listened to by: Samples Panel and Plotting Panel for UI synchronization
+     */
+    get onVisualizationSelectionChanged(): vscode.Event<string[]> {
+        return this._onVisualizationSelectionChanged.event;
+    }
+
     // ========== UNIFIED ITEM MANAGEMENT (Issue #92) ==========
 
     /**
@@ -525,6 +535,14 @@ squiggy.close_fasta()
         this._onComparisonChanged.fire(this.getComparisonItems());
     }
 
+    /**
+     * Notify all listeners that visualization selection changed
+     * @private
+     */
+    private _notifyVisualizationSelectionChanged(): void {
+        this._onVisualizationSelectionChanged.fire(this.getSamplesForVisualization());
+    }
+
     // ========== Multi-Sample Management (Phase 4) ==========
 
     get loadedSamples(): Map<string, SampleInfo> {
@@ -614,6 +632,7 @@ squiggy.close_fasta()
      */
     addSampleToVisualization(sampleName: string): void {
         this._samplesForVisualization.add(sampleName);
+        this._notifyVisualizationSelectionChanged();
     }
 
     /**
@@ -621,6 +640,15 @@ squiggy.close_fasta()
      */
     removeSampleFromVisualization(sampleName: string): void {
         this._samplesForVisualization.delete(sampleName);
+        this._notifyVisualizationSelectionChanged();
+    }
+
+    /**
+     * Set visualization selection (bulk update)
+     */
+    setVisualizationSelection(sampleNames: string[]): void {
+        this._samplesForVisualization = new Set(sampleNames);
+        this._notifyVisualizationSelectionChanged();
     }
 
     /**
@@ -830,6 +858,31 @@ squiggy.close_fasta()
             if (comparisonIds.length > 0) {
                 this.setComparisonItems(comparisonIds);
             }
+
+            // Restore selected Read Explorer sample and auto-load its reads
+            if (session.ui.selectedReadExplorerSample) {
+                this._selectedReadExplorerSample = session.ui.selectedReadExplorerSample;
+                const sampleName = session.ui.selectedReadExplorerSample;
+
+                // Trigger reads view to load for the selected sample
+                // Delay to ensure sample is fully registered in Python registry
+                setTimeout(() => {
+                    console.log(
+                        `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
+                    );
+                    Promise.resolve(
+                        vscode.commands.executeCommand(
+                            'squiggy.internal.loadReadsForSample',
+                            sampleName
+                        )
+                    ).catch((err: unknown) => {
+                        console.error(
+                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}':`,
+                            err
+                        );
+                    });
+                }, 1500); // Wait 1.5s to ensure sample is registered
+            }
         }
 
         // Show errors if any
@@ -1002,6 +1055,17 @@ squiggy.close_fasta()
             // Update plot options with available references for aggregate plots
             if (references.length > 0) {
                 this._plotOptionsProvider?.updateReferences(references);
+            }
+
+            // Update modifications panel
+            if (_bamResult.hasModifications && this._modificationsProvider) {
+                this._modificationsProvider.setModificationInfo(
+                    _bamResult.hasModifications,
+                    _bamResult.modificationTypes,
+                    _bamResult.hasProbabilities
+                );
+            } else if (this._modificationsProvider) {
+                this._modificationsProvider.clear();
             }
         }
 

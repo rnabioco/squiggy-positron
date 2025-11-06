@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
 import { SessionStateManager } from '../state/session-state-manager';
+import { logger } from '../utils/logger';
 
 /**
  * Register all session management commands
@@ -259,6 +260,8 @@ export async function loadDemoSessionCommand(
     extensionState: ExtensionState,
     context: vscode.ExtensionContext
 ): Promise<void> {
+    logger.info('Loading demo session (yeast tRNA dataset)');
+
     try {
         // Check for unsaved changes
         const currentState = extensionState.toSessionState();
@@ -273,6 +276,7 @@ export async function loadDemoSessionCommand(
             );
 
             if (response !== 'Load Demo') {
+                logger.info('Demo session load cancelled by user');
                 return;
             }
         }
@@ -289,7 +293,10 @@ export async function loadDemoSessionCommand(
                 await extensionState.loadDemoSession(context);
             }
         );
+
+        logger.info('Demo session loaded successfully');
     } catch (error) {
+        logger.error('Failed to load demo session', error);
         vscode.window.showErrorMessage(`Failed to load demo session: ${error}`);
     }
 }

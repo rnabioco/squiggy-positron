@@ -8,6 +8,13 @@
  */
 
 import { PositronRuntimeClient } from './positron-runtime-client';
+import {
+    POD5Error,
+    BAMError,
+    FASTAError,
+    PlottingError,
+    ValidationError,
+} from '../utils/error-handler';
 
 /**
  * Result from loading a POD5 file
@@ -65,23 +72,43 @@ export class SquiggyRuntimeAPI {
      * in _squiggy_session kernel variable accessible from console/notebooks.
      *
      * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
+     * @throws POD5Error if loading fails
      */
     async loadPOD5(filePath: string): Promise<POD5LoadResult> {
-        // Escape single quotes in path
-        const escapedPath = filePath.replace(/'/g, "\\'");
+        try {
+            // Validate input
+            if (!filePath || typeof filePath !== 'string') {
+                throw new ValidationError('File path must be a non-empty string', 'filePath');
+            }
 
-        // Load file silently (no console output)
-        // This populates the global _squiggy_session in Python
-        await this._client.executeSilent(`
+            // Escape single quotes in path
+            const escapedPath = filePath.replace(/'/g, "\\'");
+
+            // Load file silently (no console output)
+            // This populates the global _squiggy_session in Python
+            await this._client.executeSilent(
+                `
 import squiggy
 from squiggy.io import _squiggy_session
 squiggy.load_pod5('${escapedPath}')
-`);
+`,
+                true // Enable retry for transient failures
+            );
 
-        // Get read count by reading from session object (no print needed)
-        const numReads = await this._client.getVariable('len(_squiggy_session.read_ids)');
+            // Get read count by reading from session object (no print needed)
+            const numReads = await this._client.getVariable('len(_squiggy_session.read_ids)');
 
-        return { numReads: numReads as number };
+            return { numReads: numReads as number };
+        } catch (error) {
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while loading POD5 file';
+            throw new POD5Error(`Failed to load POD5 file '${filePath}': ${errorMessage}`);
+        }
     }
 
     /**
@@ -104,41 +131,63 @@ squiggy.load_pod5('${escapedPath}')
      *
      * Does NOT preload reference mapping - use getReferences() and getReadsForReference()
      * to fetch data on-demand.
+     * @throws BAMError if loading fails
      */
     async loadBAM(filePath: string): Promise<BAMLoadResult> {
-        const escapedPath = filePath.replace(/'/g, "\\'");
+        try {
+            // Validate input
+            if (!filePath || typeof filePath !== 'string') {
+                throw new ValidationError('File path must be a non-empty string', 'filePath');
+            }
 
-        // Load BAM silently (no console output)
-        // This populates _squiggy_session.bam_info and .bam_path
-        await this._client.executeSilent(`
+            const escapedPath = filePath.replace(/'/g, "\\'");
+
+            // Load BAM silently (no console output)
+            // This populates _squiggy_session.bam_info and .bam_path
+            await this._client.executeSilent(
+                `
 import squiggy
 from squiggy.io import _squiggy_session
 squiggy.load_bam('${escapedPath}')
 squiggy.get_read_to_reference_mapping()
-`);
+`,
+                true // Enable retry for transient failures
+            );
 
-        // Read metadata directly from session object (no print needed)
-        const numReads = await this._client.getVariable("_squiggy_session.bam_info['num_reads']");
-        const hasModifications = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('has_modifications', False)"
-        );
-        const modificationTypes = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('modification_types', [])"
-        );
-        const hasProbabilities = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('has_probabilities', False)"
-        );
-        const hasEventAlignment = await this._client.getVariable(
-            "_squiggy_session.bam_info.get('has_event_alignment', False)"
-        );
+            // Read metadata directly from session object (no print needed)
+            const numReads = await this._client.getVariable(
+                "_squiggy_session.bam_info['num_reads']"
+            );
+            const hasModifications = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('has_modifications', False)"
+            );
+            const modificationTypes = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('modification_types', [])"
+            );
+            const hasProbabilities = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('has_probabilities', False)"
+            );
+            const hasEventAlignment = await this._client.getVariable(
+                "_squiggy_session.bam_info.get('has_event_alignment', False)"
+            );
 
-        return {
-            numReads: numReads as number,
-            hasModifications: hasModifications as boolean,
-            modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
-            hasProbabilities: hasProbabilities as boolean,
-            hasEventAlignment: hasEventAlignment as boolean,
-        };
+            return {
+                numReads: numReads as number,
+                hasModifications: hasModifications as boolean,
+                modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
+                hasProbabilities: hasProbabilities as boolean,
+                hasEventAlignment: hasEventAlignment as boolean,
+            };
+        } catch (error) {
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while loading BAM file';
+            throw new BAMError(`Failed to load BAM file '${filePath}': ${errorMessage}`);
+        }
     }
 
     /**
@@ -196,6 +245,8 @@ squiggy.get_read_to_reference_mapping()
      *
      * Generates Bokeh plot which is automatically routed to Positron's Plots pane
      * via webbrowser.open() interception
+     * @throws PlottingError if plot generation fails
+     * @throws ValidationError if inputs are invalid
      */
     async generatePlot(
         readIds: string[],
@@ -211,11 +262,146 @@ squiggy.get_read_to_reference_mapping()
         showSignalPoints: boolean = false,
         sampleName?: string
     ): Promise<void> {
-        const readIdsJson = JSON.stringify(readIds);
-        const enabledModTypesJson = JSON.stringify(enabledModTypes);
+        try {
+            // Validate inputs
+            if (!readIds || readIds.length === 0) {
+                throw new ValidationError('At least one read ID is required', 'readIds');
+            }
 
-        // Build sample name parameter if in multi-sample mode
-        const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+            if (minModProbability < 0 || minModProbability > 1) {
+                throw new ValidationError('Must be between 0 and 1', 'minModProbability');
+            }
+
+            const readIdsJson = JSON.stringify(readIds);
+            const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+            // Build sample name parameter if in multi-sample mode
+            const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+
+            // Build the plot function call with proper multi-line formatting
+            const plotCall =
+                readIds.length === 1
+                    ? `squiggy.plot_read(
+    '${readIds[0]}',
+    mode='${mode}',
+    normalization='${normalization}',
+    theme='${theme}',
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_labels=${showBaseAnnotations ? 'True' : 'False'},
+    scale_dwell_time=${scaleDwellTime ? 'True' : 'False'},
+    min_mod_probability=${minModProbability},
+    enabled_mod_types=${enabledModTypesJson},
+    downsample=${downsample},
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}
+)`
+                    : `squiggy.plot_reads(
+    ${readIdsJson},
+    mode='${mode}',
+    normalization='${normalization}',
+    theme='${theme}',
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_labels=${showBaseAnnotations ? 'True' : 'False'},
+    scale_dwell_time=${scaleDwellTime ? 'True' : 'False'},
+    min_mod_probability=${minModProbability},
+    enabled_mod_types=${enabledModTypesJson},
+    downsample=${downsample},
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}
+)`;
+
+            const code = `
+import sys
+import squiggy
+import traceback
+
+# Initialize error tracking
+_squiggy_plot_error = None
+
+try:
+    # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
+    ${plotCall}
+except Exception as e:
+    _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
+    print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
+`;
+
+            // Execute silently - plot will appear in Plots pane automatically
+            await this._client.executeSilent(code, true); // Enable retry
+
+            // Check if there was an error during plot generation
+            const plotError = await this.client
+                .getVariable('_squiggy_plot_error')
+                .catch(() => null);
+            if (plotError !== null) {
+                throw new PlottingError(`${plotError}`);
+            }
+
+            // Clean up temporary variable
+            await this._client.executeSilent(`
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`);
+        } catch (error) {
+            // Clean up on error
+            await this.client
+                .executeSilent(
+                    `
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`
+                )
+                .catch(() => {});
+
+            if (error instanceof ValidationError || error instanceof PlottingError) {
+                throw error;
+            }
+
+            const errorMessage = error instanceof Error ? error.message : 'Unknown plotting error';
+            throw new PlottingError(`Plot generation failed: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * Generate a multi-sample plot with per-read color assignment
+     *
+     * Supports plotting reads from multiple samples with sample-based coloring.
+     * Each read is colored according to its sample, with alpha = 1/N for better
+     * visualization of overlapping reads.
+     *
+     * @param readIds - List of read IDs to plot
+     * @param readSampleMap - Dict mapping read_id → sample_name
+     * @param readColors - Dict mapping read_id → color hex string
+     * @param mode - Plot mode (OVERLAY or STACKED)
+     * @param normalization - Normalization method (ZNORM, MAD, etc.)
+     * @param theme - Color theme (LIGHT or DARK)
+     * @param showDwellTime - Show dwell time coloring (EVENTALIGN only)
+     * @param showBaseAnnotations - Show base annotations (EVENTALIGN only)
+     * @param scaleDwellTime - Scale x-axis by dwell time (EVENTALIGN only)
+     * @param minModProbability - Minimum modification probability threshold
+     * @param enabledModTypes - List of modification types to display
+     * @param downsample - Downsampling factor
+     * @param showSignalPoints - Show individual signal points
+     * @param coordinateSpace - Coordinate system ('signal' or 'sequence')
+     */
+    async generateMultiSamplePlot(
+        readIds: string[],
+        readSampleMap: Record<string, string>,
+        readColors: Record<string, string>,
+        mode: string = 'OVERLAY',
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        showDwellTime: boolean = false,
+        showBaseAnnotations: boolean = true,
+        scaleDwellTime: boolean = false,
+        minModProbability: number = 0.5,
+        enabledModTypes: string[] = [],
+        downsample: number = 5,
+        showSignalPoints: boolean = false,
+        coordinateSpace: 'signal' | 'sequence' = 'signal'
+    ): Promise<void> {
+        const readIdsJson = JSON.stringify(readIds);
+        const readSampleMapJson = JSON.stringify(readSampleMap);
+        const readColorsJson = JSON.stringify(readColors);
+        const enabledModTypesJson = JSON.stringify(enabledModTypes);
 
         const code = `
 import sys
@@ -226,15 +412,26 @@ import traceback
 _squiggy_plot_error = None
 
 try:
-    # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
-    ${
-        readIds.length === 1
-            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
-            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam})`
-    }
+    # Generate multi-sample plot
+    squiggy.plot_reads(
+        ${readIdsJson},
+        mode='${mode}',
+        normalization='${normalization}',
+        theme='${theme}',
+        show_dwell_time=${showDwellTime ? 'True' : 'False'},
+        show_labels=${showBaseAnnotations ? 'True' : 'False'},
+        scale_dwell_time=${scaleDwellTime ? 'True' : 'False'},
+        min_mod_probability=${minModProbability},
+        enabled_mod_types=${enabledModTypesJson},
+        downsample=${downsample},
+        show_signal_points=${showSignalPoints ? 'True' : 'False'},
+        read_sample_map=${readSampleMapJson},
+        read_colors=${readColorsJson},
+        coordinate_space='${coordinateSpace}'
+    )
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
-    print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
+    print(f"ERROR generating multi-sample plot: {_squiggy_plot_error}", file=sys.stderr)
 `;
 
         try {
@@ -246,7 +443,7 @@ except Exception as e:
                 .getVariable('_squiggy_plot_error')
                 .catch(() => null);
             if (plotError !== null) {
-                throw new Error(`Plot generation failed:\n${plotError}`);
+                throw new Error(`Multi-sample plot generation failed:\n${plotError}`);
             }
 
             // Clean up temporary variable
@@ -279,6 +476,8 @@ if '_squiggy_plot_error' in globals():
      * @param showDwellTime - Show dwell time track panel (default true)
      * @param showSignal - Show signal track panel (default true)
      * @param showQuality - Show quality track panel (default true)
+     * @throws PlottingError if plot generation fails
+     * @throws ValidationError if inputs are invalid
      */
     async generateAggregatePlot(
         referenceName: string,
@@ -293,22 +492,40 @@ if '_squiggy_plot_error' in globals():
         showSignal: boolean = true,
         showQuality: boolean = true,
         clipXAxisToAlignment: boolean = true,
+        transformCoordinates: boolean = true,
         sampleName?: string
     ): Promise<void> {
-        // Escape single quotes in reference name and sample name for Python strings
-        const escapedRefName = referenceName.replace(/'/g, "\\'");
-        const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
+        try {
+            // Validate inputs
+            if (!referenceName || typeof referenceName !== 'string') {
+                throw new ValidationError(
+                    'Reference name must be a non-empty string',
+                    'referenceName'
+                );
+            }
 
-        // Build modification filter dict if modifications are enabled
-        const modFilterDict =
-            enabledModTypes.length > 0
-                ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
-                : 'None';
+            if (maxReads <= 0) {
+                throw new ValidationError('Must be greater than 0', 'maxReads');
+            }
 
-        // Build sample name parameter if in multi-sample mode
-        const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+            if (modificationThreshold < 0 || modificationThreshold > 1) {
+                throw new ValidationError('Must be between 0 and 1', 'modificationThreshold');
+            }
 
-        const code = `
+            // Escape single quotes in reference name and sample name for Python strings
+            const escapedRefName = referenceName.replace(/'/g, "\\'");
+            const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
+
+            // Build modification filter dict if modifications are enabled
+            const modFilterDict =
+                enabledModTypes.length > 0
+                    ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                    : 'None';
+
+            // Build sample name parameter if in multi-sample mode
+            const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+
+            const code = `
 import squiggy
 
 # Generate aggregate plot - will be automatically routed to Plots pane
@@ -323,25 +540,37 @@ squiggy.plot_aggregate(
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
-    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}${sampleNameParam}
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 
-        try {
             // Execute silently - plot will appear in Plots pane automatically
-            await this._client.executeSilent(code);
+            await this._client.executeSilent(code, true); // Enable retry
         } catch (error) {
-            throw new Error(`Failed to generate aggregate plot: ${error}`);
+            if (error instanceof ValidationError || error instanceof PlottingError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error ? error.message : 'Unknown aggregate plot error';
+            throw new PlottingError(`Failed to generate aggregate plot: ${errorMessage}`);
         }
     }
 
     /**
      * Load and validate a FASTA file
+     * @throws FASTAError if loading fails
      */
     async loadFASTA(fastaPath: string): Promise<void> {
-        const escapedPath = fastaPath.replace(/'/g, "\\'");
+        try {
+            // Validate input
+            if (!fastaPath || typeof fastaPath !== 'string') {
+                throw new ValidationError('File path must be a non-empty string', 'fastaPath');
+            }
 
-        const code = `
+            const escapedPath = fastaPath.replace(/'/g, "\\'");
+
+            const code = `
 import squiggy
 
 # Load FASTA file using squiggy.load_fasta()
@@ -349,10 +578,16 @@ import squiggy
 squiggy.load_fasta('${escapedPath}')
 `;
 
-        try {
-            await this._client.executeSilent(code);
+            await this._client.executeSilent(code, true); // Enable retry
         } catch (error) {
-            throw new Error(`Failed to load FASTA file: ${error}`);
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown error occurred while loading FASTA file';
+            throw new FASTAError(`Failed to load FASTA file '${fastaPath}': ${errorMessage}`);
         }
     }
 
@@ -678,20 +913,37 @@ _result = {'read_ids': _read_ids, 'references': _refs}
      * NOTE: Prefer getReadIdsAndReferencesForSample() when you also need references,
      * as it batches both queries into a single call.
      */
-    async getReadIdsForSample(sampleName: string): Promise<string[]> {
+    async getReadIdsForSample(
+        sampleName: string,
+        offset: number = 0,
+        limit?: number
+    ): Promise<string[]> {
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
-            console.log(`[getReadIdsForSample] Fetching read IDs for sample '${sampleName}'...`);
+            console.log(
+                `[getReadIdsForSample] Fetching read IDs for sample '${sampleName}' (offset: ${offset}, limit: ${limit || 'all'})...`
+            );
             const startTime = Date.now();
 
-            // Extract read IDs safely without trying to serialize the Sample object
-            const code = `
+            // Build slice string for read IDs
+            const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
+
+            // Two-step approach: execute code to create temp variable, then read it
+            // This avoids the syntax error from passing statements to getVariable()
+            const tempVar = '_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
+
+            await this._client.executeSilent(`
 _sample = _squiggy_session.get_sample('${escapedName}')
-_read_ids = _sample.read_ids if _sample else []
-_read_ids
-`;
-            const readIds = await this._client.getVariable(code);
+${tempVar} = _sample.read_ids${sliceStr} if _sample else []
+`);
+
+            // Now read the temp variable as a single expression
+            const readIds = await this._client.getVariable(tempVar);
+
+            // Clean up temp variable
+            await this._client.executeSilent(`del ${tempVar}`);
+
             const elapsed = Date.now() - startTime;
             const readIdArray = (readIds as string[]) || [];
             console.log(`[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`);
@@ -716,15 +968,24 @@ _read_ids
 
         try {
             // Extract reference names from the sample's BAM without serializing the Sample object
-            const code = `
+            // Note: We use executeSilent + temp variable instead of getVariable
+            // because getVariable wraps code in json.dumps() which doesn't work with multi-line code
+            const tempVar = '_squiggy_temp_refs_' + Math.random().toString(36).substr(2, 9);
+
+            await this._client.executeSilent(`
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
-    _refs = list(_sample.bam_info['ref_mapping'].keys())
+    ${tempVar} = list(_sample.bam_info['ref_mapping'].keys())
 else:
-    _refs = []
-_refs
-`;
-            const references = await this._client.getVariable(code);
+    ${tempVar} = []
+`);
+
+            // Read the temp variable
+            const references = await this._client.getVariable(tempVar);
+
+            // Clean up
+            await this._client.executeSilent(`del ${tempVar}`);
+
             return (references as string[]) || [];
         } catch (error) {
             console.warn(`Failed to get references for sample '${sampleName}':`, error);
@@ -859,6 +1120,7 @@ squiggy.plot_signal_overlay_comparison(
 
     async generateDeltaPlot(
         sampleNames: string[],
+        referenceName: string,
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT',
         maxReads?: number | null
@@ -871,6 +1133,9 @@ squiggy.plot_signal_overlay_comparison(
         // Convert sample names to JSON for safe Python serialization
         const sampleNamesJson = JSON.stringify(sampleNames);
 
+        // Escape single quotes in reference name for Python strings
+        const escapedRefName = referenceName.replace(/'/g, "\\'");
+
         // Build maxReads parameter if provided
         const maxReadsParam =
             maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
@@ -881,6 +1146,7 @@ import squiggy
 # Generate delta comparison plot - will be automatically routed to Plots pane
 squiggy.plot_delta_comparison(
     sample_names=${sampleNamesJson},
+    reference_name='${escapedRefName}',
     normalization='${normalization}',
     theme='${theme}'${maxReadsParam}
 )
@@ -890,7 +1156,89 @@ squiggy.plot_delta_comparison(
             // Execute silently - plot will appear in Plots pane automatically
             await this._client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate delta comparison plot: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to generate delta comparison plot: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * Generate aggregate comparison plot for multiple samples
+     *
+     * Creates a visualization comparing aggregate statistics (signal, dwell time,
+     * quality) from 2+ samples overlaid on the same axes.
+     *
+     * @param sampleNames - Array of sample names to compare (minimum 2)
+     * @param referenceName - Name of reference sequence from BAM files
+     * @param metrics - Array of metrics to display: 'signal', 'dwell_time', 'quality'
+     * @param maxReads - Maximum reads per sample (default: auto-calculated minimum)
+     * @param normalization - Normalization method (ZNORM, MAD, MEDIAN, NONE)
+     * @param theme - Color theme (LIGHT or DARK)
+     * @param sampleColors - Optional object mapping sample names to hex colors
+     */
+    async generateAggregateComparison(
+        sampleNames: string[],
+        referenceName: string,
+        metrics: string[] = ['signal', 'dwell_time', 'quality'],
+        maxReads?: number | null,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        sampleColors?: Record<string, string>
+    ): Promise<void> {
+        // Validate input
+        if (!sampleNames || sampleNames.length < 2) {
+            throw new Error('Aggregate comparison requires at least 2 samples');
+        }
+
+        // Validate reference name
+        if (!referenceName) {
+            throw new Error('Reference name is required for aggregate comparison');
+        }
+
+        // Convert arrays and objects to JSON for safe Python serialization
+        const sampleNamesJson = JSON.stringify(sampleNames);
+        const metricsJson = JSON.stringify(metrics);
+
+        // Build maxReads parameter if provided
+        const maxReadsParam =
+            maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+
+        // Build sample_colors parameter if provided
+        const sampleColorsParam = sampleColors
+            ? `, sample_colors=${JSON.stringify(sampleColors)}`
+            : '';
+
+        // Escape single quotes in reference name
+        const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+
+# Generate aggregate comparison plot - will be automatically routed to Plots pane
+squiggy.plot_aggregate_comparison(
+    sample_names=${sampleNamesJson},
+    reference_name='${escapedRefName}',
+    metrics=${metricsJson},
+    normalization='${normalization}',
+    theme='${theme}'${maxReadsParam}${sampleColorsParam}
+)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this._client.executeSilent(code);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Provide helpful error messages for common issues
+            if (errorMessage.includes('not found')) {
+                throw new Error(
+                    `Sample not found in Python session. ` +
+                        `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
+                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                );
+            }
+
+            throw new Error(`Failed to generate aggregate comparison plot: ${error}`);
         }
     }
 }

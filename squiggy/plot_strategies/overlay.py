@@ -22,7 +22,7 @@ class OverlayPlotStrategy(PlotStrategy):
     This strategy plots multiple reads with different colors on the same
     figure, allowing easy comparison of signal patterns across reads.
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.overlay import OverlayPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>
@@ -82,11 +82,13 @@ class OverlayPlotStrategy(PlotStrategy):
         Args:
             data: Plot data dictionary containing:
                 - reads (required): list of (read_id, signal, sample_rate) tuples
+                - aligned_reads (optional): list of AlignedRead objects for sequence space
 
             options: Plot options dictionary containing:
                 - normalization: NormalizationMethod enum (default: NONE)
                 - downsample: int downsampling factor (default: 1)
                 - show_signal_points: bool show individual points (default: False)
+                - coordinate_space: str ('signal' or 'sequence', default: 'signal')
 
         Returns:
             Tuple of (html_string, bokeh_figure)
@@ -99,6 +101,7 @@ class OverlayPlotStrategy(PlotStrategy):
 
         # Extract data
         reads_data = data["reads"]
+        aligned_reads = data.get("aligned_reads", None)
 
         from ..constants import DEFAULT_DOWNSAMPLE
 
@@ -106,12 +109,29 @@ class OverlayPlotStrategy(PlotStrategy):
         normalization = options.get("normalization", NormalizationMethod.NONE)
         downsample = options.get("downsample", DEFAULT_DOWNSAMPLE)
         show_signal_points = options.get("show_signal_points", False)
+        read_colors = options.get("read_colors", None)  # Optional: per-read colors
+        coordinate_space = options.get("coordinate_space", "signal")
+
+        # Calculate alpha blending with a floor to prevent over-transparency
+        # Use tiered approach to keep between 0.3 and 0.8 for better visibility
+        num_reads = len(reads_data)
+        if num_reads == 1:
+            alpha = 0.8
+        elif num_reads <= 5:
+            alpha = 0.7
+        elif num_reads <= 20:
+            alpha = 0.5  # For ~20 reads, use higher opacity
+        elif num_reads <= 50:
+            alpha = 0.4
+        else:
+            alpha = max(0.3, 1.0 / (num_reads**0.5))  # sqrt scaling with floor
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)
+        x_label = "Reference Position" if coordinate_space == "sequence" else "Sample"
         fig = self.theme_manager.create_figure(
             title=title,
-            x_label="Sample",
+            x_label=x_label,
             y_label=f"Signal ({normalization.value})",
             height=400,
         )
@@ -124,8 +144,43 @@ class OverlayPlotStrategy(PlotStrategy):
                 signal, normalization, downsample
             )
 
-            # Create data source
-            x = np.arange(len(processed_signal))
+            # Determine x-coordinates based on coordinate space
+            if coordinate_space == "sequence" and aligned_reads:
+                # Use BAM alignment positions
+                aligned_read = aligned_reads[idx]
+                # Extract query-to-reference mapping from move table
+                if aligned_read.moves is None:
+                    raise ValueError(
+                        f"Read {read_id} has no move table. Cannot use sequence space."
+                    )
+
+                # Build position array: maps signal index -> reference position
+                # moves table: 1 = base call (increment ref pos), 0 = stay (same ref pos)
+                ref_positions = []
+                current_ref_pos = aligned_read.query_alignment_start
+                for move in aligned_read.moves:
+                    ref_positions.append(current_ref_pos)
+                    if move == 1:
+                        current_ref_pos += 1
+
+                # Ensure we have positions for all signal points
+                ref_positions = np.array(ref_positions)
+                if len(ref_positions) < len(processed_signal):
+                    # Pad with last position if needed
+                    ref_positions = np.pad(
+                        ref_positions,
+                        (0, len(processed_signal) - len(ref_positions)),
+                        mode="edge",
+                    )
+                elif len(ref_positions) > len(processed_signal):
+                    # Truncate if too long
+                    ref_positions = ref_positions[: len(processed_signal)]
+
+                x = ref_positions
+            else:
+                # Use raw sample indices (signal space)
+                x = np.arange(len(processed_signal))
+
             source = ColumnDataSource(
                 data={
                     "x": x,
@@ -134,14 +189,18 @@ class OverlayPlotStrategy(PlotStrategy):
                 }
             )
 
-            # Get color for this read
-            color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
+            # Get color for this read - use read_colors if provided, otherwise cycle through defaults
+            if read_colors and read_id in read_colors:
+                color = read_colors[read_id]
+            else:
+                color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
 
-            # Add renderers
+            # Add renderers with calculated alpha
             renderers = self._add_signal_renderers(
                 fig=fig,
                 source=source,
                 color=color,
+                alpha=alpha,
                 show_signal_points=show_signal_points,
                 legend_label=read_id[:12],  # Truncate long read IDs
             )
@@ -180,10 +239,11 @@ class OverlayPlotStrategy(PlotStrategy):
         fig,
         source: ColumnDataSource,
         color: str,
+        alpha: float,
         show_signal_points: bool,
         legend_label: str,
     ) -> list:
-        """Add signal line and optional points"""
+        """Add signal line and optional points with configurable alpha"""
         renderers = []
 
         # Add line
@@ -193,12 +253,12 @@ class OverlayPlotStrategy(PlotStrategy):
             source=source,
             color=color,
             line_width=1,
-            alpha=0.7,
+            alpha=alpha,
             legend_label=legend_label,
         )
         renderers.append(line_renderer)
 
-        # Add points if requested
+        # Add points if requested (use slightly lower alpha for points)
         if show_signal_points:
             circle_renderer = fig.scatter(
                 x="x",
@@ -206,7 +266,7 @@ class OverlayPlotStrategy(PlotStrategy):
                 source=source,
                 size=3,
                 color=color,
-                alpha=0.5,
+                alpha=alpha * 0.7,  # Slightly more transparent than lines
                 legend_label=legend_label,
             )
             renderers.append(circle_renderer)

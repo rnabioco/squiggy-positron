@@ -28,7 +28,7 @@ class EventAlignPlotStrategy(PlotStrategy):
     relationship between signal and sequence. Supports both base position
     and cumulative dwell time x-axes.
 
-    Example:
+    Examples:
         >>> from squiggy.plot_strategies.eventalign import EventAlignPlotStrategy
         >>> from squiggy.constants import Theme, NormalizationMethod
         >>>

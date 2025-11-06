@@ -45,9 +45,12 @@ from bokeh.plotting import figure as BokehFigure
 
 from .alignment import AlignedRead, extract_alignment_from_bam
 from .constants import NormalizationMethod, PlotMode, Theme
+from .logging_config import get_logger
 from .motif import MotifMatch, search_motif
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
+
+logger = get_logger(__name__)
 
 
 class Pod5File:
@@ -71,6 +74,7 @@ class Pod5File:
         resolved_path = Path(path).resolve()
 
         if not resolved_path.exists():
+            logger.error(f"POD5 file not found at path: {resolved_path}")
             raise FileNotFoundError(f"POD5 file not found: {resolved_path}")
 
         # Store as string to avoid Path object in variables pane
@@ -110,6 +114,7 @@ class Pod5File:
             if str(read_obj.read_id) == read_id:
                 return Read(read_obj, self)
 
+        logger.error(f"Read '{read_id}' not found in POD5 file {self.path}")
         raise ValueError(f"Read not found: {read_id}")
 
     def iter_reads(self, limit: int | None = None) -> Iterator["Read"]:
@@ -234,6 +239,7 @@ class Read:
             ...     print(f"Aligned to {alignment.chromosome}:{alignment.genomic_start}")
         """
         if bam_file is None and bam_path is None:
+            logger.error("Must provide either bam_file or bam_path to get_alignment()")
             raise ValueError("Must provide either bam_file or bam_path")
 
         path = bam_path if bam_path is not None else bam_file.path
@@ -298,10 +304,15 @@ class Read:
 
         if plot_mode == PlotMode.EVENTALIGN:
             if bam_file is None:
+                logger.error("EVENTALIGN mode requires bam_file parameter")
                 raise ValueError("EVENTALIGN mode requires bam_file parameter")
 
             aligned_read = self.get_alignment(bam_file)
             if aligned_read is None:
+                logger.warning(
+                    f"Read '{self.read_id}' not found in BAM file or has no move table. "
+                    f"Read may be unmapped or BAM may not contain event alignment data."
+                )
                 raise ValueError(
                     f"Read {self.read_id} not found in BAM or has no move table"
                 )
@@ -332,6 +343,10 @@ class Read:
                 "show_signal_points": show_signal_points,
             }
         else:
+            logger.error(
+                f"Unsupported plot mode for single read: {plot_mode}. "
+                f"Supported modes: SINGLE, EVENTALIGN"
+            )
             raise ValueError(f"Unsupported plot mode for single read: {plot_mode}")
 
         strategy = create_plot_strategy(plot_mode, theme_enum)
@@ -364,6 +379,7 @@ class BamFile:
         resolved_path = Path(path).resolve()
 
         if not resolved_path.exists():
+            logger.error(f"BAM file not found at path: {resolved_path}")
             raise FileNotFoundError(f"BAM file not found: {resolved_path}")
 
         # Store as string to avoid Path object in variables pane
@@ -375,7 +391,7 @@ class BamFile:
             # Try alternate index location
             alt_bai = Path(self.path).with_suffix(".bam.bai")
             if not alt_bai.exists():
-                print("Warning: BAM index not found. Region queries may not work.")
+                logger.warning("BAM index not found. Region queries may not work.")
 
         # Open BAM file
         self._bam = pysam.AlignmentFile(self.path, "rb", check_sq=False)
@@ -481,7 +497,7 @@ class BamFile:
             Dict mapping motif position keys to lists of AlignedRead objects
             Position key format: "chrom:position:strand"
 
-        Example:
+        Examples:
             >>> bam = BamFile('alignments.bam')
             >>> fasta = FastaFile('genome.fa')
             >>> overlaps = bam.get_reads_overlapping_motif(fasta, 'DRACH', region='chr1:1000-2000')
@@ -552,7 +568,7 @@ class FastaFile:
     Args:
         path: Path to FASTA file (must be indexed with .fai)
 
-    Example:
+    Examples:
         >>> with FastaFile('genome.fa') as fasta:
         ...     # Search for DRACH motif
         ...     for match in fasta.search_motif('DRACH', region='chr1:1000-2000'):
@@ -564,6 +580,7 @@ class FastaFile:
         resolved_path = Path(path).resolve()
 
         if not resolved_path.exists():
+            logger.error(f"FASTA file not found at path: {resolved_path}")
             raise FileNotFoundError(f"FASTA file not found: {resolved_path}")
 
         # Store as string to avoid Path object in variables pane
@@ -572,6 +589,10 @@ class FastaFile:
         # Check for index
         fai_path = Path(self.path + ".fai")
         if not fai_path.exists():
+            logger.error(
+                f"FASTA index not found: {fai_path}. "
+                f"Create with: samtools faidx {self.path}"
+            )
             raise FileNotFoundError(
                 f"FASTA index not found: {fai_path}. "
                 f"Create with: samtools faidx {self.path}"
@@ -604,7 +625,7 @@ class FastaFile:
         Returns:
             DNA sequence string
 
-        Example:
+        Examples:
             >>> fasta = FastaFile('genome.fa')
             >>> seq = fasta.fetch('chr1', 1000, 1100)
             >>> print(seq)  # 100 bp sequence
@@ -629,7 +650,7 @@ class FastaFile:
         Yields:
             MotifMatch objects for each match found
 
-        Example:
+        Examples:
             >>> fasta = FastaFile('genome.fa')
             >>> matches = list(fasta.search_motif('DRACH', region='chr1:1000-2000'))
             >>> for match in matches:
@@ -654,7 +675,7 @@ class FastaFile:
         Returns:
             Total number of matches
 
-        Example:
+        Examples:
             >>> fasta = FastaFile('genome.fa')
             >>> count = fasta.count_motifs('DRACH', region='chr1')
             >>> print(f"Found {count} DRACH motifs")

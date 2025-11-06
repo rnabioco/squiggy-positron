@@ -15,6 +15,7 @@ Fast lookup for common tasks and commands.
 | `squiggy.closeBAM` | Close BAM file |
 | `squiggy.closeFASTA` | Close FASTA file |
 | `squiggy.loadTestData` | Load example test files |
+| `squiggy.loadDemoSession` | Load pre-configured demo session |
 
 ### Plotting
 
@@ -31,13 +32,18 @@ Fast lookup for common tasks and commands.
 |---------|-------------|
 | `squiggy.loadSample` | Load sample for comparison |
 | `squiggy.plotDeltaComparison` | Compare loaded samples |
+| `squiggy.loadTestMultiReadDataset` | Load test multi-read dataset |
 
-### UI
+### UI & Session Management
 
 | Command | Description |
 |---------|-------------|
 | `squiggy.refreshReads` | Refresh read list |
 | `squiggy.clearState` | Clear all extension state |
+| `squiggy.saveSession` | Save current session |
+| `squiggy.restoreSession` | Restore saved session |
+| `squiggy.exportSession` | Export session to file |
+| `squiggy.importSession` | Import session from file |
 
 ## Keyboard Shortcuts
 
@@ -160,11 +166,13 @@ Access via: `Preferences` → `Settings` → search "squiggy"
 ### Basic Operations
 
 ```python
-from squiggy import load_pod5, load_bam, close_pod5, close_bam
+from squiggy import load_pod5, load_bam, load_fasta
+from squiggy import close_pod5, close_bam, close_fasta
 
 # Load files
 reader, read_ids = load_pod5("data.pod5")
 load_bam("alignments.bam")
+load_fasta("reference.fa")
 
 # Get info
 print(len(read_ids))  # Number of reads
@@ -172,6 +180,7 @@ print(len(read_ids))  # Number of reads
 # Close
 close_pod5()
 close_bam()
+close_fasta()
 ```
 
 ### Single Read Plotting
@@ -196,13 +205,52 @@ html = plot_read(
 ### Aggregate Plotting
 
 ```python
-from squiggy import plot_reads
+from squiggy import plot_reads, plot_aggregate
 
-# Plot aggregate for reads
+# Plot aggregate for specific reads
 html = plot_reads(
     ["read_001", "read_002", "read_003"],
     plot_mode="AGGREGATE",
     normalization="ZNORM"
+)
+
+# Plot aggregate for a reference region
+html = plot_aggregate(
+    reference="chr1",
+    max_reads=100,
+    normalization="ZNORM"
+)
+```
+
+### Motif Search and Analysis
+
+```python
+from squiggy import (
+    search_motif,
+    count_motifs,
+    iupac_to_regex,
+    plot_motif_aggregate_all
+)
+
+# Search for motif in FASTA
+matches = list(search_motif(
+    "genome.fa",
+    motif="DRACH",
+    region="chr1:1000-2000"
+))
+
+# Count motifs
+count = count_motifs("genome.fa", "DRACH", region="chr1")
+
+# Convert IUPAC pattern to regex
+pattern = iupac_to_regex("DRACH")  # Returns "[AGT][AG]AC[ACT]"
+
+# Plot aggregate for all motif instances
+html = plot_motif_aggregate_all(
+    fasta_file="genome.fa",
+    motif="DRACH",
+    upstream=20,
+    downstream=50
 )
 ```
 
@@ -239,11 +287,12 @@ html = plot_delta_comparison(
 ### Object-Oriented API
 
 ```python
-from squiggy import Pod5File, BamFile
+from squiggy import Pod5File, BamFile, FastaFile
 
 # Create objects
 pod5 = Pod5File("/data/file.pod5")
 bam = BamFile("/data/alignments.bam")
+fasta = FastaFile("/data/reference.fa")
 
 # Get reads
 reads = pod5.reads()
@@ -252,6 +301,14 @@ for read in reads[:5]:
 
 # Plot via object
 html = read.plot(mode="EVENTALIGN", normalization="ZNORM")
+
+# Search motifs in FASTA
+matches = fasta.search_motif("DRACH", region="chr1:1000-2000")
+for match in matches:
+    print(f"{match.chrom}:{match.position} {match.sequence}")
+
+# Get reads overlapping motif
+overlaps = bam.get_reads_overlapping_motif(fasta, "DRACH")
 ```
 
 ## File Formats

@@ -226,6 +226,8 @@ export class FileLoadingService {
                     readCount: 0,
                     numReferences: 0,
                     hasModifications: false,
+                    modificationTypes: [],
+                    hasProbabilities: false,
                     hasEventAlignment: false,
                     error: 'Squiggy API not initialized',
                 };
@@ -246,6 +248,8 @@ export class FileLoadingService {
                 readCount: result.numReads,
                 numReferences: 0, // Will be populated by API if available
                 hasModifications: result.hasModifications || false,
+                modificationTypes: result.modificationTypes || [],
+                hasProbabilities: result.hasProbabilities || false,
                 hasEventAlignment: result.hasEventAlignment || false,
                 error: null,
             };
@@ -260,6 +264,8 @@ export class FileLoadingService {
                 readCount: 0,
                 numReferences: 0,
                 hasModifications: false,
+                modificationTypes: [],
+                hasProbabilities: false,
                 hasEventAlignment: false,
                 error: `Failed to load BAM: ${errorMessage}`,
             };
