@@ -79,6 +79,7 @@ from .plot_factory import create_plot_strategy
 # Plotting functions
 from .plotting import (
     plot_aggregate,
+    plot_aggregate_comparison,
     plot_delta_comparison,
     plot_motif_aggregate_all,
     plot_read,
@@ -134,6 +135,7 @@ __all__ = [
     "plot_motif_aggregate_all",
     "plot_delta_comparison",  # Phase 3 - NEW
     "plot_signal_overlay_comparison",  # Phase 1 - NEW multi-sample comparison
+    "plot_aggregate_comparison",  # Phase 3 - NEW aggregate comparison
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
