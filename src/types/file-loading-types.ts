@@ -45,6 +45,8 @@ export interface BAMLoadResult extends BaseFileLoadResult {
     readCount: number;
     numReferences: number;
     hasModifications: boolean;
+    modificationTypes: string[];
+    hasProbabilities: boolean;
     hasEventAlignment: boolean;
 }
 

@@ -672,8 +672,8 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 );
                 state.modificationsProvider?.setModificationInfo(
                     true,
-                    [], // modificationTypes would need to come from API
-                    false
+                    bamResult.modificationTypes || [],
+                    bamResult.hasProbabilities
                 );
             } else {
                 state.modificationsProvider?.clear();

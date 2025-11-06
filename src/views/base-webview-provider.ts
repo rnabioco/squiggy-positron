@@ -45,16 +45,19 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
         _context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken
     ): void {
+        console.log(`[${this.getTitle()}] resolveWebviewView called`);
         this._view = webviewView;
 
         // Set webview options
         webviewView.webview.options = getWebviewOptions(this.extensionUri);
 
         // Set HTML content
+        const title = this.getTitle();
+        console.log(`[${title}] Setting HTML with title: "${title}"`);
         webviewView.webview.html = getReactWebviewHtml(
             webviewView.webview,
             this.extensionUri,
-            this.getTitle()
+            title
         );
 
         // Handle visibility changes - restore state when view becomes visible

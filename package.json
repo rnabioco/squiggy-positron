@@ -78,6 +78,12 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "squiggy.debugModificationsPanel",
+        "title": "Debug Modifications Panel",
+        "category": "Squiggy",
+        "icon": "$(bug)"
+      },
+      {
         "command": "squiggy.openFASTA",
         "title": "Open FASTA File",
         "category": "Squiggy",
@@ -185,8 +191,7 @@
         {
           "id": "squiggyModificationsPanel",
           "name": "Modifications Explorer",
-          "type": "webview",
-          "when": "squiggy.hasModifications"
+          "type": "webview"
         },
         {
           "id": "squiggyMotifSearch",
