@@ -1,5 +1,14 @@
 # Squiggy Release Notes
 
+## v0.1.14-alpha (2025-11-06)
+
+Maintenance release with bug fixes for Read Explorer UI.
+
+### Fixes
+
+- **Read Explorer Empty State**: Fixed auto-loading of reads when POD5+BAM files are loaded, ensuring proper empty state handling (#115, #122)
+- **Code Quality**: Fixed linting issues across the codebase
+
 ## v0.1.13-alpha (2025-11-06)
 
 Major release with unified multi-sample workflow, Python library refactoring, performance optimizations, and comprehensive bug fixes.
