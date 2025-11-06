@@ -11,7 +11,6 @@ from typing import Any
 import numpy as np
 from bokeh.layouts import gridplot
 from bokeh.models import Band, ColumnDataSource, HoverTool, Legend, LegendItem
-from bokeh.plotting import figure
 
 from ..constants import (
     MULTI_READ_COLORS,
@@ -112,7 +111,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
     def _create_signal_track(
         self, samples: list[dict], reference_name: str
-    ) -> figure | None:
+    ):
         """
         Create signal statistics comparison track
 
@@ -127,29 +126,12 @@ class AggregateComparisonStrategy(PlotStrategy):
         if not any("signal_stats" in s and s["signal_stats"] for s in samples):
             return None
 
-        # Get plot dimensions and styling
-        plot_width = self.theme_manager.get_plot_config()["plot_width"]
-        plot_height = self.theme_manager.get_plot_config()["track_height"]
-        bg_color = self.theme_manager.get_background_color()
-        fg_color = self.theme_manager.get_foreground_color()
-
-        # Create figure
-        p = figure(
-            width=plot_width,
-            height=plot_height,
+        # Create themed figure
+        p = self.theme_manager.create_figure(
             title=f"Signal Statistics Comparison - {reference_name}",
-            x_axis_label="Reference Position (bp)",
-            y_axis_label="Normalized Signal",
-            background_fill_color=bg_color,
-            border_fill_color=bg_color,
+            x_label="Reference Position (bp)",
+            y_label="Normalized Signal",
         )
-
-        # Style axes
-        p.title.text_color = fg_color
-        p.xaxis.axis_label_text_color = fg_color
-        p.yaxis.axis_label_text_color = fg_color
-        p.xaxis.major_label_text_color = fg_color
-        p.yaxis.major_label_text_color = fg_color
 
         legend_items = []
 
@@ -229,7 +211,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
     def _create_dwell_track(
         self, samples: list[dict], reference_name: str
-    ) -> figure | None:
+    ):
         """
         Create dwell time statistics comparison track
 
@@ -244,29 +226,12 @@ class AggregateComparisonStrategy(PlotStrategy):
         if not any("dwell_stats" in s and s["dwell_stats"] for s in samples):
             return None
 
-        # Get plot dimensions and styling
-        plot_width = self.theme_manager.get_plot_config()["plot_width"]
-        plot_height = self.theme_manager.get_plot_config()["track_height"]
-        bg_color = self.theme_manager.get_background_color()
-        fg_color = self.theme_manager.get_foreground_color()
-
-        # Create figure
-        p = figure(
-            width=plot_width,
-            height=plot_height,
+        # Create themed figure
+        p = self.theme_manager.create_figure(
             title=f"Dwell Time Statistics Comparison - {reference_name}",
-            x_axis_label="Reference Position (bp)",
-            y_axis_label="Dwell Time (samples)",
-            background_fill_color=bg_color,
-            border_fill_color=bg_color,
+            x_label="Reference Position (bp)",
+            y_label="Dwell Time (samples)",
         )
-
-        # Style axes
-        p.title.text_color = fg_color
-        p.xaxis.axis_label_text_color = fg_color
-        p.yaxis.axis_label_text_color = fg_color
-        p.xaxis.major_label_text_color = fg_color
-        p.yaxis.major_label_text_color = fg_color
 
         legend_items = []
 
@@ -346,7 +311,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
     def _create_quality_track(
         self, samples: list[dict], reference_name: str
-    ) -> figure | None:
+    ):
         """
         Create quality statistics comparison track
 
@@ -361,29 +326,12 @@ class AggregateComparisonStrategy(PlotStrategy):
         if not any("quality_stats" in s and s["quality_stats"] for s in samples):
             return None
 
-        # Get plot dimensions and styling
-        plot_width = self.theme_manager.get_plot_config()["plot_width"]
-        plot_height = self.theme_manager.get_plot_config()["track_height"]
-        bg_color = self.theme_manager.get_background_color()
-        fg_color = self.theme_manager.get_foreground_color()
-
-        # Create figure
-        p = figure(
-            width=plot_width,
-            height=plot_height,
+        # Create themed figure
+        p = self.theme_manager.create_figure(
             title=f"Quality Statistics Comparison - {reference_name}",
-            x_axis_label="Reference Position (bp)",
-            y_axis_label="Quality Score",
-            background_fill_color=bg_color,
-            border_fill_color=bg_color,
+            x_label="Reference Position (bp)",
+            y_label="Quality Score",
         )
-
-        # Style axes
-        p.title.text_color = fg_color
-        p.xaxis.axis_label_text_color = fg_color
-        p.yaxis.axis_label_text_color = fg_color
-        p.xaxis.major_label_text_color = fg_color
-        p.yaxis.major_label_text_color = fg_color
 
         legend_items = []
 
@@ -463,7 +411,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
     def _create_coverage_track(
         self, samples: list[dict], reference_name: str
-    ) -> figure | None:
+    ):
         """
         Create coverage comparison track
 
@@ -478,29 +426,13 @@ class AggregateComparisonStrategy(PlotStrategy):
         if not any("coverage" in s and s["coverage"] for s in samples):
             return None
 
-        # Get plot dimensions and styling
-        plot_width = self.theme_manager.get_plot_config()["plot_width"]
-        plot_height = self.theme_manager.get_plot_config()["track_height"] - 50
-        bg_color = self.theme_manager.get_background_color()
-        fg_color = self.theme_manager.get_foreground_color()
-
-        # Create figure
-        p = figure(
-            width=plot_width,
-            height=plot_height,
+        # Create themed figure (smaller height for coverage)
+        p = self.theme_manager.create_figure(
             title=f"Coverage Comparison - {reference_name}",
-            x_axis_label="Reference Position (bp)",
-            y_axis_label="Read Count",
-            background_fill_color=bg_color,
-            border_fill_color=bg_color,
+            x_label="Reference Position (bp)",
+            y_label="Read Count",
+            height=350,  # Slightly shorter than default
         )
-
-        # Style axes
-        p.title.text_color = fg_color
-        p.xaxis.axis_label_text_color = fg_color
-        p.yaxis.axis_label_text_color = fg_color
-        p.xaxis.major_label_text_color = fg_color
-        p.yaxis.major_label_text_color = fg_color
 
         legend_items = []
 
@@ -620,6 +552,13 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         if not tracks:
             raise ValueError("No tracks could be created with the provided data")
+
+        # Link x-axes for synchronized zoom/pan
+        # All tracks share the x_range from the first track
+        if tracks:
+            base_x_range = tracks[0].x_range
+            for track in tracks[1:]:
+                track.x_range = base_x_range
 
         # Create grid layout
         grid = gridplot(
