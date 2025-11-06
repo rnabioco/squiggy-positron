@@ -604,22 +604,22 @@ class SquiggySession:
             # Validate that FASTA and BAM have matching references (if BAM is loaded)
             if sample.bam_info:
                 # Extract reference names from BAM metadata (stored as list of dicts)
-                bam_refs = set(ref["name"] for ref in sample.bam_info["references"])
+                bam_refs = {ref["name"] for ref in sample.bam_info["references"]}
                 fasta_refs = set(references)
                 overlap_refs = bam_refs & fasta_refs
 
                 if len(overlap_refs) == 0:
                     logger.warning(
                         f"[load_sample] WARNING: No overlapping reference names found between BAM and FASTA! "
-                        f"BAM has {len(bam_refs)} references: {sorted(list(bam_refs))[:5]}, "
-                        f"FASTA has {len(fasta_refs)} references: {sorted(list(fasta_refs))[:5]}. "
+                        f"BAM has {len(bam_refs)} references: {sorted(bam_refs)[:5]}, "
+                        f"FASTA has {len(fasta_refs)} references: {sorted(fasta_refs)[:5]}. "
                         f"These files may be mismatched."
                     )
                     raise ValueError(
                         f"No overlapping reference names found between BAM ({len(bam_refs)} refs) "
                         f"and FASTA ({len(fasta_refs)} refs). These files appear to be mismatched. "
-                        f"BAM references: {sorted(list(bam_refs))[:3]}, "
-                        f"FASTA references: {sorted(list(fasta_refs))[:3]}."
+                        f"BAM references: {sorted(bam_refs)[:3]}, "
+                        f"FASTA references: {sorted(fasta_refs)[:3]}."
                     )
                 else:
                     ref_overlap_pct = (len(overlap_refs) / len(bam_refs)) * 100
@@ -630,7 +630,7 @@ class SquiggySession:
                         logger.warning(
                             f"[load_sample] WARNING: Low reference overlap between BAM and FASTA ({ref_overlap_pct:.1f}%). "
                             f"Only {len(overlap_refs)} of {len(bam_refs)} BAM references found in FASTA. "
-                            f"Missing references: {sorted(list(bam_refs - fasta_refs))[:5]}"
+                            f"Missing references: {sorted(bam_refs - fasta_refs)[:5]}"
                         )
 
         # Store sample
