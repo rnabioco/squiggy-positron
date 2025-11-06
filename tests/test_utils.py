@@ -688,3 +688,611 @@ class TestIterAlignedBases:
 
         # Should treat as no soft-clipping (all 2 bases aligned)
         assert len(result) == 2
+
+
+class TestModelProvenance:
+    """Tests for ModelProvenance dataclass"""
+
+    def test_repr_with_all_fields(self):
+        """Test __repr__ with all fields populated"""
+        from squiggy.utils import ModelProvenance
+
+        prov = ModelProvenance(
+            model_name="dorado",
+            model_version="0.4.0",
+            basecalling_model="dna_r10.4.1_e8.2_400bps_hac",
+        )
+
+        repr_str = repr(prov)
+        assert "dorado" in repr_str
+        assert "0.4.0" in repr_str
+        assert "dna_r10.4.1_e8.2_400bps_hac" in repr_str
+
+    def test_repr_with_partial_fields(self):
+        """Test __repr__ with only some fields populated"""
+        from squiggy.utils import ModelProvenance
+
+        prov = ModelProvenance(model_name="guppy")
+
+        repr_str = repr(prov)
+        assert "guppy" in repr_str
+        assert "ModelProvenance" in repr_str
+
+    def test_repr_with_no_fields(self):
+        """Test __repr__ with no fields populated"""
+        from squiggy.utils import ModelProvenance
+
+        prov = ModelProvenance()
+
+        repr_str = repr(prov)
+        assert "Unknown" in repr_str
+
+    def test_matches_same_model(self):
+        """Test matches() returns True for same model"""
+        from squiggy.utils import ModelProvenance
+
+        prov_a = ModelProvenance(
+            model_name="dorado", basecalling_model="dna_r10.4.1_e8.2_400bps_hac"
+        )
+        prov_b = ModelProvenance(
+            model_name="dorado", basecalling_model="dna_r10.4.1_e8.2_400bps_hac"
+        )
+
+        assert prov_a.matches(prov_b)
+
+    def test_matches_different_versions_same_model(self):
+        """Test matches() returns True for different versions of same model"""
+        from squiggy.utils import ModelProvenance
+
+        prov_a = ModelProvenance(
+            model_name="dorado",
+            model_version="0.4.0",
+            basecalling_model="dna_r10.4.1_e8.2_400bps_hac",
+        )
+        prov_b = ModelProvenance(
+            model_name="dorado",
+            model_version="0.5.0",
+            basecalling_model="dna_r10.4.1_e8.2_400bps_hac",
+        )
+
+        # Should match despite different versions
+        assert prov_a.matches(prov_b)
+
+    def test_matches_different_model_name(self):
+        """Test matches() returns False for different model names"""
+        from squiggy.utils import ModelProvenance
+
+        prov_a = ModelProvenance(
+            model_name="dorado", basecalling_model="dna_r10.4.1_e8.2_400bps_hac"
+        )
+        prov_b = ModelProvenance(
+            model_name="guppy", basecalling_model="dna_r10.4.1_e8.2_400bps_hac"
+        )
+
+        assert not prov_a.matches(prov_b)
+
+    def test_matches_different_basecalling_model(self):
+        """Test matches() returns False for different basecalling models"""
+        from squiggy.utils import ModelProvenance
+
+        prov_a = ModelProvenance(
+            model_name="dorado", basecalling_model="dna_r10.4.1_e8.2_400bps_hac"
+        )
+        prov_b = ModelProvenance(
+            model_name="dorado", basecalling_model="rna004_130bps_hac"
+        )
+
+        assert not prov_a.matches(prov_b)
+
+    def test_matches_with_none(self):
+        """Test matches() returns False when comparing to None"""
+        from squiggy.utils import ModelProvenance
+
+        prov = ModelProvenance(model_name="dorado")
+
+        assert not prov.matches(None)
+
+
+class TestReverseComplement:
+    """Tests for reverse_complement function"""
+
+    def test_simple_sequence(self):
+        """Test reverse complement of simple sequence"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("ATCG") == "CGAT"
+
+    def test_palindrome(self):
+        """Test reverse complement of palindromic sequence"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("ATAT") == "ATAT"
+
+    def test_all_a(self):
+        """Test reverse complement of all A's"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("AAAA") == "TTTT"
+
+    def test_all_t(self):
+        """Test reverse complement of all T's"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("TTTT") == "AAAA"
+
+    def test_with_n(self):
+        """Test reverse complement with N (any base)"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("ATNGC") == "GCNAT"
+
+    def test_empty_sequence(self):
+        """Test reverse complement of empty sequence"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("") == ""
+
+    def test_single_base(self):
+        """Test reverse complement of single base"""
+        from squiggy.utils import reverse_complement
+
+        assert reverse_complement("A") == "T"
+        assert reverse_complement("T") == "A"
+        assert reverse_complement("C") == "G"
+        assert reverse_complement("G") == "C"
+
+
+class TestValidateBAMReadsInPOD5:
+    """Tests for validate_bam_reads_in_pod5 function"""
+
+    def test_validate_matching_files(self, sample_pod5_file, sample_bam_file):
+        """Test validation with matching POD5 and BAM files"""
+        from squiggy.utils import validate_bam_reads_in_pod5
+
+        result = validate_bam_reads_in_pod5(sample_bam_file, sample_pod5_file)
+
+        assert isinstance(result, dict)
+        assert "is_valid" in result
+        assert "bam_read_count" in result
+        assert "pod5_read_count" in result
+        assert "missing_count" in result
+        assert "missing_reads" in result
+
+        # The sample files should match
+        assert result["is_valid"] is True
+        assert result["missing_count"] == 0
+        assert len(result["missing_reads"]) == 0
+
+    def test_validate_counts(self, sample_pod5_file, sample_bam_file):
+        """Test that read counts are reported correctly"""
+        from squiggy.utils import validate_bam_reads_in_pod5
+
+        result = validate_bam_reads_in_pod5(sample_bam_file, sample_pod5_file)
+
+        assert result["bam_read_count"] > 0
+        assert result["pod5_read_count"] > 0
+        assert result["bam_read_count"] <= result["pod5_read_count"]
+
+
+class TestGetReadToReferenceMapping:
+    """Tests for get_read_to_reference_mapping function"""
+
+    def test_get_mapping(self, sample_bam_file):
+        """Test getting read to reference mapping"""
+        import pysam
+
+        from squiggy.utils import get_read_to_reference_mapping
+
+        # Get some read IDs from the BAM file
+        read_ids = []
+        with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if not read.is_unmapped:
+                    read_ids.append(read.query_name)
+                    if len(read_ids) >= 10:
+                        break
+
+        mapping = get_read_to_reference_mapping(sample_bam_file, read_ids)
+
+        assert isinstance(mapping, dict)
+        assert len(mapping) > 0
+
+        # Check that mapped reads are in the result
+        for read_id, ref_name in mapping.items():
+            assert read_id in read_ids
+            assert isinstance(ref_name, str)
+            assert len(ref_name) > 0
+
+    def test_get_mapping_nonexistent_file(self):
+        """Test with nonexistent BAM file"""
+        from squiggy.utils import get_read_to_reference_mapping
+
+        mapping = get_read_to_reference_mapping("/nonexistent/file.bam", ["read1"])
+
+        assert mapping == {}
+
+    def test_get_mapping_empty_read_list(self, sample_bam_file):
+        """Test with empty read ID list"""
+        from squiggy.utils import get_read_to_reference_mapping
+
+        mapping = get_read_to_reference_mapping(sample_bam_file, [])
+
+        assert mapping == {}
+
+    def test_get_mapping_none_bam(self):
+        """Test with None BAM file"""
+        from squiggy.utils import get_read_to_reference_mapping
+
+        mapping = get_read_to_reference_mapping(None, ["read1"])
+
+        assert mapping == {}
+
+
+class TestGetReadsInRegion:
+    """Tests for get_reads_in_region function"""
+
+    def test_get_reads_entire_chromosome(self, indexed_bam_file):
+        """Test querying entire chromosome"""
+        import pysam
+
+        from squiggy.utils import get_reads_in_region
+
+        # Find a reference that actually has reads
+        ref_name = None
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            for read in bam.fetch(until_eof=True):
+                if not read.is_unmapped:
+                    ref_name = bam.get_reference_name(read.reference_id)
+                    break
+
+        if ref_name is None:
+            pytest.skip("No reads found in BAM file")
+
+        reads = get_reads_in_region(indexed_bam_file, ref_name)
+
+        assert isinstance(reads, dict)
+        assert len(reads) > 0
+
+        # Check structure of first read
+        for _read_id, read_info in reads.items():
+            assert "read_id" in read_info
+            assert "chromosome" in read_info
+            assert "start" in read_info
+            assert "end" in read_info
+            assert "strand" in read_info
+            assert "is_reverse" in read_info
+
+            assert read_info["chromosome"] == ref_name
+            assert read_info["strand"] in ["+", "-"]
+            assert isinstance(read_info["is_reverse"], bool)
+            break
+
+    def test_get_reads_specific_region(self, indexed_bam_file):
+        """Test querying specific region"""
+        import pysam
+
+        from squiggy.utils import get_reads_in_region
+
+        # Get first reference name and a region within it
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb") as bam:
+            ref_name = bam.references[0]
+            ref_length = bam.lengths[0]
+
+        # Query a region in the middle
+        start = ref_length // 4
+        end = ref_length // 2
+
+        reads = get_reads_in_region(indexed_bam_file, ref_name, start, end)
+
+        assert isinstance(reads, dict)
+
+        # All reads should overlap the queried region
+        for read_info in reads.values():
+            assert read_info["start"] < end
+            assert read_info["end"] > start
+
+    def test_get_reads_nonexistent_file(self):
+        """Test with nonexistent BAM file"""
+        from squiggy.utils import get_reads_in_region
+
+        with pytest.raises(FileNotFoundError, match="BAM file not found"):
+            get_reads_in_region("/nonexistent/file.bam", "chr1")
+
+    def test_get_reads_not_indexed(self, sample_bam_file):
+        """Test with BAM file that is not indexed"""
+        from pathlib import Path
+
+        from squiggy.utils import get_reads_in_region
+
+        # Remove index if it exists
+        bai_path = Path(str(sample_bam_file) + ".bai")
+        if bai_path.exists():
+            bai_path.unlink()
+
+        with pytest.raises(ValueError, match="BAM index file not found"):
+            get_reads_in_region(sample_bam_file, "chr1")
+
+    def test_get_reads_invalid_chromosome(self, indexed_bam_file):
+        """Test with invalid chromosome name"""
+        from squiggy.utils import get_reads_in_region
+
+        with pytest.raises(ValueError, match="not found in BAM file"):
+            get_reads_in_region(indexed_bam_file, "INVALID_CHR")
+
+
+class TestGetAvailableReadsForReference:
+    """Tests for get_available_reads_for_reference function"""
+
+    def test_count_reads(self, indexed_bam_file):
+        """Test counting reads for a reference"""
+        import pysam
+
+        from squiggy.utils import get_available_reads_for_reference
+
+        # Find a reference that actually has reads
+        ref_name = None
+        with pysam.AlignmentFile(str(indexed_bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if not read.is_unmapped:
+                    ref_name = bam.get_reference_name(read.reference_id)
+                    break
+
+        if ref_name is None:
+            pytest.skip("No reads found in BAM file")
+
+        count = get_available_reads_for_reference(indexed_bam_file, ref_name)
+
+        assert isinstance(count, int)
+        assert count > 0
+
+    def test_count_reads_nonexistent_reference(self, sample_bam_file):
+        """Test counting reads for nonexistent reference"""
+        from squiggy.utils import get_available_reads_for_reference
+
+        # Count should be 0 for nonexistent reference
+        count = get_available_reads_for_reference(sample_bam_file, "NONEXISTENT_REF")
+
+        assert count == 0
+
+
+class TestExtractModelProvenance:
+    """Tests for extract_model_provenance function"""
+
+    def test_extract_from_sample_bam(self, sample_bam_file):
+        """Test extracting model provenance from sample BAM file"""
+        from squiggy.utils import extract_model_provenance
+
+        prov = extract_model_provenance(str(sample_bam_file))
+
+        assert isinstance(prov, object)
+        assert hasattr(prov, "model_name")
+        assert hasattr(prov, "model_version")
+        assert hasattr(prov, "basecalling_model")
+
+    def test_extract_nonexistent_file(self):
+        """Test extracting from nonexistent file"""
+        from squiggy.utils import extract_model_provenance
+
+        with pytest.raises(FileNotFoundError, match="BAM file not found"):
+            extract_model_provenance("/nonexistent/file.bam")
+
+
+class TestValidateSQHeaders:
+    """Tests for validate_sq_headers function"""
+
+    def test_validate_same_file(self, sample_bam_file):
+        """Test validating same file against itself"""
+        from squiggy.utils import validate_sq_headers
+
+        result = validate_sq_headers(str(sample_bam_file), str(sample_bam_file))
+
+        assert isinstance(result, dict)
+        assert result["is_valid"] is True
+        assert len(result["missing_in_a"]) == 0
+        assert len(result["missing_in_b"]) == 0
+        assert result["matching_count"] > 0
+
+    def test_validate_structure(self, sample_bam_file):
+        """Test that validation result has correct structure"""
+        from squiggy.utils import validate_sq_headers
+
+        result = validate_sq_headers(str(sample_bam_file), str(sample_bam_file))
+
+        assert "is_valid" in result
+        assert "references_a" in result
+        assert "references_b" in result
+        assert "missing_in_a" in result
+        assert "missing_in_b" in result
+        assert "matching_count" in result
+
+    def test_validate_nonexistent_file_a(self, sample_bam_file):
+        """Test with nonexistent file A"""
+        from squiggy.utils import validate_sq_headers
+
+        with pytest.raises(FileNotFoundError, match="BAM file A not found"):
+            validate_sq_headers("/nonexistent/file.bam", str(sample_bam_file))
+
+    def test_validate_nonexistent_file_b(self, sample_bam_file):
+        """Test with nonexistent file B"""
+        from squiggy.utils import validate_sq_headers
+
+        with pytest.raises(FileNotFoundError, match="BAM file B not found"):
+            validate_sq_headers(str(sample_bam_file), "/nonexistent/file.bam")
+
+
+class TestCompareReadSets:
+    """Tests for compare_read_sets function"""
+
+    def test_compare_identical_sets(self):
+        """Test comparing identical read sets"""
+        from squiggy.utils import compare_read_sets
+
+        reads_a = ["read1", "read2", "read3"]
+        reads_b = ["read1", "read2", "read3"]
+
+        result = compare_read_sets(reads_a, reads_b)
+
+        assert result["common_count"] == 3
+        assert result["unique_a_count"] == 0
+        assert result["unique_b_count"] == 0
+        assert result["overlap_percent_a"] == 100.0
+        assert result["overlap_percent_b"] == 100.0
+
+    def test_compare_disjoint_sets(self):
+        """Test comparing completely different read sets"""
+        from squiggy.utils import compare_read_sets
+
+        reads_a = ["read1", "read2", "read3"]
+        reads_b = ["read4", "read5", "read6"]
+
+        result = compare_read_sets(reads_a, reads_b)
+
+        assert result["common_count"] == 0
+        assert result["unique_a_count"] == 3
+        assert result["unique_b_count"] == 3
+        assert result["overlap_percent_a"] == 0.0
+        assert result["overlap_percent_b"] == 0.0
+
+    def test_compare_partial_overlap(self):
+        """Test comparing sets with partial overlap"""
+        from squiggy.utils import compare_read_sets
+
+        reads_a = ["read1", "read2", "read3", "read4"]
+        reads_b = ["read3", "read4", "read5", "read6"]
+
+        result = compare_read_sets(reads_a, reads_b)
+
+        assert result["common_count"] == 2
+        assert result["unique_a_count"] == 2
+        assert result["unique_b_count"] == 2
+        assert result["overlap_percent_a"] == 50.0
+        assert result["overlap_percent_b"] == 50.0
+
+    def test_compare_empty_sets(self):
+        """Test comparing empty read sets"""
+        from squiggy.utils import compare_read_sets
+
+        result = compare_read_sets([], [])
+
+        assert result["common_count"] == 0
+        assert result["unique_a_count"] == 0
+        assert result["unique_b_count"] == 0
+        assert result["overlap_percent_a"] == 0.0
+        assert result["overlap_percent_b"] == 0.0
+
+
+class TestCalculateDeltaStats:
+    """Tests for calculate_delta_stats function"""
+
+    def test_calculate_delta_mean_signal(self):
+        """Test calculating delta for mean signal"""
+        from squiggy.utils import calculate_delta_stats
+
+        stats_a = {
+            "positions": np.array([1, 2, 3]),
+            "mean_signal": np.array([10.0, 20.0, 30.0]),
+        }
+        stats_b = {
+            "positions": np.array([1, 2, 3]),
+            "mean_signal": np.array([15.0, 25.0, 35.0]),
+        }
+
+        result = calculate_delta_stats(stats_a, stats_b, ["mean_signal"])
+
+        assert "delta_mean_signal" in result
+        np.testing.assert_array_almost_equal(
+            result["delta_mean_signal"], np.array([5.0, 5.0, 5.0])
+        )
+
+    def test_calculate_delta_auto_detect(self):
+        """Test auto-detecting stats to calculate deltas for"""
+        from squiggy.utils import calculate_delta_stats
+
+        stats_a = {
+            "positions": np.array([1, 2, 3]),
+            "mean_signal": np.array([10.0, 20.0, 30.0]),
+            "std_signal": np.array([1.0, 2.0, 3.0]),
+        }
+        stats_b = {
+            "positions": np.array([1, 2, 3]),
+            "mean_signal": np.array([15.0, 25.0, 35.0]),
+            "std_signal": np.array([1.5, 2.5, 3.5]),
+        }
+
+        result = calculate_delta_stats(stats_a, stats_b)
+
+        assert "delta_mean_signal" in result
+        assert "delta_std_signal" in result
+
+    def test_calculate_delta_different_lengths(self):
+        """Test delta calculation with different array lengths"""
+        from squiggy.utils import calculate_delta_stats
+
+        stats_a = {
+            "mean_signal": np.array([10.0, 20.0, 30.0, 40.0]),
+        }
+        stats_b = {
+            "mean_signal": np.array([15.0, 25.0]),
+        }
+
+        result = calculate_delta_stats(stats_a, stats_b, ["mean_signal"])
+
+        # Should only calculate delta for overlapping region
+        assert len(result["delta_mean_signal"]) == 2
+
+
+class TestCompareSignalDistributions:
+    """Tests for compare_signal_distributions function"""
+
+    def test_compare_identical_distributions(self):
+        """Test comparing identical signal distributions"""
+        from squiggy.utils import compare_signal_distributions
+
+        signal = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        result = compare_signal_distributions(signal, signal)
+
+        assert result["mean_diff"] == 0.0
+        assert result["std_diff"] == 0.0
+        assert result["mean_a"] == result["mean_b"]
+        assert result["std_a"] == result["std_b"]
+
+    def test_compare_different_distributions(self):
+        """Test comparing different signal distributions"""
+        from squiggy.utils import compare_signal_distributions
+
+        signal_a = np.array([1.0, 2.0, 3.0])
+        signal_b = np.array([2.0, 3.0, 4.0])
+
+        result = compare_signal_distributions(signal_a, signal_b)
+
+        assert result["mean_diff"] == pytest.approx(1.0)
+        assert result["mean_b"] > result["mean_a"]
+
+    def test_compare_distribution_structure(self):
+        """Test that result has all required fields"""
+        from squiggy.utils import compare_signal_distributions
+
+        signal_a = np.array([1.0, 2.0, 3.0])
+        signal_b = np.array([2.0, 3.0, 4.0])
+
+        result = compare_signal_distributions(signal_a, signal_b)
+
+        required_fields = [
+            "mean_a",
+            "mean_b",
+            "median_a",
+            "median_b",
+            "std_a",
+            "std_b",
+            "min_a",
+            "min_b",
+            "max_a",
+            "max_b",
+            "mean_diff",
+            "std_diff",
+        ]
+
+        for field in required_fields:
+            assert field in result
+            assert isinstance(result[field], float)
