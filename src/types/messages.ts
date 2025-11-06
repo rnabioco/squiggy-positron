@@ -186,6 +186,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showSignal: boolean;
     showQuality: boolean;
     clipXAxisToAlignment: boolean;
+    transformCoordinates: boolean;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
@@ -231,13 +232,12 @@ export interface UpdateLoadedSamplesMessage extends BaseMessage {
 }
 
 export interface PlotOptions {
-    // Analysis Type - flat list of all 7 plot types
+    // Analysis Type - 6 plot types (removed COMPARE_SIGNAL_OVERLAY - redundant)
     plotType:
         | 'SINGLE_READ'
         | 'MULTI_READ_OVERLAY'
         | 'MULTI_READ_STACKED'
         | 'AGGREGATE'
-        | 'COMPARE_SIGNAL_OVERLAY'
         | 'COMPARE_SIGNAL_DELTA'
         | 'COMPARE_AGGREGATE';
 
@@ -250,6 +250,7 @@ export interface PlotOptions {
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment?: boolean;
+    transformCoordinates?: boolean;
 
     // Multi-Read Overlay/Stacked options
     maxReadsMulti?: number;
@@ -385,6 +386,16 @@ export interface ToggleSampleSelectionMessage extends BaseMessage {
     sampleName: string;
 }
 
+export interface RequestChangeSampleBamMessage extends BaseMessage {
+    type: 'requestChangeSampleBam';
+    sampleName: string;
+}
+
+export interface RequestChangeSampleFastaMessage extends BaseMessage {
+    type: 'requestChangeSampleFasta';
+    sampleName: string;
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | UnloadSampleMessage
@@ -395,6 +406,8 @@ export type SamplesIncomingMessage =
     | UpdateSampleNameMessage
     | UpdateSampleColorMessage
     | ToggleSampleSelectionMessage
+    | RequestChangeSampleBamMessage
+    | RequestChangeSampleFastaMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage

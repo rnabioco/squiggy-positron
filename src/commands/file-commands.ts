@@ -267,6 +267,16 @@ export function registerFileCommands(
             }
         )
     );
+
+    // Update sample files (BAM/FASTA)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.updateSampleFiles',
+            async (sampleName: string, files: { bamPath?: string; fastaPath?: string }) => {
+                await updateSampleFiles(sampleName, files, state);
+            }
+        )
+    );
 }
 
 /**
@@ -662,8 +672,8 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 );
                 state.modificationsProvider?.setModificationInfo(
                     true,
-                    [], // modificationTypes would need to come from API
-                    false
+                    bamResult.modificationTypes || [],
+                    bamResult.hasProbabilities
                 );
             } else {
                 state.modificationsProvider?.clear();
@@ -1362,4 +1372,49 @@ function extractStem(filename: string): string {
     // Extract stem: everything up to first non-alphanumeric non-underscore
     const match = withoutExt.match(/^([a-zA-Z0-9_]+)/);
     return match ? match[1] : withoutExt;
+}
+
+/**
+ * Update BAM/FASTA files for a sample
+ */
+async function updateSampleFiles(
+    sampleName: string,
+    files: { bamPath?: string; fastaPath?: string },
+    state: ExtensionState
+): Promise<void> {
+    console.log(`[updateSampleFiles] Updating files for sample '${sampleName}':`, files);
+
+    // Get sample from state
+    const sample = state.getSample(sampleName);
+    if (!sample) {
+        vscode.window.showErrorMessage(`Sample "${sampleName}" not found`);
+        return;
+    }
+
+    try {
+        // Update Python backend via squiggy API
+        if (!(await ensureSquiggyAvailable(state))) {
+            return;
+        }
+
+        const service = new FileLoadingService(state);
+
+        // Reload the sample with new files
+        // This will update the multi-sample registry in Python
+        await service.loadSampleIntoRegistry(
+            sampleName,
+            sample.pod5Path,
+            files.bamPath || sample.bamPath,
+            files.fastaPath || sample.fastaPath
+        );
+
+        vscode.window.showInformationMessage(`Updated files for sample "${sampleName}"`);
+
+        console.log(`[updateSampleFiles] Successfully updated files for '${sampleName}'`);
+    } catch (error) {
+        console.error(`[updateSampleFiles] Error updating files for '${sampleName}':`, error);
+        vscode.window.showErrorMessage(
+            `Failed to update files for sample "${sampleName}": ${error instanceof Error ? error.message : String(error)}`
+        );
+    }
 }

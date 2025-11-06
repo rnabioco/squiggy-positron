@@ -223,6 +223,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     options.showSignal,
                     options.showQuality,
                     options.clipXAxisToAlignment,
+                    options.transformCoordinates,
                     state.selectedReadExplorerSample || undefined // Use current sample
                 );
 

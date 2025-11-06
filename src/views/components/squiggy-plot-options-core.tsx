@@ -36,6 +36,7 @@ interface PlotOptionsState {
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment: boolean;
+    transformCoordinates: boolean;
 
     // Multi-Read options (Overlay/Stacked)
     maxReadsMulti: number;
@@ -71,9 +72,10 @@ export const PlotOptionsCore: React.FC = () => {
         downsample: 5,
         showSignalPoints: false,
         clipXAxisToAlignment: true,
+        transformCoordinates: true,
         // Multi-Read
         maxReadsMulti: 50,
-        // Aggregate (Single Sample)
+        // Aggregate defaults
         aggregateReference: '',
         aggregateMaxReads: 100,
         showModifications: true,
@@ -112,6 +114,7 @@ export const PlotOptionsCore: React.FC = () => {
                         downsample: message.options.downsample ?? prev.downsample,
                         showSignalPoints: message.options.showSignalPoints ?? prev.showSignalPoints,
                         clipXAxisToAlignment: message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
+                        transformCoordinates: message.options.transformCoordinates ?? prev.transformCoordinates,
                         aggregateReference: message.options.aggregateReference || prev.aggregateReference,
                         aggregateMaxReads: message.options.aggregateMaxReads ?? prev.aggregateMaxReads,
                         showModifications: message.options.showModifications ?? prev.showModifications,
@@ -129,10 +132,19 @@ export const PlotOptionsCore: React.FC = () => {
                     break;
                 case 'updateBamStatus':
                     console.log('[PlotOptions React] Updating hasBam:', message.hasBam);
-                    setOptions((prev) => ({
-                        ...prev,
-                        hasBam: message.hasBam,
-                    }));
+                    setOptions((prev) => {
+                        const newOptions: PlotOptionsState = {
+                            ...prev,
+                            hasBam: message.hasBam,
+                            // When BAM loads, switch to AGGREGATE/EVENTALIGN
+                            // When BAM unloads, switch back to SINGLE
+                            plotMode: (message.hasBam ? 'EVENTALIGN' : 'SINGLE') as
+                                | 'SINGLE'
+                                | 'EVENTALIGN',
+                            plotType: (message.hasBam ? 'AGGREGATE' : 'SINGLE_READ') as PlotType,
+                        };
+                        return newOptions;
+                    });
                     // Request references when BAM is loaded
                     if (message.hasBam) {
                         vscode.postMessage({ type: 'requestReferences' });
@@ -231,6 +243,7 @@ export const PlotOptionsCore: React.FC = () => {
             showSignal: options.showSignal,
             showQuality: options.showQuality,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
+            transformCoordinates: options.transformCoordinates,
         });
     };
 
@@ -531,27 +544,171 @@ export const PlotOptionsCore: React.FC = () => {
                         >
                             Visible Panels
                         </div>
-                        {[
-                            { key: 'showModifications', label: 'Base modifications' },
-                            { key: 'showPileup', label: 'Base pileup' },
-                            { key: 'showDwellTime', label: 'Dwell time' },
-                            { key: 'showSignal', label: 'Signal' },
-                            { key: 'showQuality', label: 'Quality scores' },
-                        ].map(({ key, label }) => (
-                            <div key={key} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                                <input
-                                    type="checkbox"
-                                    id={key}
-                                    checked={options[key as keyof PlotOptionsState] as boolean}
-                                    onChange={(e) => setOptions(prev => ({ ...prev, [key]: e.target.checked }))}
-                                    disabled={!options.hasBam}
-                                    style={{ marginRight: '6px' }}
-                                />
-                                <label htmlFor={key} style={{ fontSize: '0.9em' }}>
-                                    {label}
-                                </label>
-                            </div>
-                        ))}
+
+                        {/* Modifications Panel */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showModifications"
+                                checked={options.showModifications}
+                                onChange={(e) => setOptions(prev => ({ ...prev, showModifications: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showModifications" style={{ fontSize: '0.9em' }}>
+                                Base modifications
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.75em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginLeft: '22px',
+                                marginBottom: '12px',
+                                marginTop: '-4px',
+                            }}
+                        >
+                            Adjust filters in Modifications Explorer panel
+                        </div>
+
+                        {/* Pileup Panel */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showPileup"
+                                checked={options.showPileup}
+                                onChange={(e) => setOptions(prev => ({ ...prev, showPileup: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showPileup" style={{ fontSize: '0.9em' }}>
+                                Base pileup
+                            </label>
+                        </div>
+
+                        {/* Dwell Time Panel */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showDwellTimeAggregate"
+                                checked={options.showDwellTime}
+                                onChange={(e) => setOptions(prev => ({ ...prev, showDwellTime: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showDwellTimeAggregate" style={{ fontSize: '0.9em' }}>
+                                Dwell time
+                            </label>
+                        </div>
+
+                        {/* Signal Panel */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showSignalAggregate"
+                                checked={options.showSignal}
+                                onChange={(e) => setOptions(prev => ({ ...prev, showSignal: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showSignalAggregate" style={{ fontSize: '0.9em' }}>
+                                Signal
+                            </label>
+                        </div>
+
+                        {/* Quality Panel */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="showQualityAggregate"
+                                checked={options.showQuality}
+                                onChange={(e) => setOptions(prev => ({ ...prev, showQuality: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label htmlFor="showQualityAggregate" style={{ fontSize: '0.9em' }}>
+                                Quality scores
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* X-Axis Options */}
+                    <div
+                        style={{
+                            marginBottom: '20px',
+                            opacity: options.hasBam ? 1 : 0.5,
+                            pointerEvents: options.hasBam ? 'auto' : 'none',
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            X-Axis Display
+                        </div>
+
+                        {/* Clip to Consensus */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="clipXAxisToAlignmentAggregate"
+                                checked={options.clipXAxisToAlignment}
+                                onChange={(e) => setOptions(prev => ({ ...prev, clipXAxisToAlignment: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label
+                                htmlFor="clipXAxisToAlignmentAggregate"
+                                style={{ fontSize: '0.9em' }}
+                            >
+                                Clip x-axis to consensus region
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Focus on high-coverage region (uncheck to show full reference range)
+                        </div>
+
+                        {/* Transform Coordinates */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="transformCoordinatesAggregate"
+                                checked={options.transformCoordinates}
+                                onChange={(e) => setOptions(prev => ({ ...prev, transformCoordinates: e.target.checked }))}
+                                disabled={!options.hasBam}
+                                style={{ marginRight: '6px' }}
+                            />
+                            <label
+                                htmlFor="transformCoordinatesAggregate"
+                                style={{ fontSize: '0.9em' }}
+                            >
+                                Transform to relative coordinates
+                            </label>
+                        </div>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Anchor position 1 to first reference base (uncheck to use genomic
+                            coordinates)
+                        </div>
                     </div>
 
                     {/* Generate Button */}

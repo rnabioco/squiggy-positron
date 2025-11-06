@@ -319,6 +319,7 @@ if '_squiggy_plot_error' in globals():
         showSignal: boolean = true,
         showQuality: boolean = true,
         clipXAxisToAlignment: boolean = true,
+        transformCoordinates: boolean = true,
         sampleName?: string
     ): Promise<void> {
         // Escape single quotes in reference name and sample name for Python strings
@@ -349,7 +350,8 @@ squiggy.plot_aggregate(
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
-    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'}${sampleNameParam}
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 
