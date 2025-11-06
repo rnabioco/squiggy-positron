@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { BaseWebviewProvider } from './base-webview-provider';
 import { ReadItem, ReadListItem, ReferenceGroupItem } from '../types/squiggy-reads-types';
 import { ReadsViewIncomingMessage } from '../types/messages';
+import { ExtensionState } from '../state/extension-state';
 
 export class ReadsViewPane extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyReadList';
@@ -18,6 +19,12 @@ export class ReadsViewPane extends BaseWebviewProvider {
     private _hasReferences: boolean = false;
     private _readItems: ReadListItem[] = [];
     private _referenceToReads?: Map<string, ReadItem[]>;
+    private _state: ExtensionState;
+
+    constructor(extensionUri: vscode.Uri, state: ExtensionState) {
+        super(extensionUri);
+        this._state = state;
+    }
 
     protected getTitle(): string {
         return 'Squiggy Reads Explorer';
@@ -44,6 +51,15 @@ export class ReadsViewPane extends BaseWebviewProvider {
                     message.limit
                 );
                 break;
+            case 'selectSample':
+                // User selected a different sample in the dropdown
+                this._state.selectedReadExplorerSample = message.sampleName;
+                // Reload reads for selected sample
+                vscode.commands.executeCommand(
+                    'squiggy.internal.loadReadsForSample',
+                    message.sampleName
+                );
+                break;
             case 'ready':
                 // Webview is ready, send initial state
                 this.updateView();
@@ -57,6 +73,15 @@ export class ReadsViewPane extends BaseWebviewProvider {
         if (!this._view) {
             return;
         }
+
+        // Send available samples first
+        const availableSamples = this.getAvailableSamples();
+        const selectedSample = this.getSelectedSample();
+        this.postMessage({
+            type: 'setAvailableSamples',
+            samples: availableSamples,
+            selectedSample,
+        });
 
         // Always send update message (even if empty, to clear the view)
         if (this._hasReferences && this._referenceToReads) {
@@ -182,6 +207,20 @@ export class ReadsViewPane extends BaseWebviewProvider {
             isLoading,
             message,
         });
+    }
+
+    /**
+     * Get list of available samples
+     */
+    public getAvailableSamples(): string[] {
+        return this._state.getAllSampleNames();
+    }
+
+    /**
+     * Get currently selected sample
+     */
+    public getSelectedSample(): string | null {
+        return this._state.selectedReadExplorerSample;
     }
 
     /**

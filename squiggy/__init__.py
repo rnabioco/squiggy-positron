@@ -119,6 +119,7 @@ def plot_read(
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
     clip_x_to_alignment: bool = True,
+    sample_name: str | None = None,
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -138,6 +139,8 @@ def plot_read(
         show_signal_points: Show individual signal points as circles
         clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
                              If False, x-axis extends to include soft-clipped regions.
+        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
+                     plots from that specific sample instead of the global session.
 
     Returns:
         Bokeh HTML string
@@ -153,8 +156,18 @@ def plot_read(
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
 
-    if _squiggy_session.reader is None:
-        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+    # Determine which POD5 reader to use
+    if sample_name:
+        # Multi-sample mode: get reader from specific sample
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
+        reader = sample.pod5_reader
+    else:
+        # Single-file mode: use global reader
+        reader = _squiggy_session.reader
+        if reader is None:
+            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     # Apply defaults if not specified
     if downsample is None:
@@ -246,6 +259,7 @@ def plot_reads(
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
+    sample_name: str | None = None,
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -262,6 +276,8 @@ def plot_reads(
         min_mod_probability: Minimum probability threshold for displaying modifications
         enabled_mod_types: List of modification type codes to display
         show_signal_points: Show individual signal points as circles
+        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
+                     plots from that specific sample instead of the global session.
 
     Returns:
         Bokeh HTML string
@@ -275,8 +291,18 @@ def plot_reads(
     from .io import _squiggy_session
     from .plot_factory import create_plot_strategy
 
-    if _squiggy_session.reader is None:
-        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+    # Determine which POD5 reader and BAM path to use
+    if sample_name:
+        # Multi-sample mode: get reader and BAM from specific sample
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
+        reader = sample.pod5_reader
+    else:
+        # Single-file mode: use global reader and BAM
+        reader = _squiggy_session.reader
+        if reader is None:
+            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     if not read_ids:
         raise ValueError("No read IDs provided.")
@@ -377,6 +403,7 @@ def plot_aggregate(
     show_signal: bool = True,
     show_quality: bool = True,
     clip_x_to_alignment: bool = True,
+    sample_name: str | None = None,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -402,6 +429,8 @@ def plot_aggregate(
         show_quality: Show quality panel (default True)
         clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
                              If False, x-axis extends to include soft-clipped regions.
+        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
+                     plots from that specific sample instead of the global session.
 
     Returns:
         Bokeh HTML string with synchronized tracks

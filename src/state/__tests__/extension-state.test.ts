@@ -31,7 +31,6 @@ describe('ExtensionState', () => {
         it('should have undefined panel references initially', () => {
             expect(state.readsViewPane).toBeUndefined();
             expect(state.plotOptionsProvider).toBeUndefined();
-            expect(state.filePanelProvider).toBeUndefined();
             expect(state.modificationsProvider).toBeUndefined();
         });
     });
@@ -142,7 +141,6 @@ describe('ExtensionState', () => {
             // All panel providers start as undefined
             expect(state.readsViewPane).toBeUndefined();
             expect(state.plotOptionsProvider).toBeUndefined();
-            expect(state.filePanelProvider).toBeUndefined();
             expect(state.modificationsProvider).toBeUndefined();
         });
     });

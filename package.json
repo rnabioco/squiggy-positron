@@ -162,13 +162,13 @@
     "views": {
       "squiggy-sidebar": [
         {
-          "id": "squiggySessionPanel",
-          "name": "Session Manager",
+          "id": "squiggyComparisonSamples",
+          "name": "Samples",
           "type": "webview"
         },
         {
-          "id": "squiggyFilePanel",
-          "name": "File Explorer",
+          "id": "squiggySessionPanel",
+          "name": "Session Manager",
           "type": "webview"
         },
         {
@@ -193,11 +193,6 @@
           "name": "Motif Explorer",
           "type": "webview",
           "visibility": "collapsed"
-        },
-        {
-          "id": "squiggyComparisonSamples",
-          "name": "Sample Comparison Manager",
-          "type": "webview"
         }
       ]
     },

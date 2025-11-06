@@ -35,6 +35,10 @@ export const ReadsCore: React.FC = () => {
         detailsColumnWidth: CONSTANTS.DEFAULT_DETAILS_WIDTH,
     });
 
+    // Sample management state
+    const [availableSamples, setAvailableSamples] = React.useState<string[]>([]);
+    const [selectedSample, setSelectedSample] = React.useState<string | null>(null);
+
     // Loading state
     const [isLoading, setIsLoading] = React.useState(false);
     const [loadingMessage, setLoadingMessage] = React.useState('');
@@ -57,6 +61,10 @@ export const ReadsCore: React.FC = () => {
             const message = event.data;
 
             switch (message.type) {
+                case 'setAvailableSamples':
+                    setAvailableSamples(message.samples);
+                    setSelectedSample(message.selectedSample);
+                    break;
                 case 'updateReads':
                     // Handle unified message from backend
                     if (message.groupedByReference) {
@@ -458,6 +466,11 @@ export const ReadsCore: React.FC = () => {
         }));
     };
 
+    const handleSampleChange = (sampleName: string) => {
+        setSelectedSample(sampleName);
+        vscode.postMessage({ type: 'selectSample', sampleName });
+    };
+
     return (
         <div className="reads-core-container">
             {/* Loading overlay */}
@@ -465,6 +478,33 @@ export const ReadsCore: React.FC = () => {
                 <div className="loading-overlay">
                     <div className="loading-spinner"></div>
                     {loadingMessage && <div className="loading-message">{loadingMessage}</div>}
+                </div>
+            )}
+
+            {/* Sample selector (multi-sample support) */}
+            {availableSamples.length > 0 && (
+                <div className="reads-sample-selector">
+                    <label htmlFor="sample-dropdown">Sample:</label>
+                    <select
+                        id="sample-dropdown"
+                        value={selectedSample || ''}
+                        onChange={(e) => handleSampleChange(e.target.value)}
+                        className="reads-sample-select"
+                    >
+                        <option value="">No sample selected</option>
+                        {availableSamples.map((sample) => (
+                            <option key={sample} value={sample}>
+                                {sample}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {/* Empty state when no samples loaded */}
+            {availableSamples.length === 0 && (
+                <div className="reads-empty-state">
+                    <p>No samples loaded. Load POD5 files to get started.</p>
                 </div>
             )}
 

@@ -484,12 +484,19 @@ class SquiggySession:
         if not os.path.exists(abs_pod5_path):
             raise FileNotFoundError(f"POD5 file not found: {abs_pod5_path}")
 
+        logger.info(f"[load_sample] Starting to load POD5: {abs_pod5_path}")
         reader = pod5.Reader(abs_pod5_path)
+        logger.info("[load_sample] POD5 reader opened, now reading all read IDs...")
+
         read_ids = [str(read.read_id) for read in reader.reads()]
+        logger.info(
+            f"[load_sample] Successfully read {len(read_ids)} read IDs from POD5"
+        )
 
         sample.pod5_path = abs_pod5_path
         sample.pod5_reader = reader
         sample.read_ids = read_ids
+        logger.info("[load_sample] Sample object populated with read_ids")
 
         # Load BAM if provided
         if bam_path:
@@ -497,12 +504,19 @@ class SquiggySession:
             if not os.path.exists(abs_bam_path):
                 raise FileNotFoundError(f"BAM file not found: {abs_bam_path}")
 
-            # Collect all metadata in single pass (optimized)
+            logger.info(
+                f"[load_sample] Starting BAM metadata collection for: {abs_bam_path}"
+            )
+            # Collect all metadata in a single pass (includes both ref_counts and ref_mapping)
+            # ref_mapping is needed for expanding references in Read Explorer
             metadata = _collect_bam_metadata_single_pass(
-                Path(abs_bam_path), build_ref_mapping=False
+                Path(abs_bam_path), build_ref_mapping=True
+            )
+            logger.info(
+                f"[load_sample] BAM metadata collected successfully. {metadata['num_reads']} reads, {len(metadata['references'])} references"
             )
 
-            # Build metadata dict
+            # Build metadata dict - both ref_counts and ref_mapping are computed during single BAM scan
             bam_info = {
                 "file_path": abs_bam_path,
                 "num_reads": metadata["num_reads"],
@@ -511,6 +525,10 @@ class SquiggySession:
                 "modification_types": metadata["modification_types"],
                 "has_probabilities": metadata["has_probabilities"],
                 "has_event_alignment": metadata["has_event_alignment"],
+                "ref_counts": metadata["ref_counts"],  # Reference name → read count
+                "ref_mapping": metadata[
+                    "ref_mapping"
+                ],  # Reference name → read IDs (needed for expanding)
             }
 
             sample.bam_path = abs_bam_path
@@ -553,7 +571,13 @@ class SquiggySession:
             sample.fasta_info = fasta_info
 
         # Store sample
+        logger.info(
+            f"[load_sample] Storing sample '{name}' in session (has {len(sample.read_ids)} reads)"
+        )
         self.samples[name] = sample
+        logger.info(
+            f"[load_sample] Sample '{name}' successfully loaded and stored. Total samples in session: {len(self.samples)}"
+        )
 
         return sample
 
@@ -571,7 +595,19 @@ class SquiggySession:
             >>> session = SquiggySession()
             >>> sample = session.get_sample('model_v4.2')
         """
-        return self.samples.get(name)
+        logger.info(
+            f"[get_sample] Looking up sample '{name}' from {len(self.samples)} available samples"
+        )
+        sample = self.samples.get(name)
+        if sample:
+            logger.info(
+                f"[get_sample] Found sample '{name}' with {len(sample.read_ids)} reads"
+            )
+        else:
+            logger.warning(
+                f"[get_sample] Sample '{name}' not found. Available: {list(self.samples.keys())}"
+            )
+        return sample
 
     def list_samples(self) -> list[str]:
         """
@@ -958,6 +994,7 @@ def _collect_bam_metadata_single_pass(
         "has_probabilities": has_ml,
         "has_event_alignment": has_mv,
         "ref_mapping": ref_mapping,
+        "ref_counts": dict(ref_counts),  # Always include ref_counts (built during scan)
         "num_reads": sum(ref["read_count"] for ref in references),
     }
 
