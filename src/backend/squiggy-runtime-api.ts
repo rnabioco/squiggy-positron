@@ -893,4 +893,85 @@ squiggy.plot_delta_comparison(
             throw new Error(`Failed to generate delta comparison plot: ${error}`);
         }
     }
+
+    /**
+     * Generate aggregate comparison plot for multiple samples
+     *
+     * Creates a visualization comparing aggregate statistics (signal, dwell time,
+     * quality) from 2+ samples overlaid on the same axes.
+     *
+     * @param sampleNames - Array of sample names to compare (minimum 2)
+     * @param referenceName - Name of reference sequence from BAM files
+     * @param metrics - Array of metrics to display: 'signal', 'dwell_time', 'quality'
+     * @param maxReads - Maximum reads per sample (default: auto-calculated minimum)
+     * @param normalization - Normalization method (ZNORM, MAD, MEDIAN, NONE)
+     * @param theme - Color theme (LIGHT or DARK)
+     * @param sampleColors - Optional object mapping sample names to hex colors
+     */
+    async generateAggregateComparison(
+        sampleNames: string[],
+        referenceName: string,
+        metrics: string[] = ['signal', 'dwell_time', 'quality'],
+        maxReads?: number | null,
+        normalization: string = 'ZNORM',
+        theme: string = 'LIGHT',
+        sampleColors?: Record<string, string>
+    ): Promise<void> {
+        // Validate input
+        if (!sampleNames || sampleNames.length < 2) {
+            throw new Error('Aggregate comparison requires at least 2 samples');
+        }
+
+        // Validate reference name
+        if (!referenceName) {
+            throw new Error('Reference name is required for aggregate comparison');
+        }
+
+        // Convert arrays and objects to JSON for safe Python serialization
+        const sampleNamesJson = JSON.stringify(sampleNames);
+        const metricsJson = JSON.stringify(metrics);
+
+        // Build maxReads parameter if provided
+        const maxReadsParam =
+            maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
+
+        // Build sample_colors parameter if provided
+        const sampleColorsParam = sampleColors
+            ? `, sample_colors=${JSON.stringify(sampleColors)}`
+            : '';
+
+        // Escape single quotes in reference name
+        const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        const code = `
+import squiggy
+
+# Generate aggregate comparison plot - will be automatically routed to Plots pane
+squiggy.plot_aggregate_comparison(
+    sample_names=${sampleNamesJson},
+    reference_name='${escapedRefName}',
+    metrics=${metricsJson},
+    normalization='${normalization}',
+    theme='${theme}'${maxReadsParam}${sampleColorsParam}
+)
+`;
+
+        try {
+            // Execute silently - plot will appear in Plots pane automatically
+            await this._client.executeSilent(code);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Provide helpful error messages for common issues
+            if (errorMessage.includes('not found')) {
+                throw new Error(
+                    `Sample not found in Python session. ` +
+                        `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
+                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                );
+            }
+
+            throw new Error(`Failed to generate aggregate comparison plot: ${error}`);
+        }
+    }
 }

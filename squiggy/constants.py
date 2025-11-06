@@ -58,6 +58,7 @@ class PlotMode(Enum):
     SIGNAL_OVERLAY_COMPARISON = (
         "signal_overlay_comparison"  # Multi-sample signal overlay
     )
+    AGGREGATE_COMPARISON = "aggregate_comparison"  # Multi-sample aggregate statistics comparison
 
 
 # Normalization methods

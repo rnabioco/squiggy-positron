@@ -188,8 +188,60 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     clipXAxisToAlignment: boolean;
 }
 
+export interface GenerateMultiReadOverlayMessage extends BaseMessage {
+    type: 'generateMultiReadOverlay';
+    readIds: string[];
+    maxReads: number;
+    normalization: string;
+}
+
+export interface GenerateMultiReadStackedMessage extends BaseMessage {
+    type: 'generateMultiReadStacked';
+    readIds: string[];
+    maxReads: number;
+    normalization: string;
+}
+
+export interface GenerateSignalOverlayComparisonMessage extends BaseMessage {
+    type: 'generateSignalOverlayComparison';
+    sampleNames: string[];
+    maxReads: number;
+    normalization: string;
+}
+
+export interface GenerateSignalDeltaMessage extends BaseMessage {
+    type: 'generateSignalDelta';
+    sampleNames: [string, string]; // Exactly 2 samples for delta
+    maxReads: number;
+    normalization: string;
+}
+
+export interface GenerateAggregateComparisonMessage extends BaseMessage {
+    type: 'generateAggregateComparison';
+    sampleNames: string[];
+    reference: string;
+    metrics: string[]; // ['signal', 'dwell_time', 'quality']
+    maxReads: number;
+    normalization: string;
+}
+
+export interface UpdateLoadedSamplesMessage extends BaseMessage {
+    type: 'updateLoadedSamples';
+    samples: SampleItem[];
+}
+
 export interface PlotOptions {
-    plotType: 'SINGLE' | 'AGGREGATE';
+    // Analysis Type - flat list of all 7 plot types
+    plotType:
+        | 'SINGLE_READ'
+        | 'MULTI_READ_OVERLAY'
+        | 'MULTI_READ_STACKED'
+        | 'AGGREGATE'
+        | 'COMPARE_SIGNAL_OVERLAY'
+        | 'COMPARE_SIGNAL_DELTA'
+        | 'COMPARE_AGGREGATE';
+
+    // Single Read options
     mode: 'SINGLE' | 'EVENTALIGN';
     normalization: 'ZNORM' | 'MAD' | 'MEDIAN' | 'NONE';
     showDwellTime: boolean;
@@ -198,25 +250,41 @@ export interface PlotOptions {
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment?: boolean;
-    // Aggregate-specific options
+
+    // Multi-Read Overlay/Stacked options
+    maxReadsMulti?: number;
+
+    // Aggregate (Single Sample) options
     aggregateReference?: string;
     aggregateMaxReads?: number;
     showModifications?: boolean;
     showPileup?: boolean;
     showSignal?: boolean;
     showQuality?: boolean;
+
+    // Comparison options
+    selectedSamples?: string[]; // For multi-sample comparisons
+    comparisonReference?: string; // Reference for aggregate comparison
+    comparisonMetrics?: string[]; // Metrics for aggregate comparison
+    comparisonMaxReads?: number;
 }
 
 export type PlotOptionsIncomingMessage =
     | PlotOptionsChangedMessage
     | RequestReferencesMessage
     | GenerateAggregatePlotMessage
+    | GenerateMultiReadOverlayMessage
+    | GenerateMultiReadStackedMessage
+    | GenerateSignalOverlayComparisonMessage
+    | GenerateSignalDeltaMessage
+    | GenerateAggregateComparisonMessage
     | ReadyMessage;
 export type PlotOptionsOutgoingMessage =
     | UpdatePlotOptionsMessage
     | UpdateBamStatusMessage
     | UpdatePod5StatusMessage
-    | UpdateReferencesMessage;
+    | UpdateReferencesMessage
+    | UpdateLoadedSamplesMessage;
 
 // ========== Modifications Panel Messages ==========
 

@@ -7,6 +7,7 @@ plot strategy based on the plot mode.
 
 from .constants import PlotMode, Theme
 from .plot_strategies.aggregate import AggregatePlotStrategy
+from .plot_strategies.aggregate_comparison import AggregateComparisonStrategy
 from .plot_strategies.base import PlotStrategy
 from .plot_strategies.delta import DeltaPlotStrategy
 from .plot_strategies.eventalign import EventAlignPlotStrategy
@@ -47,6 +48,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
         PlotMode.AGGREGATE: AggregatePlotStrategy,
         PlotMode.DELTA: DeltaPlotStrategy,
         PlotMode.SIGNAL_OVERLAY_COMPARISON: SignalOverlayComparisonStrategy,
+        PlotMode.AGGREGATE_COMPARISON: AggregateComparisonStrategy,
     }
 
     strategy_class = strategy_map.get(plot_mode)

@@ -1087,6 +1087,191 @@ def plot_signal_overlay_comparison(
     return html
 
 
+def plot_aggregate_comparison(
+    sample_names: list[str],
+    reference_name: str,
+    metrics: list[str] | None = None,
+    max_reads: int | None = None,
+    normalization: str = "ZNORM",
+    theme: str = "LIGHT",
+    sample_colors: dict[str, str] | None = None,
+) -> str:
+    """
+    Generate aggregate comparison plot for multiple samples
+
+    Creates a visualization comparing aggregate statistics (signal, dwell time,
+    quality) from 2+ samples overlaid on the same axes. Each sample is color-coded
+    for easy comparison. Includes:
+    1. Signal Statistics Track: Mean signal ± std for each sample
+    2. Dwell Time Statistics Track: Mean dwell time ± std for each sample (optional)
+    3. Quality Statistics Track: Mean quality ± std for each sample (optional)
+    4. Coverage Track: Read count per position for each sample
+
+    Args:
+        sample_names: List of sample names to compare (minimum 2 required)
+        reference_name: Name of reference sequence from BAM files
+        metrics: List of metrics to display: 'signal', 'dwell_time', 'quality'.
+                 If None, displays all available metrics (default)
+        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD) - default ZNORM
+        theme: Color theme (LIGHT, DARK)
+        sample_colors: Optional dict mapping sample names to hex colors.
+                       If None, uses Okabe-Ito palette (default)
+
+    Returns:
+        Bokeh HTML string with aggregate comparison visualization
+
+    Example:
+        >>> import squiggy
+        >>> squiggy.load_sample('control', 'control.pod5', 'control.bam')
+        >>> squiggy.load_sample('treatment', 'treatment.pod5', 'treatment.bam')
+        >>> html = squiggy.plot_aggregate_comparison(
+        ...     ['control', 'treatment'],
+        ...     reference_name='chr1',
+        ...     metrics=['signal', 'dwell_time', 'quality']
+        ... )
+        >>> # Extension displays this automatically
+
+    Raises:
+        ValueError: If fewer than 2 samples provided or samples not found
+    """
+    from .constants import MULTI_READ_COLORS
+    from .io import _squiggy_session
+    from .plot_factory import create_plot_strategy
+    from .utils import (
+        calculate_aggregate_signal,
+        calculate_dwell_time_statistics,
+        calculate_quality_by_position,
+        extract_reads_for_reference,
+    )
+
+    # Validate input
+    if len(sample_names) < 2:
+        raise ValueError("Aggregate comparison requires at least 2 samples")
+
+    # Get samples
+    samples = []
+    for name in sample_names:
+        sample = _squiggy_session.get_sample(name)
+        if sample is None:
+            raise ValueError(f"Sample '{name}' not found")
+        samples.append(sample)
+
+    # Validate all samples have POD5 and BAM loaded
+    for sample in samples:
+        if sample.pod5_reader is None:
+            raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
+        if sample.bam_path is None:
+            raise ValueError(
+                f"Sample '{sample.name}' must have BAM file loaded for aggregate comparison. "
+                "BAM files are required to align signals to reference positions."
+            )
+
+    # Parse parameters
+    norm_method = NormalizationMethod[normalization.upper()]
+    theme_enum = Theme[theme.upper()]
+
+    # Determine which metrics to display
+    if metrics is None:
+        metrics = ["signal", "dwell_time", "quality"]
+
+    # Determine max_reads if not provided
+    if max_reads is None:
+        from .utils import get_available_reads_for_reference
+
+        available_reads_per_sample = []
+        for sample in samples:
+            try:
+                available = get_available_reads_for_reference(
+                    bam_file=sample.bam_path,
+                    reference_name=reference_name,
+                )
+                available_reads_per_sample.append(available)
+            except Exception as e:
+                print(
+                    f"Warning: Could not determine available reads for '{sample.name}': {e}"
+                )
+                available_reads_per_sample.append(100)  # Fallback
+
+        # Use minimum available, capped at 100
+        max_reads = (
+            min(available_reads_per_sample) if available_reads_per_sample else 100
+        )
+        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
+    # Extract and calculate statistics for each sample
+    sample_data = []
+
+    for i, sample in enumerate(samples):
+        # Extract aligned reads for this sample
+        reads = extract_reads_for_reference(
+            pod5_file=sample.pod5_path,
+            bam_file=sample.bam_path,
+            reference_name=reference_name,
+            max_reads=max_reads,
+            random_sample=True,
+        )
+
+        if not reads:
+            raise ValueError(
+                f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
+            )
+
+        # Calculate statistics based on requested metrics
+        sample_stats = {"name": sample.name}
+
+        # Assign color
+        if sample_colors and sample.name in sample_colors:
+            sample_stats["color"] = sample_colors[sample.name]
+        else:
+            sample_stats["color"] = MULTI_READ_COLORS[i % len(MULTI_READ_COLORS)]
+
+        # Calculate signal statistics (always included if 'signal' in metrics)
+        if "signal" in metrics:
+            signal_stats = calculate_aggregate_signal(reads, norm_method)
+            sample_stats["signal_stats"] = signal_stats
+            sample_stats["coverage"] = {
+                "positions": signal_stats.get(
+                    "positions", np.arange(len(signal_stats.get("mean_signal", [])))
+                ),
+                "coverage": signal_stats.get(
+                    "coverage", [1] * len(signal_stats.get("mean_signal", []))
+                ),
+            }
+
+        # Calculate dwell time statistics (if requested)
+        if "dwell_time" in metrics:
+            dwell_stats = calculate_dwell_time_statistics(reads)
+            sample_stats["dwell_stats"] = dwell_stats
+
+        # Calculate quality statistics (if requested)
+        if "quality" in metrics:
+            quality_stats = calculate_quality_by_position(reads)
+            sample_stats["quality_stats"] = quality_stats
+
+        sample_data.append(sample_stats)
+
+    # Prepare data for AggregateComparisonStrategy
+    data = {
+        "samples": sample_data,
+        "reference_name": reference_name,
+        "enabled_metrics": metrics,
+    }
+
+    options = {"normalization": norm_method}
+
+    # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.AGGREGATE_COMPARISON, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    from .utils import _route_to_plots_pane
+
+    _route_to_plots_pane(grid)
+
+    return html
+
+
 __all__ = [
     # Version
     "__version__",
@@ -1106,6 +1291,7 @@ __all__ = [
     "plot_motif_aggregate_all",
     "plot_delta_comparison",  # Phase 3 - NEW
     "plot_signal_overlay_comparison",  # Phase 1 - NEW multi-sample comparison
+    "plot_aggregate_comparison",  # Multi-sample aggregate statistics comparison
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
