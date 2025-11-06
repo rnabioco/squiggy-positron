@@ -1003,6 +1003,17 @@ squiggy.close_fasta()
             if (references.length > 0) {
                 this._plotOptionsProvider?.updateReferences(references);
             }
+
+            // Update modifications panel
+            if (_bamResult.hasModifications && this._modificationsProvider) {
+                this._modificationsProvider.setModificationInfo(
+                    _bamResult.hasModifications,
+                    _bamResult.modificationTypes,
+                    _bamResult.hasProbabilities
+                );
+            } else if (this._modificationsProvider) {
+                this._modificationsProvider.clear();
+            }
         }
 
         // Load FASTA if present

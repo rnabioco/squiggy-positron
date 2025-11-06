@@ -26,6 +26,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _downsample: number = 5;
     private _showSignalPoints: boolean = false;
     private _clipXAxisToAlignment: boolean = true;
+    private _transformCoordinates: boolean = true;
     private _hasPod5File: boolean = false;
     private _hasBamFile: boolean = false;
 
@@ -53,6 +54,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         showSignal: boolean;
         showQuality: boolean;
         clipXAxisToAlignment: boolean;
+        transformCoordinates: boolean;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -80,6 +82,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._showSignalPoints = message.options.showSignalPoints;
             if (message.options.clipXAxisToAlignment !== undefined) {
                 this._clipXAxisToAlignment = message.options.clipXAxisToAlignment;
+            }
+            if (message.options.transformCoordinates !== undefined) {
+                this._transformCoordinates = message.options.transformCoordinates;
             }
 
             // Update aggregate-specific options if present
@@ -123,6 +128,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showSignal: message.showSignal,
                 showQuality: message.showQuality,
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
+                transformCoordinates: message.transformCoordinates,
             });
         }
     }
@@ -147,6 +153,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 downsample: this._downsample,
                 showSignalPoints: this._showSignalPoints,
                 clipXAxisToAlignment: this._clipXAxisToAlignment,
+                transformCoordinates: this._transformCoordinates,
                 aggregateReference: this._aggregateReference,
                 aggregateMaxReads: this._aggregateMaxReads,
                 showModifications: this._showModifications,
@@ -196,6 +203,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             downsample: this._downsample,
             showSignalPoints: this._showSignalPoints,
             clipXAxisToAlignment: this._clipXAxisToAlignment,
+            transformCoordinates: this._transformCoordinates,
             aggregateReference: this._aggregateReference,
             aggregateMaxReads: this._aggregateMaxReads,
             showModifications: this._showModifications,

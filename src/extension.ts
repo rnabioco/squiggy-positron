@@ -162,7 +162,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     options.showDwellTime,
                     options.showSignal,
                     options.showQuality,
-                    options.clipXAxisToAlignment
+                    options.clipXAxisToAlignment,
+                    options.transformCoordinates
                 );
 
                 vscode.window.showInformationMessage(

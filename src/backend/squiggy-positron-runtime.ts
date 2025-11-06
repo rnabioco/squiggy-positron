@@ -495,10 +495,25 @@ if '_squiggy_plot_error' in globals():
         referenceName: string,
         maxReads: number = 100,
         normalization: string = 'ZNORM',
-        theme: string = 'LIGHT'
+        theme: string = 'LIGHT',
+        showModifications: boolean = true,
+        modificationThreshold: number = 0.5,
+        enabledModTypes: string[] = [],
+        showPileup: boolean = true,
+        showDwellTime: boolean = true,
+        showSignal: boolean = true,
+        showQuality: boolean = true,
+        clipXAxisToAlignment: boolean = true,
+        transformCoordinates: boolean = true
     ): Promise<void> {
         // Escape single quotes in reference name for Python string
         const escapedRefName = referenceName.replace(/'/g, "\\'");
+
+        // Build modification filter dict if modifications are enabled
+        const modFilterDict =
+            enabledModTypes.length > 0
+                ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                : 'None';
 
         const code = `
 import squiggy
@@ -508,7 +523,15 @@ squiggy.plot_aggregate(
     reference_name='${escapedRefName}',
     max_reads=${maxReads},
     normalization='${normalization}',
-    theme='${theme}'
+    theme='${theme}',
+    show_modifications=${showModifications ? 'True' : 'False'},
+    mod_filter=${modFilterDict},
+    show_pileup=${showPileup ? 'True' : 'False'},
+    show_dwell_time=${showDwellTime ? 'True' : 'False'},
+    show_signal=${showSignal ? 'True' : 'False'},
+    show_quality=${showQuality ? 'True' : 'False'},
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'}
 )
 `;
 

@@ -17,5 +17,6 @@
     },
     "positron.interpreters.automaticStartup": true,
     "positron.interpreters.preferredRuntime": "Python",
-    "positron.r.session.automaticStartup": false
+    "positron.r.session.automaticStartup": false,
+    "squiggy.defaultPlotMode": "SINGLE"
 }
