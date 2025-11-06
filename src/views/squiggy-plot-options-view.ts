@@ -95,7 +95,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public readonly onDidRequestAggregateComparison = this._onDidRequestAggregateComparison.event;
 
     protected getTitle(): string {
-        return 'Advanced Plotting';
+        return 'Plotting';
     }
 
     protected async handleMessage(message: PlotOptionsIncomingMessage): Promise<void> {

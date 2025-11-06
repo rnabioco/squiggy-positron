@@ -221,7 +221,7 @@ def get_reads_batch(read_ids: list[str]) -> dict[str, pod5.ReadRecord]:
     return found
 
 
-def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
+def get_read_by_id(read_id: str, sample_name: str | None = None) -> pod5.ReadRecord | None:
     """
     Get a single read by ID using index if available
 
@@ -230,6 +230,8 @@ def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
 
     Args:
         read_id: Read ID to fetch
+        sample_name: (Multi-sample mode) Name of sample to get read from.
+                     If None, uses global session reader.
 
     Returns:
         ReadRecord or None if not found
@@ -245,27 +247,34 @@ def get_read_by_id(read_id: str) -> pod5.ReadRecord | None:
         >>> if read:
         ...     print(f"Signal length: {len(read.signal)}")
     """
-    if _squiggy_session.reader is None:
-        raise RuntimeError("No POD5 file is currently loaded")
+    # Determine which reader to use
+    if sample_name:
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
+        reader = sample.pod5_reader
+        pod5_index = sample.pod5_index if hasattr(sample, 'pod5_index') else None
+    else:
+        if _squiggy_session.reader is None:
+            raise RuntimeError("No POD5 file is currently loaded")
+        reader = _squiggy_session.reader
+        pod5_index = _squiggy_session.pod5_index if hasattr(_squiggy_session, 'pod5_index') else None
 
     # Use index if available
-    if (
-        hasattr(_squiggy_session, "pod5_index")
-        and _squiggy_session.pod5_index is not None
-    ):
-        position = _squiggy_session.pod5_index.get_position(read_id)
+    if pod5_index is not None:
+        position = pod5_index.get_position(read_id)
         if position is None:
             return None
 
         # Use indexed access
-        for idx, read in enumerate(_squiggy_session.reader.reads()):
+        for idx, read in enumerate(reader.reads()):
             if idx == position:
                 return read
         return None
 
     # Fallback to linear scan
     logger.debug(f"No index available, using linear scan for {read_id}")
-    for read in _squiggy_session.reader.reads():
+    for read in reader.reads():
         if str(read.read_id) == read_id:
             return read
     return None

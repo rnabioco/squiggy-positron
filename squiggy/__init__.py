@@ -177,7 +177,7 @@ def plot_read(
         position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
     # Get read data (optimized with index if available)
-    read_obj = get_read_by_id(read_id)
+    read_obj = get_read_by_id(read_id, sample_name=sample_name)
 
     if read_obj is None:
         raise ValueError(f"Read not found: {read_id}")
@@ -459,13 +459,30 @@ def plot_aggregate(
         extract_reads_for_reference,
     )
 
-    # Validate state
-    if _squiggy_session.reader is None:
-        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-    if _squiggy_session.bam_path is None:
-        raise ValueError(
-            "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
-        )
+    # Determine which POD5/BAM paths to use
+    if sample_name:
+        # Multi-sample mode: get paths from specific sample
+        sample = _squiggy_session.get_sample(sample_name)
+        if not sample or sample.pod5_reader is None:
+            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
+        if not sample.bam_path:
+            raise ValueError(
+                f"Sample '{sample_name}' has no BAM file. Aggregate plots require alignments."
+            )
+        pod5_path = sample.pod5_path
+        bam_path = sample.bam_path
+        fasta_path = sample.fasta_path
+    else:
+        # Single-file mode: use global paths
+        if _squiggy_session.reader is None:
+            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
+        if _squiggy_session.bam_path is None:
+            raise ValueError(
+                "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
+            )
+        pod5_path = _squiggy_session.pod5_path
+        bam_path = _squiggy_session.bam_path
+        fasta_path = _squiggy_session.fasta_path
 
     # Parse parameters
     norm_method = NormalizationMethod[normalization.upper()]
@@ -473,8 +490,8 @@ def plot_aggregate(
 
     # Extract reads for this reference (expects file paths, not reader objects)
     reads_data = extract_reads_for_reference(
-        pod5_file=_squiggy_session.pod5_path,
-        bam_file=_squiggy_session.bam_path,
+        pod5_file=pod5_path,
+        bam_file=bam_path,
         reference_name=reference_name,
         max_reads=max_reads,
     )
@@ -490,9 +507,9 @@ def plot_aggregate(
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
     pileup_stats = calculate_base_pileup(
         reads_data,
-        bam_file=_squiggy_session.bam_path,
+        bam_file=bam_path,
         reference_name=reference_name,
-        fasta_file=_squiggy_session.fasta_path,
+        fasta_file=fasta_path,
     )
     quality_stats = calculate_quality_by_position(reads_data)
     modification_stats = calculate_modification_statistics(
