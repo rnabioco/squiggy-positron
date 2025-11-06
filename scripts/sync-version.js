@@ -7,12 +7,14 @@
  * - squiggy/__init__.py (__version__)
  * - pyproject.toml (version)
  * - package.json viewsContainers title
+ * - package-lock.json (version)
  *
  * Run automatically before builds to keep versions in sync.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // Paths
 const rootDir = path.join(__dirname, '..');
@@ -68,6 +70,15 @@ if (titleUpdated) {
     console.log(`  ✓ Updated package.json sidebar title`);
 } else {
     console.log(`  ✓ package.json sidebar title already up to date`);
+}
+
+// Update package-lock.json
+try {
+    execSync('npm install --package-lock-only', { cwd: rootDir, stdio: 'pipe' });
+    console.log(`  ✓ Updated package-lock.json`);
+} catch (error) {
+    console.error(`  ✗ Failed to update package-lock.json: ${error.message}`);
+    process.exit(1);
 }
 
 console.log(`\nVersion sync complete: ${version}`);

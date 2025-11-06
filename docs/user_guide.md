@@ -98,25 +98,27 @@ Click the Squiggy icon in the Activity Bar (left sidebar) to open the extension 
 
 ## Sample Data
 
-Squiggy includes sample data for testing and learning. The test data is available in the repository:
+Squiggy includes sample data for testing and learning. The test data is bundled with the package:
 
-- **Location**: `tests/data/` directory
+- **Location**: `squiggy/data/` directory
 - **POD5 file**: `yeast_trna_reads.pod5` (180 reads from yeast tRNA sequencing)
 - **BAM file**: `yeast_trna_mappings.bam` (corresponding alignments with base calls)
 
 To use the sample data:
 
-```bash
-# Clone the repository (includes sample data via Git LFS)
-git clone https://github.com/rnabioco/squiggy-positron.git
-cd squiggy-positron
-git lfs pull  # Download POD5/BAM files
+```python
+from squiggy import get_test_data_path
+from pathlib import Path
 
-# Sample files are now in tests/data/
-ls tests/data/
+# Get the path to the test data directory
+data_dir = Path(get_test_data_path())
+
+# Access the sample files
+pod5_file = data_dir / 'yeast_trna_reads.pod5'
+bam_file = data_dir / 'yeast_trna_mappings.bam'
 ```
 
-Alternatively, download individual files from the [GitHub repository](https://github.com/rnabioco/squiggy-positron/tree/main/tests/data).
+Alternatively, download individual files from the [GitHub repository](https://github.com/rnabioco/squiggy-positron/tree/main/squiggy/data).
 
 ## Loading Data
 

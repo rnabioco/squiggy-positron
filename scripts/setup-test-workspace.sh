@@ -53,8 +53,8 @@ Place test POD5/BAM files in `sample-data/` directory:
 
 ```bash
 # Option 1: Symlink to test data
-ln -s ../../tests/data/yeast_trna_reads.pod5 sample-data/
-ln -s ../../tests/data/yeast_trna_mappings.bam sample-data/
+ln -s ../../squiggy/data/yeast_trna_reads.pod5 sample-data/
+ln -s ../../squiggy/data/yeast_trna_mappings.bam sample-data/
 
 # Option 2: Copy your own test files
 cp /path/to/your/data.pod5 sample-data/
