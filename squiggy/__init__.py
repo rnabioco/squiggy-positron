@@ -23,7 +23,7 @@ Example usage in Jupyter notebook:
     >>> show(Div(text=html))
 """
 
-__version__ = "0.1.12"
+__version__ = "0.1.13"
 
 # Standard library
 import numpy as np
