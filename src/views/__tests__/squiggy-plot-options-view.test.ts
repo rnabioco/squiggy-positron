@@ -209,23 +209,25 @@ describe('PlotOptionsViewProvider', () => {
             const options = provider.getOptions();
 
             // Use objectContaining to be resilient to new properties being added
-            expect(options).toEqual(expect.objectContaining({
-                plotType: 'SINGLE',
-                mode: 'SINGLE',
-                normalization: 'ZNORM',
-                showDwellTime: false,
-                showBaseAnnotations: true,
-                scaleDwellTime: false,
-                downsample: 5,
-                showSignalPoints: false,
-                clipXAxisToAlignment: true,
-                aggregateReference: '',
-                aggregateMaxReads: 100,
-                showModifications: true,
-                showPileup: true,
-                showSignal: true,
-                showQuality: true,
-            }));
+            expect(options).toEqual(
+                expect.objectContaining({
+                    plotType: 'SINGLE',
+                    mode: 'SINGLE',
+                    normalization: 'ZNORM',
+                    showDwellTime: false,
+                    showBaseAnnotations: true,
+                    scaleDwellTime: false,
+                    downsample: 5,
+                    showSignalPoints: false,
+                    clipXAxisToAlignment: true,
+                    aggregateReference: '',
+                    aggregateMaxReads: 100,
+                    showModifications: true,
+                    showPileup: true,
+                    showSignal: true,
+                    showQuality: true,
+                })
+            );
         });
 
         it('should return updated options after changes', () => {
