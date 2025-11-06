@@ -415,10 +415,6 @@ export const ReadsCore: React.FC = () => {
         vscode.postMessage({ type: 'plotRead', readId });
     };
 
-    const handlePlotAggregate = (referenceName: string) => {
-        vscode.postMessage({ type: 'plotAggregate', referenceName });
-    };
-
     const handleSelectRead = (readId: string, multiSelect: boolean) => {
         setState((prev) => {
             const selectedReadIds = new Set(prev.selectedReadIds);
@@ -550,7 +546,6 @@ export const ReadsCore: React.FC = () => {
                 sortBy={state.sortBy}
                 sortOrder={state.sortOrder}
                 onPlotRead={handlePlotRead}
-                onPlotAggregate={handlePlotAggregate}
                 onSelectRead={handleSelectRead}
                 onToggleReference={handleToggleReference}
                 onSearch={handleSearch}
