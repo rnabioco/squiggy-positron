@@ -238,9 +238,22 @@ describe('Session Commands', () => {
     });
 
     describe('importSessionCommand', () => {
-        it('should import session when file is selected', async () => {
+        it('should import session when file is selected and user confirms', async () => {
             const fileUri = vscode.Uri.file('/path/to/session.json');
             const importedSession = { samples: { sample1: {} } };
+            (vscode.window.showOpenDialog as any).mockResolvedValue([fileUri]);
+            (vscode.window.showWarningMessage as any).mockResolvedValue('Import');
+            (SessionStateManager.importSession as any).mockResolvedValue(importedSession);
+
+            await importSessionCommand(mockState, mockContext);
+
+            expect(mockState.fromSessionState).toHaveBeenCalledWith(importedSession, mockContext);
+        });
+
+        it('should import directly when no existing data', async () => {
+            const fileUri = vscode.Uri.file('/path/to/session.json');
+            const importedSession = { samples: { sample1: {} } };
+            mockState.toSessionState.mockReturnValue({ samples: {} });
             (vscode.window.showOpenDialog as any).mockResolvedValue([fileUri]);
             (SessionStateManager.importSession as any).mockResolvedValue(importedSession);
 
@@ -249,19 +262,32 @@ describe('Session Commands', () => {
             expect(mockState.fromSessionState).toHaveBeenCalledWith(importedSession, mockContext);
         });
 
-        it('should show warning when import fails', async () => {
+        it('should not import when user cancels confirmation', async () => {
             const fileUri = vscode.Uri.file('/path/to/session.json');
             (vscode.window.showOpenDialog as any).mockResolvedValue([fileUri]);
-            (SessionStateManager.importSession as any).mockResolvedValue(null);
+            (vscode.window.showWarningMessage as any).mockResolvedValue('Cancel');
 
             await importSessionCommand(mockState, mockContext);
 
-            expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+            expect(SessionStateManager.importSession).not.toHaveBeenCalled();
+        });
+
+        it('should show error when import fails', async () => {
+            const fileUri = vscode.Uri.file('/path/to/session.json');
+            mockState.toSessionState.mockReturnValue({ samples: {} }); // No existing data
+            (vscode.window.showOpenDialog as any).mockResolvedValue([fileUri]);
+            (SessionStateManager.importSession as any).mockRejectedValue(
+                new Error('Invalid session file')
+            );
+
+            await importSessionCommand(mockState, mockContext);
+
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to import session')
             );
         });
 
-        it('should not import when user cancels', async () => {
+        it('should not import when user cancels file dialog', async () => {
             (vscode.window.showOpenDialog as any).mockResolvedValue(undefined);
 
             await importSessionCommand(mockState, mockContext);
@@ -271,16 +297,27 @@ describe('Session Commands', () => {
     });
 
     describe('clearSessionCommand', () => {
-        it('should clear session from workspace state', async () => {
+        it('should clear session from workspace state after confirmation', async () => {
+            (vscode.window.showWarningMessage as any).mockResolvedValue('Clear');
+
             await clearSessionCommand(mockContext);
 
             expect(SessionStateManager.clearSession).toHaveBeenCalledWith(mockContext);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Session cleared')
+                expect.stringContaining('Saved session cleared')
             );
         });
 
+        it('should not clear when user cancels', async () => {
+            (vscode.window.showWarningMessage as any).mockResolvedValue('Cancel');
+
+            await clearSessionCommand(mockContext);
+
+            expect(SessionStateManager.clearSession).not.toHaveBeenCalled();
+        });
+
         it('should handle errors during clear', async () => {
+            (vscode.window.showWarningMessage as any).mockResolvedValue('Clear');
             (SessionStateManager.clearSession as any).mockRejectedValue(
                 new Error('Clear failed')
             );
@@ -325,6 +362,7 @@ describe('Session Commands', () => {
         });
 
         it('should handle errors during demo load', async () => {
+            mockState.toSessionState.mockReturnValue({ samples: {} });
             mockState.loadDemoSession.mockRejectedValue(new Error('Demo load failed'));
 
             await loadDemoSessionCommand(mockState, mockContext);
