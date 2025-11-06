@@ -157,6 +157,8 @@ export async function activate(context: vscode.ExtensionContext) {
             }
 
             // Refresh Read Explorer to update available samples dropdown
+            const allSamples = state.getAllSampleNames();
+            console.log('[extension.ts] Sample loaded. All samples:', allSamples);
             console.log('[extension.ts] Refreshing Read Explorer');
             readsViewPane?.refresh();
         })
@@ -198,6 +200,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for aggregate plot generation requests from plot options panel
     context.subscriptions.push(
         plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
+            console.log('[Extension] Aggregate plot requested with samples:', options.sampleNames);
+
             if (!state.squiggyAPI) {
                 vscode.window.showErrorMessage('API not available');
                 return;

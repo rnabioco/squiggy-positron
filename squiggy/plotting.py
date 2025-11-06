@@ -892,9 +892,12 @@ def plot_delta_comparison(
     delta_stats = calculate_delta_stats(stats_a, stats_b)
 
     # Prepare data for DeltaPlotStrategy
-    positions = stats_a.get("positions", delta_stats.get("positions"))
+    # Use positions from delta_stats (already truncated to match delta arrays)
+    positions = delta_stats.get("positions")
     if positions is None:
-        positions = np.arange(len(delta_stats.get("delta_mean_signal", [])))
+        # Fallback: create position array matching delta length
+        delta_signal = delta_stats.get("delta_mean_signal", [])
+        positions = np.arange(len(delta_signal))
 
     data = {
         "positions": positions,

@@ -273,6 +273,7 @@ export const PlotOptionsCore: React.FC = () => {
     // Generate handlers for each plot type
     const handleGenerateAggregate = () => {
         // Unified handler: works for 1+ samples
+        console.log('[PlotOptions] Generating aggregate with samples:', options.selectedSamples);
         sendMessage('generateAggregatePlot', {
             sampleNames: options.selectedSamples, // Now required for all aggregate plots
             reference: options.aggregateReference,

@@ -62,6 +62,7 @@ export const ReadsCore: React.FC = () => {
 
             switch (message.type) {
                 case 'setAvailableSamples':
+                    console.log('[ReadsCore] Received setAvailableSamples:', message.samples, 'selected:', message.selectedSample);
                     setAvailableSamples(message.samples);
                     setSelectedSample(message.selectedSample);
                     break;

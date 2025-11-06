@@ -1271,6 +1271,12 @@ async function loadSamplesFromDropped(
         await state.samplesProvider.refresh();
     }
 
+    // Refresh Read Explorer to update available samples dropdown
+    console.log('[loadSamplesFromDropped] Refreshing Read Explorer with all samples');
+    if (state.readsViewPane) {
+        state.readsViewPane.refresh();
+    }
+
     // Show summary
     let message = `Loaded ${results.successful} sample(s)`;
     if (results.failed > 0) {

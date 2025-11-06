@@ -1051,7 +1051,8 @@ squiggy.plot_delta_comparison(
             // Execute silently - plot will appear in Plots pane automatically
             await this._client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate delta comparison plot: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to generate delta comparison plot: ${errorMessage}`);
         }
     }
 
