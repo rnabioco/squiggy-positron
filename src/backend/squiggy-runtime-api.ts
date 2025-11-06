@@ -314,6 +314,7 @@ if '_squiggy_plot_error' in globals():
      * @param enabledModTypes - List of modification types to display
      * @param downsample - Downsampling factor
      * @param showSignalPoints - Show individual signal points
+     * @param coordinateSpace - Coordinate system ('signal' or 'sequence')
      */
     async generateMultiSamplePlot(
         readIds: string[],
@@ -328,7 +329,8 @@ if '_squiggy_plot_error' in globals():
         minModProbability: number = 0.5,
         enabledModTypes: string[] = [],
         downsample: number = 5,
-        showSignalPoints: boolean = false
+        showSignalPoints: boolean = false,
+        coordinateSpace: 'signal' | 'sequence' = 'signal'
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
         const readSampleMapJson = JSON.stringify(readSampleMap);
@@ -358,7 +360,8 @@ try:
         downsample=${downsample},
         show_signal_points=${showSignalPoints ? 'True' : 'False'},
         read_sample_map=${readSampleMapJson},
-        read_colors=${readColorsJson}
+        read_colors=${readColorsJson},
+        coordinate_space='${coordinateSpace}'
     )
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"

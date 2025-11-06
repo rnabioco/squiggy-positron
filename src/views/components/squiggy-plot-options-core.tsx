@@ -18,6 +18,7 @@ type PlotType =
 interface PlotOptionsState {
     // Current selection
     plotType: PlotType;
+    coordinateSpace: 'signal' | 'sequence'; // X-axis coordinate system
 
     // File status
     hasPod5: boolean;
@@ -60,6 +61,7 @@ interface PlotOptionsState {
 export const PlotOptionsCore: React.FC = () => {
     const [options, setOptions] = useState<PlotOptionsState>({
         plotType: 'AGGREGATE',
+        coordinateSpace: 'signal', // Default to signal space
         hasPod5: false,
         hasBam: false,
         normalization: 'ZNORM',
@@ -261,15 +263,6 @@ export const PlotOptionsCore: React.FC = () => {
         });
     };
 
-    const handleMetricToggle = (metric: string, checked: boolean) => {
-        setOptions((prev) => {
-            const newMetrics = checked
-                ? [...prev.comparisonMetrics, metric]
-                : prev.comparisonMetrics.filter((m) => m !== metric);
-            return { ...prev, comparisonMetrics: newMetrics };
-        });
-    };
-
     // Generate handlers for each plot type
     const handleGenerateAggregate = () => {
         // Unified handler: works for 1+ samples
@@ -299,21 +292,12 @@ export const PlotOptionsCore: React.FC = () => {
         });
     };
 
-    const handleGenerateAggregateComparison = () => {
-        sendMessage('generateAggregateComparison', {
-            sampleNames: options.selectedSamples,
-            reference: options.comparisonReference,
-            metrics: options.comparisonMetrics,
-            maxReads: options.comparisonMaxReads,
-            normalization: options.normalization,
-        });
-    };
-
     const handleGenerateMultiReadOverlay = () => {
         sendMessage('generateMultiReadOverlay', {
             sampleNames: options.selectedSamples,
             maxReads: options.maxReadsMulti,
             normalization: options.normalization,
+            coordinateSpace: options.coordinateSpace,
         });
     };
 
@@ -322,6 +306,7 @@ export const PlotOptionsCore: React.FC = () => {
             sampleNames: options.selectedSamples,
             maxReads: options.maxReadsMulti,
             normalization: options.normalization,
+            coordinateSpace: options.coordinateSpace,
         });
     };
 
@@ -364,25 +349,18 @@ export const PlotOptionsCore: React.FC = () => {
                         value="MULTI_READ_OVERLAY"
                         disabled={!isPlotTypeAvailable('MULTI_READ_OVERLAY')}
                     >
-                        Multi-Read Overlay
+                        Per-Read Plots
                         {!isPlotTypeAvailable('MULTI_READ_OVERLAY') ? ' (requires POD5)' : ''}
                     </option>
-                    <option
-                        value="MULTI_READ_STACKED"
-                        disabled={!isPlotTypeAvailable('MULTI_READ_STACKED')}
-                    >
-                        Multi-Read Stacked
-                        {!isPlotTypeAvailable('MULTI_READ_STACKED') ? ' (requires POD5)' : ''}
-                    </option>
                     <option value="AGGREGATE" disabled={!isPlotTypeAvailable('AGGREGATE')}>
-                        Aggregate Statistics
+                        Composite Read Plots
                         {!isPlotTypeAvailable('AGGREGATE') ? ' (requires BAM)' : ''}
                     </option>
                     <option
                         value="COMPARE_SIGNAL_DELTA"
                         disabled={!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')}
                     >
-                        2-Sample Delta
+                        2-Sample Comparisons
                         {!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')
                             ? ' (requires 2 samples with BAM)'
                             : ''}
@@ -402,6 +380,54 @@ export const PlotOptionsCore: React.FC = () => {
                         'Load 2+ samples in Sample Manager for comparisons'}
                 </div>
             </div>
+
+            {/* Coordinate Space Toggle - DEFERRED: Requires FASTA reference implementation
+            <div style={{ marginBottom: '20px' }}>
+                <div
+                    style={{
+                        fontWeight: 'bold',
+                        marginBottom: '8px',
+                        color: 'var(--vscode-foreground)',
+                    }}
+                >
+                    X-Axis Coordinates
+                </div>
+                <select
+                    value={options.coordinateSpace}
+                    onChange={(e) =>
+                        setOptions((prev) => ({
+                            ...prev,
+                            coordinateSpace: e.target.value as 'signal' | 'sequence',
+                        }))
+                    }
+                    style={{
+                        width: '100%',
+                        padding: '6px',
+                        background: 'var(--vscode-input-background)',
+                        color: 'var(--vscode-input-foreground)',
+                        border: '1px solid var(--vscode-input-border)',
+                    }}
+                >
+                    <option value="signal">Signal Space (sample points)</option>
+                    <option value="sequence" disabled={!options.hasBam}>
+                        Reference Space (base positions)
+                        {!options.hasBam ? ' - requires FASTA' : ''}
+                    </option>
+                </select>
+                <div
+                    style={{
+                        fontSize: '0.75em',
+                        color: 'var(--vscode-descriptionForeground)',
+                        fontStyle: 'italic',
+                        marginTop: '4px',
+                    }}
+                >
+                    {options.coordinateSpace === 'signal'
+                        ? 'X-axis shows raw sample indices'
+                        : 'X-axis shows reference genome positions (requires FASTA reference)'}
+                </div>
+            </div>
+            */}
 
             {/* Normalization - Common to all types */}
             <div style={{ marginBottom: '20px' }}>
@@ -437,6 +463,55 @@ export const PlotOptionsCore: React.FC = () => {
             {(options.plotType === 'MULTI_READ_OVERLAY' ||
                 options.plotType === 'MULTI_READ_STACKED') && (
                 <div>
+                    {/* View Style: Overlay vs Stacked */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            View Style
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <label
+                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                            >
+                                <input
+                                    type="radio"
+                                    name="perReadViewStyle"
+                                    checked={options.plotType === 'MULTI_READ_OVERLAY'}
+                                    onChange={() =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            plotType: 'MULTI_READ_OVERLAY',
+                                        }))
+                                    }
+                                    style={{ marginRight: '6px' }}
+                                />
+                                <span>Overlay (alpha-blended)</span>
+                            </label>
+                            <label
+                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                            >
+                                <input
+                                    type="radio"
+                                    name="perReadViewStyle"
+                                    checked={options.plotType === 'MULTI_READ_STACKED'}
+                                    onChange={() =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            plotType: 'MULTI_READ_STACKED',
+                                        }))
+                                    }
+                                    style={{ marginRight: '6px' }}
+                                />
+                                <span>Stacked (offset)</span>
+                            </label>
+                        </div>
+                    </div>
+
                     {/* Sample Selection */}
                     <div style={{ marginBottom: '20px' }}>
                         <div
@@ -460,44 +535,46 @@ export const PlotOptionsCore: React.FC = () => {
                             </div>
                         ) : (
                             <>
-                            <div
-                                style={{
-                                    maxHeight: '150px',
-                                    overflowY: 'auto',
-                                    border: '1px solid var(--vscode-input-border)',
-                                    padding: '4px',
-                                }}
-                            >
-                                {options.loadedSamples.map((sample) => (
-                                    <div
-                                        key={sample.name}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            marginBottom: '4px',
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            id={`multiread-sample-${sample.name}`}
-                                            checked={options.selectedSamples.includes(sample.name)}
-                                            onChange={(e) =>
-                                                handleSampleSelectionChange(
-                                                    sample.name,
-                                                    e.target.checked
-                                                )
-                                            }
-                                            style={{ marginRight: '6px' }}
-                                        />
-                                        <label
-                                            htmlFor={`multiread-sample-${sample.name}`}
-                                            style={{ fontSize: '0.9em' }}
+                                <div
+                                    style={{
+                                        maxHeight: '150px',
+                                        overflowY: 'auto',
+                                        border: '1px solid var(--vscode-input-border)',
+                                        padding: '4px',
+                                    }}
+                                >
+                                    {options.loadedSamples.map((sample) => (
+                                        <div
+                                            key={sample.name}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                marginBottom: '4px',
+                                            }}
                                         >
-                                            {sample.name} ({sample.readCount} reads)
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
+                                            <input
+                                                type="checkbox"
+                                                id={`multiread-sample-${sample.name}`}
+                                                checked={options.selectedSamples.includes(
+                                                    sample.name
+                                                )}
+                                                onChange={(e) =>
+                                                    handleSampleSelectionChange(
+                                                        sample.name,
+                                                        e.target.checked
+                                                    )
+                                                }
+                                                style={{ marginRight: '6px' }}
+                                            />
+                                            <label
+                                                htmlFor={`multiread-sample-${sample.name}`}
+                                                style={{ fontSize: '0.9em' }}
+                                            >
+                                                {sample.name} ({sample.readCount} reads)
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
                             </>
                         )}
                     </div>
@@ -587,10 +664,12 @@ export const PlotOptionsCore: React.FC = () => {
                         {!options.hasPod5
                             ? 'Load samples to generate'
                             : options.selectedSamples.length === 0
-                            ? 'Select samples to generate'
-                            : `Generate ${
-                                  options.plotType === 'MULTI_READ_OVERLAY' ? 'Overlay' : 'Stacked'
-                              } Plot`}
+                              ? 'Select samples to generate'
+                              : `Generate ${
+                                    options.plotType === 'MULTI_READ_OVERLAY'
+                                        ? 'Overlay'
+                                        : 'Stacked'
+                                } Plot`}
                     </button>
                 </div>
             )}
@@ -656,7 +735,9 @@ export const PlotOptionsCore: React.FC = () => {
                                 onChange={(e) =>
                                     setOptions((prev) => ({
                                         ...prev,
-                                        aggregateViewStyle: e.target.value as 'overlay' | 'multi-track',
+                                        aggregateViewStyle: e.target.value as
+                                            | 'overlay'
+                                            | 'multi-track',
                                     }))
                                 }
                                 style={{
@@ -671,7 +752,13 @@ export const PlotOptionsCore: React.FC = () => {
                                 <option value="overlay">Overlay (Mean Signals)</option>
                                 <option value="multi-track">Multi-Track (Detailed)</option>
                             </select>
-                            <div style={{ fontSize: '0.85em', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
+                            <div
+                                style={{
+                                    fontSize: '0.85em',
+                                    color: 'var(--vscode-descriptionForeground)',
+                                    marginTop: '4px',
+                                }}
+                            >
                                 {options.aggregateViewStyle === 'overlay'
                                     ? 'Overlays mean signals from all samples on one plot'
                                     : 'Shows detailed 5-track view for each sample'}
@@ -1119,8 +1206,7 @@ export const PlotOptionsCore: React.FC = () => {
                     <button
                         onClick={handleGenerateSignalDelta}
                         disabled={
-                            options.selectedSamples.length !== 2 ||
-                            !options.comparisonReference
+                            options.selectedSamples.length !== 2 || !options.comparisonReference
                         }
                         style={{
                             width: '100%',
@@ -1129,13 +1215,11 @@ export const PlotOptionsCore: React.FC = () => {
                             color: 'var(--vscode-button-foreground)',
                             border: 'none',
                             cursor:
-                                options.selectedSamples.length === 2 &&
-                                options.comparisonReference
+                                options.selectedSamples.length === 2 && options.comparisonReference
                                     ? 'pointer'
                                     : 'not-allowed',
                             opacity:
-                                options.selectedSamples.length === 2 &&
-                                options.comparisonReference
+                                options.selectedSamples.length === 2 && options.comparisonReference
                                     ? 1
                                     : 0.5,
                         }}

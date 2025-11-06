@@ -60,9 +60,11 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         this._state = state;
 
         // Subscribe to visualization selection changes
-        const selectionDisposable = this._state.onVisualizationSelectionChanged((selectedSamples) => {
-            this._handleVisualizationSelectionChanged(selectedSamples);
-        });
+        const selectionDisposable = this._state.onVisualizationSelectionChanged(
+            (selectedSamples) => {
+                this._handleVisualizationSelectionChanged(selectedSamples);
+            }
+        );
         this._disposables.push(selectionDisposable);
     }
 
@@ -143,6 +145,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         sampleNames: string[];
         maxReads: number;
         normalization: string;
+        coordinateSpace: 'signal' | 'sequence';
     }>();
     public readonly onDidRequestMultiReadOverlay = this._onDidRequestMultiReadOverlay.event;
 
@@ -150,6 +153,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         sampleNames: string[];
         maxReads: number;
         normalization: string;
+        coordinateSpace: 'signal' | 'sequence';
     }>();
     public readonly onDidRequestMultiReadStacked = this._onDidRequestMultiReadStacked.event;
 
@@ -261,6 +265,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 sampleNames: message.sampleNames,
                 maxReads: message.maxReads,
                 normalization: message.normalization,
+                coordinateSpace: message.coordinateSpace,
             });
         }
 
@@ -269,6 +274,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 sampleNames: message.sampleNames,
                 maxReads: message.maxReads,
                 normalization: message.normalization,
+                coordinateSpace: message.coordinateSpace,
             });
         }
 

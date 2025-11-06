@@ -14,7 +14,7 @@ from .constants import (
     DEFAULT_POSITION_LABEL_INTERVAL,
     PlotMode,
 )
-from .io import _squiggy_session, get_read_by_id, get_reads_batch
+from .io import _squiggy_session, get_read_by_id
 from .logging_config import get_logger
 from .motif import search_motif
 from .plot_factory import create_plot_strategy
@@ -188,6 +188,7 @@ def plot_reads(
     sample_name: str | None = None,
     read_sample_map: dict[str, str] | None = None,
     read_colors: dict[str, str] | None = None,
+    coordinate_space: str = "signal",
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -212,6 +213,8 @@ def plot_reads(
         read_colors: (Multi-sample mode) Dict mapping read_id → color hex string.
                      If provided, each read uses its specified color instead of
                      the default color cycling. Useful for sample-based coloring.
+        coordinate_space: Coordinate system for x-axis ('signal' or 'sequence').
+                          'signal' uses raw sample points, 'sequence' uses BAM alignment positions.
 
     Returns:
         Bokeh HTML string
@@ -276,10 +279,72 @@ def plot_reads(
     # Prepare data and options based on mode
     if plot_mode in (PlotMode.OVERLAY, PlotMode.STACKED):
         data = {"reads": reads_data}
+
+        # If using sequence space, we need BAM alignments
+        if coordinate_space == "sequence":
+            # Determine which BAM file(s) to use
+            if read_sample_map:
+                # Multi-sample mode: each read may come from a different BAM
+                from .alignment import extract_alignment_from_bam
+
+                aligned_reads = []
+                for read_id in read_ids:
+                    sample_name_for_read = read_sample_map[read_id]
+                    sample = _squiggy_session.get_sample(sample_name_for_read)
+                    if not sample or not sample.bam_path:
+                        raise ValueError(
+                            f"Sequence space requires BAM files. Sample '{sample_name_for_read}' has no BAM file loaded."
+                        )
+                    aligned_read = extract_alignment_from_bam(sample.bam_path, read_id)
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id} in sample '{sample_name_for_read}'."
+                        )
+                    aligned_reads.append(aligned_read)
+            elif sample_name:
+                # Single-sample mode: use sample's BAM file
+                from .alignment import extract_alignment_from_bam
+
+                sample = _squiggy_session.get_sample(sample_name)
+                if not sample or not sample.bam_path:
+                    raise ValueError(
+                        f"Sequence space requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
+                    )
+                aligned_reads = []
+                for read_id in read_ids:
+                    aligned_read = extract_alignment_from_bam(sample.bam_path, read_id)
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id} in BAM file."
+                        )
+                    aligned_reads.append(aligned_read)
+            else:
+                # Legacy mode: use global BAM file
+                from .alignment import extract_alignment_from_bam
+
+                if _squiggy_session.bam_path is None:
+                    raise ValueError(
+                        "Sequence space requires a BAM file. Call load_bam() first."
+                    )
+                aligned_reads = []
+                for read_id in read_ids:
+                    aligned_read = extract_alignment_from_bam(
+                        _squiggy_session.bam_path, read_id
+                    )
+                    if aligned_read is None:
+                        raise ValueError(
+                            f"No alignment found for read {read_id} in BAM file."
+                        )
+                    aligned_reads.append(aligned_read)
+
+            # Add aligned reads to data
+            data["aligned_reads"] = aligned_reads
+
         options = {
             "normalization": norm_method,
             "downsample": downsample,
             "show_signal_points": show_signal_points,
+            "coordinate_space": coordinate_space,
         }
         # Add read colors if provided (for multi-sample coloring)
         if read_colors:

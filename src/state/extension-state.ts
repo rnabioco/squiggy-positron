@@ -113,7 +113,8 @@ export class ExtensionState {
     private _onLoadedItemsChanged: vscode.EventEmitter<LoadedItem[]> = new vscode.EventEmitter();
     private _onSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
     private _onComparisonChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
-    private _onVisualizationSelectionChanged: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
+    private _onVisualizationSelectionChanged: vscode.EventEmitter<string[]> =
+        new vscode.EventEmitter();
 
     // Installation state
     private _squiggyInstallChecked: boolean = false;

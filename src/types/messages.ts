@@ -196,6 +196,7 @@ export interface GenerateMultiReadOverlayMessage extends BaseMessage {
     sampleNames: string[];
     maxReads: number; // Max reads per sample
     normalization: string;
+    coordinateSpace: 'signal' | 'sequence';
 }
 
 export interface GenerateMultiReadStackedMessage extends BaseMessage {
@@ -203,6 +204,7 @@ export interface GenerateMultiReadStackedMessage extends BaseMessage {
     sampleNames: string[];
     maxReads: number; // Max reads per sample
     normalization: string;
+    coordinateSpace: 'signal' | 'sequence';
 }
 
 export interface GenerateSignalOverlayComparisonMessage extends BaseMessage {

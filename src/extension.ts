@@ -255,15 +255,12 @@ export async function activate(context: vscode.ExtensionContext) {
                             metrics.push('quality');
                         }
 
-                        await vscode.commands.executeCommand(
-                            'squiggy.plotAggregateComparison',
-                            {
-                                sampleNames: options.sampleNames,
-                                reference: options.reference,
-                                metrics: metrics,
-                                maxReads: options.maxReads,
-                            }
-                        );
+                        await vscode.commands.executeCommand('squiggy.plotAggregateComparison', {
+                            sampleNames: options.sampleNames,
+                            reference: options.reference,
+                            metrics: metrics,
+                            maxReads: options.maxReads,
+                        });
 
                         vscode.window.showInformationMessage(
                             `Generated aggregate comparison for ${options.sampleNames.length} samples`
@@ -324,7 +321,8 @@ export async function activate(context: vscode.ExtensionContext) {
             await vscode.commands.executeCommand(
                 'squiggy.plotMultiReadOverlay',
                 params.sampleNames,
-                params.maxReads
+                params.maxReads,
+                params.coordinateSpace
             );
         })
     );
@@ -335,7 +333,8 @@ export async function activate(context: vscode.ExtensionContext) {
             await vscode.commands.executeCommand(
                 'squiggy.plotMultiReadStacked',
                 params.sampleNames,
-                params.maxReads
+                params.maxReads,
+                params.coordinateSpace
             );
         })
     );

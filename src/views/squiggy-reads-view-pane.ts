@@ -78,7 +78,12 @@ export class ReadsViewPane extends BaseWebviewProvider {
         // Send available samples first
         const availableSamples = this.getAvailableSamples();
         const selectedSample = this.getSelectedSample();
-        console.log('[ReadsViewPane] Sending setAvailableSamples:', availableSamples, 'selected:', selectedSample);
+        console.log(
+            '[ReadsViewPane] Sending setAvailableSamples:',
+            availableSamples,
+            'selected:',
+            selectedSample
+        );
         this.postMessage({
             type: 'setAvailableSamples',
             samples: availableSamples,

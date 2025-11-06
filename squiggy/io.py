@@ -234,7 +234,7 @@ def get_reads_batch(
 
 
 def get_reads_batch_multi_sample(
-    read_sample_map: dict[str, str]
+    read_sample_map: dict[str, str],
 ) -> dict[str, pod5.ReadRecord]:
     """
     Fetch multiple reads from different samples in optimized batches

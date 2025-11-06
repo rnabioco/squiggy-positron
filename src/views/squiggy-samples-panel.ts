@@ -41,9 +41,11 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
         this._disposables.push(itemsDisposable);
 
         // Subscribe to visualization selection changes
-        const selectionDisposable = this._state.onVisualizationSelectionChanged((selectedSamples) => {
-            this._handleVisualizationSelectionChanged(selectedSamples);
-        });
+        const selectionDisposable = this._state.onVisualizationSelectionChanged(
+            (selectedSamples) => {
+                this._handleVisualizationSelectionChanged(selectedSamples);
+            }
+        );
         this._disposables.push(selectionDisposable);
     }
 

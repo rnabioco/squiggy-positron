@@ -283,7 +283,11 @@ export function registerPlotCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotMultiReadOverlay',
-            async (sampleNames?: string[], maxReads?: number) => {
+            async (
+                sampleNames?: string[],
+                maxReads?: number,
+                coordinateSpace?: 'signal' | 'sequence'
+            ) => {
                 // If no params provided, show error
                 if (!sampleNames || sampleNames.length === 0) {
                     vscode.window.showErrorMessage(
@@ -294,8 +298,9 @@ export function registerPlotCommands(
 
                 // Default to 10 reads per sample if not specified
                 const maxReadsPerSample = maxReads || 10;
+                const coordSpace = coordinateSpace || 'signal';
 
-                await plotMultiReadOverlay(sampleNames, maxReadsPerSample, state);
+                await plotMultiReadOverlay(sampleNames, maxReadsPerSample, coordSpace, state);
             }
         )
     );
@@ -304,7 +309,11 @@ export function registerPlotCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotMultiReadStacked',
-            async (sampleNames?: string[], maxReads?: number) => {
+            async (
+                sampleNames?: string[],
+                maxReads?: number,
+                coordinateSpace?: 'signal' | 'sequence'
+            ) => {
                 // If no params provided, show error
                 if (!sampleNames || sampleNames.length === 0) {
                     vscode.window.showErrorMessage(
@@ -315,8 +324,9 @@ export function registerPlotCommands(
 
                 // Default to 5 reads per sample if not specified (stacked needs fewer)
                 const maxReadsPerSample = maxReads || 5;
+                const coordSpace = coordinateSpace || 'signal';
 
-                await plotMultiReadStacked(sampleNames, maxReadsPerSample, state);
+                await plotMultiReadStacked(sampleNames, maxReadsPerSample, coordSpace, state);
             }
         )
     );
@@ -663,6 +673,7 @@ async function plotAggregateComparison(
 async function plotMultiReadOverlay(
     sampleNames: string[],
     maxReadsPerSample: number,
+    coordinateSpace: 'signal' | 'sequence',
     state: ExtensionState
 ): Promise<void> {
     await safeExecuteWithProgress(
@@ -741,7 +752,8 @@ async function plotMultiReadOverlay(
                 modFilters.minProbability,
                 modFilters.enabledModTypes,
                 options.downsample,
-                options.showSignalPoints
+                options.showSignalPoints,
+                coordinateSpace
             );
         },
         ErrorContext.PLOT_GENERATE,
@@ -756,6 +768,7 @@ async function plotMultiReadOverlay(
 async function plotMultiReadStacked(
     sampleNames: string[],
     maxReadsPerSample: number,
+    coordinateSpace: 'signal' | 'sequence',
     state: ExtensionState
 ): Promise<void> {
     await safeExecuteWithProgress(
@@ -847,7 +860,8 @@ async function plotMultiReadStacked(
                 modFilters.minProbability,
                 modFilters.enabledModTypes,
                 options.downsample,
-                options.showSignalPoints
+                options.showSignalPoints,
+                coordinateSpace
             );
         },
         ErrorContext.PLOT_GENERATE,
