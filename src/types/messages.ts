@@ -177,8 +177,10 @@ export interface UpdateReferencesMessage extends BaseMessage {
 
 export interface GenerateAggregatePlotMessage extends BaseMessage {
     type: 'generateAggregatePlot';
+    sampleNames: string[]; // Now supports 1+ samples
     reference: string;
     maxReads: number;
+    viewStyle: 'overlay' | 'multi-track'; // For multi-sample: overlay or separate tracks
     normalization: string;
     showModifications: boolean;
     showPileup: boolean;

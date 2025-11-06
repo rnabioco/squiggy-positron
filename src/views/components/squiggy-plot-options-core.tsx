@@ -12,9 +12,8 @@ import { SampleItem } from '../../types/messages';
 type PlotType =
     | 'MULTI_READ_OVERLAY'
     | 'MULTI_READ_STACKED'
-    | 'AGGREGATE'
-    | 'COMPARE_SIGNAL_DELTA'
-    | 'COMPARE_AGGREGATE';
+    | 'AGGREGATE' // Now supports 1+ samples with view toggle
+    | 'COMPARE_SIGNAL_DELTA';
 
 interface PlotOptionsState {
     // Current selection
@@ -40,9 +39,10 @@ interface PlotOptionsState {
     // Multi-Read options (Overlay/Stacked)
     maxReadsMulti: number;
 
-    // Aggregate (Single Sample) options
+    // Aggregate options (now supports 1+ samples)
     aggregateReference: string;
     aggregateMaxReads: number;
+    aggregateViewStyle: 'overlay' | 'multi-track'; // For multi-sample: overlay or separate tracks
     showModifications: boolean;
     showPileup: boolean;
     showSignal: boolean;
@@ -74,9 +74,10 @@ export const PlotOptionsCore: React.FC = () => {
         transformCoordinates: true,
         // Multi-Read
         maxReadsMulti: 50,
-        // Aggregate defaults
+        // Aggregate defaults (now supports 1+ samples)
         aggregateReference: '',
         aggregateMaxReads: 100,
+        aggregateViewStyle: 'overlay', // Default to overlay for multi-sample
         showModifications: true,
         showPileup: true,
         showSignal: true,
@@ -206,10 +207,12 @@ export const PlotOptionsCore: React.FC = () => {
             case 'MULTI_READ_STACKED':
                 return options.hasPod5;
             case 'AGGREGATE':
-                return options.hasPod5 && options.hasBam;
+                // Now supports 1+ samples, all must have BAM
+                return (
+                    options.loadedSamples.length >= 1 &&
+                    options.loadedSamples.every((s) => s.hasBam)
+                );
             case 'COMPARE_SIGNAL_DELTA':
-                return options.loadedSamples.length >= 2;
-            case 'COMPARE_AGGREGATE':
                 return (
                     options.loadedSamples.length >= 2 &&
                     options.loadedSamples.every((s) => s.hasBam)
@@ -261,9 +264,12 @@ export const PlotOptionsCore: React.FC = () => {
 
     // Generate handlers for each plot type
     const handleGenerateAggregate = () => {
+        // Unified handler: works for 1+ samples
         sendMessage('generateAggregatePlot', {
+            sampleNames: options.selectedSamples, // Now required for all aggregate plots
             reference: options.aggregateReference,
             maxReads: options.aggregateMaxReads,
+            viewStyle: options.aggregateViewStyle, // 'overlay' or 'multi-track'
             normalization: options.normalization,
             showModifications: options.showModifications,
             showPileup: options.showPileup,
@@ -359,17 +365,8 @@ export const PlotOptionsCore: React.FC = () => {
                         {!isPlotTypeAvailable('MULTI_READ_STACKED') ? ' (requires POD5)' : ''}
                     </option>
                     <option value="AGGREGATE" disabled={!isPlotTypeAvailable('AGGREGATE')}>
-                        Aggregate (Single Sample)
+                        Aggregate Statistics
                         {!isPlotTypeAvailable('AGGREGATE') ? ' (requires BAM)' : ''}
-                    </option>
-                    <option
-                        value="COMPARE_AGGREGATE"
-                        disabled={!isPlotTypeAvailable('COMPARE_AGGREGATE')}
-                    >
-                        Multi-Sample Overlay
-                        {!isPlotTypeAvailable('COMPARE_AGGREGATE')
-                            ? ' (requires 2+ samples with BAM)'
-                            : ''}
                     </option>
                     <option
                         value="COMPARE_SIGNAL_DELTA"
@@ -377,7 +374,7 @@ export const PlotOptionsCore: React.FC = () => {
                     >
                         2-Sample Delta
                         {!isPlotTypeAvailable('COMPARE_SIGNAL_DELTA')
-                            ? ' (requires 2 samples)'
+                            ? ' (requires 2 samples with BAM)'
                             : ''}
                     </option>
                 </select>
@@ -631,6 +628,46 @@ export const PlotOptionsCore: React.FC = () => {
                             )}
                         </select>
                     </div>
+
+                    {/* View Style (for multi-sample) */}
+                    {options.selectedSamples.length > 1 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <div
+                                style={{
+                                    fontWeight: 'bold',
+                                    marginBottom: '8px',
+                                    color: 'var(--vscode-foreground)',
+                                }}
+                            >
+                                View Style
+                            </div>
+                            <select
+                                value={options.aggregateViewStyle}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        aggregateViewStyle: e.target.value as 'overlay' | 'multi-track',
+                                    }))
+                                }
+                                style={{
+                                    width: '100%',
+                                    padding: '4px',
+                                    marginBottom: '10px',
+                                    background: 'var(--vscode-input-background)',
+                                    color: 'var(--vscode-input-foreground)',
+                                    border: '1px solid var(--vscode-input-border)',
+                                }}
+                            >
+                                <option value="overlay">Overlay (Mean Signals)</option>
+                                <option value="multi-track">Multi-Track (Detailed)</option>
+                            </select>
+                            <div style={{ fontSize: '0.85em', color: 'var(--vscode-descriptionForeground)', marginTop: '4px' }}>
+                                {options.aggregateViewStyle === 'overlay'
+                                    ? 'Overlays mean signals from all samples on one plot'
+                                    : 'Shows detailed 5-track view for each sample'}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Max Reads */}
                     <div style={{ marginBottom: '20px' }}>
@@ -908,8 +945,7 @@ export const PlotOptionsCore: React.FC = () => {
                 </>
             )}
 
-            {(options.plotType === 'COMPARE_SIGNAL_DELTA' ||
-                options.plotType === 'COMPARE_AGGREGATE') && (
+            {options.plotType === 'COMPARE_SIGNAL_DELTA' && (
                 <>
                     {/* Sample Selection */}
                     <div style={{ marginBottom: '20px' }}>
@@ -991,87 +1027,6 @@ export const PlotOptionsCore: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Reference selection for aggregate comparison */}
-                    {options.plotType === 'COMPARE_AGGREGATE' && (
-                        <>
-                            <div style={{ marginBottom: '20px' }}>
-                                <div
-                                    style={{
-                                        fontWeight: 'bold',
-                                        marginBottom: '8px',
-                                        color: 'var(--vscode-foreground)',
-                                    }}
-                                >
-                                    Reference
-                                </div>
-                                <select
-                                    value={options.comparisonReference}
-                                    onChange={(e) =>
-                                        setOptions((prev) => ({
-                                            ...prev,
-                                            comparisonReference: e.target.value,
-                                        }))
-                                    }
-                                    style={{
-                                        width: '100%',
-                                        padding: '4px',
-                                        background: 'var(--vscode-input-background)',
-                                        color: 'var(--vscode-input-foreground)',
-                                        border: '1px solid var(--vscode-input-border)',
-                                    }}
-                                >
-                                    {options.availableReferences.map((ref) => (
-                                        <option key={ref} value={ref}>
-                                            {ref}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Metrics to compare */}
-                            <div style={{ marginBottom: '20px' }}>
-                                <div
-                                    style={{
-                                        fontWeight: 'bold',
-                                        marginBottom: '8px',
-                                        color: 'var(--vscode-foreground)',
-                                    }}
-                                >
-                                    Metrics to Compare
-                                </div>
-                                {[
-                                    { key: 'signal', label: 'Signal statistics' },
-                                    { key: 'dwell_time', label: 'Dwell time statistics' },
-                                    { key: 'quality', label: 'Quality statistics' },
-                                ].map(({ key, label }) => (
-                                    <div
-                                        key={key}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            marginBottom: '8px',
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            id={`metric-${key}`}
-                                            checked={options.comparisonMetrics.includes(key)}
-                                            onChange={(e) =>
-                                                handleMetricToggle(key, e.target.checked)
-                                            }
-                                            style={{ marginRight: '6px' }}
-                                        />
-                                        <label
-                                            htmlFor={`metric-${key}`}
-                                            style={{ fontSize: '0.9em' }}
-                                        >
-                                            {label}
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
 
                     {/* Max Reads */}
                     <div style={{ marginBottom: '20px' }}>
@@ -1111,18 +1066,10 @@ export const PlotOptionsCore: React.FC = () => {
 
                     {/* Generate Button */}
                     <button
-                        onClick={
-                            options.plotType === 'COMPARE_SIGNAL_DELTA'
-                                ? handleGenerateSignalDelta
-                                : handleGenerateAggregateComparison
-                        }
+                        onClick={handleGenerateSignalDelta}
                         disabled={
-                            options.selectedSamples.length < 2 ||
-                            (options.plotType === 'COMPARE_SIGNAL_DELTA' &&
-                                options.selectedSamples.length !== 2) ||
-                            (options.plotType === 'COMPARE_AGGREGATE' &&
-                                (!options.comparisonReference ||
-                                    options.comparisonMetrics.length === 0))
+                            options.selectedSamples.length !== 2 ||
+                            !options.availableReferences.length
                         }
                         style={{
                             width: '100%',
@@ -1131,14 +1078,12 @@ export const PlotOptionsCore: React.FC = () => {
                             color: 'var(--vscode-button-foreground)',
                             border: 'none',
                             cursor: 'pointer',
-                            opacity: options.selectedSamples.length >= 2 ? 1 : 0.5,
+                            opacity: options.selectedSamples.length === 2 ? 1 : 0.5,
                         }}
                     >
-                        {options.selectedSamples.length < 2
-                            ? 'Select 2+ samples'
-                            : options.plotType === 'COMPARE_SIGNAL_DELTA'
-                              ? 'Generate 2-Sample Delta'
-                              : 'Generate Multi-Sample Overlay'}
+                        {options.selectedSamples.length !== 2
+                            ? 'Select exactly 2 samples'
+                            : 'Generate 2-Sample Delta'}
                     </button>
                 </>
             )}
