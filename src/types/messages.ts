@@ -232,9 +232,8 @@ export interface UpdateLoadedSamplesMessage extends BaseMessage {
 }
 
 export interface PlotOptions {
-    // Analysis Type - 6 plot types (removed COMPARE_SIGNAL_OVERLAY - redundant)
+    // Analysis Type - 5 plot types (removed SINGLE_READ - use Read Explorer instead)
     plotType:
-        | 'SINGLE_READ'
         | 'MULTI_READ_OVERLAY'
         | 'MULTI_READ_STACKED'
         | 'AGGREGATE'

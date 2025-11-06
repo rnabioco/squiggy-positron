@@ -17,7 +17,6 @@ import {
 } from '../types/messages';
 
 type PlotType =
-    | 'SINGLE_READ'
     | 'MULTI_READ_OVERLAY'
     | 'MULTI_READ_STACKED'
     | 'AGGREGATE'
@@ -27,7 +26,7 @@ type PlotType =
 export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyPlotOptions';
 
-    private _plotType: PlotType = 'SINGLE_READ';
+    private _plotType: PlotType = 'AGGREGATE';
     private _plotMode: string = 'SINGLE';
     private _normalization: string = 'ZNORM';
     private _showDwellTime: boolean = false;
@@ -315,9 +314,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._plotMode = 'EVENTALIGN';
             this._updateConfig('defaultPlotMode', 'EVENTALIGN');
         }
-        // When BAM unloads, switch back to SINGLE_READ
+        // When BAM unloads, switch to MULTI_READ_OVERLAY
         else {
-            this._plotType = 'SINGLE_READ';
+            this._plotType = 'MULTI_READ_OVERLAY';
             this._plotMode = 'SINGLE';
             this._updateConfig('defaultPlotMode', 'SINGLE');
         }
