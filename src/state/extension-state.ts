@@ -858,6 +858,20 @@ squiggy.close_fasta()
             if (comparisonIds.length > 0) {
                 this.setComparisonItems(comparisonIds);
             }
+
+            // Restore selected Read Explorer sample and auto-load its reads
+            if (session.ui.selectedReadExplorerSample) {
+                this._selectedReadExplorerSample = session.ui.selectedReadExplorerSample;
+
+                // Trigger reads view to load for the selected sample
+                // Use a small delay to ensure sample is fully registered in Python
+                setTimeout(() => {
+                    vscode.commands.executeCommand(
+                        'squiggy.internal.loadReadsForSample',
+                        session.ui!.selectedReadExplorerSample
+                    );
+                }, 500);
+            }
         }
 
         // Show errors if any
