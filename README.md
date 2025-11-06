@@ -85,7 +85,7 @@ Squiggy provides an object-oriented Python API for use in Jupyter notebooks and 
 Squiggy uses the **Strategy Pattern** to make adding new plot types easy and maintainable:
 
 - **PlotFactory** - Creates the appropriate plotting strategy based on plot mode
-- **5 Plot Strategies** - Each plot type (SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE) is a separate strategy class
+- **7 Plot Strategies** - Each plot type (SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE, DELTA, SIGNAL_OVERLAY_COMPARISON) is a separate strategy class
 - **Reusable Components** - ThemeManager, BaseAnnotationRenderer, ModificationTrackBuilder shared across strategies
 - **Easy Extension** - Adding new plot types requires only creating a new strategy class
 
