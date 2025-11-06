@@ -12,12 +12,23 @@ import {
     UpdateBamStatusMessage,
     UpdatePod5StatusMessage,
     UpdateReferencesMessage,
+    UpdateLoadedSamplesMessage,
+    SampleItem,
 } from '../types/messages';
+
+type PlotType =
+    | 'SINGLE_READ'
+    | 'MULTI_READ_OVERLAY'
+    | 'MULTI_READ_STACKED'
+    | 'AGGREGATE'
+    | 'COMPARE_SIGNAL_OVERLAY'
+    | 'COMPARE_SIGNAL_DELTA'
+    | 'COMPARE_AGGREGATE';
 
 export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyPlotOptions';
 
-    private _plotType: 'SINGLE' | 'AGGREGATE' = 'SINGLE';
+    private _plotType: PlotType = 'SINGLE_READ';
     private _plotMode: string = 'SINGLE';
     private _normalization: string = 'ZNORM';
     private _showDwellTime: boolean = false;
@@ -38,6 +49,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showQuality: boolean = true;
     private _availableReferences: string[] = [];
 
+    // Multi-sample state
+    private _loadedSamples: SampleItem[] = [];
+
     // Event emitter for when options change that should trigger refresh
     private _onDidChangeOptions = new vscode.EventEmitter<void>();
     public readonly onDidChangeOptions = this._onDidChangeOptions.event;
@@ -55,6 +69,30 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         clipXAxisToAlignment: boolean;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
+
+    // Event emitters for comparison plots
+    private _onDidRequestSignalOverlay = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestSignalOverlay = this._onDidRequestSignalOverlay.event;
+
+    private _onDidRequestSignalDelta = new vscode.EventEmitter<{
+        sampleNames: [string, string];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestSignalDelta = this._onDidRequestSignalDelta.event;
+
+    private _onDidRequestAggregateComparison = new vscode.EventEmitter<{
+        sampleNames: string[];
+        reference: string;
+        metrics: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestAggregateComparison = this._onDidRequestAggregateComparison.event;
 
     protected getTitle(): string {
         return 'Advanced Plotting';
@@ -123,6 +161,32 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showSignal: message.showSignal,
                 showQuality: message.showQuality,
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
+            });
+        }
+
+        if (message.type === 'generateSignalOverlayComparison') {
+            this._onDidRequestSignalOverlay.fire({
+                sampleNames: message.sampleNames,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateSignalDelta') {
+            this._onDidRequestSignalDelta.fire({
+                sampleNames: message.sampleNames as [string, string],
+                maxReads: message.maxReads,
+                normalization: message.normalization,
+            });
+        }
+
+        if (message.type === 'generateAggregateComparison') {
+            this._onDidRequestAggregateComparison.fire({
+                sampleNames: message.sampleNames,
+                reference: message.reference,
+                metrics: message.metrics,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
             });
         }
     }
@@ -259,6 +323,20 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         const message: UpdateReferencesMessage = {
             type: 'updateReferences',
             references: this._availableReferences,
+        };
+        this.postMessage(message);
+    }
+
+    /**
+     * Update loaded samples for comparison plots
+     */
+    public updateLoadedSamples(samples: SampleItem[]) {
+        this._loadedSamples = samples;
+
+        // Update webview
+        const message: UpdateLoadedSamplesMessage = {
+            type: 'updateLoadedSamples',
+            samples: this._loadedSamples,
         };
         this.postMessage(message);
     }
