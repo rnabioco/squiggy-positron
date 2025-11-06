@@ -117,6 +117,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Sync to plot options provider
             plotOptionsProvider.updateLoadedSamples(samples);
+
+            // Update POD5/BAM status in plot options pane based on loaded samples
+            const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
+            const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
+
+            plotOptionsProvider.updatePod5Status(hasPod5);
+            plotOptionsProvider.updateBamStatus(hasBam);
+
+            // If we have BAM files, fetch and update references
+            if (hasBam && state.squiggyAPI) {
+                // Get references from the first sample with BAM
+                const sampleWithBam = samples.find((s) => s.hasBam);
+                if (sampleWithBam) {
+                    state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
+                        plotOptionsProvider.updateReferences(refs);
+                    });
+                }
+            }
+
+            // Refresh Read Explorer to update available samples dropdown
+            readsViewPane?.refresh();
         })
     );
 
