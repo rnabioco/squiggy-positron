@@ -17,10 +17,13 @@ from ..constants import (
     NormalizationMethod,
     Theme,
 )
+from ..logging_config import get_logger
 from ..normalization import normalize_signal
 from ..rendering.base_annotation_renderer import BaseAnnotationRenderer
 from ..rendering.theme_manager import ThemeManager
 from .base import PlotStrategy
+
+logger = get_logger(__name__)
 
 
 class SignalOverlayComparisonStrategy(PlotStrategy):
@@ -292,7 +295,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
                 )
             except Exception as e:
                 # Log error but don't fail plot generation
-                print(f"Warning: Could not render base annotations: {e}")
+                logger.warning("Could not render base annotations: %s", e)
 
         # Configure legend
         p.legend.click_policy = "hide"  # Interactive legend

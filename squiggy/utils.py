@@ -2365,3 +2365,97 @@ def compare_signal_distributions(signal_a: np.ndarray, signal_b: np.ndarray) -> 
         "mean_diff": float(np.mean(signal_b) - np.mean(signal_a)),
         "std_diff": float(np.std(signal_b) - np.std(signal_a)),
     }
+
+
+def parse_plot_parameters(
+    mode: str | None = None,
+    normalization: str = "ZNORM",
+    theme: str = "LIGHT",
+):
+    """
+    Parse and validate plot parameters (mode, normalization, theme)
+
+    This utility function eliminates duplicate parameter parsing code across
+    plotting functions by centralizing the conversion from string parameters
+    to enum values.
+
+    Args:
+        mode: Plot mode string (e.g., "SINGLE", "OVERLAY", "EVENTALIGN", "AGGREGATE").
+              If None, only normalization and theme are parsed.
+        normalization: Normalization method string (default: "ZNORM").
+                       Valid values: "NONE", "ZNORM", "MEDIAN", "MAD"
+        theme: Color theme string (default: "LIGHT").
+               Valid values: "LIGHT", "DARK"
+
+    Returns:
+        Dictionary with parsed enum values:
+        - "mode": PlotMode enum (if mode parameter provided, else None)
+        - "normalization": NormalizationMethod enum
+        - "theme": Theme enum
+
+    Raises:
+        KeyError: If invalid mode, normalization, or theme string provided
+
+    Examples:
+        >>> params = parse_plot_parameters(mode="SINGLE", normalization="ZNORM", theme="LIGHT")
+        >>> params["mode"]
+        <PlotMode.SINGLE: 'SINGLE'>
+
+        >>> params = parse_plot_parameters(normalization="MEDIAN", theme="DARK")
+        >>> params["normalization"]
+        <NormalizationMethod.MEDIAN: 'MEDIAN'>
+    """
+    from .constants import NormalizationMethod, PlotMode, Theme
+
+    result = {
+        "normalization": NormalizationMethod[normalization.upper()],
+        "theme": Theme[theme.upper()],
+    }
+
+    if mode is not None:
+        result["mode"] = PlotMode[mode.upper()]
+
+    return result
+
+
+@contextmanager
+def open_bam_safe(bam_path: str | Path):
+    """
+    Context manager for safely opening and closing BAM files
+
+    This utility eliminates duplicate BAM file handling code by providing
+    a consistent pattern for opening BAM files with proper resource cleanup.
+
+    Args:
+        bam_path: Path to BAM file (string or Path object)
+
+    Yields:
+        pysam.AlignmentFile: Opened BAM file handle
+
+    Raises:
+        FileNotFoundError: If BAM file doesn't exist
+        IOError: If BAM file cannot be opened
+
+    Examples:
+        >>> from squiggy.utils import open_bam_safe
+        >>> with open_bam_safe("alignments.bam") as bam:
+        ...     for read in bam:
+        ...         print(read.query_name)
+
+        >>> # Automatically closes even on error
+        >>> with open_bam_safe("alignments.bam") as bam:
+        ...     references = list(bam.references)
+    """
+    bam_path = Path(bam_path)
+
+    if not bam_path.exists():
+        raise FileNotFoundError(f"BAM file not found: {bam_path}")
+
+    bam = None
+    try:
+        # Open with check_sq=False to avoid issues with missing SQ headers
+        bam = pysam.AlignmentFile(str(bam_path), "rb", check_sq=False)
+        yield bam
+    finally:
+        if bam is not None:
+            bam.close()
