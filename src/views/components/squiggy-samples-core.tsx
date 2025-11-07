@@ -91,9 +91,6 @@ export const SamplesCore: React.FC = () => {
                             }
                         }
 
-                        // Track newly added samples for auto-selection sync
-                        const newlyAddedSamples: string[] = [];
-
                         // Assign default Okabe-Ito colors to new samples (that don't already have colors)
                         const newlyAssignedColors: Array<{ name: string; color: string }> = [];
                         samples.forEach((sample, index) => {
@@ -103,11 +100,9 @@ export const SamplesCore: React.FC = () => {
                                 newColors.set(sample.name, color);
                                 newlyAssignedColors.push({ name: sample.name, color });
                             }
-                            // Default all samples to selected for visualization
-                            if (!newSelected.has(sample.name)) {
-                                newSelected.add(sample.name);
-                                newlyAddedSamples.push(sample.name);
-                            }
+                            // Default all samples to selected for visualization in local state
+                            // (Extension state is already updated by file-commands.ts on load)
+                            newSelected.add(sample.name);
                         });
 
                         // Persist auto-assigned colors to extension state
@@ -118,18 +113,6 @@ export const SamplesCore: React.FC = () => {
                                         type: 'updateSampleColor',
                                         sampleName: name,
                                         color: color,
-                                    });
-                                });
-                            }, 0);
-                        }
-
-                        // Sync newly auto-selected samples to extension state (FIX for Issue #124)
-                        if (newlyAddedSamples.length > 0) {
-                            setTimeout(() => {
-                                newlyAddedSamples.forEach((name) => {
-                                    vscode.postMessage({
-                                        type: 'toggleSampleSelection',
-                                        sampleName: name,
                                     });
                                 });
                             }, 0);
