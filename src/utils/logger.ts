@@ -154,7 +154,7 @@ class Logger {
             return;
         }
 
-        const timestamp = new Date().toISOString().substring(11, 23); // HH:mm:ss.SSS
+        const timestamp = new Date().toISOString().substring(0, 19).replace('T', ' '); // yyyy-MM-dd HH:mm:ss
         const formattedMessage = `[${timestamp}] [${level}] ${message}`;
 
         // Write to Output Channel (visible in Output panel)
@@ -187,7 +187,7 @@ class Logger {
      * Separate method to distinguish Python vs TypeScript logs
      */
     public python(message: string, level: LogLevel = LogLevel.INFO): void {
-        const timestamp = new Date().toISOString().substring(11, 23);
+        const timestamp = new Date().toISOString().substring(0, 19).replace('T', ' ');
         const formattedMessage = `[${timestamp}] [Python ${level}] ${message}`;
 
         if (this.outputChannel) {
