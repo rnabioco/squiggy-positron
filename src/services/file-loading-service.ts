@@ -20,10 +20,11 @@ import {
     FileLoadResult,
     SampleLoadResult,
 } from '../types/file-loading-types';
+import { logger } from '../utils/logger';
 
 export class FileLoadingService {
     constructor(private state: ExtensionState) {
-        console.log('[FileLoadingService] Constructor called');
+        logger.debug('[FileLoadingService] Constructor called');
     }
 
     /**
@@ -113,28 +114,28 @@ export class FileLoadingService {
         bamPath?: string,
         fastaPath?: string
     ): Promise<any> {
-        console.log(
+        logger.debug(
             `[loadSampleIntoRegistry] Starting - sample: '${sampleName}', pod5: ${pod5Path}, bam: ${bamPath || 'none'}`
         );
 
         // Verify API is available
         if (!this.state.squiggyAPI) {
             const msg = 'Squiggy API not initialized';
-            console.error(`[loadSampleIntoRegistry] ${msg}`);
+            logger.error(`[loadSampleIntoRegistry] ${msg}`);
             throw new Error(msg);
         }
-        console.log(`[loadSampleIntoRegistry] API is available, calling loadSample()...`);
+        logger.debug(`[loadSampleIntoRegistry] API is available, calling loadSample()...`);
 
         try {
             // Load sample into registry
-            console.log(`[loadSampleIntoRegistry] About to call squiggyAPI.loadSample()`);
+            logger.debug(`[loadSampleIntoRegistry] About to call squiggyAPI.loadSample()`);
             const pod5Result = await this.state.squiggyAPI.loadSample(
                 sampleName,
                 pod5Path,
                 bamPath,
                 fastaPath
             );
-            console.log(
+            logger.debug(
                 `[loadSampleIntoRegistry] loadSample returned successfully with ${pod5Result.numReads} reads`
             );
 
@@ -150,7 +151,7 @@ export class FileLoadingService {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`[loadSampleIntoRegistry] Error caught: ${errorMessage}`);
+            logger.error(`[loadSampleIntoRegistry] Error caught: ${errorMessage}`);
             throw new Error(`Failed to load sample into registry: ${errorMessage}`);
         }
     }

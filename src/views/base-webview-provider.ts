@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { getReactWebviewHtml, getWebviewOptions } from '../utils/webview-utils';
 import { IncomingWebviewMessage, OutgoingWebviewMessage } from '../types/messages';
 import { SquiggyError, handleError } from '../utils/error-handler';
+import { logger } from '../utils/logger';
 
 /**
  * Abstract base class for webview providers
@@ -46,7 +47,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
         _context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken
     ): void {
-        console.log(`[${this.getTitle()}] resolveWebviewView called`);
+        logger.debug(`[${this.getTitle()}] resolveWebviewView called`);
         this._view = webviewView;
 
         // Set webview options
@@ -54,7 +55,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
 
         // Set HTML content
         const title = this.getTitle();
-        console.log(`[${title}] Setting HTML with title: "${title}"`);
+        logger.debug(`[${title}] Setting HTML with title: "${title}"`);
         webviewView.webview.html = getReactWebviewHtml(
             webviewView.webview,
             this.extensionUri,
@@ -135,7 +136,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
         const command = (message as any).command || 'unknown';
 
         // Log the error with context
-        console.error(`[${this.getTitle()}] Error handling message '${command}':`, error);
+        logger.error(`[${this.getTitle()}] Error handling message '${command}':`, error);
 
         // Send error to webview for UI display
         this.sendErrorToWebview(error, `Failed to handle '${command}' command`);
@@ -155,7 +156,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
      * @param error Error that occurred during update
      */
     protected handleUpdateError(error: Error): void {
-        console.error(`[${this.getTitle()}] Error updating view:`, error);
+        logger.error(`[${this.getTitle()}] Error updating view:`, error);
 
         // Send error to webview
         this.sendErrorToWebview(error, 'Failed to update view');
@@ -183,7 +184,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
             return await operation();
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
-            console.error(`[${this.getTitle()}] ${errorContext}:`, err);
+            logger.error(`[${this.getTitle()}] ${errorContext}:`, err);
             this.sendErrorToWebview(err, errorContext);
             return undefined;
         }

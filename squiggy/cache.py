@@ -10,10 +10,6 @@ import pickle
 from datetime import datetime
 from pathlib import Path
 
-from .logging_config import get_logger
-
-logger = get_logger(__name__)
-
 
 class SquiggyCache:
     """
@@ -49,7 +45,6 @@ class SquiggyCache:
 
         if self.enabled:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Cache directory: {self.cache_dir}")
 
     def _get_cache_path(self, file_path: Path, suffix: str) -> Path:
         """
@@ -98,7 +93,6 @@ class SquiggyCache:
 
         cache_path = self._get_cache_path(file_path, ".pod5.cache")
         if not cache_path.exists():
-            logger.debug(f"Cache miss: {cache_path.name}")
             return None
 
         try:
@@ -108,16 +102,11 @@ class SquiggyCache:
             # Validate file hasn't changed
             current_hash = self._file_hash(file_path)
             if cached["file_hash"] != current_hash:
-                logger.info(f"Cache invalid (file changed): {cache_path.name}")
                 return None
 
-            logger.info(
-                f"Loaded POD5 index from cache ({len(cached['index']):,} reads)"
-            )
             return cached["index"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
-            logger.warning(f"Cache load failed: {e}")
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_pod5_index(
@@ -149,10 +138,8 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-            logger.info(f"Saved POD5 index to cache: {cache_path.name}")
-
-        except (OSError, pickle.PicklingError) as e:
-            logger.warning(f"Cache save failed: {e}")
+        except (OSError, pickle.PicklingError):
+            pass
 
     def load_pod5_read_ids(self, file_path: Path) -> list[str] | None:
         """
@@ -178,16 +165,11 @@ class SquiggyCache:
             # Validate file hasn't changed
             current_hash = self._file_hash(file_path)
             if cached["file_hash"] != current_hash:
-                logger.info(f"Cache invalid (file changed): {cache_path.name}")
                 return None
 
-            logger.info(
-                f"Loaded read IDs from cache ({len(cached['read_ids']):,} reads)"
-            )
             return cached["read_ids"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
-            logger.warning(f"Cache load failed: {e}")
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_pod5_read_ids(self, file_path: Path, read_ids: list[str]) -> None:
@@ -215,10 +197,8 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-            logger.info(f"Saved read IDs to cache: {cache_path.name}")
-
-        except (OSError, pickle.PicklingError) as e:
-            logger.warning(f"Cache save failed: {e}")
+        except (OSError, pickle.PicklingError):
+            pass
 
     def load_bam_ref_mapping(self, file_path: Path) -> dict[str, list[str]] | None:
         """
@@ -235,7 +215,6 @@ class SquiggyCache:
 
         cache_path = self._get_cache_path(file_path, ".bam.cache")
         if not cache_path.exists():
-            logger.debug(f"Cache miss: {cache_path.name}")
             return None
 
         try:
@@ -245,16 +224,11 @@ class SquiggyCache:
             # Validate file hasn't changed
             current_hash = self._file_hash(file_path)
             if cached["file_hash"] != current_hash:
-                logger.info(f"Cache invalid (file changed): {cache_path.name}")
                 return None
 
-            logger.info(
-                f"Loaded BAM reference mapping from cache ({len(cached['ref_mapping'])} refs)"
-            )
             return cached["ref_mapping"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
-            logger.warning(f"Cache load failed: {e}")
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_bam_ref_mapping(
@@ -286,13 +260,8 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-            logger.info(
-                f"Saved BAM reference mapping to cache: {cache_path.name} "
-                f"({len(ref_mapping)} refs, {total_reads:,} reads)"
-            )
-
-        except (OSError, pickle.PicklingError) as e:
-            logger.warning(f"Cache save failed: {e}")
+        except (OSError, pickle.PicklingError):
+            pass
 
     def load_bam_metadata(self, file_path: Path) -> dict | None:
         """
@@ -324,7 +293,6 @@ class SquiggyCache:
 
         cache_path = self._get_cache_path(file_path, ".bam.metadata.cache")
         if not cache_path.exists():
-            logger.debug(f"Cache miss: {cache_path.name}")
             return None
 
         try:
@@ -334,18 +302,11 @@ class SquiggyCache:
             # Validate file hasn't changed (using mtime for faster check)
             current_mtime = file_path.stat().st_mtime
             if abs(cached["file_mtime"] - current_mtime) > 0.001:
-                logger.info(f"Cache invalid (file modified): {cache_path.name}")
                 return None
 
-            logger.info(
-                f"Loaded BAM metadata from cache "
-                f"({cached['metadata']['num_reads']:,} reads, "
-                f"{len(cached['metadata']['references'])} refs)"
-            )
             return cached["metadata"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
-            logger.warning(f"Cache load failed: {e}")
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_bam_metadata(self, file_path: Path, metadata: dict) -> None:
@@ -388,14 +349,8 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-            logger.info(
-                f"Saved BAM metadata to cache: {cache_path.name} "
-                f"({metadata['num_reads']:,} reads, "
-                f"{len(metadata['references'])} refs)"
-            )
-
-        except (OSError, pickle.PicklingError) as e:
-            logger.warning(f"Cache save failed: {e}")
+        except (OSError, pickle.PicklingError):
+            pass
 
     def clear_cache(self) -> int:
         """
@@ -412,8 +367,7 @@ class SquiggyCache:
             try:
                 cache_file.unlink()
                 count += 1
-            except OSError as e:
-                logger.warning(f"Failed to delete {cache_file}: {e}")
+            except OSError:
+                pass
 
-        logger.info(f"Cleared {count} cache file(s)")
         return count

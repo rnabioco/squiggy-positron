@@ -106,7 +106,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for loaded items changes and sync samples to plot options pane
     context.subscriptions.push(
         state.onLoadedItemsChanged((items) => {
-            console.log('[extension.ts] onLoadedItemsChanged fired, items:', items.length);
+            logger.debug('[extension.ts] onLoadedItemsChanged fired, items:', items.length);
 
             // Filter for samples and convert to SampleItem format
             const samples = items
@@ -121,21 +121,21 @@ export async function activate(context: vscode.ExtensionContext) {
                     hasFasta: !!item.fastaPath,
                 }));
 
-            console.log('[extension.ts] Filtered samples:', samples.length, samples);
+            logger.debug('[extension.ts] Filtered samples:', samples.length, samples);
 
             // Sync to plot options provider
-            console.log('[extension.ts] plotOptionsProvider exists?', !!plotOptionsProvider);
+            logger.debug('[extension.ts] plotOptionsProvider exists?', !!plotOptionsProvider);
             if (plotOptionsProvider) {
                 plotOptionsProvider.updateLoadedSamples(samples);
             } else {
-                console.error('[extension.ts] plotOptionsProvider is undefined!');
+                logger.error('[extension.ts] plotOptionsProvider is undefined!');
             }
 
             // Update POD5/BAM status in plot options pane based on loaded samples
             const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
             const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
 
-            console.log('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam);
+            logger.debug('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam);
 
             if (plotOptionsProvider) {
                 plotOptionsProvider.updatePod5Status(hasPod5);
@@ -147,12 +147,12 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Get references from the first sample with BAM
                 const sampleWithBam = samples.find((s) => s.hasBam);
                 if (sampleWithBam) {
-                    console.log(
+                    logger.debug(
                         '[extension.ts] Fetching references for sample:',
                         sampleWithBam.name
                     );
                     state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
-                        console.log('[extension.ts] Got references:', refs);
+                        logger.debug('[extension.ts] Got references:', refs);
                         if (plotOptionsProvider) {
                             plotOptionsProvider.updateReferences(refs);
                         }
@@ -162,8 +162,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Refresh Read Explorer to update available samples dropdown
             const allSamples = state.getAllSampleNames();
-            console.log('[extension.ts] Sample loaded. All samples:', allSamples);
-            console.log('[extension.ts] Refreshing Read Explorer');
+            logger.debug('[extension.ts] Sample loaded. All samples:', allSamples);
+            logger.debug('[extension.ts] Refreshing Read Explorer');
             readsViewPane?.refresh();
         })
     );
@@ -204,7 +204,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for aggregate plot generation requests from plot options panel
     context.subscriptions.push(
         plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
-            console.log('[Extension] Aggregate plot requested with samples:', options.sampleNames);
+            logger.debug('[Extension] Aggregate plot requested with samples:', options.sampleNames);
 
             if (!state.squiggyAPI) {
                 vscode.window.showErrorMessage('API not available');
@@ -356,6 +356,27 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.showLogs', () => {
             logger.show();
+        })
+    );
+
+    // Register command to set log level
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.setLogLevel', async () => {
+            const currentLevel = logger.getMinLevel();
+            const levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
+            const selected = await vscode.window.showQuickPick(levels, {
+                placeHolder: `Select log level (current: ${currentLevel})`,
+                title: 'Squiggy Log Level',
+            });
+
+            if (selected) {
+                // Update both the logger and VS Code settings
+                const config = vscode.workspace.getConfiguration('squiggy');
+                await config.update('logLevel', selected, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(
+                    `Log level set to ${selected}. Logs will show ${selected} and above.`
+                );
+            }
         })
     );
 

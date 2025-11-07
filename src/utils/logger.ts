@@ -19,6 +19,16 @@ export enum LogLevel {
 }
 
 /**
+ * Numeric priority for log levels (higher = more important)
+ */
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+    [LogLevel.DEBUG]: 0,
+    [LogLevel.INFO]: 1,
+    [LogLevel.WARNING]: 2,
+    [LogLevel.ERROR]: 3,
+};
+
+/**
  * Centralized logger for Squiggy extension
  *
  * Usage:
@@ -29,6 +39,7 @@ export enum LogLevel {
 class Logger {
     private outputChannel: vscode.OutputChannel | null = null;
     private extensionName = 'Squiggy';
+    private minLevel: LogLevel = LogLevel.INFO;
 
     /**
      * Initialize the logger with an output channel
@@ -39,7 +50,69 @@ class Logger {
         this.outputChannel = vscode.window.createOutputChannel(this.extensionName);
         context.subscriptions.push(this.outputChannel);
 
+        // Read initial log level from settings
+        this.updateMinLevelFromSettings();
+
+        // Watch for configuration changes
+        context.subscriptions.push(
+            vscode.workspace.onDidChangeConfiguration((e) => {
+                if (e.affectsConfiguration('squiggy.logLevel')) {
+                    this.updateMinLevelFromSettings();
+                    this.info(`Log level changed to: ${this.minLevel}`);
+                }
+            })
+        );
+
         this.info('Squiggy extension activated');
+    }
+
+    /**
+     * Set the minimum log level
+     */
+    public setMinLevel(level: LogLevel): void {
+        this.minLevel = level;
+    }
+
+    /**
+     * Get the current minimum log level
+     */
+    public getMinLevel(): LogLevel {
+        return this.minLevel;
+    }
+
+    /**
+     * Update minimum log level from VS Code settings
+     */
+    private updateMinLevelFromSettings(): void {
+        const config = vscode.workspace.getConfiguration('squiggy');
+        const configLevel = config.get<string>('logLevel', 'INFO');
+
+        // Validate and set level
+        if (configLevel in LogLevel) {
+            this.minLevel = configLevel as LogLevel;
+        } else {
+            this.minLevel = LogLevel.INFO;
+        }
+    }
+
+    /**
+     * Check if a log level should be logged based on minimum level
+     */
+    private shouldLog(level: LogLevel): boolean {
+        return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.minLevel];
+    }
+
+    /**
+     * Format date as local time: yyyy-MM-dd HH:mm:ss
+     */
+    private formatLocalTime(date: Date): string {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
     /**
@@ -89,7 +162,12 @@ class Logger {
      * Internal logging implementation
      */
     private log(level: LogLevel, message: string, ...args: unknown[]): void {
-        const timestamp = new Date().toISOString().substring(11, 23); // HH:mm:ss.SSS
+        // Filter based on minimum level
+        if (!this.shouldLog(level)) {
+            return;
+        }
+
+        const timestamp = this.formatLocalTime(new Date());
         const formattedMessage = `[${timestamp}] [${level}] ${message}`;
 
         // Write to Output Channel (visible in Output panel)
@@ -122,7 +200,7 @@ class Logger {
      * Separate method to distinguish Python vs TypeScript logs
      */
     public python(message: string, level: LogLevel = LogLevel.INFO): void {
-        const timestamp = new Date().toISOString().substring(11, 23);
+        const timestamp = this.formatLocalTime(new Date());
         const formattedMessage = `[${timestamp}] [Python ${level}] ${message}`;
 
         if (this.outputChannel) {

@@ -3,9 +3,6 @@
 import numpy as np
 
 from .constants import NormalizationMethod
-from .logging_config import get_logger
-
-logger = get_logger(__name__)
 
 
 def normalize_signal(signal: np.ndarray, method: NormalizationMethod) -> np.ndarray:
@@ -27,10 +24,6 @@ def normalize_signal(signal: np.ndarray, method: NormalizationMethod) -> np.ndar
     elif method == NormalizationMethod.MAD:
         return mad_normalize(signal)
     else:
-        valid_methods = [m.value for m in NormalizationMethod]
-        logger.error(
-            f"Unknown normalization method: {method}. Valid methods: {valid_methods}"
-        )
         raise ValueError(f"Unknown normalization method: {method}")
 
 

@@ -16,6 +16,7 @@ import {
     SampleItem,
 } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
+import { logger } from '../utils/logger';
 
 type PlotType =
     | 'MULTI_READ_OVERLAY'
@@ -74,7 +75,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * @private
      */
     private _handleVisualizationSelectionChanged(selectedSamples: string[]): void {
-        console.log('[PlotOptionsViewProvider] Visualization selection changed:', selectedSamples);
+        logger.debug('[PlotOptionsViewProvider] Visualization selection changed:', selectedSamples);
         // Send update to webview
         if (this._view?.webview) {
             this._view.webview.postMessage({
@@ -286,7 +287,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             } else {
                 this._state.addSampleToVisualization(message.sampleName);
             }
-            console.log(
+            logger.debug(
                 `[PlotOptionsViewProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
             );
         }
@@ -335,7 +336,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateBamStatus',
             hasBam: this._hasBamFile,
         };
-        console.log('[PlotOptions] Sending BAM status on init:', this._hasBamFile);
+        logger.debug('[PlotOptions] Sending BAM status on init:', this._hasBamFile);
         this.postMessage(bamStatusMessage);
 
         // Send references if available
@@ -353,7 +354,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 type: 'updateLoadedSamples',
                 samples: this._loadedSamples,
             };
-            console.log(
+            logger.debug(
                 '[PlotOptions] Sending loaded samples on init:',
                 this._loadedSamples.length
             );
@@ -389,7 +390,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update POD5 file status
      */
     public updatePod5Status(hasPod5: boolean) {
-        console.log('[PlotOptions] updatePod5Status called with:', hasPod5);
+        logger.debug('[PlotOptions] updatePod5Status called with:', hasPod5);
         this._hasPod5File = hasPod5;
 
         // Update webview
@@ -397,7 +398,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updatePod5Status',
             hasPod5: this._hasPod5File,
         };
-        console.log('[PlotOptions] Sending POD5 status:', hasPod5);
+        logger.debug('[PlotOptions] Sending POD5 status:', hasPod5);
         this.postMessage(message);
     }
 
@@ -405,7 +406,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update BAM file status and available plot modes
      */
     public updateBamStatus(hasBam: boolean) {
-        console.log('[PlotOptions] updateBamStatus called with:', hasBam);
+        logger.debug('[PlotOptions] updateBamStatus called with:', hasBam);
         this._hasBamFile = hasBam;
 
         // When BAM loads, switch to AGGREGATE and EVENTALIGN
@@ -426,7 +427,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateBamStatus',
             hasBam: this._hasBamFile,
         };
-        console.log('[PlotOptions] Sending BAM status:', hasBam);
+        logger.debug('[PlotOptions] Sending BAM status:', hasBam);
         this.postMessage(message);
     }
 
@@ -451,7 +452,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update loaded samples for comparison plots
      */
     public updateLoadedSamples(samples: SampleItem[]) {
-        console.log('[PlotOptions] updateLoadedSamples called with:', samples.length, 'samples');
+        logger.debug('[PlotOptions] updateLoadedSamples called with:', samples.length, 'samples');
         this._loadedSamples = samples;
 
         // Update webview
@@ -459,7 +460,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updateLoadedSamples',
             samples: this._loadedSamples,
         };
-        console.log('[PlotOptions] Sending loaded samples:', samples.length);
+        logger.debug('[PlotOptions] Sending loaded samples:', samples.length);
         this.postMessage(message);
     }
 

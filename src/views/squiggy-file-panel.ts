@@ -12,6 +12,7 @@ import { FilePanelIncomingMessage, UpdateFilesMessage, FileItem } from '../types
 import { formatFileSize } from '../utils/format-utils';
 import { ExtensionState } from '../state/extension-state';
 import { LoadedItem } from '../types/loaded-item';
+import { logger } from '../utils/logger';
 
 export class FilePanelProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyFilePanel';
@@ -92,7 +93,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
             }
         }
 
-        console.log(
+        logger.debug(
             'FilePanelProvider: Unified state changed, now showing',
             this._files.length,
             'file rows from',
@@ -107,7 +108,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
     }
 
     protected async handleMessage(message: FilePanelIncomingMessage): Promise<void> {
-        console.log('[FilePanelProvider] Received message:', message.type);
+        logger.debug('[FilePanelProvider] Received message:', message.type);
         switch (message.type) {
             case 'openFile':
                 if (message.fileType === 'POD5') {
@@ -129,7 +130,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
                 break;
             case 'addFiles':
                 // New workflow: add POD5/BAM files (will be auto-matched and appear in Sample Manager)
-                console.log('[FilePanelProvider] Executing squiggy.loadSamplesFromUI command');
+                logger.debug('[FilePanelProvider] Executing squiggy.loadSamplesFromUI command');
                 vscode.commands.executeCommand('squiggy.loadSamplesFromUI');
                 break;
             case 'addReference':
@@ -147,11 +148,11 @@ export class FilePanelProvider extends BaseWebviewProvider {
         // Don't check isVisible - if we have a view and received 'ready',
         // the webview is ready to receive messages
         if (!this._view) {
-            console.log('FilePanelProvider: No view to update');
+            logger.debug('FilePanelProvider: No view to update');
             return;
         }
 
-        console.log('FilePanelProvider: Sending updateFiles with', this._files.length, 'files');
+        logger.debug('FilePanelProvider: Sending updateFiles with', this._files.length, 'files');
         const message: UpdateFilesMessage = {
             type: 'updateFiles',
             files: this._files,
@@ -163,7 +164,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
      * Set POD5 file info
      */
     public setPOD5(fileInfo: { path: string; numReads: number; size: number }) {
-        console.log('FilePanelProvider.setPOD5 called with:', fileInfo);
+        logger.debug('FilePanelProvider.setPOD5 called with:', fileInfo);
         // Remove existing POD5 file
         this._files = this._files.filter((f) => f.type !== 'POD5');
 
@@ -177,7 +178,7 @@ export class FilePanelProvider extends BaseWebviewProvider {
             numReads: fileInfo.numReads,
         });
 
-        console.log('FilePanelProvider._files after setPOD5:', this._files);
+        logger.debug('FilePanelProvider._files after setPOD5:', this._files);
         this.updateView();
     }
 
