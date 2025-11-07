@@ -170,58 +170,63 @@ print('SUCCESS')
     async showManualInstallationGuide(extensionPath: string): Promise<void> {
         const items = [
             {
-                label: '📦 uv: Install uv (macOS/Linux)',
+                label: '1️⃣ Install uv (macOS/Linux)',
                 detail: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
-                description: 'Recommended: Install uv package manager',
+                description: '⭐ RECOMMENDED: Install uv package manager',
             },
             {
-                label: '📦 uv: Install uv (Windows)',
+                label: '1️⃣ Install uv (Windows)',
                 detail: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"',
-                description: 'Recommended: Install uv package manager on Windows',
+                description: '⭐ RECOMMENDED: Install uv package manager',
             },
             {
-                label: '📦 uv: Create Virtual Environment',
+                label: '2️⃣ Create Virtual Environment with uv',
                 detail: 'uv venv',
-                description: 'Create a new virtual environment with uv',
+                description: '⭐ Create .venv in your project directory',
             },
             {
-                label: '📦 uv: Install Squiggy',
-                detail: `uv pip install -e "${extensionPath}"`,
-                description: 'Install squiggy in editable mode with uv',
-            },
-            {
-                label: '🐍 pip: Create Virtual Environment',
-                detail: 'python3 -m venv .venv',
-                description: 'Alternative: Create venv with traditional pip',
-            },
-            {
-                label: '🐍 pip: Install Squiggy',
-                detail: `pip install -e "${extensionPath}"`,
-                description: 'Alternative: Install with pip (requires newer pip version)',
-            },
-            {
-                label: '✅ Activate venv (macOS/Linux)',
+                label: '3️⃣ Activate venv (macOS/Linux)',
                 detail: 'source .venv/bin/activate',
-                description: 'Activate the virtual environment',
+                description: '⭐ Activate the virtual environment',
             },
             {
-                label: '✅ Activate venv (Windows)',
+                label: '3️⃣ Activate venv (Windows)',
                 detail: '.venv\\Scripts\\activate',
-                description: 'Activate the virtual environment on Windows',
+                description: '⭐ Activate the virtual environment',
             },
             {
-                label: '🎯 Select Environment in Positron',
-                detail: 'Use the Interpreter selector to choose your new .venv',
-                description: 'Switch to the new virtual environment',
+                label: '4️⃣ Install Squiggy with uv',
+                detail: `uv pip install -e "${extensionPath}"`,
+                description: '⭐ Install squiggy in editable mode',
+            },
+            {
+                label: '5️⃣ Select Environment in Positron',
+                detail: 'Use the Interpreter selector (bottom-right) to choose .venv',
+                description: '⭐ Switch to your new virtual environment',
+            },
+            {
+                label: '━━━━━━━━━━━━━━━━━━━━━━━━',
+                detail: '',
+                description: 'Alternative: Traditional pip (requires Python 3.8+, pip 21.3+)',
+            },
+            {
+                label: '🐍 Alt: Create venv with pip',
+                detail: 'python3 -m venv .venv',
+                description: 'Only if you cannot use uv',
+            },
+            {
+                label: '🐍 Alt: Install with pip',
+                detail: `pip install -e "${extensionPath}"`,
+                description: 'Only if you cannot use uv (may fail with old pip)',
             },
         ];
 
         const selected = await vscode.window.showQuickPick(items, {
-            placeHolder: 'Select a command to copy to clipboard',
-            title: 'Manual Installation Steps',
+            placeHolder: 'Click to copy command to clipboard',
+            title: '⭐ Recommended: uv workflow (fast, modern, reliable)',
         });
 
-        if (selected && selected.detail) {
+        if (selected && selected.detail && selected.detail.length > 0) {
             await vscode.env.clipboard.writeText(selected.detail);
             vscode.window.showInformationMessage(`Copied to clipboard: ${selected.detail}`);
         }
