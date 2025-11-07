@@ -205,7 +205,9 @@ export class PositronRuntimeClient {
                     observer
                 );
             } catch (error) {
-                throw new Error(`Failed to execute Python code: ${error}`);
+                // Extract error message properly - error might be an object with message property
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                throw new Error(`Failed to execute Python code: ${errorMessage}`);
             }
         };
 

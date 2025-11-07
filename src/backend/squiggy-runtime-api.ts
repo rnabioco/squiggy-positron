@@ -639,7 +639,8 @@ if '_squiggy_motif_matches_json' in globals():
 
             return (matches as any[]) || [];
         } catch (error) {
-            throw new Error(`Failed to search motif: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to search motif: ${errorMessage}`);
         }
     }
 
@@ -676,7 +677,8 @@ squiggy.plot_motif_aggregate_all(
         try {
             await this._client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate motif aggregate all plot: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to generate motif aggregate all plot: ${errorMessage}`);
         }
     }
 
@@ -746,7 +748,8 @@ squiggy.load_sample(
             return { numReads: numReads as number };
         } catch (error) {
             console.error(`[loadSample] Error loading sample '${sampleName}':`, error);
-            throw new Error(`Failed to load sample '${sampleName}': ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load sample '${sampleName}': ${errorMessage}`);
         }
     }
 
@@ -760,7 +763,8 @@ squiggy.load_sample(
             const sampleNames = await this._client.getVariable('_squiggy_session.list_samples()');
             return (sampleNames as string[]) || [];
         } catch (error) {
-            throw new Error(`Failed to list samples: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to list samples: ${errorMessage}`);
         }
     }
 
@@ -823,7 +827,8 @@ if '_sample_info_json' in globals():
                 return null;
             }
         } catch (error) {
-            throw new Error(`Failed to get sample info: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to get sample info: ${errorMessage}`);
         }
     }
 
@@ -842,7 +847,8 @@ squiggy.remove_sample('${escapedName}')
 `;
             await this._client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to remove sample '${sampleName}': ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to remove sample '${sampleName}': ${errorMessage}`);
         }
     }
 
@@ -1241,7 +1247,7 @@ squiggy.plot_aggregate_comparison(
                 );
             }
 
-            throw new Error(`Failed to generate aggregate comparison plot: ${error}`);
+            throw new Error(`Failed to generate aggregate comparison plot: ${errorMessage}`);
         }
     }
 }
