@@ -89,12 +89,13 @@ except ImportError:
      * Show installation instructions with copy-able command
      */
     async showInstallationInstructions(): Promise<void> {
-        const installCommand = `uv pip install ${PackageManager.PACKAGE_NAME}`;
+        const installCommand = `uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ ${PackageManager.PACKAGE_NAME}`;
 
         const choice = await vscode.window.showErrorMessage(
             `Squiggy requires the ${PackageManager.PACKAGE_NAME} Python package.\n\n` +
                 `Please install it in your active Python environment:\n\n` +
-                `${installCommand}`,
+                `${installCommand}\n\n` +
+                `Note: Installing from TestPyPI temporarily until next PyPI release.`,
             'Copy Install Command',
             'Open Documentation',
             'Dismiss'
@@ -116,12 +117,13 @@ except ImportError:
      * Show version incompatibility warning
      */
     async showVersionWarning(installedVersion: string): Promise<void> {
-        const upgradeCommand = `uv pip install --upgrade ${PackageManager.PACKAGE_NAME}`;
+        const upgradeCommand = `uv pip install --upgrade --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ ${PackageManager.PACKAGE_NAME}`;
 
         const choice = await vscode.window.showWarningMessage(
             `Squiggy extension requires ${PackageManager.PACKAGE_NAME} >= ${PackageManager.REQUIRED_VERSION}\n\n` +
                 `Installed version: ${installedVersion}\n\n` +
-                `Please upgrade:\n${upgradeCommand}`,
+                `Please upgrade:\n${upgradeCommand}\n\n` +
+                `Note: Installing from TestPyPI temporarily until next PyPI release.`,
             'Copy Upgrade Command',
             'Dismiss'
         );

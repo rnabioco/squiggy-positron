@@ -62,8 +62,10 @@ source .venv/bin/activate  # macOS/Linux
 # OR
 .venv\Scripts\activate     # Windows
 
-# Install squiggy-positron
-uv pip install squiggy-positron
+# Install squiggy-positron from TestPyPI (temporary, until minor release on PyPI)
+uv pip install --index-url https://test.pypi.org/simple/ \
+    --extra-index-url https://pypi.org/simple/ \
+    squiggy-positron
 ```
 
 > **Note**: While the PyPI package is named `squiggy-positron`, you import it as `import squiggy`.
@@ -167,7 +169,9 @@ source .venv/bin/activate  # macOS/Linux
 # OR
 .venv\Scripts\activate     # Windows
 
-uv pip install squiggy-positron  # Includes: pod5, bokeh, numpy, pysam
+uv pip install --index-url https://test.pypi.org/simple/ \
+    --extra-index-url https://pypi.org/simple/ \
+    squiggy-positron  # Includes: pod5, bokeh, numpy, pysam
 ```
 
 > **Important**: Always use a project-based virtual environment. The extension will check for the `squiggy-positron` package when you first try to load data, and will provide installation instructions if it's not found.

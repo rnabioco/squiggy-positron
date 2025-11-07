@@ -25,7 +25,6 @@ resources/screenshot.png
 # Python package (now distributed via PyPI separately)
 squiggy/**
 pyproject.toml
-PYPI_README.md
 
 # Python development files (exclude test code but include test data)
 tests/*.py

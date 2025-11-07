@@ -2,7 +2,7 @@
 name = "squiggy-positron"
 version = "0.1.14"
 description = "Python backend for Squiggy Positron extension - Nanopore squiggle visualization. Not recommended for standalone use."
-readme = "PYPI_README.md"
+readme = "docs/PYPI_README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Jay Hesselberth", email = "jay.hesselberth@gmail.com" }]
