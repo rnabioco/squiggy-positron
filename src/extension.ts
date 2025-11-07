@@ -359,6 +359,27 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Register command to set log level
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.setLogLevel', async () => {
+            const currentLevel = logger.getMinLevel();
+            const levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
+            const selected = await vscode.window.showQuickPick(levels, {
+                placeHolder: `Select log level (current: ${currentLevel})`,
+                title: 'Squiggy Log Level',
+            });
+
+            if (selected) {
+                // Update both the logger and VS Code settings
+                const config = vscode.workspace.getConfiguration('squiggy');
+                await config.update('logLevel', selected, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(
+                    `Log level set to ${selected}. Logs will show ${selected} and above.`
+                );
+            }
+        })
+    );
+
     // Extension activated silently - no welcome message needed
 }
 
