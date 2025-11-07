@@ -446,7 +446,32 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     );
 
     // Register kernel event listeners (session changes, restarts)
-    registerKernelListeners(context, state);
+    // Pass installation checker to re-check when kernel changes
+    registerKernelListeners(context, state, async () => {
+        // Re-check installation when kernel session changes
+        if (state.packageManager) {
+            logger.info('Kernel session changed - rechecking squiggy installation...');
+            const isInstalled = await state.packageManager.isSquiggyInstalled();
+
+            if (isInstalled && isSetupMode) {
+                // Switched to interpreter with squiggy - activate normal mode
+                logger.info('New kernel has squiggy installed - switching to normal mode');
+                await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', false);
+                isSetupMode = false;
+                vscode.window.showInformationMessage(
+                    'Squiggy package detected in new Python environment - extension activated'
+                );
+            } else if (!isInstalled && !isSetupMode) {
+                // Switched to interpreter without squiggy - activate setup mode
+                logger.warning('New kernel does not have squiggy installed - switching to setup mode');
+                await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+                isSetupMode = true;
+                vscode.window.showWarningMessage(
+                    'Squiggy package not found in new Python environment - please install it'
+                );
+            }
+        }
+    });
 
     // Register all commands
     registerFileCommands(context, state);
