@@ -740,16 +740,33 @@ squiggy.close_fasta()
             }
         }
 
-        // Get plot options from provider
-        const plotOptions = this._plotOptionsProvider?.getOptions() || {
-            mode: 'SINGLE',
-            normalization: 'ZNORM',
-            showDwellTime: false,
-            showBaseAnnotations: true,
-            scaleDwellTime: false,
-            downsample: 5,
-            showSignalPoints: false,
-        };
+        // Get plot options from provider with fallback defaults
+        const providerOptions = this._plotOptionsProvider?.getOptions();
+
+        // Debug logging if provider is missing
+        if (!providerOptions) {
+            console.warn('[ExtensionState] plotOptionsProvider returned undefined, using defaults');
+        }
+
+        const plotOptions = providerOptions
+            ? {
+                  mode: providerOptions.mode || 'SINGLE',
+                  normalization: providerOptions.normalization || 'ZNORM',
+                  showDwellTime: providerOptions.showDwellTime ?? false,
+                  showBaseAnnotations: providerOptions.showBaseAnnotations ?? true,
+                  scaleDwellTime: providerOptions.scaleDwellTime ?? false,
+                  downsample: providerOptions.downsample ?? 5,
+                  showSignalPoints: providerOptions.showSignalPoints ?? false,
+              }
+            : {
+                  mode: 'SINGLE',
+                  normalization: 'ZNORM',
+                  showDwellTime: false,
+                  showBaseAnnotations: true,
+                  scaleDwellTime: false,
+                  downsample: 5,
+                  showSignalPoints: false,
+              };
 
         // Get modification filters if available
         const modFilters = this._modificationsProvider?.getFilters?.();

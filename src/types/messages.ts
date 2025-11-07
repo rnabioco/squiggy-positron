@@ -476,6 +476,34 @@ export type SessionPanelIncomingMessage =
 
 export type SessionPanelOutgoingMessage = UpdateSessionMessage;
 
+// ========== Setup Panel Messages ==========
+
+export interface InstallSquiggyMessage extends BaseMessage {
+    type: 'install';
+}
+
+export interface ManualInstructionsMessage extends BaseMessage {
+    type: 'manual';
+}
+
+export interface RetryInstallCheckMessage extends BaseMessage {
+    type: 'retry';
+}
+
+export interface UpdateSetupStatusMessage extends BaseMessage {
+    type: 'updateStatus';
+    installed: boolean;
+    message: string;
+}
+
+export type SetupPanelIncomingMessage =
+    | ReadyMessage
+    | InstallSquiggyMessage
+    | ManualInstructionsMessage
+    | RetryInstallCheckMessage;
+
+export type SetupPanelOutgoingMessage = UpdateSetupStatusMessage;
+
 // ========== Union Types for Message Handlers ==========
 
 export type IncomingWebviewMessage =
@@ -484,7 +512,8 @@ export type IncomingWebviewMessage =
     | PlotOptionsIncomingMessage
     | ModificationsIncomingMessage
     | SamplesIncomingMessage
-    | SessionPanelIncomingMessage;
+    | SessionPanelIncomingMessage
+    | SetupPanelIncomingMessage;
 
 /**
  * Common error message sent to any webview
@@ -505,4 +534,5 @@ export type OutgoingWebviewMessage =
     | ModificationsOutgoingMessage
     | SamplesOutgoingMessage
     | SessionPanelOutgoingMessage
+    | SetupPanelOutgoingMessage
     | ErrorOutgoingMessage;
