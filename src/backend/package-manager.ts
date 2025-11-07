@@ -170,27 +170,47 @@ print('SUCCESS')
     async showManualInstallationGuide(extensionPath: string): Promise<void> {
         const items = [
             {
-                label: '1. Create Virtual Environment',
-                detail: 'python3 -m venv .venv',
-                description: 'Create a new virtual environment in your project',
+                label: '📦 uv: Install uv (macOS/Linux)',
+                detail: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+                description: 'Recommended: Install uv package manager',
             },
             {
-                label: '2. Activate Virtual Environment (macOS/Linux)',
+                label: '📦 uv: Install uv (Windows)',
+                detail: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"',
+                description: 'Recommended: Install uv package manager on Windows',
+            },
+            {
+                label: '📦 uv: Create Virtual Environment',
+                detail: 'uv venv',
+                description: 'Create a new virtual environment with uv',
+            },
+            {
+                label: '📦 uv: Install Squiggy',
+                detail: `uv pip install -e "${extensionPath}"`,
+                description: 'Install squiggy in editable mode with uv',
+            },
+            {
+                label: '🐍 pip: Create Virtual Environment',
+                detail: 'python3 -m venv .venv',
+                description: 'Alternative: Create venv with traditional pip',
+            },
+            {
+                label: '🐍 pip: Install Squiggy',
+                detail: `pip install -e "${extensionPath}"`,
+                description: 'Alternative: Install with pip (requires newer pip version)',
+            },
+            {
+                label: '✅ Activate venv (macOS/Linux)',
                 detail: 'source .venv/bin/activate',
                 description: 'Activate the virtual environment',
             },
             {
-                label: '3. Activate Virtual Environment (Windows)',
+                label: '✅ Activate venv (Windows)',
                 detail: '.venv\\Scripts\\activate',
                 description: 'Activate the virtual environment on Windows',
             },
             {
-                label: '4. Install Squiggy Package',
-                detail: `pip install -e "${extensionPath}"`,
-                description: 'Install squiggy in editable mode',
-            },
-            {
-                label: '5. Select Environment in Positron',
+                label: '🎯 Select Environment in Positron',
                 detail: 'Use the Interpreter selector to choose your new .venv',
                 description: 'Switch to the new virtual environment',
             },
@@ -263,6 +283,22 @@ print('SUCCESS')
                             const choice = await vscode.window.showErrorMessage(
                                 'Cannot install squiggy: Python environment is externally managed by your ' +
                                     'system package manager. Please create a virtual environment first.',
+                                'Show Instructions',
+                                'Dismiss'
+                            );
+
+                            if (choice === 'Show Instructions') {
+                                await this.showManualInstallationGuide(extensionPath);
+                            }
+                        } else if (
+                            errorMessage.includes('setup.py" or "setup.cfg" not found') ||
+                            errorMessage.includes('editable mode currently requires a setuptools-based build')
+                        ) {
+                            // Detect old pip version that doesn't support pyproject.toml editable installs
+                            const choice = await vscode.window.showErrorMessage(
+                                'Cannot install squiggy: Your pip version is too old to install packages ' +
+                                    'with pyproject.toml in editable mode. Please upgrade pip or create a ' +
+                                    'virtual environment with a newer Python version.',
                                 'Show Instructions',
                                 'Dismiss'
                             );

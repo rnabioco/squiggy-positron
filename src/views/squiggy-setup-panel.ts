@@ -243,10 +243,42 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
     </div>
 
     <div class="instructions">
-        <h3>Quick Install</h3>
-        <div class="code">pip install -e "${this.context.extensionPath}"</div>
+        <h3>Recommended: Install with uv (fast, modern)</h3>
+        <ol>
+            <li>
+                Install uv if you don't have it:
+                <div class="code">
+                    # macOS/Linux<br>
+                    curl -LsSf https://astral.sh/uv/install.sh | sh<br>
+                    <br>
+                    # Windows<br>
+                    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+                </div>
+            </li>
+            <li>
+                Create a virtual environment in your project:
+                <div class="code">uv venv</div>
+            </li>
+            <li>
+                Activate it:
+                <div class="code">
+                    # macOS/Linux<br>
+                    source .venv/bin/activate<br>
+                    <br>
+                    # Windows<br>
+                    .venv\\Scripts\\activate
+                </div>
+            </li>
+            <li>
+                Install squiggy:
+                <div class="code">uv pip install -e "${this.context.extensionPath}"</div>
+            </li>
+            <li>
+                Select the .venv environment in Positron using the interpreter selector
+            </li>
+        </ol>
 
-        <h3>Or create a virtual environment first:</h3>
+        <h3>Alternative: Traditional pip method</h3>
         <ol>
             <li>
                 Create a virtual environment:
@@ -267,7 +299,7 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
                 <div class="code">pip install -e "${this.context.extensionPath}"</div>
             </li>
             <li>
-                Select the virtual environment in Positron using the interpreter selector
+                Select the .venv environment in Positron using the interpreter selector
             </li>
         </ol>
     </div>
