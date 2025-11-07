@@ -36,7 +36,73 @@ After determining the version:
 - Version must be newer than the current version
 - Validate the version format is correct
 
-## Step 2: Get Current Version
+## Step 2: Check for Claude Planning Files
+
+Before proceeding with the release, check for any Claude planning files at the project root that should not be included in the release:
+
+```bash
+# Find .md files at project root with underscores (typical of planning files)
+# Exclude standard documentation files: README, CHANGELOG, LICENSE, etc.
+find . -maxdepth 1 -type f -name "*_*.md" | sed 's|^\./||' | grep -v -E "^(README|CHANGELOG|LICENSE|CONTRIBUTING|CODE_OF_CONDUCT)\.md$" || true
+```
+
+If any planning files are found (e.g., `PLANNING_NOTES.md`, `FEATURE_DESIGN.md`, `IMPLEMENTATION_GUIDE.md`), use the AskUserQuestion tool to ask:
+
+**Question:** "Found Claude planning files at project root: [LIST FILES]. These should not be included in the release. What would you like to do?"
+
+**Options:**
+- **Move to docs/guides** - Move files to docs/guides directory (recommended)
+  - Description: "Move planning files to docs/guides/ for future reference"
+- **Delete** - Delete the planning files
+  - Description: "Permanently delete these planning files"
+- **Keep** - Keep files at root (not recommended)
+  - Description: "Keep files at project root (will be included in release)"
+
+### If user selects "Move to docs/guides":
+
+1. Create docs/guides directory if it doesn't exist:
+   ```bash
+   mkdir -p docs/guides
+   ```
+
+2. Move each planning file:
+   ```bash
+   for file in [PLANNING_FILES]; do
+       git mv "$file" docs/guides/
+   done
+   ```
+
+3. Stage the changes:
+   ```bash
+   git add docs/guides/
+   ```
+
+4. Show success message:
+   ```
+   ✅ Moved planning files to docs/guides/
+   ```
+
+### If user selects "Delete":
+
+1. Remove each planning file:
+   ```bash
+   for file in [PLANNING_FILES]; do
+       rm "$file"
+   done
+   ```
+
+2. Show success message:
+   ```
+   ✅ Deleted planning files
+   ```
+
+### If user selects "Keep":
+
+Continue to next step without changes.
+
+**Note:** If no planning files are found, skip this step and proceed directly to Step 3.
+
+## Step 3: Get Current Version
 
 Read the current version from `package.json` (look for `"version": "..."`).
 

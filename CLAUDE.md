@@ -18,6 +18,28 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 
 The extension provides interactive Bokeh visualizations with support for base annotations, modifications, and advanced signal processing - all within the Positron workspace.
 
+## Project Organization
+
+### Claude Planning Files
+
+**IMPORTANT:** Claude planning files (e.g., `PLANNING_NOTES.md`, `FEATURE_DESIGN.md`, `IMPLEMENTATION_GUIDE.md`) should NOT be kept at the project root. These files clutter the repository and are not appropriate for release.
+
+**Proper locations for planning files:**
+- `docs/guides/` - For planning documents that may be useful for future reference
+- Delete - If the planning file is no longer relevant or has been integrated into proper documentation
+
+**Before creating a release:**
+- Check for any `.md` files at project root with underscores (e.g., `*_*.md`)
+- Move useful planning files to `docs/guides/` or delete them
+- The `/release` slash command will automatically check for these files and prompt for action
+
+**Standard files that SHOULD remain at project root:**
+- `README.md` - Project overview and quick start
+- `CHANGELOG.md` - Version history and release notes
+- `LICENSE.md` - Project license
+- `CONTRIBUTING.md` - Contribution guidelines
+- `CLAUDE.md` - This file (instructions for Claude Code)
+
 ## Architecture
 
 ### Application Stack
