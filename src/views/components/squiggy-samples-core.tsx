@@ -483,7 +483,9 @@ export const SamplesCore: React.FC = () => {
                                 onClick={() => {
                                     // Select all samples for visualization
                                     state.samples.forEach((sample) => {
-                                        if (!state.selectedSamplesForVisualization.has(sample.name)) {
+                                        if (
+                                            !state.selectedSamplesForVisualization.has(sample.name)
+                                        ) {
                                             handleToggleSampleSelection(sample.name);
                                         }
                                     });
@@ -513,7 +515,9 @@ export const SamplesCore: React.FC = () => {
                                 onClick={() => {
                                     // Deselect all samples for visualization
                                     state.samples.forEach((sample) => {
-                                        if (state.selectedSamplesForVisualization.has(sample.name)) {
+                                        if (
+                                            state.selectedSamplesForVisualization.has(sample.name)
+                                        ) {
                                             handleToggleSampleSelection(sample.name);
                                         }
                                     });

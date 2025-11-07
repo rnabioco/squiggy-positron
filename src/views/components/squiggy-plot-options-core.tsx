@@ -308,7 +308,10 @@ export const PlotOptionsCore: React.FC = () => {
 
     // Determine button state based on plot type
     const getButtonState = () => {
-        if (options.plotType === 'MULTI_READ_OVERLAY' || options.plotType === 'MULTI_READ_STACKED') {
+        if (
+            options.plotType === 'MULTI_READ_OVERLAY' ||
+            options.plotType === 'MULTI_READ_STACKED'
+        ) {
             return {
                 disabled: options.selectedSamples.length === 0 || !options.hasPod5,
                 text: !options.hasPod5
@@ -323,7 +326,10 @@ export const PlotOptionsCore: React.FC = () => {
             };
         } else if (options.plotType === 'AGGREGATE') {
             return {
-                disabled: !options.hasBam || !options.aggregateReference || options.selectedSamples.length === 0,
+                disabled:
+                    !options.hasBam ||
+                    !options.aggregateReference ||
+                    options.selectedSamples.length === 0,
                 text: !options.hasBam
                     ? 'Load BAM to generate'
                     : options.selectedSamples.length === 0
