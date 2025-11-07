@@ -143,6 +143,14 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
 
+    // Initialize state with panel references (needed for session serialization)
+    state.initializePanels(
+        readsViewPane,
+        plotOptionsProvider,
+        modificationsProvider,
+        samplesProvider
+    );
+
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(SamplesPanelProvider.viewType, samplesProvider),
         vscode.window.registerWebviewViewProvider(
