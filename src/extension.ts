@@ -13,6 +13,7 @@ import { ModificationsPanelProvider } from './views/squiggy-modifications-panel'
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { SamplesPanelProvider } from './views/squiggy-samples-panel';
 import { SessionPanelProvider } from './views/squiggy-session-panel';
+import { SquiggySetupPanelProvider } from './views/squiggy-setup-panel';
 import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
@@ -23,6 +24,9 @@ import { logger } from './utils/logger';
 // Global extension state
 const state = new ExtensionState();
 
+// Track if we're in setup mode (squiggy not installed)
+let isSetupMode = false;
+
 /**
  * Extension activation
  */
@@ -32,6 +36,73 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Initialize backends (Positron or subprocess fallback)
     await state.initializeBackends(context);
+
+    // Check if squiggy is installed (only in Positron mode)
+    if (state.usePositron && state.packageManager) {
+        const isInstalled = await state.packageManager.isSquiggyInstalled();
+
+        if (!isInstalled) {
+            // Squiggy not installed - show setup panel only
+            isSetupMode = true;
+            await activateSetupMode(context);
+            return;
+        }
+    }
+
+    // Squiggy is installed - proceed with normal activation
+    await activateNormalMode(context);
+}
+
+/**
+ * Activate in setup mode (squiggy not installed)
+ * Shows only the setup panel with installation instructions
+ */
+async function activateSetupMode(context: vscode.ExtensionContext): Promise<void> {
+    logger.info('Activating in setup mode - squiggy package not detected');
+
+    // Set context key to control panel visibility
+    await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+
+    // Create and register setup panel only
+    const setupPanelProvider = new SquiggySetupPanelProvider(
+        context.extensionUri,
+        state,
+        context
+    );
+
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            SquiggySetupPanelProvider.viewType,
+            setupPanelProvider
+        )
+    );
+
+    // Register command to check installation and reload
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.checkInstallation', async () => {
+            await checkInstallationAndReload(context);
+        })
+    );
+
+    // Register command to show logs
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.showLogs', () => {
+            logger.show();
+        })
+    );
+
+    logger.info('Setup mode activated - waiting for squiggy installation');
+}
+
+/**
+ * Activate in normal mode (squiggy is installed)
+ * Shows all normal UI panels and registers commands
+ */
+async function activateNormalMode(context: vscode.ExtensionContext): Promise<void> {
+    logger.info('Activating in normal mode - squiggy package detected');
+
+    // Set context key to control panel visibility
+    await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', false);
 
     // Create and register UI panel providers
     const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
@@ -359,7 +430,64 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Register command to check installation (also available in normal mode)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.checkInstallation', async () => {
+            await checkInstallationAndReload(context);
+        })
+    );
+
     // Extension activated silently - no welcome message needed
+    logger.info('Normal mode activation complete');
+}
+
+/**
+ * Check if squiggy is installed and reload extension if status changed
+ */
+async function checkInstallationAndReload(context: vscode.ExtensionContext): Promise<void> {
+    if (!state.packageManager) {
+        vscode.window.showErrorMessage('Package manager not available');
+        return;
+    }
+
+    const isInstalled = await state.packageManager.isSquiggyInstalled();
+
+    if (isSetupMode && isInstalled) {
+        // Was in setup mode, now installed - need to reload
+        vscode.window
+            .showInformationMessage(
+                'Squiggy package detected! Reload the window to activate the extension.',
+                'Reload Window'
+            )
+            .then((selection) => {
+                if (selection === 'Reload Window') {
+                    vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            });
+    } else if (!isSetupMode && !isInstalled) {
+        // Was in normal mode, now uninstalled
+        vscode.window
+            .showWarningMessage(
+                'Squiggy package is no longer installed. Reload the window to return to setup mode.',
+                'Reload Window'
+            )
+            .then((selection) => {
+                if (selection === 'Reload Window') {
+                    vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            });
+    } else if (isSetupMode && !isInstalled) {
+        // Still not installed
+        vscode.window.showWarningMessage(
+            'Squiggy package is still not installed. Please install it using the instructions in the sidebar.'
+        );
+    } else {
+        // Already installed and in normal mode
+        const version = await state.packageManager.getSquiggyVersion();
+        vscode.window.showInformationMessage(
+            `Squiggy package is installed (version ${version || 'unknown'})`
+        );
+    }
 }
 
 /**
