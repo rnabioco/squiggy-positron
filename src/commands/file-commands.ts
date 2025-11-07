@@ -237,28 +237,28 @@ paths = {
     // Load samples via file picker (from UI button)
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.loadSamplesFromUI', async () => {
-            console.log('[squiggy.loadSamplesFromUI] Command handler invoked');
+            logger.debug('[squiggy.loadSamplesFromUI] Command handler invoked');
             const fileUris = await vscode.window.showOpenDialog({
                 canSelectMany: true,
                 filters: { 'Sequence Files': ['pod5', 'bam'], 'All Files': ['*'] },
                 title: 'Select POD5 and BAM files to load',
             });
 
-            console.log(
+            logger.debug(
                 `[squiggy.loadSamplesFromUI] File picker returned ${fileUris?.length || 0} files`
             );
             if (!fileUris || fileUris.length === 0) {
-                console.log('[squiggy.loadSamplesFromUI] No files selected, returning');
+                logger.debug('[squiggy.loadSamplesFromUI] No files selected, returning');
                 return;
             }
 
             const filePaths = fileUris.map((uri) => uri.fsPath);
-            console.log('[squiggy.loadSamplesFromUI] Selected file paths:', filePaths);
+            logger.debug('[squiggy.loadSamplesFromUI] Selected file paths:', filePaths);
 
             // Delegate to the samples panel's file handling logic
             const samplesProvider = state.samplesProvider;
             if (samplesProvider) {
-                console.log(
+                logger.debug(
                     '[squiggy.loadSamplesFromUI] samplesProvider exists, calling loadSamplesFromFilePicker'
                 );
                 // The samples panel will handle categorizing and matching files
@@ -268,7 +268,7 @@ paths = {
                 // Let's create a new public method that handles file paths directly
                 await loadSamplesFromFilePicker(context, state, filePaths);
             } else {
-                console.log('[squiggy.loadSamplesFromUI] samplesProvider does not exist');
+                logger.debug('[squiggy.loadSamplesFromUI] samplesProvider does not exist');
             }
         })
     );
@@ -375,7 +375,7 @@ async function expandReference(
         // Check if we're in multi-sample mode or single-file mode
         if (state.selectedReadExplorerSample) {
             // Multi-sample mode: get reads for reference within a specific sample
-            console.log(
+            logger.debug(
                 `[expandReference] Multi-sample mode: getting reads for ${referenceName} in sample ${state.selectedReadExplorerSample}`
             );
             const readIds = await state.squiggyAPI.getReadsForReferenceSample(
@@ -387,7 +387,7 @@ async function expandReference(
             state.readsViewPane?.setReadsForReference(referenceName, readIds, 0, readIds.length);
         } else if (state.currentBamFile) {
             // Single-file mode: get reads for reference from loaded BAM
-            console.log(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
+            logger.debug(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
             const result = await state.squiggyAPI.getReadsForReferencePaginated(
                 referenceName,
                 offset,
@@ -402,7 +402,7 @@ async function expandReference(
                 result.totalCount
             );
         } else {
-            console.warn('[expandReference] No sample selected and no BAM file loaded');
+            logger.warning('[expandReference] No sample selected and no BAM file loaded');
             return;
         }
     } finally {
@@ -422,7 +422,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for sample '${sampleName}'...`);
 
-        console.log(`[loadReadsForSample] Starting to load reads for '${sampleName}'`);
+        logger.debug(`[loadReadsForSample] Starting to load reads for '${sampleName}'`);
 
         // Get read IDs and references in a single optimized batch query
         // (avoids two separate getVariable() calls which each add 3x kernel round-trips)
@@ -441,7 +441,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
             ),
         ]);
 
-        console.log(
+        logger.debug(
             `[loadReadsForSample] Got ${readIds.length} reads and ${references.length} references for sample '${sampleName}'`
         );
 
@@ -454,7 +454,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
         if (references && references.length > 0) {
             // Sample has BAM - show references only (lazy load mode)
             // Fetch all reference read counts in a single optimized batch query
-            console.log(
+            logger.debug(
                 `[loadReadsForSample] Loading read counts for ${references.length} references...`
             );
             const refCounts: { referenceName: string; readCount: number }[] = [];
@@ -476,7 +476,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
 
             for (const refName of references) {
                 const count = readCounts[refName] || 0;
-                console.log(`[loadReadsForSample] Reference '${refName}' has ${count} reads`);
+                logger.debug(`[loadReadsForSample] Reference '${refName}' has ${count} reads`);
                 refCounts.push({
                     referenceName: refName,
                     readCount: count,
@@ -489,7 +489,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
             state.readsViewPane?.setReads(readIds);
         }
     } catch (error) {
-        console.error(`Failed to load reads for sample '${sampleName}':`, error);
+        logger.error(`Failed to load reads for sample '${sampleName}':`, error);
         vscode.window.showErrorMessage(`Failed to load reads for sample: ${error}`);
     } finally {
         state.readsViewPane?.setLoading(false);
@@ -848,7 +848,7 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
             // Maintain legacy state for backward compatibility
             state.currentFastaFile = filePath;
 
-            console.log(`[openFASTAFile] Successfully loaded: ${path.basename(filePath)}`);
+            logger.debug(`[openFASTAFile] Successfully loaded: ${path.basename(filePath)}`);
             vscode.window.showInformationMessage(`FASTA file loaded: ${path.basename(filePath)}`);
         },
         ErrorContext.FASTA_LOAD,
@@ -1000,6 +1000,9 @@ async function loadSampleForComparison(
                 },
             });
 
+            // Auto-select newly loaded sample for visualization (Issue #124 fix)
+            state.addSampleToVisualization(sampleName);
+
             // Reveal samples panel (subscribed to unified state, so no refresh needed)
             await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
             await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1076,18 +1079,18 @@ paths = {
     ];
 
     try {
-        console.log('[loadTestMultiReadDataset] Starting to load samples...');
+        logger.debug('[loadTestMultiReadDataset] Starting to load samples...');
 
         for (const sample of samples) {
             // Skip if already loaded
             if (state.getSample(sample.name)) {
-                console.log(
+                logger.debug(
                     `[loadTestMultiReadDataset] Sample '${sample.name}' already loaded, skipping`
                 );
                 continue;
             }
 
-            console.log(`[loadTestMultiReadDataset] Loading sample '${sample.name}'...`);
+            logger.debug(`[loadTestMultiReadDataset] Loading sample '${sample.name}'...`);
 
             await safeExecuteWithProgress(
                 async () => {
@@ -1148,7 +1151,10 @@ paths = {
                         },
                     });
 
-                    console.log(
+                    // Auto-select newly loaded sample for visualization (Issue #124 fix)
+                    state.addSampleToVisualization(sample.name);
+
+                    logger.debug(
                         `[loadTestMultiReadDataset] Sample '${sample.name}' added. Total:`,
                         state.getAllSampleNames()
                     );
@@ -1159,11 +1165,11 @@ paths = {
         }
 
         // Reveal samples panel (already subscribed to unified state)
-        console.log('[loadTestMultiReadDataset] Focusing Sample Comparison Manager panel...');
+        logger.debug('[loadTestMultiReadDataset] Focusing Sample Comparison Manager panel...');
         try {
             await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
         } catch (error) {
-            console.error('[loadTestMultiReadDataset] Error focusing panel:', error);
+            logger.error('[loadTestMultiReadDataset] Error focusing panel:', error);
         }
 
         // Brief delay for webview to initialize
@@ -1174,7 +1180,7 @@ paths = {
                 `Please ensure the "Sample Comparison Manager" panel is expanded in the Squiggy sidebar.`
         );
     } catch (error) {
-        console.error('[loadTestMultiReadDataset] Error:', error);
+        logger.error('[loadTestMultiReadDataset] Error:', error);
         handleError(error, ErrorContext.POD5_LOAD);
     }
 }
@@ -1188,17 +1194,17 @@ async function loadSamplesFromDropped(
     state: ExtensionState,
     fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
 ): Promise<void> {
-    console.log(
+    logger.debug(
         `[loadSamplesFromDropped] Function called with ${fileQueue.length} samples to load`
     );
     if (fileQueue.length === 0) {
         return;
     }
 
-    console.log(`[loadSamplesFromDropped] Starting to load ${fileQueue.length} samples...`);
+    logger.debug(`[loadSamplesFromDropped] Starting to load ${fileQueue.length} samples...`);
     // Check if squiggy is available
     if (!(await ensureSquiggyAvailable(state))) {
-        console.log(`[loadSamplesFromDropped] Squiggy not available, returning`);
+        logger.debug(`[loadSamplesFromDropped] Squiggy not available, returning`);
         return;
     }
 
@@ -1213,12 +1219,12 @@ async function loadSamplesFromDropped(
         const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
 
         try {
-            console.log(
+            logger.debug(
                 `[loadSamplesFromDropped] Starting load for sample: '${sampleName}' (${i + 1}/${fileQueue.length})`
             );
             await safeExecuteWithProgress(
                 async () => {
-                    console.log(
+                    logger.debug(
                         `[loadSamplesFromDropped] Inside safeExecuteWithProgress callback for '${sampleName}'`
                     );
                     // Validate files exist
@@ -1238,11 +1244,11 @@ async function loadSamplesFromDropped(
 
                     // Use FileLoadingService to load sample into multi-sample registry
                     // This enables multi-sample comparisons by storing samples in the Python registry
-                    console.log(
+                    logger.debug(
                         `[loadSamplesFromDropped] About to create FileLoadingService for sample '${sampleName}'`
                     );
                     const service = new FileLoadingService(state);
-                    console.log(
+                    logger.debug(
                         `[loadSamplesFromDropped] FileLoadingService created, calling loadSampleIntoRegistry...`
                     );
                     const sampleResult = await service.loadSampleIntoRegistry(
@@ -1289,6 +1295,9 @@ async function loadSamplesFromDropped(
                         },
                     });
 
+                    // Auto-select newly loaded sample for visualization (Issue #124 fix)
+                    state.addSampleToVisualization(sampleName);
+
                     // Auto-select and load reads in Read Explorer for first sample
                     // or on user's first interaction (state.selectedReadExplorerSample will be set later)
                     if (!state.selectedReadExplorerSample) {
@@ -1296,7 +1305,7 @@ async function loadSamplesFromDropped(
                         // Delay to ensure sample is fully registered in Python registry
                         // (the loadSample() call is async and may not complete immediately)
                         setTimeout(() => {
-                            console.log(
+                            logger.debug(
                                 `[loadSamplesFromDropped] Auto-loading reads for first sample: '${sampleName}'`
                             );
                             Promise.resolve(
@@ -1305,7 +1314,7 @@ async function loadSamplesFromDropped(
                                     sampleName
                                 )
                             ).catch((err: unknown) => {
-                                console.error(
+                                logger.error(
                                     `Failed to auto-load reads for sample '${sampleName}':`,
                                     err
                                 );
@@ -1319,7 +1328,7 @@ async function loadSamplesFromDropped(
                 progressMsg
             );
         } catch (error) {
-            console.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
+            logger.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
             results.failed++;
         }
     }
@@ -1331,7 +1340,7 @@ async function loadSamplesFromDropped(
     }
 
     // Refresh Read Explorer to update available samples dropdown
-    console.log('[loadSamplesFromDropped] Refreshing Read Explorer with all samples');
+    logger.debug('[loadSamplesFromDropped] Refreshing Read Explorer with all samples');
     if (state.readsViewPane) {
         state.readsViewPane.refresh();
     }
@@ -1360,7 +1369,7 @@ async function loadSamplesFromFilePicker(
     state: ExtensionState,
     filePaths: string[]
 ): Promise<void> {
-    console.log(`[loadSamplesFromFilePicker] Called with ${filePaths.length} file(s):`, filePaths);
+    logger.debug(`[loadSamplesFromFilePicker] Called with ${filePaths.length} file(s):`, filePaths);
     // Categorize files by extension (reuse same logic as drag-and-drop handler)
     const pod5Files: string[] = [];
     const bamFiles: string[] = [];
@@ -1421,11 +1430,11 @@ async function loadSamplesFromFilePicker(
 
     // Load samples using the same logic as dropped files
     // Sample naming will be handled in the Sample Manager UI, not during file loading
-    console.log(
+    logger.debug(
         `[loadSamplesFromFilePicker] Calling loadSamplesFromDropped with ${fileQueue.length} samples`
     );
     await loadSamplesFromDropped(context, state, fileQueue);
-    console.log(`[loadSamplesFromFilePicker] loadSamplesFromDropped completed`);
+    logger.debug(`[loadSamplesFromFilePicker] loadSamplesFromDropped completed`);
 }
 
 /**
@@ -1447,7 +1456,7 @@ async function updateSampleFiles(
     files: { bamPath?: string; fastaPath?: string },
     state: ExtensionState
 ): Promise<void> {
-    console.log(`[updateSampleFiles] Updating files for sample '${sampleName}':`, files);
+    logger.debug(`[updateSampleFiles] Updating files for sample '${sampleName}':`, files);
 
     // Get sample from state
     const sample = state.getSample(sampleName);
@@ -1475,9 +1484,9 @@ async function updateSampleFiles(
 
         vscode.window.showInformationMessage(`Updated files for sample "${sampleName}"`);
 
-        console.log(`[updateSampleFiles] Successfully updated files for '${sampleName}'`);
+        logger.debug(`[updateSampleFiles] Successfully updated files for '${sampleName}'`);
     } catch (error) {
-        console.error(`[updateSampleFiles] Error updating files for '${sampleName}':`, error);
+        logger.error(`[updateSampleFiles] Error updating files for '${sampleName}':`, error);
         vscode.window.showErrorMessage(
             `Failed to update files for sample "${sampleName}": ${error instanceof Error ? error.message : String(error)}`
         );

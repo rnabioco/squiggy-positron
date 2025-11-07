@@ -20,6 +20,7 @@ import { LoadedItem } from '../types/loaded-item';
 import { SessionStateManager } from './session-state-manager';
 import { PathResolver } from './path-resolver';
 import { FileResolver } from './file-resolver';
+import { logger } from '../utils/logger';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
@@ -867,7 +868,7 @@ squiggy.close_fasta()
                 // Trigger reads view to load for the selected sample
                 // Delay to ensure sample is fully registered in Python registry
                 setTimeout(() => {
-                    console.log(
+                    logger.debug(
                         `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
                     );
                     Promise.resolve(
@@ -876,8 +877,8 @@ squiggy.close_fasta()
                             sampleName
                         )
                     ).catch((err: unknown) => {
-                        console.error(
-                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}':`,
+                        logger.error(
+                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}'`,
                             err
                         );
                     });
@@ -1079,7 +1080,7 @@ squiggy.close_fasta()
         if (resolvedPod5Paths.length > 0) {
             // CRITICAL: Load sample into Python registry so TypeScript queries work
             try {
-                console.log(
+                logger.debug(
                     `[restoreSample] Loading sample '${sampleName}' into Python registry...`
                 );
                 await this._squiggyAPI.loadSample(
@@ -1088,11 +1089,11 @@ squiggy.close_fasta()
                     resolvedBamPath,
                     resolvedFastaPath
                 );
-                console.log(
+                logger.debug(
                     `[restoreSample] Sample '${sampleName}' successfully loaded into Python registry`
                 );
             } catch (error) {
-                console.error(`[restoreSample] Failed to load sample into Python registry:`, error);
+                logger.error(`[restoreSample] Failed to load sample into Python registry`, error);
                 // Continue anyway - sample is in TypeScript state
             }
 
