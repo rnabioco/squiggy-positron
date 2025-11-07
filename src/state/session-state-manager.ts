@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
 import { SessionState, ValidationResult } from '../types/squiggy-session-types';
+import { logger } from '../utils/logger';
 
 const SESSION_STATE_KEY = 'squiggy.sessionState';
 const SESSION_VERSION = '1.0.0';
@@ -109,6 +110,7 @@ export class SessionStateManager {
             // Clear invalid session from workspace state
             await context.workspaceState.update(SESSION_STATE_KEY, undefined);
 
+            logger.warning(`Session state validation failed: ${validation.errors.join(', ')}`);
             vscode.window.showWarningMessage(
                 `Saved session was invalid and has been cleared: ${validation.errors.join(', ')}`
             );

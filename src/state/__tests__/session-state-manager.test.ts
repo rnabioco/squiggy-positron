@@ -11,9 +11,13 @@ import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
 import { SessionStateManager } from '../session-state-manager';
 import { SessionState } from '../../types/squiggy-session-types';
+import { logger } from '../../utils/logger';
 
 // Mock fs.promises
 jest.mock('fs/promises');
+
+// Mock logger
+jest.mock('../../utils/logger');
 
 // Mock crypto
 jest.mock('crypto', () => ({
@@ -196,7 +200,7 @@ describe('SessionStateManager', () => {
             const result = await SessionStateManager.loadSession(mockContext);
 
             expect(result).toBeNull();
-            expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+            expect(logger.warning).toHaveBeenCalledWith(
                 expect.stringContaining('Session state validation failed')
             );
         });

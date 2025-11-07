@@ -640,6 +640,59 @@ samtools index your_file.bam
 - Look for `MM:Z:` and `ML:B:C` tags in the output
 - If missing, re-basecall with modification calling enabled (dorado with modification model)
 
+## Logging and Debugging
+
+Squiggy uses a centralized logging system to help you troubleshoot issues without cluttering your Python console.
+
+### Where Logs Appear
+
+**Extension Logs** - All Squiggy operations are logged to the **Output Channel**:
+
+1. Open the Output panel: `Cmd+Shift+U` (macOS) / `Ctrl+Shift+U` (Windows/Linux)
+2. Select **"Squiggy"** from the dropdown menu
+3. All file loading, plotting, and error messages appear here
+
+**Python Console** - Your Python console stays clean! Squiggy does NOT print logging messages to the Python console. Only your own Python code and standard Python exceptions appear there.
+
+### Quick Access to Logs
+
+When an error occurs, Squiggy shows a notification with a **"Show Logs"** button - click it to instantly open the Output Channel with all relevant error details.
+
+### What Gets Logged
+
+The Squiggy output channel shows:
+
+- File loading operations (POD5, BAM, FASTA)
+- Plot generation requests and results
+- Python exceptions with full stack traces
+- Extension activation/deactivation
+- Session state management
+- Warnings and validation errors
+
+### Example Log Output
+
+```
+[14:23:45.123] [INFO] Squiggy extension activated
+[14:23:47.456] [INFO] Loading POD5 file: reads.pod5
+[14:23:50.789] [INFO] Loaded POD5: reads.pod5 (1,234 reads)
+[14:24:12.234] [ERROR] Failed to load BAM file
+FileNotFoundError: BAM file not found at path: /data/missing.bam
+```
+
+### Sharing Logs for Bug Reports
+
+When reporting issues:
+
+1. Reproduce the problem
+2. Open Output panel → Squiggy (`Cmd+Shift+U` / `Ctrl+Shift+U`)
+3. Copy all logs
+4. Include them in your [GitHub issue](https://github.com/rnabioco/squiggy-positron/issues) along with:
+   - Steps to reproduce
+   - File sizes and types (POD5, BAM, FASTA)
+   - Python version and OS
+
+For more details on the logging architecture, see the [Logging Guide](LOGGING.md).
+
 ## Getting Help
 
 - **GitHub Issues**: [Report bugs](https://github.com/rnabioco/squiggy-positron/issues)

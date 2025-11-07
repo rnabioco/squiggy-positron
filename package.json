@@ -166,6 +166,12 @@
         "title": "Check Python Package Installation",
         "category": "Squiggy",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "squiggy.setLogLevel",
+        "title": "Set Log Level",
+        "category": "Squiggy",
+        "icon": "$(settings-gear)"
       }
     ],
     "viewsContainers": {
@@ -289,6 +295,17 @@
           "minimum": 10,
           "maximum": 10000,
           "description": "Maximum number of reads to sample for aggregate plots"
+        },
+        "squiggy.logLevel": {
+          "type": "string",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR"
+          ],
+          "default": "INFO",
+          "description": "Minimum log level to display in Output channel (DEBUG = most verbose, ERROR = least verbose)"
         }
       }
     }
