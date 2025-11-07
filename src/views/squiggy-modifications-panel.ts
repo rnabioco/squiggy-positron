@@ -11,6 +11,7 @@ import {
     UpdateModInfoMessage,
     ClearModsMessage,
 } from '../types/messages';
+import { logger } from '../utils/logger';
 
 export class ModificationsPanelProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyModificationsPanel';
@@ -30,10 +31,10 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
     }
 
     protected async handleMessage(message: ModificationsIncomingMessage): Promise<void> {
-        console.log('[ModificationsPanel] Received message:', message);
+        logger.debug('[ModificationsPanel] Received message:', message);
 
         if (message.type === 'ready') {
-            console.log(
+            logger.debug(
                 '[ModificationsPanel] Webview ready, hasModifications:',
                 this._hasModifications
             );
@@ -52,7 +53,7 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         // Don't check isVisible here - if we have a view and received 'ready',
         // the webview is ready to receive messages even if not technically "visible" yet
         if (!this._view) {
-            console.log(
+            logger.debug(
                 '[ModificationsPanel] updateView: No view available, data will be sent when webview is ready'
             );
             return;
@@ -65,13 +66,13 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
                 modificationTypes: this._modificationTypes,
                 hasProbabilities: this._hasProbabilities,
             };
-            console.log('[ModificationsPanel] Sending updateModInfo message:', message);
+            logger.debug('[ModificationsPanel] Sending updateModInfo message:', message);
             this.postMessage(message);
         } else {
             const message: ClearModsMessage = {
                 type: 'clearMods',
             };
-            console.log('[ModificationsPanel] Sending clearMods message');
+            logger.debug('[ModificationsPanel] Sending clearMods message');
             this.postMessage(message);
         }
     }
@@ -84,7 +85,7 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         modificationTypes: string[],
         hasProbabilities: boolean
     ) {
-        console.log(
+        logger.debug(
             '[ModificationsPanel] setModificationInfo called:',
             hasModifications,
             modificationTypes
@@ -96,7 +97,7 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
         // Initialize all modification types as enabled by default
         this._enabledModTypes = new Set(modificationTypes);
 
-        console.log('[ModificationsPanel] Calling updateView, _view exists:', !!this._view);
+        logger.debug('[ModificationsPanel] Calling updateView, _view exists:', !!this._view);
         this.updateView();
     }
 

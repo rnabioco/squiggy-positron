@@ -5,11 +5,16 @@ src/**
 .gitignore
 .gitattributes
 .eslintrc.json
+eslint.config.mjs
 .prettierrc.json
 tsconfig.json
 jest.config.js
+jest.setup.js
 htmlcov/**
+coverage_html/**
+coverage.json
 .mypy_cache/**
+[A-Z]*_[A-Z]*.md
 
 # Tests (exclude all test code and data)
 tests/**

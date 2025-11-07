@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
+import { logger } from '../utils/logger';
 
 /**
  * Register listeners for Positron kernel/session events
@@ -33,7 +34,7 @@ export function registerKernelListeners(
         // Helper function to clear extension state
         const clearExtensionState = async (reason: string) => {
             await state.clearAll();
-            console.log(`Squiggy: ${reason}, state cleared`);
+            logger.debug(`Squiggy: ${reason}, state cleared`);
         };
 
         // Listen for session changes (kernel switches)
@@ -48,7 +49,7 @@ export function registerKernelListeners(
         const setupSessionListeners = async () => {
             try {
                 const session = await positron.runtime.getForegroundSession();
-                console.log(
+                logger.debug(
                     'Squiggy: Setting up session listeners, session:',
                     session?.metadata.sessionId
                 );
@@ -58,19 +59,19 @@ export function registerKernelListeners(
                         session.onDidChangeRuntimeState((runtimeState: string) => {
                             // Only log important state changes (not idle/busy cycles)
                             if (runtimeState === 'restarting' || runtimeState === 'exited') {
-                                console.log('Squiggy: Kernel state changed to:', runtimeState);
+                                logger.debug('Squiggy: Kernel state changed to:', runtimeState);
                                 clearExtensionState(`Kernel ${runtimeState}`);
                             }
                         })
                     );
-                    console.log('Squiggy: Successfully attached runtime state listener');
+                    logger.debug('Squiggy: Successfully attached runtime state listener');
                 } else {
-                    console.log(
+                    logger.debug(
                         'Squiggy: No session or no onDidChangeRuntimeState event available'
                     );
                 }
             } catch (error) {
-                console.error('Squiggy: Error setting up session listeners:', error);
+                logger.error('Squiggy: Error setting up session listeners:', error);
             }
         };
         setupSessionListeners();

@@ -13,10 +13,6 @@ import numpy as np
 import pod5
 import pysam
 
-from .logging_config import get_logger
-
-logger = get_logger(__name__)
-
 
 @dataclass
 class ModelProvenance:
@@ -267,11 +263,9 @@ def get_sample_data_path():
                 return temp_file
             return sample_path
 
-        logger.error("Sample data file not found in any expected location")
         raise FileNotFoundError("Sample data file not found in any location")
 
     except Exception as e:
-        logger.error(f"Sample data not found: {e}")
         raise FileNotFoundError(f"Sample data not found. Error: {e}") from None
 
 
@@ -302,9 +296,6 @@ def get_test_data_path():
         # Find the squiggy package location
         spec = importlib.util.find_spec("squiggy")
         if spec is None or spec.origin is None:
-            logger.error(
-                "Could not locate squiggy package. Package may not be installed."
-            )
             raise FileNotFoundError("Could not locate squiggy package")
 
         package_dir = os.path.dirname(spec.origin)
@@ -312,13 +303,11 @@ def get_test_data_path():
 
         # Verify the directory exists
         if not os.path.isdir(data_dir):
-            logger.error(f"Data directory not found at expected path: {data_dir}")
             raise FileNotFoundError(f"Data directory not found at {data_dir}")
 
         return data_dir
 
     except Exception as e:
-        logger.error(f"Test data directory not found: {e}")
         raise FileNotFoundError(f"Test data directory not found. Error: {e}") from None
 
 
@@ -570,8 +559,8 @@ def get_basecall_data(
 
         bam.close()
 
-    except Exception as e:
-        print(f"Warning: Error reading BAM file for {read_id}: {e}")
+    except Exception:
+        pass
 
     return None, None
 
@@ -2146,9 +2135,9 @@ def extract_model_provenance(bam_file: str) -> ModelProvenance:
                     if "DS" in pg:
                         provenance.flow_cell_kit = pg["DS"]
 
-    except Exception as e:
+    except Exception:
         # Return partial provenance if there's an error
-        print(f"Warning: Error extracting provenance from BAM: {e}")
+        pass
 
     return provenance
 

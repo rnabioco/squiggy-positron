@@ -175,17 +175,13 @@ export const PlotOptionsCore: React.FC = () => {
                         'samples'
                     );
                     setOptions((prev) => {
-                        // Only auto-select first 2 samples if nothing is currently selected (initial load)
-                        // Otherwise preserve existing selections to avoid overwriting user choices
-                        const shouldAutoSelect = prev.selectedSamples.length === 0;
-                        const newSelectedSamples = shouldAutoSelect
-                            ? message.samples.slice(0, 2).map((s: SampleItem) => s.name)
-                            : prev.selectedSamples;
-
+                        // Don't auto-select samples here - visualization selection is managed
+                        // by the Sample Manager (eye icons) and synced via updateSelectedSamples message
+                        // This prevents the "only first 2 samples" bug (Issue #124)
                         return {
                             ...prev,
                             loadedSamples: message.samples,
-                            selectedSamples: newSelectedSamples,
+                            // Preserve existing selectedSamples - will be updated by updateSelectedSamples
                         };
                     });
                     break;
@@ -310,6 +306,56 @@ export const PlotOptionsCore: React.FC = () => {
         });
     };
 
+    // Determine button state based on plot type
+    const getButtonState = () => {
+        if (
+            options.plotType === 'MULTI_READ_OVERLAY' ||
+            options.plotType === 'MULTI_READ_STACKED'
+        ) {
+            return {
+                disabled: options.selectedSamples.length === 0 || !options.hasPod5,
+                text: !options.hasPod5
+                    ? 'Load POD5 to generate'
+                    : options.selectedSamples.length === 0
+                      ? 'Enable samples in Sample Manager'
+                      : 'Generate Plot',
+                handler:
+                    options.plotType === 'MULTI_READ_OVERLAY'
+                        ? handleGenerateMultiReadOverlay
+                        : handleGenerateMultiReadStacked,
+            };
+        } else if (options.plotType === 'AGGREGATE') {
+            return {
+                disabled:
+                    !options.hasBam ||
+                    !options.aggregateReference ||
+                    options.selectedSamples.length === 0,
+                text: !options.hasBam
+                    ? 'Load BAM to generate'
+                    : options.selectedSamples.length === 0
+                      ? 'Enable samples in Sample Manager'
+                      : !options.aggregateReference
+                        ? 'Select reference below'
+                        : 'Generate Plot',
+                handler: handleGenerateAggregate,
+            };
+        } else {
+            // COMPARE_SIGNAL_DELTA
+            return {
+                disabled: options.selectedSamples.length !== 2 || !options.comparisonReference,
+                text:
+                    options.selectedSamples.length !== 2
+                        ? 'Select exactly 2 samples in Sample Manager'
+                        : !options.comparisonReference
+                          ? 'Select reference below'
+                          : 'Generate Plot',
+                handler: handleGenerateSignalDelta,
+            };
+        }
+    };
+
+    const buttonState = getButtonState();
+
     return (
         <div
             style={{
@@ -319,12 +365,32 @@ export const PlotOptionsCore: React.FC = () => {
                 color: 'var(--vscode-foreground)',
             }}
         >
+            {/* Generate Plot Button - At Top for All Plot Types */}
+            <button
+                onClick={buttonState.handler}
+                disabled={buttonState.disabled}
+                style={{
+                    width: '100%',
+                    padding: '10px',
+                    marginBottom: '16px',
+                    background: 'var(--vscode-button-background)',
+                    color: 'var(--vscode-button-foreground)',
+                    border: 'none',
+                    cursor: buttonState.disabled ? 'not-allowed' : 'pointer',
+                    opacity: buttonState.disabled ? 0.5 : 1,
+                    fontSize: '1em',
+                    fontWeight: 'bold',
+                }}
+            >
+                {buttonState.text}
+            </button>
+
             {/* Analysis Type Section */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
                 <div
                     style={{
                         fontWeight: 'bold',
-                        marginBottom: '8px',
+                        marginBottom: '6px',
                         color: 'var(--vscode-foreground)',
                     }}
                 >
@@ -337,7 +403,7 @@ export const PlotOptionsCore: React.FC = () => {
                     style={{
                         width: '100%',
                         padding: '4px',
-                        marginBottom: '10px',
+                        marginBottom: '6px',
                         background: 'var(--vscode-input-background)',
                         color: 'var(--vscode-input-foreground)',
                         border: '1px solid var(--vscode-input-border)',
@@ -430,11 +496,11 @@ export const PlotOptionsCore: React.FC = () => {
             */}
 
             {/* Normalization - Common to all types */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
                 <div
                     style={{
                         fontWeight: 'bold',
-                        marginBottom: '8px',
+                        marginBottom: '6px',
                         color: 'var(--vscode-foreground)',
                     }}
                 >
@@ -446,7 +512,7 @@ export const PlotOptionsCore: React.FC = () => {
                     style={{
                         width: '100%',
                         padding: '4px',
-                        marginBottom: '10px',
+                        marginBottom: '4px',
                         background: 'var(--vscode-input-background)',
                         color: 'var(--vscode-input-foreground)',
                         border: '1px solid var(--vscode-input-border)',
@@ -464,7 +530,7 @@ export const PlotOptionsCore: React.FC = () => {
                 options.plotType === 'MULTI_READ_STACKED') && (
                 <div>
                     {/* View Style: Overlay vs Stacked */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -512,75 +578,8 @@ export const PlotOptionsCore: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Sample Selection */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
-                            Samples to Plot
-                        </div>
-                        {options.loadedSamples.length === 0 ? (
-                            <div
-                                style={{
-                                    fontSize: '0.85em',
-                                    color: 'var(--vscode-descriptionForeground)',
-                                    fontStyle: 'italic',
-                                }}
-                            >
-                                Load samples in Sample Manager to enable multi-read plots
-                            </div>
-                        ) : (
-                            <>
-                                <div
-                                    style={{
-                                        maxHeight: '150px',
-                                        overflowY: 'auto',
-                                        border: '1px solid var(--vscode-input-border)',
-                                        padding: '4px',
-                                    }}
-                                >
-                                    {options.loadedSamples.map((sample) => (
-                                        <div
-                                            key={sample.name}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                marginBottom: '4px',
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                id={`multiread-sample-${sample.name}`}
-                                                checked={options.selectedSamples.includes(
-                                                    sample.name
-                                                )}
-                                                onChange={(e) =>
-                                                    handleSampleSelectionChange(
-                                                        sample.name,
-                                                        e.target.checked
-                                                    )
-                                                }
-                                                style={{ marginRight: '6px' }}
-                                            />
-                                            <label
-                                                htmlFor={`multiread-sample-${sample.name}`}
-                                                style={{ fontSize: '0.9em' }}
-                                            >
-                                                {sample.name} ({sample.readCount} reads)
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-
                     {/* Max Reads per Sample */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 display: 'flex',
@@ -641,43 +640,13 @@ export const PlotOptionsCore: React.FC = () => {
                                 {options.selectedSamples.length * options.maxReadsMulti})
                             </div>
                         )}
-
-                    {/* Generate Button */}
-                    <button
-                        onClick={
-                            options.plotType === 'MULTI_READ_OVERLAY'
-                                ? handleGenerateMultiReadOverlay
-                                : handleGenerateMultiReadStacked
-                        }
-                        disabled={options.selectedSamples.length === 0 || !options.hasPod5}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            background: 'var(--vscode-button-background)',
-                            color: 'var(--vscode-button-foreground)',
-                            border: 'none',
-                            cursor: 'pointer',
-                            opacity:
-                                options.selectedSamples.length > 0 && options.hasPod5 ? 1 : 0.5,
-                        }}
-                    >
-                        {!options.hasPod5
-                            ? 'Load samples to generate'
-                            : options.selectedSamples.length === 0
-                              ? 'Select samples to generate'
-                              : `Generate ${
-                                    options.plotType === 'MULTI_READ_OVERLAY'
-                                        ? 'Overlay'
-                                        : 'Stacked'
-                                } Plot`}
-                    </button>
                 </div>
             )}
 
             {options.plotType === 'AGGREGATE' && (
                 <>
                     {/* Reference Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -808,7 +777,7 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Panel Visibility */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -1019,33 +988,13 @@ export const PlotOptionsCore: React.FC = () => {
                             coordinates)
                         </div>
                     </div>
-
-                    {/* Generate Button */}
-                    <button
-                        onClick={handleGenerateAggregate}
-                        disabled={!options.hasBam || !options.aggregateReference}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            background: 'var(--vscode-button-background)',
-                            color: 'var(--vscode-button-foreground)',
-                            border: 'none',
-                            cursor:
-                                options.hasBam && options.aggregateReference
-                                    ? 'pointer'
-                                    : 'not-allowed',
-                            opacity: options.hasBam && options.aggregateReference ? 1 : 0.5,
-                        }}
-                    >
-                        {!options.hasBam ? 'Load BAM to generate' : 'Generate Aggregate Plot'}
-                    </button>
                 </>
             )}
 
             {options.plotType === 'COMPARE_SIGNAL_DELTA' && (
                 <>
                     {/* Sample Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -1125,7 +1074,7 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Reference Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -1201,35 +1150,6 @@ export const PlotOptionsCore: React.FC = () => {
                             style={{ width: '100%', marginBottom: '4px' }}
                         />
                     </div>
-
-                    {/* Generate Button */}
-                    <button
-                        onClick={handleGenerateSignalDelta}
-                        disabled={
-                            options.selectedSamples.length !== 2 || !options.comparisonReference
-                        }
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            background: 'var(--vscode-button-background)',
-                            color: 'var(--vscode-button-foreground)',
-                            border: 'none',
-                            cursor:
-                                options.selectedSamples.length === 2 && options.comparisonReference
-                                    ? 'pointer'
-                                    : 'not-allowed',
-                            opacity:
-                                options.selectedSamples.length === 2 && options.comparisonReference
-                                    ? 1
-                                    : 0.5,
-                        }}
-                    >
-                        {options.selectedSamples.length !== 2
-                            ? 'Select exactly 2 samples'
-                            : !options.comparisonReference
-                              ? 'Select reference'
-                              : 'Generate 2-Sample Delta'}
-                    </button>
                 </>
             )}
         </div>

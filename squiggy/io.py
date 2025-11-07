@@ -12,11 +12,6 @@ from pathlib import Path
 import pod5
 import pysam
 
-from .logging_config import get_logger
-
-logger = get_logger(__name__)
-
-
 # ============================================================================
 # Performance Optimization Classes
 # ============================================================================
@@ -57,9 +52,7 @@ class LazyReadList:
             if self._materialized_ids is not None:
                 self._cached_length = len(self._materialized_ids)
             else:
-                logger.info("Computing read count...")
                 self._cached_length = sum(1 for _ in self._reader.reads())
-                logger.info(f"Found {self._cached_length:,} reads")
         return self._cached_length
 
     def __getitem__(self, key: int | slice) -> str | list[str]:
@@ -103,12 +96,10 @@ class LazyReadList:
             Complete list of all read IDs
         """
         if self._materialized_ids is None:
-            logger.info("Materializing all read IDs...")
             self._materialized_ids = [
                 str(read.read_id) for read in self._reader.reads()
             ]
             self._cached_length = len(self._materialized_ids)
-            logger.info(f"Materialized {self._cached_length:,} read IDs")
         return self._materialized_ids
 
 
@@ -142,10 +133,8 @@ class Pod5Index:
         Args:
             reader: POD5 Reader to index
         """
-        logger.info("Building POD5 index...")
         for idx, read in enumerate(reader.reads()):
             self._index[str(read.read_id)] = idx
-        logger.info(f"Indexed {len(self._index):,} reads")
 
     def get_position(self, read_id: str) -> int | None:
         """
@@ -208,33 +197,22 @@ def get_reads_batch(
     if sample_name:
         sample = _squiggy_session.get_sample(sample_name)
         if not sample or sample.pod5_reader is None:
-            logger.error(
-                f"Sample '{sample_name}' not loaded or has no POD5 file. "
-                f"Available samples: {list(_squiggy_session.samples.keys())}"
-            )
             raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
         reader = sample.pod5_reader
     else:
         if _squiggy_session.reader is None:
-            logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
             raise RuntimeError("No POD5 file is currently loaded")
         reader = _squiggy_session.reader
 
     needed = set(read_ids)
     found = {}
 
-    logger.debug(f"Batch fetching {len(needed)} reads...")
     for read in reader.reads():
         read_id = str(read.read_id)
         if read_id in needed:
             found[read_id] = read
             if len(found) == len(needed):
-                logger.debug(f"Found all {len(found)} reads")
                 break  # Early exit once all found
-
-    if len(found) < len(needed):
-        missing = needed - set(found.keys())
-        logger.warning(f"Could not find {len(missing)} read(s): {list(missing)[:5]}...")
 
     return found
 
@@ -278,7 +256,6 @@ def get_reads_batch_multi_sample(
     # Fetch reads from each sample
     all_reads = {}
     for sample_name, read_ids in sample_to_reads.items():
-        logger.debug(f"Fetching {len(read_ids)} reads from sample '{sample_name}'...")
         sample_reads = get_reads_batch(read_ids, sample_name=sample_name)
         all_reads.update(sample_reads)
 
@@ -317,16 +294,11 @@ def get_read_by_id(
     if sample_name:
         sample = _squiggy_session.get_sample(sample_name)
         if not sample or sample.pod5_reader is None:
-            logger.error(
-                f"Sample '{sample_name}' not loaded or has no POD5 file. "
-                f"Available samples: {list(_squiggy_session.samples.keys())}"
-            )
             raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
         reader = sample.pod5_reader
         pod5_index = sample.pod5_index if hasattr(sample, "pod5_index") else None
     else:
         if _squiggy_session.reader is None:
-            logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
             raise RuntimeError("No POD5 file is currently loaded")
         reader = _squiggy_session.reader
         pod5_index = (
@@ -348,7 +320,6 @@ def get_read_by_id(
         return None
 
     # Fallback to linear scan
-    logger.debug(f"No index available, using linear scan for {read_id}")
     for read in reader.reads():
         if str(read.read_id) == read_id:
             return read
@@ -568,19 +539,13 @@ class SquiggySession:
         if not os.path.exists(abs_pod5_path):
             raise FileNotFoundError(f"POD5 file not found: {abs_pod5_path}")
 
-        logger.info(f"[load_sample] Starting to load POD5: {abs_pod5_path}")
         reader = pod5.Reader(abs_pod5_path)
-        logger.info("[load_sample] POD5 reader opened, now reading all read IDs...")
 
         read_ids = [str(read.read_id) for read in reader.reads()]
-        logger.info(
-            f"[load_sample] Successfully read {len(read_ids)} read IDs from POD5"
-        )
 
         sample.pod5_path = abs_pod5_path
         sample.pod5_reader = reader
         sample.read_ids = read_ids
-        logger.info("[load_sample] Sample object populated with read_ids")
 
         # Load BAM if provided
         if bam_path:
@@ -588,16 +553,10 @@ class SquiggySession:
             if not os.path.exists(abs_bam_path):
                 raise FileNotFoundError(f"BAM file not found: {abs_bam_path}")
 
-            logger.info(
-                f"[load_sample] Starting BAM metadata collection for: {abs_bam_path}"
-            )
             # Collect all metadata in a single pass (includes both ref_counts and ref_mapping)
             # ref_mapping is needed for expanding references in Read Explorer
             metadata = _collect_bam_metadata_single_pass(
                 Path(abs_bam_path), build_ref_mapping=True
-            )
-            logger.info(
-                f"[load_sample] BAM metadata collected successfully. {metadata['num_reads']} reads, {len(metadata['references'])} references"
             )
 
             # Build metadata dict - both ref_counts and ref_mapping are computed during single BAM scan
@@ -627,27 +586,11 @@ class SquiggySession:
             overlap = pod5_read_ids & bam_read_ids
 
             if len(overlap) == 0:
-                logger.warning(
-                    f"[load_sample] WARNING: No overlapping read IDs found between POD5 and BAM! "
-                    f"POD5 has {len(pod5_read_ids)} reads, BAM has {len(bam_read_ids)} reads, "
-                    f"but 0 reads are shared. These files may be mismatched."
-                )
                 raise ValueError(
                     f"No overlapping read IDs found between POD5 ({len(pod5_read_ids)} reads) "
                     f"and BAM ({len(bam_read_ids)} reads). These files appear to be mismatched. "
                     f"Please verify that the BAM file contains alignments for reads in the POD5 file."
                 )
-            else:
-                overlap_pct = (len(overlap) / len(pod5_read_ids)) * 100
-                logger.info(
-                    f"[load_sample] POD5/BAM validation: {len(overlap)}/{len(pod5_read_ids)} reads overlap ({overlap_pct:.1f}%)"
-                )
-                if overlap_pct < 20:
-                    logger.warning(
-                        f"[load_sample] WARNING: Low overlap between POD5 and BAM ({overlap_pct:.1f}%). "
-                        f"Only {len(overlap)} of {len(pod5_read_ids)} POD5 reads found in BAM. "
-                        f"These files may be partially mismatched."
-                    )
 
         # Load FASTA if provided
         if fasta_path:
@@ -693,38 +636,15 @@ class SquiggySession:
                 overlap_refs = bam_refs & fasta_refs
 
                 if len(overlap_refs) == 0:
-                    logger.warning(
-                        f"[load_sample] WARNING: No overlapping reference names found between BAM and FASTA! "
-                        f"BAM has {len(bam_refs)} references: {sorted(bam_refs)[:5]}, "
-                        f"FASTA has {len(fasta_refs)} references: {sorted(fasta_refs)[:5]}. "
-                        f"These files may be mismatched."
-                    )
                     raise ValueError(
                         f"No overlapping reference names found between BAM ({len(bam_refs)} refs) "
                         f"and FASTA ({len(fasta_refs)} refs). These files appear to be mismatched. "
                         f"BAM references: {sorted(bam_refs)[:3]}, "
                         f"FASTA references: {sorted(fasta_refs)[:3]}."
                     )
-                else:
-                    ref_overlap_pct = (len(overlap_refs) / len(bam_refs)) * 100
-                    logger.info(
-                        f"[load_sample] BAM/FASTA validation: {len(overlap_refs)}/{len(bam_refs)} references overlap ({ref_overlap_pct:.1f}%)"
-                    )
-                    if ref_overlap_pct < 50:
-                        logger.warning(
-                            f"[load_sample] WARNING: Low reference overlap between BAM and FASTA ({ref_overlap_pct:.1f}%). "
-                            f"Only {len(overlap_refs)} of {len(bam_refs)} BAM references found in FASTA. "
-                            f"Missing references: {sorted(bam_refs - fasta_refs)[:5]}"
-                        )
 
         # Store sample
-        logger.info(
-            f"[load_sample] Storing sample '{name}' in session (has {len(sample.read_ids)} reads)"
-        )
         self.samples[name] = sample
-        logger.info(
-            f"[load_sample] Sample '{name}' successfully loaded and stored. Total samples in session: {len(self.samples)}"
-        )
 
         return sample
 
@@ -742,18 +662,7 @@ class SquiggySession:
             >>> session = SquiggySession()
             >>> sample = session.get_sample('model_v4.2')
         """
-        logger.info(
-            f"[get_sample] Looking up sample '{name}' from {len(self.samples)} available samples"
-        )
         sample = self.samples.get(name)
-        if sample:
-            logger.info(
-                f"[get_sample] Found sample '{name}' with {len(sample.read_ids)} reads"
-            )
-        else:
-            logger.warning(
-                f"[get_sample] Sample '{name}' not found. Available: {list(self.samples.keys())}"
-            )
         return sample
 
     def list_samples(self) -> list[str]:
@@ -856,7 +765,6 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
     abs_path = Path(file_path).resolve()
 
     if not abs_path.exists():
-        logger.error(f"POD5 file not found at path: {abs_path}")
         raise FileNotFoundError(f"Failed to open pod5 file at: {abs_path}")
 
     # Close previous reader if exists
@@ -871,7 +779,6 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
     # Try to load index from cache
     cached_index = None
     if use_cache and _squiggy_session.cache:
-        logger.info("Checking cache for POD5 index...")
         cached_index = _squiggy_session.cache.load_pod5_index(abs_path)
 
     # Build or restore index
@@ -880,7 +787,6 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
             # Restore from cache
             pod5_index = Pod5Index()
             pod5_index._index = cached_index
-            logger.info(f"Restored index from cache ({len(pod5_index):,} reads)")
         else:
             # Build fresh
             pod5_index = Pod5Index()
@@ -898,8 +804,6 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
     _squiggy_session.reader = reader
     _squiggy_session.pod5_path = str(abs_path)
     _squiggy_session.read_ids = lazy_read_list
-
-    logger.info(f"Loaded POD5: {abs_path.name} ({len(lazy_read_list):,} reads)")
 
 
 def get_bam_event_alignment_status(file_path: str) -> bool:
@@ -925,7 +829,6 @@ def get_bam_event_alignment_status(file_path: str) -> bool:
     from .constants import BAM_SAMPLE_SIZE
 
     if not os.path.exists(file_path):
-        logger.error(f"BAM file not found at path: {file_path}")
         raise FileNotFoundError(f"BAM file not found: {file_path}")
 
     max_reads_to_check = BAM_SAMPLE_SIZE  # Sample first N reads
@@ -971,7 +874,6 @@ def get_bam_modification_info(file_path: str) -> dict:
         ...     print(f"Found modifications: {mod_info['modification_types']}")
     """
     if not os.path.exists(file_path):
-        logger.error(f"BAM file not found at path: {file_path}")
         raise FileNotFoundError(f"BAM file not found: {file_path}")
 
     from .constants import BAM_SAMPLE_SIZE
@@ -1185,32 +1087,20 @@ def load_bam(
     abs_path = Path(file_path).resolve()
 
     if not abs_path.exists():
-        logger.error(f"BAM file not found at path: {abs_path}")
         raise FileNotFoundError(f"BAM file not found: {abs_path}")
 
     # Try cache first for complete metadata (Phase 2 optimization)
     metadata = None
     if use_cache and _squiggy_session.cache:
-        logger.info("Checking cache for BAM metadata...")
         metadata = _squiggy_session.cache.load_bam_metadata(abs_path)
 
     # If cache miss or disabled, collect fresh metadata (Phase 1 single-pass scan)
     if metadata is None:
-        logger.info("Loading BAM metadata (single-pass scan)...")
         metadata = _collect_bam_metadata_single_pass(abs_path, build_ref_mapping)
-        logger.info(
-            f"Scanned {metadata['num_reads']:,} reads from "
-            f"{len(metadata['references'])} references"
-        )
 
         # Save to cache for instant future loads (Phase 2)
         if use_cache and _squiggy_session.cache:
             _squiggy_session.cache.save_bam_metadata(abs_path, metadata)
-    else:
-        logger.info(
-            f"Loaded {metadata['num_reads']:,} reads from cache "
-            f"({len(metadata['references'])} references)"
-        )
 
     # Build metadata dict for session
     bam_info = {
@@ -1230,8 +1120,6 @@ def load_bam(
     _squiggy_session.bam_path = str(abs_path)
     _squiggy_session.bam_info = bam_info
     _squiggy_session.ref_mapping = ref_mapping
-
-    logger.info(f"Loaded BAM: {abs_path.name} ({bam_info['num_reads']:,} reads)")
 
 
 def get_reads_for_reference_paginated(
@@ -1269,19 +1157,12 @@ def get_reads_for_reference_paginated(
         >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
     """
     if _squiggy_session.ref_mapping is None:
-        logger.error(
-            "No BAM file loaded. Call load_bam() before accessing reference reads."
-        )
         raise RuntimeError(
             "No BAM file loaded. Call load_bam() before accessing reference reads."
         )
 
     if reference_name not in _squiggy_session.ref_mapping:
         available_refs = list(_squiggy_session.ref_mapping.keys())
-        logger.error(
-            f"Reference '{reference_name}' not found in BAM file. "
-            f"Available references: {available_refs[:5]}"
-        )
         raise KeyError(
             f"Reference '{reference_name}' not found. "
             f"Available references: {available_refs[:5]}..."
@@ -1324,16 +1205,13 @@ def load_fasta(file_path: str) -> None:
     abs_path = os.path.abspath(file_path)
 
     if not os.path.exists(abs_path):
-        logger.error(f"FASTA file not found at path: {abs_path}")
         raise FileNotFoundError(f"FASTA file not found: {abs_path}")
 
     # Check for index, create if missing
     fai_path = abs_path + ".fai"
     if not os.path.exists(fai_path):
-        logger.info(f"FASTA index not found, creating: {fai_path}")
         try:
             pysam.faidx(abs_path)
-            logger.info(f"Successfully created FASTA index: {fai_path}")
         except Exception as e:
             raise RuntimeError(
                 f"Failed to create FASTA index for {abs_path}. "
@@ -1381,11 +1259,9 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
         >>> print(f"References: {list(mapping.keys())}")
     """
     if _squiggy_session.bam_path is None:
-        logger.error("No BAM file is currently loaded. Call load_bam() first.")
         raise RuntimeError("No BAM file is currently loaded")
 
     if not os.path.exists(_squiggy_session.bam_path):
-        logger.error(f"BAM file not found at path: {_squiggy_session.bam_path}")
         raise FileNotFoundError(f"BAM file not found: {_squiggy_session.bam_path}")
 
     # Open BAM file
@@ -1437,7 +1313,6 @@ def get_read_ids() -> list[str]:
         List of read ID strings (materialized from lazy list if needed)
     """
     if not _squiggy_session.read_ids:
-        logger.error("No POD5 file is currently loaded. Call load_pod5() first.")
         raise ValueError("No POD5 file is currently loaded")
 
     # Convert LazyReadList to list if needed
@@ -1613,10 +1488,6 @@ def get_common_reads(sample_names: list[str]) -> set[str]:
     # Get first sample
     first_sample = _squiggy_session.get_sample(sample_names[0])
     if first_sample is None:
-        logger.error(
-            f"Sample '{sample_names[0]}' not found. "
-            f"Available samples: {list(_squiggy_session.samples.keys())}"
-        )
         raise ValueError(f"Sample '{sample_names[0]}' not found")
 
     # Start with reads from first sample
@@ -1705,10 +1576,6 @@ def compare_samples(sample_names: list[str]) -> dict:
     # Validate samples exist
     for name in sample_names:
         if _squiggy_session.get_sample(name) is None:
-            logger.error(
-                f"Sample '{name}' not found. "
-                f"Available samples: {list(_squiggy_session.samples.keys())}"
-            )
             raise ValueError(f"Sample '{name}' not found")
 
     result = {

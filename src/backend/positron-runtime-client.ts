@@ -11,6 +11,7 @@
 
 import * as positron from 'positron';
 import { KernelNotAvailableError, retryOperation, isTransientError } from '../utils/error-handler';
+import { logger } from '../utils/logger';
 
 /**
  * Low-level client for Positron runtime API
@@ -80,7 +81,7 @@ export class PositronRuntimeClient {
 
             // Function to check if current state is ready
             const checkState = (state: string) => {
-                console.log(`Squiggy: Kernel state is ${state}`);
+                logger.debug(`Squiggy: Kernel state is ${state}`);
 
                 // Ready states - can execute code
                 if (state === 'ready' || state === 'idle' || state === 'busy') {
@@ -153,7 +154,7 @@ export class PositronRuntimeClient {
                     positron.RuntimeCodeExecutionMode.Silent
                 );
                 // Success - kernel is ready
-                console.log('Squiggy: Kernel is ready (polling check)');
+                logger.debug('Squiggy: Kernel is ready (polling check)');
                 this.kernelReadyCache = { ready: true, timestamp: Date.now() };
                 return;
             } catch (_error) {

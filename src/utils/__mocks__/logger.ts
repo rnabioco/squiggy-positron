@@ -11,6 +11,8 @@ export const logger = {
     error: jest.fn(),
     python: jest.fn(),
     clear: jest.fn(),
+    setMinLevel: jest.fn(),
+    getMinLevel: jest.fn(() => 'INFO'),
 };
 
 export enum LogLevel {
