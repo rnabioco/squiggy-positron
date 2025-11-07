@@ -45,12 +45,9 @@ from bokeh.plotting import figure as BokehFigure
 
 from .alignment import AlignedRead, extract_alignment_from_bam
 from .constants import NormalizationMethod, PlotMode, Theme
-from .logging_config import get_logger
 from .motif import MotifMatch, search_motif
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
-
-logger = get_logger(__name__)
 
 
 class Pod5File:
