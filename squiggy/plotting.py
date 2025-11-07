@@ -1089,7 +1089,7 @@ def plot_signal_overlay_comparison(
         error_lines.extend(
             [
                 "",
-                "Suggestion: Check which references each sample has in the Sample Comparison Manager panel,",
+                "Suggestion: Check which references each sample has in the Samples panel,",
                 "or ensure all samples are aligned to the same reference genome before loading.",
             ]
         )
@@ -1297,7 +1297,7 @@ def plot_aggregate_comparison(
         error_lines.extend(
             [
                 "",
-                "Suggestion: Check which references each sample has in the Sample Comparison Manager panel,",
+                "Suggestion: Check which references each sample has in the Samples panel,",
                 "or ensure all samples are aligned to the same reference genome before loading.",
             ]
         )
