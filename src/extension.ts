@@ -172,14 +172,6 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         )
     );
 
-    // Initialize state with panel references
-    state.initializePanels(
-        readsViewPane,
-        plotOptionsProvider,
-        modificationsProvider,
-        samplesProvider
-    );
-
     // Set initial context for modifications panel (hidden by default)
     vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
