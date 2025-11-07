@@ -777,6 +777,45 @@ export const SamplesCore: React.FC = () => {
                                     >
                                         {sample.readCount.toLocaleString()} reads
                                     </span>
+
+                                    {/* Delete/Remove Sample Button (Trash Icon) */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUnloadSample(sample.name);
+                                        }}
+                                        style={{
+                                            width: '22px',
+                                            height: '22px',
+                                            padding: '2px',
+                                            backgroundColor: 'transparent',
+                                            color: 'var(--vscode-errorForeground)',
+                                            border: '1px solid transparent',
+                                            borderRadius: '2px',
+                                            cursor: 'pointer',
+                                            flexShrink: 0,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.9em',
+                                            transition: 'all 0.2s',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                                'var(--vscode-inputValidation-errorBackground)';
+                                            (e.target as HTMLButtonElement).style.borderColor =
+                                                'var(--vscode-errorForeground)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                                'transparent';
+                                            (e.target as HTMLButtonElement).style.borderColor =
+                                                'transparent';
+                                        }}
+                                        title="Remove this sample"
+                                    >
+                                        🗑️
+                                    </button>
                                 </div>
 
                                 {/* Expanded Details */}
