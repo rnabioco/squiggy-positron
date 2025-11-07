@@ -741,6 +741,14 @@ squiggy.close_fasta()
 
         // Get plot options from provider with fallback defaults
         const providerOptions = this._plotOptionsProvider?.getOptions();
+
+        // Debug logging if provider is missing
+        if (!providerOptions) {
+            console.warn(
+                '[ExtensionState] plotOptionsProvider returned undefined, using defaults'
+            );
+        }
+
         const plotOptions = providerOptions
             ? {
                   mode: providerOptions.mode || 'SINGLE',
