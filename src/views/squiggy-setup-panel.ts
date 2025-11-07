@@ -60,21 +60,11 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
     }
 
     /**
-     * Handle automatic installation request
+     * Handle installation instructions request
      */
     private async handleInstall(): Promise<void> {
-        if (!this.state.packageManager) {
-            vscode.window.showErrorMessage('Package manager not available');
-            return;
-        }
-
-        const extensionPath = this.context.extensionPath;
-        const success = await this.state.packageManager.installSquiggyWithProgress(extensionPath);
-
-        if (success) {
-            // Trigger extension reload
-            await vscode.commands.executeCommand('squiggy.checkInstallation');
-        }
+        // Show installation instructions (PyPI-based)
+        await this.showManualInstructions();
     }
 
     /**
@@ -86,7 +76,7 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             return;
         }
 
-        await this.state.packageManager.showManualInstallationGuide(this.context.extensionPath);
+        await this.state.packageManager.showInstallationInstructions();
     }
 
     /**
@@ -243,7 +233,7 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
     <h2>Squiggy Python Package Required</h2>
 
     <div class="message">
-        The Squiggy extension requires the <code>squiggy</code> Python package to be installed
+        The Squiggy extension requires the <code>squiggy-positron</code> Python package to be installed
         in your active Python environment.
     </div>
 
@@ -253,8 +243,11 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
     </div>
 
     <div class="info-box">
-        <p>Click "📖 View Detailed Instructions" above to see step-by-step commands for installing with <strong>uv</strong> (modern, fast package manager).</p>
-        <p>Each command can be clicked to copy to your clipboard.</p>
+        <p><strong>Quick Install:</strong></p>
+        <p><code>pip install squiggy-positron</code></p>
+        <p>or with uv (recommended):</p>
+        <p><code>uv pip install squiggy-positron</code></p>
+        <p>Click "📖 View Detailed Instructions" above to copy the install command to your clipboard.</p>
     </div>
 
     <div class="note">
