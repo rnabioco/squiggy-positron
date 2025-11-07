@@ -189,9 +189,8 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             border-radius: 3px;
             padding: 8px;
             margin: 8px 0;
-            font-family: var(--vscode-editor-font-family, 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace);
-            font-size: var(--vscode-editor-font-size, 13px);
-            font-weight: var(--vscode-editor-font-weight, 400);
+            font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
+            font-size: 13px;
             overflow-x: auto;
         }
 
