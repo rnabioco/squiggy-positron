@@ -91,6 +91,9 @@ export const SamplesCore: React.FC = () => {
                             }
                         }
 
+                        // Track newly added samples for auto-selection sync
+                        const newlyAddedSamples: string[] = [];
+
                         // Assign default Okabe-Ito colors to new samples (that don't already have colors)
                         const newlyAssignedColors: Array<{ name: string; color: string }> = [];
                         samples.forEach((sample, index) => {
@@ -101,7 +104,10 @@ export const SamplesCore: React.FC = () => {
                                 newlyAssignedColors.push({ name: sample.name, color });
                             }
                             // Default all samples to selected for visualization
-                            newSelected.add(sample.name);
+                            if (!newSelected.has(sample.name)) {
+                                newSelected.add(sample.name);
+                                newlyAddedSamples.push(sample.name);
+                            }
                         });
 
                         // Persist auto-assigned colors to extension state
@@ -112,6 +118,18 @@ export const SamplesCore: React.FC = () => {
                                         type: 'updateSampleColor',
                                         sampleName: name,
                                         color: color,
+                                    });
+                                });
+                            }, 0);
+                        }
+
+                        // Sync newly auto-selected samples to extension state (FIX for Issue #124)
+                        if (newlyAddedSamples.length > 0) {
+                            setTimeout(() => {
+                                newlyAddedSamples.forEach((name) => {
+                                    vscode.postMessage({
+                                        type: 'toggleSampleSelection',
+                                        sampleName: name,
                                     });
                                 });
                             }, 0);
@@ -460,12 +478,86 @@ export const SamplesCore: React.FC = () => {
             <div style={{ marginBottom: '12px' }}>
                 <div
                     style={{
-                        fontWeight: 'bold',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                         marginBottom: '5px',
-                        color: 'var(--vscode-foreground)',
                     }}
                 >
-                    Loaded Samples ({state.samples.length})
+                    <div
+                        style={{
+                            fontWeight: 'bold',
+                            color: 'var(--vscode-foreground)',
+                        }}
+                    >
+                        Loaded Samples ({state.samples.length})
+                    </div>
+
+                    {/* Bulk Selection Buttons */}
+                    {state.samples.length > 1 && (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                                onClick={() => {
+                                    // Select all samples for visualization
+                                    state.samples.forEach((sample) => {
+                                        if (!state.selectedSamplesForVisualization.has(sample.name)) {
+                                            handleToggleSampleSelection(sample.name);
+                                        }
+                                    });
+                                }}
+                                style={{
+                                    padding: '2px 6px',
+                                    fontSize: '0.75em',
+                                    backgroundColor: 'var(--vscode-button-background)',
+                                    color: 'var(--vscode-button-foreground)',
+                                    border: 'none',
+                                    borderRadius: '2px',
+                                    cursor: 'pointer',
+                                }}
+                                onMouseEnter={(e) => {
+                                    (e.target as HTMLButtonElement).style.backgroundColor =
+                                        'var(--vscode-button-hoverBackground)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    (e.target as HTMLButtonElement).style.backgroundColor =
+                                        'var(--vscode-button-background)';
+                                }}
+                                title="Select all samples for plotting"
+                            >
+                                Select All
+                            </button>
+                            <button
+                                onClick={() => {
+                                    // Deselect all samples for visualization
+                                    state.samples.forEach((sample) => {
+                                        if (state.selectedSamplesForVisualization.has(sample.name)) {
+                                            handleToggleSampleSelection(sample.name);
+                                        }
+                                    });
+                                }}
+                                style={{
+                                    padding: '2px 6px',
+                                    fontSize: '0.75em',
+                                    backgroundColor: 'var(--vscode-button-background)',
+                                    color: 'var(--vscode-button-foreground)',
+                                    border: 'none',
+                                    borderRadius: '2px',
+                                    cursor: 'pointer',
+                                }}
+                                onMouseEnter={(e) => {
+                                    (e.target as HTMLButtonElement).style.backgroundColor =
+                                        'var(--vscode-button-hoverBackground)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    (e.target as HTMLButtonElement).style.backgroundColor =
+                                        'var(--vscode-button-background)';
+                                }}
+                                title="Deselect all samples from plotting"
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

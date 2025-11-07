@@ -175,17 +175,13 @@ export const PlotOptionsCore: React.FC = () => {
                         'samples'
                     );
                     setOptions((prev) => {
-                        // Only auto-select first 2 samples if nothing is currently selected (initial load)
-                        // Otherwise preserve existing selections to avoid overwriting user choices
-                        const shouldAutoSelect = prev.selectedSamples.length === 0;
-                        const newSelectedSamples = shouldAutoSelect
-                            ? message.samples.slice(0, 2).map((s: SampleItem) => s.name)
-                            : prev.selectedSamples;
-
+                        // Don't auto-select samples here - visualization selection is managed
+                        // by the Sample Manager (eye icons) and synced via updateSelectedSamples message
+                        // This prevents the "only first 2 samples" bug (Issue #124)
                         return {
                             ...prev,
                             loadedSamples: message.samples,
-                            selectedSamples: newSelectedSamples,
+                            // Preserve existing selectedSamples - will be updated by updateSelectedSamples
                         };
                     });
                     break;
@@ -320,11 +316,11 @@ export const PlotOptionsCore: React.FC = () => {
             }}
         >
             {/* Analysis Type Section */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
                 <div
                     style={{
                         fontWeight: 'bold',
-                        marginBottom: '8px',
+                        marginBottom: '6px',
                         color: 'var(--vscode-foreground)',
                     }}
                 >
@@ -337,7 +333,7 @@ export const PlotOptionsCore: React.FC = () => {
                     style={{
                         width: '100%',
                         padding: '4px',
-                        marginBottom: '10px',
+                        marginBottom: '6px',
                         background: 'var(--vscode-input-background)',
                         color: 'var(--vscode-input-foreground)',
                         border: '1px solid var(--vscode-input-border)',
@@ -430,11 +426,11 @@ export const PlotOptionsCore: React.FC = () => {
             */}
 
             {/* Normalization - Common to all types */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
                 <div
                     style={{
                         fontWeight: 'bold',
-                        marginBottom: '8px',
+                        marginBottom: '6px',
                         color: 'var(--vscode-foreground)',
                     }}
                 >
@@ -446,7 +442,7 @@ export const PlotOptionsCore: React.FC = () => {
                     style={{
                         width: '100%',
                         padding: '4px',
-                        marginBottom: '10px',
+                        marginBottom: '4px',
                         background: 'var(--vscode-input-background)',
                         color: 'var(--vscode-input-foreground)',
                         border: '1px solid var(--vscode-input-border)',
@@ -464,7 +460,7 @@ export const PlotOptionsCore: React.FC = () => {
                 options.plotType === 'MULTI_READ_STACKED') && (
                 <div>
                     {/* View Style: Overlay vs Stacked */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -513,7 +509,7 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Sample Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -580,7 +576,7 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Max Reads per Sample */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 display: 'flex',
@@ -677,7 +673,7 @@ export const PlotOptionsCore: React.FC = () => {
             {options.plotType === 'AGGREGATE' && (
                 <>
                     {/* Reference Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -808,7 +804,7 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Panel Visibility */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -1045,7 +1041,7 @@ export const PlotOptionsCore: React.FC = () => {
             {options.plotType === 'COMPARE_SIGNAL_DELTA' && (
                 <>
                     {/* Sample Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
@@ -1125,7 +1121,7 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Reference Selection */}
-                    <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '12px' }}>
                         <div
                             style={{
                                 fontWeight: 'bold',
