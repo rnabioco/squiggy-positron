@@ -248,13 +248,12 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
 
     <div class="button-group">
         <button class="primary-large" onclick="manual()">📖 View Detailed Instructions</button>
-        <button onclick="install()">Install Automatically</button>
         <button class="secondary" onclick="retry()">Check Again</button>
     </div>
 
     <div class="info-box">
-        <p><strong>Recommended:</strong> Click "📖 View Detailed Instructions" above to see step-by-step commands for installing with <strong>uv</strong> (modern, fast package manager).</p>
-        <p><strong>Quick option:</strong> Click "Install Automatically" to attempt installation in your current environment (may not work with externally-managed or old Python versions).</p>
+        <p>Click "📖 View Detailed Instructions" above to see step-by-step commands for installing with <strong>uv</strong> (modern, fast package manager).</p>
+        <p>Each command can be clicked to copy to your clipboard.</p>
     </div>
 
     <div class="note">
@@ -263,10 +262,6 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
 
     <script>
         const vscode = acquireVsCodeApi();
-
-        function install() {
-            vscode.postMessage({ type: 'install' });
-        }
 
         function manual() {
             vscode.postMessage({ type: 'manual' });
