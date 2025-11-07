@@ -243,10 +243,10 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
     </div>
 
     <div class="info-box">
-        <p><strong>Quick Install:</strong></p>
-        <p><code>pip install squiggy-positron</code></p>
-        <p>or with uv (recommended):</p>
-        <p><code>uv pip install squiggy-positron</code></p>
+        <p><strong>Quick Install (from TestPyPI - temporary):</strong></p>
+        <p><code>uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron</code></p>
+        <p>or with pip:</p>
+        <p><code>pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron</code></p>
         <p>Click "📖 View Detailed Instructions" above to copy the install command to your clipboard.</p>
     </div>
 

@@ -8,10 +8,14 @@
 
 ## Installation
 
+> ⚠️ **Temporary**: Until the next minor release on PyPI, please install from TestPyPI using the command below.
+
 This package is intended to be installed as a dependency of the Squiggy Positron extension:
 
 ```bash
-uv pip install squiggy-positron
+uv pip install --index-url https://test.pypi.org/simple/ \
+    --extra-index-url https://pypi.org/simple/ \
+    squiggy-positron
 ```
 
 After installing the package, install the Squiggy extension in Positron IDE from the Extensions marketplace.
