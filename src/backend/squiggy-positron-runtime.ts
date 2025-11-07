@@ -6,6 +6,7 @@
  */
 
 import * as positron from 'positron';
+import { logger } from '../utils/logger';
 
 export class PositronRuntime {
     /**
@@ -54,7 +55,7 @@ export class PositronRuntime {
 
             // Function to check if current state is ready
             const checkState = (state: string) => {
-                console.log(`Squiggy: Kernel state is ${state}`);
+                logger.debug(`Squiggy: Kernel state is ${state}`);
 
                 // Ready states - can execute code
                 if (state === 'ready' || state === 'idle' || state === 'busy') {
@@ -124,7 +125,7 @@ export class PositronRuntime {
                     positron.RuntimeCodeExecutionMode.Silent
                 );
                 // Success - kernel is ready
-                console.log('Squiggy: Kernel is ready (polling check)');
+                logger.debug('Squiggy: Kernel is ready (polling check)');
                 return;
             } catch (_error) {
                 // Kernel not ready yet, wait and retry
