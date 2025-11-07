@@ -1,8 +1,8 @@
 ---
-name: UX Walkthrough Report
-about: Complete UX testing checklist and report findings
+name: UX Walkthrough
+about: Systematic UX testing checklist for naive users
 title: 'UX Walkthrough: [Your Name/Date]'
-labels: ux, testing, needs-triage
+labels: ux, testing
 assignees: ''
 ---
 
@@ -21,10 +21,10 @@ assignees: ''
 ## Instructions
 
 1. Work through each section below in order
-2. Check ✓ boxes for behaviors you observe
-3. For any unchecked expected behaviors, create a separate bug issue
-4. Link bug issues in the "Issues found" sections
-5. Add general notes/observations at the end
+2. Check ✓ boxes for expected behaviors you observe
+3. Leave boxes unchecked when something doesn't work as expected
+4. Add notes in the "Issues found" sections describing what went wrong
+5. Complete the summary at the end
 
 ---
 
@@ -57,6 +57,8 @@ assignees: ''
   - [ ] ✓ Includes "Open POD5 File", "Open BAM File"
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -105,6 +107,8 @@ assignees: ''
   - [ ] ✓ Smooth scrolling in Reads panel
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -153,6 +157,8 @@ assignees: ''
   - [ ] ✓ Selection persists
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -187,6 +193,8 @@ assignees: ''
   - [ ] ✓ Suggests loading POD5 first
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -218,6 +226,8 @@ assignees: ''
   - [ ] ✓ Each plot independent
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -255,6 +265,8 @@ assignees: ''
   - [ ] ✓ Labels change appropriately
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -281,6 +293,8 @@ assignees: ''
   - [ ] ✓ Plot updates show filtered mods
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -302,6 +316,8 @@ assignees: ''
   - [ ] ✓ Resolution appropriate
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -327,6 +343,8 @@ assignees: ''
   - [ ] ✓ No errors
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -346,6 +364,8 @@ assignees: ''
   - [ ] ✓ Handles queue properly
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
@@ -367,6 +387,8 @@ assignees: ''
   - [ ] ✓ Icons recognizable
 
 **Issues found:**
+<!-- Describe any problems, unexpected behaviors, or missing features here -->
+
 
 ---
 
