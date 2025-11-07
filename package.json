@@ -160,6 +160,24 @@
         "title": "Show Extension Logs",
         "category": "Squiggy",
         "icon": "$(output)"
+      },
+      {
+        "command": "squiggy.runWalkthrough",
+        "title": "Run UX Walkthrough",
+        "category": "Squiggy",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "squiggy.runAllWalkthroughs",
+        "title": "Run All UX Walkthroughs",
+        "category": "Squiggy",
+        "icon": "$(debug-all)"
+      },
+      {
+        "command": "squiggy.listWalkthroughs",
+        "title": "List Available Walkthroughs",
+        "category": "Squiggy",
+        "icon": "$(list-unordered)"
       }
     ],
     "viewsContainers": {
