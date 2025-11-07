@@ -216,6 +216,20 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             background-color: var(--vscode-button-hoverBackground);
         }
 
+        button.primary-large {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            border: 2px solid var(--vscode-focusBorder);
+        }
+
+        button.primary-large:hover {
+            background-color: var(--vscode-button-hoverBackground);
+            border-color: var(--vscode-button-hoverBackground);
+        }
+
         button.secondary {
             background-color: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
@@ -240,6 +254,12 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
     <div class="message">
         The Squiggy extension requires the <code>squiggy</code> Python package to be installed
         in your active Python environment.
+    </div>
+
+    <div class="button-group">
+        <button class="primary-large" onclick="manual()">📖 View Detailed Instructions</button>
+        <button onclick="install()">Install Automatically</button>
+        <button class="secondary" onclick="retry()">Check Again</button>
     </div>
 
     <div class="instructions">
@@ -302,12 +322,6 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
                 Select the .venv environment in Positron using the interpreter selector
             </li>
         </ol>
-    </div>
-
-    <div class="button-group">
-        <button onclick="install()">Install Automatically</button>
-        <button class="secondary" onclick="manual()">View Detailed Instructions</button>
-        <button class="secondary" onclick="retry()">Check Again</button>
     </div>
 
     <div class="note">
