@@ -4,10 +4,7 @@ This guide explains where Squiggy logs appear in Positron and how to access them
 
 ## Overview
 
-Squiggy uses two separate logging systems:
-
-1. **TypeScript Extension Logs** - Extension-level operations (UI, commands, file handling)
-2. **Python Backend Logs** - Data processing, plotting, file I/O
+Squiggy uses a single logging system for TypeScript extension operations (UI, commands, file handling). Python backend operations do not produce logs - errors are propagated as exceptions that are caught and displayed by the TypeScript extension.
 
 ## TypeScript Extension Logs
 
@@ -33,7 +30,7 @@ When an error occurs, click the "Show Logs" button in the error notification.
 - File loading operations (POD5, BAM, FASTA)
 - Plot generation requests
 - Extension activation/deactivation
-- Error messages with stack traces
+- Error messages with stack traces from both TypeScript and Python
 - Warnings and debug info
 
 ### Example Output
@@ -41,172 +38,120 @@ When an error occurs, click the "Show Logs" button in the error notification.
 ```
 [14:23:45.123] [INFO] Squiggy extension activated
 [14:23:47.456] [INFO] Loading POD5 file: /data/reads.pod5
-[14:23:48.789] [ERROR] Error while loading POD5 file: FileNotFoundError
+[14:23:48.789] [ERROR] Error while loading POD5 file: FileNotFoundError: File not found at path: /data/reads.pod5
 ```
 
-## Python Backend Logs
+## Python Backend Error Handling
 
-### Where They Appear
+### No Console Pollution
 
-Python logs appear in **two places**:
+Python backend code does **not** log to the console. Instead:
 
-1. **Python Console** (default) - Where your interactive Python code runs
-2. **Output Panel → Squiggy** (when configured) - Dedicated extension output
+1. Python exceptions are raised normally (e.g., `FileNotFoundError`, `ValueError`)
+2. The TypeScript extension catches these exceptions via the Positron kernel
+3. Errors are displayed in the extension's Output Channel with full context
+4. User's Python Console remains clean for interactive work
 
-### Default Behavior (Python Console)
+### Example Error Flow
 
-By default, Python's `logging` module sends output to `stderr`, which Positron displays in the Python Console. This can pollute your interactive workspace.
-
-**Example in Python Console:**
+**Python code:**
 ```python
 >>> import squiggy
 >>> squiggy.load_pod5('nonexistent.pod5')
-2025-01-15 14:23:48 - squiggy.io - ERROR - POD5 file not found at path: /data/nonexistent.pod5
-Traceback (most recent call last):
-  ...
-FileNotFoundError: Failed to open pod5 file at: /data/nonexistent.pod5
 ```
 
-### Controlling Python Log Level
+**What happens:**
+1. Python raises: `FileNotFoundError: POD5 file not found at path: /data/nonexistent.pod5`
+2. TypeScript catches exception via kernel
+3. Error appears in Output Panel → Squiggy:
+   ```
+   [14:23:48.789] [ERROR] Failed to load POD5 file
+   FileNotFoundError: POD5 file not found at path: /data/nonexistent.pod5
+   ```
+4. Python Console shows only the Python exception (standard Python behavior)
 
-Set the `SQUIGGY_LOG_LEVEL` environment variable to control verbosity:
+### Why This Approach?
 
-**In Positron:**
-```python
-import os
-os.environ['SQUIGGY_LOG_LEVEL'] = 'DEBUG'  # Show all logs
-os.environ['SQUIGGY_LOG_LEVEL'] = 'INFO'   # Show info and above
-os.environ['SQUIGGY_LOG_LEVEL'] = 'WARNING'  # Default: only warnings and errors
-os.environ['SQUIGGY_LOG_LEVEL'] = 'ERROR'  # Only errors
-```
-
-**Before starting Python:**
-```bash
-export SQUIGGY_LOG_LEVEL=DEBUG
-positron
-```
-
-### Log Levels
-
-- **DEBUG**: Detailed diagnostic info (e.g., "Checking cache for POD5 index")
-- **INFO**: Confirmation of successful operations (e.g., "Loaded 1,234 reads")
-- **WARNING**: Something unexpected but not critical (e.g., "No alignment found for read")
-- **ERROR**: Operation failed (e.g., "File not found", "Invalid parameter")
-
-### What's Logged
-
-Python logs include:
-
-- File loading operations with file paths
-- Read counts and metadata
-- Validation errors with helpful suggestions
-- Cache hits/misses
-- Alignment extraction failures
-- Modification parsing warnings
-
-### Example Python Logs
-
-```python
-# INFO level
-2025-01-15 14:23:48 - squiggy.io - INFO - Loaded POD5: reads.pod5 (1,234 reads)
-
-# ERROR level
-2025-01-15 14:24:12 - squiggy.io - ERROR - POD5 file not found at path: /data/missing.pod5
-
-# WARNING level
-2025-01-15 14:25:33 - squiggy.alignment - WARNING - Error reading BAM file for read 'read_001': FileNotFoundError
-```
-
-## Redirecting Python Logs to Output Channel (Advanced)
-
-If you prefer Python logs to appear in the extension's Output Channel instead of polluting the Python Console, you can configure a custom logging handler:
-
-```python
-import logging
-import sys
-
-# Get the squiggy logger
-squiggy_logger = logging.getLogger('squiggy')
-
-# Remove default stderr handler
-for handler in squiggy_logger.handlers[:]:
-    squiggy_logger.removeHandler(handler)
-
-# Add a file handler instead (write to file, extension can monitor)
-file_handler = logging.FileHandler('/tmp/squiggy.log')
-file_handler.setFormatter(
-    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-)
-squiggy_logger.addHandler(file_handler)
-squiggy_logger.setLevel(logging.INFO)
-```
-
-**Note**: The extension does not currently monitor Python log files, but this approach prevents console pollution. Future versions may implement automatic log routing.
+**Benefits:**
+- **Clean Python Console**: No logging clutter in interactive workspace
+- **Centralized Logs**: All Squiggy logs (TypeScript + Python errors) in one place
+- **Better UX**: Users can focus on their data analysis without distraction
+- **Standard Python**: Python exceptions work as expected
 
 ## Best Practices
 
 ### For Users
 
-1. **Set appropriate log level**: Use `WARNING` (default) for normal use, `INFO` for troubleshooting
-2. **Check Extension Logs first**: TypeScript errors (file not found, kernel issues) appear here
-3. **Check Python Console for Python errors**: Data processing errors appear here
-4. **Enable DEBUG only when needed**: Verbose logging can impact performance
+1. **Check Extension Logs for errors**: TypeScript and Python errors appear in Output → Squiggy
+2. **Python Console is for your code**: Only your interactive Python code and standard Python exceptions appear here
+3. **Use "Show Logs" button**: Click it on error notifications for quick access to logs
 
 ### For Developers
 
-1. **Use structured logging**: Include context like file paths, read IDs, sample names
-2. **Log before raising exceptions**: Helps debugging when exceptions are caught
-3. **Use appropriate log levels**:
-   - `DEBUG`: Diagnostic info
-   - `INFO`: Successful operations
-   - `WARNING`: Recoverable issues
-   - `ERROR`: Operation failures
+1. **Use exceptions, not logging**: Raise informative exceptions in Python code (e.g., `ValueError`, `FileNotFoundError`)
+2. **Log in TypeScript**: Use `outputChannel.appendLine()` in TypeScript extension code
+3. **Include context in exceptions**: Error messages should include file paths, read IDs, etc.
+4. **Structured error handling**: Catch Python exceptions in TypeScript and log with context
 
 ## Troubleshooting
 
 ### "I don't see any logs in the Output panel"
 
-The Output panel only shows **TypeScript extension logs**. Python logs appear in the **Python Console** by default.
+Make sure you've selected "Squiggy" from the dropdown in the Output panel (`Cmd+Shift+U` / `Ctrl+Shift+U`).
 
-### "Python logs are cluttering my interactive console"
+### "Where do Python errors appear?"
 
-Set log level to ERROR: `os.environ['SQUIGGY_LOG_LEVEL'] = 'ERROR'`
+Python errors appear in **two places**:
+1. **Output Panel → Squiggy** (extension log) - Full context and details
+2. **Python Console** - Standard Python exception traceback
 
-Or configure a file handler (see "Redirecting Python Logs" above).
+### "I want more detailed logs"
 
-### "I want to see more detailed logs"
-
-Set log level to DEBUG:
-```python
-import os
-os.environ['SQUIGGY_LOG_LEVEL'] = 'DEBUG'
-
-# Restart Python console or reload squiggy
-import importlib
-import squiggy
-importlib.reload(squiggy)
-```
+TypeScript extension logging is controlled in the extension code. For development, you can modify `src/extension.ts` to increase log verbosity.
 
 ### "How do I share logs for a bug report?"
 
-1. Set `SQUIGGY_LOG_LEVEL=DEBUG`
-2. Reproduce the issue
-3. Copy logs from:
-   - Output panel → Squiggy (TypeScript logs)
-   - Python Console (Python logs)
-4. Include both in your bug report
+1. Reproduce the issue
+2. Open Output panel → Squiggy
+3. Copy all logs
+4. Include in your bug report along with:
+   - Python exception traceback (if applicable)
+   - Steps to reproduce
+   - File sizes and types (POD5, BAM, FASTA)
 
-## Future Improvements
+## Architecture
 
-Planned logging enhancements:
+### TypeScript Extension Logging
 
-1. **Unified Output Channel**: Route Python logs to extension Output Channel automatically
-2. **Log file monitoring**: Extension monitors Python log files and displays in Output panel
-3. **Log filtering**: UI controls to filter logs by level or module
-4. **Export logs**: One-click export of full logs for bug reports
+The extension creates an `OutputChannel` on activation:
+
+```typescript
+const outputChannel = vscode.window.createOutputChannel('Squiggy');
+outputChannel.appendLine('[INFO] Extension activated');
+```
+
+### Python Error Propagation
+
+Python backend uses standard exception handling:
+
+```python
+def load_pod5(file_path: str):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"POD5 file not found at path: {file_path}")
+```
+
+TypeScript catches and logs these exceptions:
+
+```typescript
+try {
+    await runtime.execute(`squiggy.load_pod5('${filePath}')`);
+} catch (error) {
+    outputChannel.appendLine(`[ERROR] Failed to load POD5: ${error.message}`);
+    vscode.window.showErrorMessage('Failed to load POD5 file', 'Show Logs');
+}
+```
 
 ## See Also
 
 - [Developer Guide](DEVELOPER.md) - Extension architecture
 - [User Guide](USER_GUIDE.md) - Using Squiggy
-- [Issue #116](https://github.com/rnabioco/squiggy-positron/issues/116) - Logging improvements tracking issue

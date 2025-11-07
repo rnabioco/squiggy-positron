@@ -12,6 +12,7 @@ import { BaseWebviewProvider } from './base-webview-provider';
 import { ReadItem, ReadListItem, ReferenceGroupItem } from '../types/squiggy-reads-types';
 import { ReadsViewIncomingMessage } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
+import { logger } from '../utils/logger';
 
 export class ReadsViewPane extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyReadList';
@@ -71,14 +72,14 @@ export class ReadsViewPane extends BaseWebviewProvider {
         // Don't check isVisible - if we have a view and received 'ready',
         // the webview is ready to receive messages
         if (!this._view) {
-            console.log('[ReadsViewPane] updateView called but _view is null, skipping');
+            logger.debug('[ReadsViewPane] updateView called but _view is null, skipping');
             return;
         }
 
         // Send available samples first
         const availableSamples = this.getAvailableSamples();
         const selectedSample = this.getSelectedSample();
-        console.log(
+        logger.debug(
             '[ReadsViewPane] Sending setAvailableSamples:',
             availableSamples,
             'selected:',

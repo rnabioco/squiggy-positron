@@ -6,6 +6,7 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import * as readline from 'readline';
+import { logger } from '../utils/logger';
 
 interface JSONRPCRequest {
     jsonrpc: '2.0';
@@ -49,7 +50,7 @@ export class PythonBackend {
      */
     async start(): Promise<void> {
         return new Promise((resolve, reject) => {
-            console.log(`Starting Python backend: ${this.pythonPath} ${this.serverScriptPath}`);
+            logger.debug(`Starting Python backend: ${this.pythonPath} ${this.serverScriptPath}`);
 
             this.process = spawn(this.pythonPath, [this.serverScriptPath], {
                 stdio: ['pipe', 'pipe', 'pipe'],
@@ -72,12 +73,12 @@ export class PythonBackend {
 
             // Handle stderr (logging)
             this.process.stderr.on('data', (data) => {
-                console.log(`[Python Backend] ${data.toString()}`);
+                logger.debug(`[Python Backend] ${data.toString()}`);
             });
 
             // Handle process exit
             this.process.on('exit', (code) => {
-                console.log(`Python backend exited with code ${code}`);
+                logger.debug(`Python backend exited with code ${code}`);
                 this.process = null;
 
                 // Clear all request timers
@@ -95,7 +96,7 @@ export class PythonBackend {
 
             // Handle errors
             this.process.on('error', (error) => {
-                console.error('Python backend error:', error);
+                logger.error('Python backend error:', error);
                 reject(error);
             });
 
@@ -178,7 +179,7 @@ export class PythonBackend {
 
             const callbacks = this.pendingRequests.get(response.id);
             if (!callbacks) {
-                console.warn(`Received response for unknown request ID: ${response.id}`);
+                logger.warning(`Received response for unknown request ID: ${response.id}`);
                 return;
             }
 
@@ -197,8 +198,8 @@ export class PythonBackend {
                 callbacks.resolve(response.result);
             }
         } catch (error) {
-            console.error('Failed to parse JSON-RPC response:', error);
-            console.error('Line was:', line);
+            logger.error('Failed to parse JSON-RPC response:', error);
+            logger.error('Line was:', line);
         }
     }
 }
