@@ -111,14 +111,65 @@ This will automatically update:
 - `package.json` viewsContainers title (sidebar)
 - `package-lock.json` (version)
 
-## Step 7: Stage Changes
+## Step 7: Build and Verify VSIX
+
+Before committing the release, build the .vsix extension to verify the build and check file size:
+
+1. Build the extension:
+   ```bash
+   pixi run build
+   ```
+
+2. Find the .vsix file and get its size:
+   ```bash
+   ls -lh *.vsix | tail -n 1
+   ```
+
+3. Display the VSIX information:
+   - File name: `squiggy-positron-[VERSION].vsix`
+   - File size in human-readable format (MB)
+   - Path to file
+
+4. Use the AskUserQuestion tool to prompt:
+
+   **Question:** "The extension build is complete. File size: [SIZE] MB. Do you want to proceed with the release?"
+
+   **Options:**
+   - **Yes** - Continue with release (stage changes, commit, and tag)
+     - Description: "Proceed to stage changes and create release commit and tag"
+   - **No** - Abort release
+     - Description: "Cancel the release process and restore original version numbers"
+
+   ### If user selects "No":
+
+   Abort the release and restore original state:
+   ```bash
+   # Restore original files
+   git checkout package.json package-lock.json squiggy/__init__.py pyproject.toml CHANGELOG.md
+
+   # Clean up build artifacts
+   rm -f *.vsix
+   ```
+
+   Show message:
+   ```
+   ❌ Release aborted. All version changes reverted.
+   ```
+
+   Stop the release process.
+
+   ### If user selects "Yes":
+
+   Continue to Step 8.
+
+## Step 8: Stage Changes
 
 Stage all modified files with git:
 ```bash
 git add package.json package-lock.json squiggy/__init__.py pyproject.toml CHANGELOG.md
 ```
 
-## Step 8: Show Summary
+## Step 9: Show Summary
 
 Display a summary showing:
 - Old version → New version
@@ -128,6 +179,8 @@ Display a summary showing:
   - `squiggy/__init__.py` (__version__)
   - `pyproject.toml` (version)
   - `CHANGELOG.md`
+- Built artifact:
+  - `squiggy-positron-[VERSION].vsix` ([SIZE] MB)
 - Changes staged with git
 
 Show the staged diff:
@@ -135,7 +188,7 @@ Show the staged diff:
 git diff --cached
 ```
 
-## Step 9: Prompt to Create Commit and Tag
+## Step 10: Prompt to Create Commit and Tag
 
 Use the AskUserQuestion tool to ask the user:
 
@@ -146,6 +199,8 @@ Use the AskUserQuestion tool to ask the user:
   - Description: "Commit the changes and create a git tag v[VERSION]"
 - **No** - Stage only (manual commit later)
   - Description: "Leave changes staged for manual review and commit"
+
+**Note:** The .vsix file will NOT be committed to git (it's in .gitignore). It's built here only to verify the build process and file size before release.
 
 ### If user selects "Yes":
 
@@ -205,6 +260,9 @@ git push origin main v[VERSION]
 
 ## Important Notes
 
+- Always build the .vsix and report file size before prompting to proceed with release
+- The .vsix file is built as a verification step but is NOT committed (it's in .gitignore)
+- If the user aborts at the VSIX check, restore all version changes with `git checkout`
 - Always show the staged diff before prompting to commit
 - Only create commit and tag if the user explicitly chooses "Yes" in the prompt
 - Do NOT push to remote - always leave that to the user
@@ -222,6 +280,7 @@ If any step fails:
 - Suggest fixes (e.g., "Version must be higher than 0.1.0")
 - Don't proceed to the next step if there are errors
 - Don't stage any changes if there were errors
+- If the VSIX build fails, restore original version numbers and stop the release process
 
 ## Usage Examples
 
