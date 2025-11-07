@@ -187,7 +187,7 @@ print('SUCCESS')
             {
                 label: '4️⃣ Install Squiggy with uv',
                 detail: `uv pip install -e "${extensionPath}"`,
-                description: '⭐ Install squiggy in editable mode',
+                description: '⭐ Install from extension directory (editable mode)',
             },
             {
                 label: '5️⃣ Select Environment in Positron',
@@ -197,7 +197,7 @@ print('SUCCESS')
             {
                 label: '━━━━━━━━━━━━━━━━━━━━━━━━',
                 detail: '',
-                description: 'Alternative: Traditional pip (requires Python 3.8+, pip 21.3+)',
+                description: 'Alternative: Traditional pip',
             },
             {
                 label: '🐍 Alt: Create venv with pip',
@@ -205,9 +205,14 @@ print('SUCCESS')
                 description: 'Only if you cannot use uv',
             },
             {
+                label: '🐍 Alt: Activate venv',
+                detail: 'source .venv/bin/activate',
+                description: 'Activate with standard Python',
+            },
+            {
                 label: '🐍 Alt: Install with pip',
                 detail: `pip install -e "${extensionPath}"`,
-                description: 'Only if you cannot use uv (may fail with old pip)',
+                description: 'Install from extension directory with pip',
             },
         ];
 
