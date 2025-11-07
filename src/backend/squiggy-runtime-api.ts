@@ -782,6 +782,9 @@ if _sample:
         'has_bam': _sample.bam_path is not None,
         'has_fasta': _sample.fasta_path is not None
     }
+    # Add reference information if BAM is loaded
+    if _sample.bam_info and 'references' in _sample.bam_info:
+        _sample_info['references'] = _sample.bam_info['references']
 else:
     _sample_info = None
 _sample_info_json = json.dumps(_sample_info)

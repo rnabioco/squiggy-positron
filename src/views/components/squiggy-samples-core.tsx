@@ -1035,6 +1035,65 @@ export const SamplesCore: React.FC = () => {
                                             })()}
                                         </div>
 
+                                        {/* References (from BAM alignment) */}
+                                        {sample.references && sample.references.length > 0 && (
+                                            <div style={{ marginBottom: '4px' }}>
+                                                <div
+                                                    style={{
+                                                        color: 'var(--vscode-descriptionForeground)',
+                                                        fontSize: '0.8em',
+                                                        marginBottom: '2px',
+                                                    }}
+                                                >
+                                                    References ({sample.references.length})
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '3px 4px',
+                                                        backgroundColor:
+                                                            'var(--vscode-editor-background)',
+                                                        borderRadius: '2px',
+                                                        fontSize: '0.85em',
+                                                        maxHeight: '80px',
+                                                        overflowY: 'auto',
+                                                    }}
+                                                >
+                                                    {sample.references.map((ref, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            style={{
+                                                                padding: '1px 0',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                gap: '4px',
+                                                            }}
+                                                        >
+                                                            <span
+                                                                style={{
+                                                                    flex: 1,
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                                title={ref.name}
+                                                            >
+                                                                {ref.name}
+                                                            </span>
+                                                            <span
+                                                                style={{
+                                                                    color: 'var(--vscode-descriptionForeground)',
+                                                                    fontSize: '0.9em',
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            >
+                                                                {ref.readCount} reads
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Unload Button */}
                                         <div
                                             style={{

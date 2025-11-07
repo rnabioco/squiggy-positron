@@ -944,13 +944,31 @@ async function loadSampleForComparison(
                 throw new Error('SquiggyAPI not initialized');
             }
 
-            // Use FileLoadingService for consistent loading
+            // Use FileLoadingService to load sample into registry (for multi-sample support)
             const service = new FileLoadingService(state);
-            const fileResults = await service.loadSample(pod5Path, bamPath, fastaPath);
+            const loadResult = await service.loadSampleIntoRegistry(
+                sampleName,
+                pod5Path,
+                bamPath,
+                fastaPath
+            );
 
-            if (!fileResults.pod5Result.success) {
-                throw new Error(fileResults.pod5Result.error || 'Failed to load POD5');
+            // Get complete sample info including references (if BAM was loaded)
+            let references = undefined;
+            if (bamPath && state.squiggyAPI) {
+                try {
+                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    if (sampleInfo && sampleInfo.references) {
+                        references = sampleInfo.references;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch reference info for sample '${sampleName}':`, error);
+                }
             }
+
+            // Extract metadata for UI
+            const metadata = await service['extractFileMetadata'](pod5Path);
+            const readCount = loadResult.numReads;
 
             // Create LoadedItem for unified state
             const item: LoadedItem = {
@@ -960,13 +978,13 @@ async function loadSampleForComparison(
                 pod5Path,
                 bamPath,
                 fastaPath,
-                readCount: fileResults.pod5Result.readCount,
-                fileSize: fileResults.pod5Result.fileSize,
-                fileSizeFormatted: fileResults.pod5Result.fileSizeFormatted,
-                hasAlignments: fileResults.bamResult?.success ?? false,
-                hasReference: fileResults.fastaResult?.success ?? false,
-                hasMods: (fileResults.bamResult as BAMLoadResult)?.hasModifications ?? false,
-                hasEvents: (fileResults.bamResult as BAMLoadResult)?.hasEventAlignment ?? false,
+                readCount,
+                fileSize: metadata.fileSize,
+                fileSizeFormatted: metadata.fileSizeFormatted,
+                hasAlignments: !!bamPath,
+                hasReference: !!fastaPath,
+                hasMods: false, // Will be populated if BAM has mods
+                hasEvents: false, // Will be populated if BAM has event alignment
             };
 
             // Add to unified state (triggers onLoadedItemsChanged event)
@@ -979,9 +997,10 @@ async function loadSampleForComparison(
                 pod5Path,
                 bamPath,
                 fastaPath,
-                readCount: fileResults.pod5Result.readCount,
+                readCount,
                 hasBam: !!bamPath,
                 hasFasta: !!fastaPath,
+                references,  // Add reference information
                 isLoaded: true,
                 metadata: {
                     autoDetected: false,
@@ -997,7 +1016,7 @@ async function loadSampleForComparison(
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             vscode.window.showInformationMessage(
-                `Sample '${sampleName}' loaded with ${fileResults.pod5Result.readCount} reads`
+                `Sample '${sampleName}' loaded with ${readCount} reads`
             );
         },
         ErrorContext.POD5_LOAD,
@@ -1049,17 +1068,34 @@ async function loadTestMultiReadDataset(
                         throw new Error('SquiggyAPI not initialized');
                     }
 
-                    // Use FileLoadingService for consistent loading
+                    // Use FileLoadingService to load sample into registry (for multi-sample support)
                     const service = new FileLoadingService(state);
-                    const fileResults = await service.loadSample(
+                    const loadResult = await service.loadSampleIntoRegistry(
+                        sample.name,
                         sample.pod5Path,
                         sample.bamPath,
                         sample.fastaPath
                     );
 
-                    if (!fileResults.pod5Result.success) {
-                        throw new Error(fileResults.pod5Result.error || 'Failed to load POD5');
+                    // Get complete sample info including references (if BAM was loaded)
+                    let references = undefined;
+                    if (sample.bamPath && state.squiggyAPI) {
+                        try {
+                            const sampleInfo = await state.squiggyAPI.getSampleInfo(sample.name);
+                            if (sampleInfo && sampleInfo.references) {
+                                references = sampleInfo.references;
+                            }
+                        } catch (error) {
+                            console.warn(
+                                `Failed to fetch reference info for sample '${sample.name}':`,
+                                error
+                            );
+                        }
                     }
+
+                    // Extract metadata for UI
+                    const metadata = await service['extractFileMetadata'](sample.pod5Path);
+                    const readCount = loadResult.numReads;
 
                     // Create LoadedItem for unified state
                     const item: LoadedItem = {
@@ -1069,15 +1105,13 @@ async function loadTestMultiReadDataset(
                         pod5Path: sample.pod5Path,
                         bamPath: sample.bamPath,
                         fastaPath: sample.fastaPath,
-                        readCount: fileResults.pod5Result.readCount,
-                        fileSize: fileResults.pod5Result.fileSize,
-                        fileSizeFormatted: fileResults.pod5Result.fileSizeFormatted,
-                        hasAlignments: fileResults.bamResult?.success ?? false,
-                        hasReference: fileResults.fastaResult?.success ?? false,
-                        hasMods:
-                            (fileResults.bamResult as BAMLoadResult)?.hasModifications ?? false,
-                        hasEvents:
-                            (fileResults.bamResult as BAMLoadResult)?.hasEventAlignment ?? false,
+                        readCount,
+                        fileSize: metadata.fileSize,
+                        fileSizeFormatted: metadata.fileSizeFormatted,
+                        hasAlignments: !!sample.bamPath,
+                        hasReference: !!sample.fastaPath,
+                        hasMods: false, // Will be populated if BAM has mods
+                        hasEvents: false, // Will be populated if BAM has event alignment
                     };
 
                     // Add to unified state (triggers onLoadedItemsChanged event)
@@ -1090,9 +1124,10 @@ async function loadTestMultiReadDataset(
                         pod5Path: sample.pod5Path,
                         bamPath: sample.bamPath,
                         fastaPath: sample.fastaPath,
-                        readCount: fileResults.pod5Result.readCount,
+                        readCount,
                         hasBam: !!sample.bamPath,
                         hasFasta: !!sample.fastaPath,
+                        references,  // Add reference information
                         isLoaded: true,
                         metadata: {
                             // Note: autoDetected tracks whether files were matched by naming convention.
