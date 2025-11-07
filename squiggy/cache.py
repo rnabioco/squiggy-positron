@@ -106,7 +106,7 @@ class SquiggyCache:
 
             return cached["index"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_pod5_index(
@@ -138,7 +138,7 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        except (OSError, pickle.PicklingError) as e:
+        except (OSError, pickle.PicklingError):
             pass
 
     def load_pod5_read_ids(self, file_path: Path) -> list[str] | None:
@@ -169,7 +169,7 @@ class SquiggyCache:
 
             return cached["read_ids"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_pod5_read_ids(self, file_path: Path, read_ids: list[str]) -> None:
@@ -197,7 +197,7 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        except (OSError, pickle.PicklingError) as e:
+        except (OSError, pickle.PicklingError):
             pass
 
     def load_bam_ref_mapping(self, file_path: Path) -> dict[str, list[str]] | None:
@@ -228,7 +228,7 @@ class SquiggyCache:
 
             return cached["ref_mapping"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_bam_ref_mapping(
@@ -260,7 +260,7 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        except (OSError, pickle.PicklingError) as e:
+        except (OSError, pickle.PicklingError):
             pass
 
     def load_bam_metadata(self, file_path: Path) -> dict | None:
@@ -306,7 +306,7 @@ class SquiggyCache:
 
             return cached["metadata"]
 
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError) as e:
+        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
             return None
 
     def save_bam_metadata(self, file_path: Path, metadata: dict) -> None:
@@ -349,7 +349,7 @@ class SquiggyCache:
             with open(cache_path, "wb") as f:
                 pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        except (OSError, pickle.PicklingError) as e:
+        except (OSError, pickle.PicklingError):
             pass
 
     def clear_cache(self) -> int:
@@ -367,7 +367,7 @@ class SquiggyCache:
             try:
                 cache_file.unlink()
                 count += 1
-            except OSError as e:
+            except OSError:
                 pass
 
         return count

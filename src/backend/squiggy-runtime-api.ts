@@ -947,7 +947,9 @@ ${tempVar} = _sample.read_ids${sliceStr} if _sample else []
 
             const elapsed = Date.now() - startTime;
             const readIdArray = (readIds as string[]) || [];
-            logger.debug(`[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`);
+            logger.debug(
+                `[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`
+            );
             return readIdArray;
         } catch (error) {
             logger.warning(`Failed to get read IDs for sample '${sampleName}'`, error);

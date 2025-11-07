@@ -51,10 +51,9 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | No
             for alignment in bam.fetch(until_eof=True):
                 if alignment.query_name == read_id:
                     return _parse_alignment(alignment)
-    except Exception as e:
-        logger.warning(
-            f"Error reading BAM file for read '{read_id}': {e}", exc_info=True
-        )
+    except Exception:
+        # Error reading BAM file - return None
+        pass
 
     return None
 
@@ -147,9 +146,9 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         from .modifications import extract_modifications_from_alignment
 
         modifications = extract_modifications_from_alignment(alignment, bases)
-    except Exception as e:
+    except Exception:
         # Modifications are optional, don't fail if extraction fails
-        logger.debug(f"Could not extract modifications for read: {e}")
+        pass
 
     return AlignedRead(
         read_id=alignment.query_name,

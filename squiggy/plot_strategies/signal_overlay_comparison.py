@@ -290,9 +290,9 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
                     signal_min=signal_min,
                     signal_max=signal_max,
                 )
-            except Exception as e:
-                # Log error but don't fail plot generation
-                logger.warning("Could not render base annotations: %s", e)
+            except Exception:
+                # Silently skip base annotation rendering if it fails
+                pass
 
         # Configure legend
         p.legend.click_policy = "hide"  # Interactive legend

@@ -911,7 +911,7 @@ def plot_delta_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception as e:
+            except Exception:
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1089,7 +1089,7 @@ def plot_signal_overlay_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception as e:
+            except Exception:
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1149,7 +1149,7 @@ def plot_signal_overlay_comparison(
             )
             if reads:
                 reference_sequence = reads[0].get("reference_sequence", "") or ""
-        except Exception as e:
+        except Exception:
             # If we can't get reference sequence, continue without it
             pass
 
@@ -1262,7 +1262,7 @@ def plot_aggregate_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception as e:
+            except Exception:
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100

@@ -24,7 +24,6 @@ def normalize_signal(signal: np.ndarray, method: NormalizationMethod) -> np.ndar
     elif method == NormalizationMethod.MAD:
         return mad_normalize(signal)
     else:
-        valid_methods = [m.value for m in NormalizationMethod]
         raise ValueError(f"Unknown normalization method: {method}")
 
 

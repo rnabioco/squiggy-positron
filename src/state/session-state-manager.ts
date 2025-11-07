@@ -107,9 +107,7 @@ export class SessionStateManager {
         // Validate schema
         const validation = this.validateSession(session);
         if (!validation.valid) {
-            logger.warning(
-                `Session state validation failed: ${validation.errors.join(', ')}`
-            );
+            logger.warning(`Session state validation failed: ${validation.errors.join(', ')}`);
             return null;
         }
 

@@ -559,7 +559,7 @@ def get_basecall_data(
 
         bam.close()
 
-    except Exception as e:
+    except Exception:
         pass
 
     return None, None
@@ -2135,7 +2135,7 @@ def extract_model_provenance(bam_file: str) -> ModelProvenance:
                     if "DS" in pg:
                         provenance.flow_cell_kit = pg["DS"]
 
-    except Exception as e:
+    except Exception:
         # Return partial provenance if there's an error
         pass
 

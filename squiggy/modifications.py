@@ -200,7 +200,7 @@ def detect_modification_provenance(bam_file: Path) -> dict[str, Any]:
                     result["unknown"] = False
                     break
 
-    except Exception as e:
+    except Exception:
         pass
 
     return result
