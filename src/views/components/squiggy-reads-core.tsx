@@ -742,7 +742,9 @@ function rebuildItemsList(
         }
 
         // Add reference header
-        const isExpanded = expandedReferences.has(referenceName);
+        // Auto-expand references with matching reads in read search mode
+        const shouldAutoExpand = searchMode === 'read' && searchText && filteredReads.length > 0;
+        const isExpanded = shouldAutoExpand || expandedReferences.has(referenceName);
         items.push({
             type: 'reference',
             referenceName,
