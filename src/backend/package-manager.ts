@@ -170,13 +170,8 @@ print('SUCCESS')
     async showManualInstallationGuide(extensionPath: string): Promise<void> {
         const items = [
             {
-                label: '1️⃣ Install uv (macOS/Linux)',
+                label: '1️⃣ Install uv',
                 detail: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
-                description: '⭐ RECOMMENDED: Install uv package manager',
-            },
-            {
-                label: '1️⃣ Install uv (Windows)',
-                detail: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"',
                 description: '⭐ RECOMMENDED: Install uv package manager',
             },
             {
@@ -185,13 +180,8 @@ print('SUCCESS')
                 description: '⭐ Create .venv in your project directory',
             },
             {
-                label: '3️⃣ Activate venv (macOS/Linux)',
+                label: '3️⃣ Activate venv',
                 detail: 'source .venv/bin/activate',
-                description: '⭐ Activate the virtual environment',
-            },
-            {
-                label: '3️⃣ Activate venv (Windows)',
-                detail: '.venv\\Scripts\\activate',
                 description: '⭐ Activate the virtual environment',
             },
             {
