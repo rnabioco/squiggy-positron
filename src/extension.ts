@@ -17,6 +17,7 @@ import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
 import { registerSessionCommands } from './commands/session-commands';
+import { registerWalkthroughCommands } from './commands/walkthrough-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 import { logger } from './utils/logger';
 
@@ -351,6 +352,7 @@ export async function activate(context: vscode.ExtensionContext) {
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
     registerSessionCommands(context, state);
+    registerWalkthroughCommands(context, state);
 
     // Register command to show logs
     context.subscriptions.push(
