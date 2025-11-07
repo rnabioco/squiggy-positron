@@ -164,34 +164,24 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             margin-bottom: 16px;
         }
 
-        .instructions {
-            margin: 16px 0;
+        .info-box {
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 3px solid var(--vscode-textLink-foreground);
+            padding: 12px 16px;
+            margin-top: 16px;
+            margin-bottom: 16px;
         }
 
-        .instructions h3 {
-            margin-top: 24px;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .instructions ol {
-            padding-left: 24px;
-        }
-
-        .instructions li {
-            margin-bottom: 8px;
-        }
-
-        .code {
-            background-color: var(--vscode-textCodeBlock-background);
-            border: 1px solid var(--vscode-widget-border);
-            border-radius: 3px;
-            padding: 8px;
+        .info-box p {
             margin: 8px 0;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-            font-size: 12px;
-            overflow-x: auto;
+        }
+
+        .info-box p:first-child {
+            margin-top: 0;
+        }
+
+        .info-box p:last-child {
+            margin-bottom: 0;
         }
 
         .button-group {
@@ -262,66 +252,9 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
         <button class="secondary" onclick="retry()">Check Again</button>
     </div>
 
-    <div class="instructions">
-        <h3>Recommended: Install with uv (fast, modern)</h3>
-        <ol>
-            <li>
-                Install uv if you don't have it:
-                <div class="code">
-                    # macOS/Linux<br>
-                    curl -LsSf https://astral.sh/uv/install.sh | sh<br>
-                    <br>
-                    # Windows<br>
-                    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-                </div>
-            </li>
-            <li>
-                Create a virtual environment in your project:
-                <div class="code">uv venv</div>
-            </li>
-            <li>
-                Activate it:
-                <div class="code">
-                    # macOS/Linux<br>
-                    source .venv/bin/activate<br>
-                    <br>
-                    # Windows<br>
-                    .venv\\Scripts\\activate
-                </div>
-            </li>
-            <li>
-                Install squiggy:
-                <div class="code">uv pip install -e "${this.context.extensionPath}"</div>
-            </li>
-            <li>
-                Select the .venv environment in Positron using the interpreter selector
-            </li>
-        </ol>
-
-        <h3>Alternative: Traditional pip method</h3>
-        <ol>
-            <li>
-                Create a virtual environment:
-                <div class="code">python3 -m venv .venv</div>
-            </li>
-            <li>
-                Activate it:
-                <div class="code">
-                    # macOS/Linux<br>
-                    source .venv/bin/activate<br>
-                    <br>
-                    # Windows<br>
-                    .venv\\Scripts\\activate
-                </div>
-            </li>
-            <li>
-                Install squiggy:
-                <div class="code">pip install -e "${this.context.extensionPath}"</div>
-            </li>
-            <li>
-                Select the .venv environment in Positron using the interpreter selector
-            </li>
-        </ol>
+    <div class="info-box">
+        <p><strong>Recommended:</strong> Click "📖 View Detailed Instructions" above to see step-by-step commands for installing with <strong>uv</strong> (modern, fast package manager).</p>
+        <p><strong>Quick option:</strong> Click "Install Automatically" to attempt installation in your current environment (may not work with externally-managed or old Python versions).</p>
     </div>
 
     <div class="note">
