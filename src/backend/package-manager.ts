@@ -287,7 +287,9 @@ print('SUCCESS')
                             }
                         } else if (
                             errorMessage.includes('setup.py" or "setup.cfg" not found') ||
-                            errorMessage.includes('editable mode currently requires a setuptools-based build')
+                            errorMessage.includes(
+                                'editable mode currently requires a setuptools-based build'
+                            )
                         ) {
                             // Detect old pip version that doesn't support pyproject.toml editable installs
                             const choice = await vscode.window.showErrorMessage(

@@ -76,7 +76,10 @@ export function registerKernelListeners(
                                 // Kernel restarted and is now ready - re-check installation
                                 logger.info('Kernel ready after restart - rechecking installation');
                                 onSessionChange().catch((error) => {
-                                    logger.error('Error rechecking installation after restart', error);
+                                    logger.error(
+                                        'Error rechecking installation after restart',
+                                        error
+                                    );
                                 });
                             }
                         })

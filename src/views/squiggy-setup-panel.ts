@@ -54,7 +54,8 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
         this.postMessage({
             type: 'updateStatus',
             installed: false,
-            message: 'The squiggy Python package is not installed in your active Python environment.',
+            message:
+                'The squiggy Python package is not installed in your active Python environment.',
         });
     }
 
