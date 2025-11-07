@@ -989,6 +989,9 @@ async function loadSampleForComparison(
                 },
             });
 
+            // Auto-select newly loaded sample for visualization (Issue #124 fix)
+            state.addSampleToVisualization(sampleName);
+
             // Reveal samples panel (subscribed to unified state, so no refresh needed)
             await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
             await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1098,6 +1101,9 @@ async function loadTestMultiReadDataset(
                             sourceType: 'manual',
                         },
                     });
+
+                    // Auto-select newly loaded sample for visualization (Issue #124 fix)
+                    state.addSampleToVisualization(sample.name);
 
                     logger.debug(
                         `[loadTestMultiReadDataset] Sample '${sample.name}' added. Total:`,
@@ -1239,6 +1245,9 @@ async function loadSamplesFromDropped(
                             sourceType: 'manual',
                         },
                     });
+
+                    // Auto-select newly loaded sample for visualization (Issue #124 fix)
+                    state.addSampleToVisualization(sampleName);
 
                     // Auto-select and load reads in Read Explorer for first sample
                     // or on user's first interaction (state.selectedReadExplorerSample will be set later)
