@@ -17,10 +17,12 @@ import { logger } from '../utils/logger';
  *
  * @param context VSCode extension context
  * @param state Extension state manager
+ * @param onSessionChange Optional callback to run when session changes (e.g., re-check installation)
  */
 export function registerKernelListeners(
     context: vscode.ExtensionContext,
-    state: ExtensionState
+    state: ExtensionState,
+    onSessionChange?: () => Promise<void>
 ): void {
     if (!state.usePositron) {
         // Only register listeners when using Positron runtime
@@ -31,10 +33,19 @@ export function registerKernelListeners(
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const positron = require('positron');
 
-        // Helper function to clear extension state
+        // Helper function to clear extension state and re-check installation
         const clearExtensionState = async (reason: string) => {
             await state.clearAll();
             logger.debug(`Squiggy: ${reason}, state cleared`);
+
+            // Re-check installation after session change if callback provided
+            if (onSessionChange) {
+                try {
+                    await onSessionChange();
+                } catch (error) {
+                    logger.error('Error in session change callback', error);
+                }
+            }
         };
 
         // Listen for session changes (kernel switches)
@@ -61,6 +72,15 @@ export function registerKernelListeners(
                             if (runtimeState === 'restarting' || runtimeState === 'exited') {
                                 logger.debug('Squiggy: Kernel state changed to:', runtimeState);
                                 clearExtensionState(`Kernel ${runtimeState}`);
+                            } else if (runtimeState === 'ready' && onSessionChange) {
+                                // Kernel restarted and is now ready - re-check installation
+                                logger.info('Kernel ready after restart - rechecking installation');
+                                onSessionChange().catch((error) => {
+                                    logger.error(
+                                        'Error rechecking installation after restart',
+                                        error
+                                    );
+                                });
                             }
                         })
                     );
