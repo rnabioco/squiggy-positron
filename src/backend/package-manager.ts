@@ -76,9 +76,8 @@ except ImportError:
         const code = `
 import sys
 import os
-import json
 
-result = {
+_squiggy_env_info = {
     'is_venv': hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix),
     'is_conda': 'CONDA_PREFIX' in os.environ or 'CONDA_DEFAULT_ENV' in os.environ,
     'is_externally_managed': os.path.exists(os.path.join(sys.prefix, 'EXTERNALLY-MANAGED')),
@@ -86,11 +85,11 @@ result = {
     'prefix': sys.prefix,
     'base_prefix': getattr(sys, 'base_prefix', sys.prefix)
 }
-_squiggy_env_info = json.dumps(result)
 `;
 
         try {
             await this.client.executeSilent(code);
+            // getVariable() will handle JSON encoding/decoding
             const envInfo = await this.client.getVariable('_squiggy_env_info');
             await this.client.executeSilent('del _squiggy_env_info');
 
