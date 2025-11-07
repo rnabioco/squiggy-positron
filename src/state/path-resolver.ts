@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { logger } from '../utils/logger';
 
 export class PathResolver {
     /**
@@ -57,7 +58,7 @@ else:
                     return result;
                 }
             } catch (error) {
-                console.error(`Failed to resolve package path for ${packageName}:`, error);
+                logger.error(`Failed to resolve package path for ${packageName}:`, error);
             }
         }
 
