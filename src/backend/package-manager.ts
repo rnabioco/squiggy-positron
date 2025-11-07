@@ -76,9 +76,8 @@ except ImportError:
         const code = `
 import sys
 import os
-import json
 
-result = {
+_squiggy_env_info = {
     'is_venv': hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix),
     'is_conda': 'CONDA_PREFIX' in os.environ or 'CONDA_DEFAULT_ENV' in os.environ,
     'is_externally_managed': os.path.exists(os.path.join(sys.prefix, 'EXTERNALLY-MANAGED')),
@@ -86,11 +85,11 @@ result = {
     'prefix': sys.prefix,
     'base_prefix': getattr(sys, 'base_prefix', sys.prefix)
 }
-_squiggy_env_info = json.dumps(result)
 `;
 
         try {
             await this.client.executeSilent(code);
+            // getVariable() will handle JSON encoding/decoding
             const envInfo = await this.client.getVariable('_squiggy_env_info');
             await this.client.executeSilent('del _squiggy_env_info');
 
@@ -171,38 +170,58 @@ print('SUCCESS')
     async showManualInstallationGuide(extensionPath: string): Promise<void> {
         const items = [
             {
-                label: '1. Create Virtual Environment',
-                detail: 'python3 -m venv .venv',
-                description: 'Create a new virtual environment in your project',
+                label: '1️⃣ Install uv',
+                detail: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+                description: '⭐ RECOMMENDED: Install uv package manager',
             },
             {
-                label: '2. Activate Virtual Environment (macOS/Linux)',
+                label: '2️⃣ Create Virtual Environment with uv',
+                detail: 'uv venv',
+                description: '⭐ Create .venv in your project directory',
+            },
+            {
+                label: '3️⃣ Activate venv',
                 detail: 'source .venv/bin/activate',
-                description: 'Activate the virtual environment',
+                description: '⭐ Activate the virtual environment',
             },
             {
-                label: '3. Activate Virtual Environment (Windows)',
-                detail: '.venv\\Scripts\\activate',
-                description: 'Activate the virtual environment on Windows',
+                label: '4️⃣ Install Squiggy with uv',
+                detail: `uv pip install -e "${extensionPath}"`,
+                description: '⭐ Install from extension directory (editable mode)',
             },
             {
-                label: '4. Install Squiggy Package',
+                label: '5️⃣ Select Environment in Positron',
+                detail: 'Use the Interpreter selector (bottom-right) to choose .venv',
+                description: '⭐ Switch to your new virtual environment',
+            },
+            {
+                label: '━━━━━━━━━━━━━━━━━━━━━━━━',
+                detail: '',
+                description: 'Alternative: Traditional pip',
+            },
+            {
+                label: '🐍 Alt: Create venv with pip',
+                detail: 'python3 -m venv .venv',
+                description: 'Only if you cannot use uv',
+            },
+            {
+                label: '🐍 Alt: Activate venv',
+                detail: 'source .venv/bin/activate',
+                description: 'Activate with standard Python',
+            },
+            {
+                label: '🐍 Alt: Install with pip',
                 detail: `pip install -e "${extensionPath}"`,
-                description: 'Install squiggy in editable mode',
-            },
-            {
-                label: '5. Select Environment in Positron',
-                detail: 'Use the Interpreter selector to choose your new .venv',
-                description: 'Switch to the new virtual environment',
+                description: 'Install from extension directory with pip',
             },
         ];
 
         const selected = await vscode.window.showQuickPick(items, {
-            placeHolder: 'Select a command to copy to clipboard',
-            title: 'Manual Installation Steps',
+            placeHolder: 'Click to copy command to clipboard',
+            title: '⭐ Recommended: uv workflow (fast, modern, reliable)',
         });
 
-        if (selected && selected.detail) {
+        if (selected && selected.detail && selected.detail.length > 0) {
             await vscode.env.clipboard.writeText(selected.detail);
             vscode.window.showInformationMessage(`Copied to clipboard: ${selected.detail}`);
         }
@@ -264,6 +283,24 @@ print('SUCCESS')
                             const choice = await vscode.window.showErrorMessage(
                                 'Cannot install squiggy: Python environment is externally managed by your ' +
                                     'system package manager. Please create a virtual environment first.',
+                                'Show Instructions',
+                                'Dismiss'
+                            );
+
+                            if (choice === 'Show Instructions') {
+                                await this.showManualInstallationGuide(extensionPath);
+                            }
+                        } else if (
+                            errorMessage.includes('setup.py" or "setup.cfg" not found') ||
+                            errorMessage.includes(
+                                'editable mode currently requires a setuptools-based build'
+                            )
+                        ) {
+                            // Detect old pip version that doesn't support pyproject.toml editable installs
+                            const choice = await vscode.window.showErrorMessage(
+                                'Cannot install squiggy: Your pip version is too old to install packages ' +
+                                    'with pyproject.toml in editable mode. Please upgrade pip or create a ' +
+                                    'virtual environment with a newer Python version.',
                                 'Show Instructions',
                                 'Dismiss'
                             );

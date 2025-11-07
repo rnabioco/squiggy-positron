@@ -13,6 +13,7 @@ import { ModificationsPanelProvider } from './views/squiggy-modifications-panel'
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { SamplesPanelProvider } from './views/squiggy-samples-panel';
 import { SessionPanelProvider } from './views/squiggy-session-panel';
+import { SquiggySetupPanelProvider } from './views/squiggy-setup-panel';
 import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
@@ -22,6 +23,9 @@ import { logger } from './utils/logger';
 
 // Global extension state
 const state = new ExtensionState();
+
+// Track if we're in setup mode (squiggy not installed)
+let isSetupMode = false;
 
 /**
  * Extension activation
@@ -33,13 +37,117 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize backends (Positron or subprocess fallback)
     await state.initializeBackends(context);
 
-    // Create and register UI panel providers
+    // Register all panels and commands immediately
+    // (The UI will be controlled by the squiggy.setupMode context key)
+    await registerAllPanelsAndCommands(context);
+
+    // Check installation status after kernel is ready
+    if (state.usePositron && state.packageManager) {
+        // Wait for kernel to be ready, then check installation
+        waitForKernelAndCheckInstallation(context).catch((error) => {
+            logger.error(`Failed to check installation: ${error}`);
+            // On error, default to setup mode
+            vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+            isSetupMode = true;
+        });
+    } else {
+        // Not using Positron - activate in normal mode immediately
+        await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', false);
+        isSetupMode = false;
+        logger.info('Normal mode activated (not using Positron)');
+    }
+}
+
+/**
+ * Wait for Python kernel to be ready, then check squiggy installation
+ */
+async function waitForKernelAndCheckInstallation(_context: vscode.ExtensionContext): Promise<void> {
+    logger.info('Waiting for Python kernel to be ready before checking installation...');
+
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+        const positron = require('positron');
+
+        // Wait for a foreground session to be available
+        let session = await positron.runtime.getForegroundSession();
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds max wait
+
+        while (!session && attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            session = await positron.runtime.getForegroundSession();
+            attempts++;
+        }
+
+        if (!session) {
+            logger.warning(
+                'No Python kernel session found after 30 seconds - activating in setup mode'
+            );
+            await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+            isSetupMode = true;
+            return;
+        }
+
+        logger.info(`Python kernel session found: ${session.metadata.sessionId}`);
+
+        // Check if squiggy is installed
+        if (!state.packageManager) {
+            logger.error('Package manager not available');
+            return;
+        }
+
+        const isInstalled = await state.packageManager.isSquiggyInstalled();
+
+        if (isInstalled) {
+            logger.info('Squiggy package detected - activating in normal mode');
+            await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', false);
+            isSetupMode = false;
+        } else {
+            logger.info('Squiggy package not found - activating in setup mode');
+            await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+            isSetupMode = true;
+        }
+    } catch (error) {
+        logger.error(`Error checking installation: ${error}`);
+        throw error;
+    }
+}
+
+/**
+ * Register all panels and commands
+ * Panels are shown/hidden based on the squiggy.setupMode context key
+ */
+async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): Promise<void> {
+    logger.info('Registering UI panels and commands...');
+
+    // Set initial context to setup mode (will be updated after kernel check)
+    await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+
+    // Create setup panel
+    const setupPanelProvider = new SquiggySetupPanelProvider(context.extensionUri, state, context);
+
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            SquiggySetupPanelProvider.viewType,
+            setupPanelProvider
+        )
+    );
+
+    // Create normal mode panel providers
     const sessionPanelProvider = new SessionPanelProvider(context.extensionUri, context, state);
     const readsViewPane = new ReadsViewPane(context.extensionUri, state);
     const plotOptionsProvider = new PlotOptionsViewProvider(context.extensionUri, state);
     const modificationsProvider = new ModificationsPanelProvider(context.extensionUri);
     const motifSearchProvider = new MotifSearchPanelProvider(context.extensionUri, state);
     const samplesProvider = new SamplesPanelProvider(context.extensionUri, state);
+
+    // Initialize state with panel references (needed for session serialization)
+    state.initializePanels(
+        readsViewPane,
+        plotOptionsProvider,
+        modificationsProvider,
+        samplesProvider
+    );
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(SamplesPanelProvider.viewType, samplesProvider),
@@ -60,14 +168,6 @@ export async function activate(context: vscode.ExtensionContext) {
             MotifSearchPanelProvider.viewType,
             motifSearchProvider
         )
-    );
-
-    // Initialize state with panel references
-    state.initializePanels(
-        readsViewPane,
-        plotOptionsProvider,
-        modificationsProvider,
-        samplesProvider
     );
 
     // Set initial context for modifications panel (hidden by default)
@@ -344,7 +444,34 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     // Register kernel event listeners (session changes, restarts)
-    registerKernelListeners(context, state);
+    // Pass installation checker to re-check when kernel changes
+    registerKernelListeners(context, state, async () => {
+        // Re-check installation when kernel session changes
+        if (state.packageManager) {
+            logger.info('Kernel session changed - rechecking squiggy installation...');
+            const isInstalled = await state.packageManager.isSquiggyInstalled();
+
+            if (isInstalled && isSetupMode) {
+                // Switched to interpreter with squiggy - activate normal mode
+                logger.info('New kernel has squiggy installed - switching to normal mode');
+                await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', false);
+                isSetupMode = false;
+                vscode.window.showInformationMessage(
+                    'Squiggy package detected in new Python environment - extension activated'
+                );
+            } else if (!isInstalled && !isSetupMode) {
+                // Switched to interpreter without squiggy - activate setup mode
+                logger.warning(
+                    'New kernel does not have squiggy installed - switching to setup mode'
+                );
+                await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+                isSetupMode = true;
+                vscode.window.showWarningMessage(
+                    'Squiggy package not found in new Python environment - please install it'
+                );
+            }
+        }
+    });
 
     // Register all commands
     registerFileCommands(context, state);
@@ -356,6 +483,13 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.showLogs', () => {
             logger.show();
+        })
+    );
+
+    // Register command to check installation
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.checkInstallation', async () => {
+            await checkInstallationAndReload(context);
         })
     );
 
@@ -380,7 +514,53 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Extension activated silently - no welcome message needed
+    logger.info('All panels and commands registered');
+}
+
+/**
+ * Check if squiggy is installed and update UI accordingly
+ * No reload required - UI automatically updates based on context key
+ */
+async function checkInstallationAndReload(_context: vscode.ExtensionContext): Promise<void> {
+    if (!state.packageManager) {
+        vscode.window.showErrorMessage('Package manager not available');
+        return;
+    }
+
+    logger.info('Checking squiggy installation status...');
+    const isInstalled = await state.packageManager.isSquiggyInstalled();
+
+    if (isSetupMode && isInstalled) {
+        // Was in setup mode, now installed - switch to normal mode
+        logger.info('Squiggy now installed - switching to normal mode');
+        await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', false);
+        isSetupMode = false;
+        const version = await state.packageManager.getSquiggyVersion();
+        vscode.window.showInformationMessage(
+            `Squiggy package detected (version ${version || 'unknown'})! Extension is now active.`
+        );
+    } else if (!isSetupMode && !isInstalled) {
+        // Was in normal mode, now uninstalled - switch to setup mode
+        logger.warning('Squiggy no longer installed - switching to setup mode');
+        await vscode.commands.executeCommand('setContext', 'squiggy.setupMode', true);
+        isSetupMode = true;
+        vscode.window.showWarningMessage(
+            'Squiggy package is no longer installed. Please reinstall it using the instructions in the sidebar.'
+        );
+    } else if (isSetupMode && !isInstalled) {
+        // Still not installed
+        logger.info('Squiggy still not installed');
+        vscode.window.showWarningMessage(
+            'Squiggy package is still not installed. Please install it using the instructions in the sidebar.'
+        );
+    } else {
+        // Already installed and in normal mode
+        const version = await state.packageManager.getSquiggyVersion();
+        logger.info(`Squiggy is installed (version ${version || 'unknown'})`);
+        vscode.window.showInformationMessage(
+            `Squiggy package is installed (version ${version || 'unknown'})`
+        );
+    }
 }
 
 /**

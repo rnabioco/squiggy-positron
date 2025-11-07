@@ -107,7 +107,13 @@ export class SessionStateManager {
         // Validate schema
         const validation = this.validateSession(session);
         if (!validation.valid) {
+            // Clear invalid session from workspace state
+            await context.workspaceState.update(SESSION_STATE_KEY, undefined);
+
             logger.warning(`Session state validation failed: ${validation.errors.join(', ')}`);
+            vscode.window.showWarningMessage(
+                `Saved session was invalid and has been cleared: ${validation.errors.join(', ')}`
+            );
             return null;
         }
 
