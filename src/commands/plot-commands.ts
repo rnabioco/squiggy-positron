@@ -601,18 +601,41 @@ async function plotDeltaComparison(
 /**
  * Check which samples have the specified reference
  */
-function checkSampleReferenceCompatibility(
+async function checkSampleReferenceCompatibility(
     sampleNames: string[],
     referenceName: string,
     state: ExtensionState
-): { compatible: string[]; incompatible: Array<{ name: string; references: string[] }> } {
+): Promise<{ compatible: string[]; incompatible: Array<{ name: string; references: string[] }> }> {
     const compatible: string[] = [];
     const incompatible: Array<{ name: string; references: string[] }> = [];
 
     for (const sampleName of sampleNames) {
         const sample = state.getSample(sampleName);
-        if (!sample || !sample.references || sample.references.length === 0) {
-            // No reference info available - assume compatible (will fail in Python if not)
+        if (!sample) {
+            // Sample not found - skip
+            continue;
+        }
+
+        // If reference info is missing, try to fetch it on-demand
+        if (!sample.references || sample.references.length === 0) {
+            if (sample.hasBam && state.squiggyAPI) {
+                try {
+                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    if (sampleInfo && sampleInfo.references) {
+                        // Update the sample with fetched reference info
+                        sample.references = sampleInfo.references;
+                    }
+                } catch (error) {
+                    logger.debug(
+                        `Failed to fetch reference info for sample '${sampleName}':`,
+                        error
+                    );
+                }
+            }
+        }
+
+        // If still no reference info, assume compatible (will fail in Python if not)
+        if (!sample.references || sample.references.length === 0) {
             compatible.push(sampleName);
             continue;
         }
@@ -709,8 +732,8 @@ async function plotAggregateComparison(
                 throw new Error('At least one metric must be selected for comparison');
             }
 
-            // Check sample-reference compatibility
-            const { compatible, incompatible } = checkSampleReferenceCompatibility(
+            // Check sample-reference compatibility (fetch reference info if missing)
+            const { compatible, incompatible } = await checkSampleReferenceCompatibility(
                 params.sampleNames,
                 params.reference,
                 state
