@@ -6,7 +6,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ExtensionState } from '../state/extension-state';
+import { ExtensionState, ReferenceInfo } from '../state/extension-state';
 import { ReadItem } from '../types/squiggy-reads-types';
 import { ErrorContext, safeExecuteWithProgress } from '../utils/error-handler';
 import { logger } from '../utils/logger';
@@ -606,49 +606,89 @@ async function checkSampleReferenceCompatibility(
     referenceName: string,
     state: ExtensionState
 ): Promise<{ compatible: string[]; incompatible: Array<{ name: string; references: string[] }> }> {
+    logger.info(
+        `[Reference Check] Starting compatibility check for reference '${referenceName}' across ${sampleNames.length} samples: ${sampleNames.join(', ')}`
+    );
+
     const compatible: string[] = [];
     const incompatible: Array<{ name: string; references: string[] }> = [];
 
     for (const sampleName of sampleNames) {
         const sample = state.getSample(sampleName);
         if (!sample) {
-            // Sample not found - skip
+            logger.warning(`[Reference Check] Sample '${sampleName}' not found in state - skipping`);
             continue;
         }
+
+        logger.debug(
+            `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, references=${sample.references ? JSON.stringify(sample.references) : 'undefined'}`
+        );
 
         // If reference info is missing, try to fetch it on-demand
         if (!sample.references || sample.references.length === 0) {
             if (sample.hasBam && state.squiggyAPI) {
+                logger.info(
+                    `[Reference Check] Sample '${sampleName}' has no cached references - fetching on-demand from Python...`
+                );
                 try {
                     const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         // Update the sample with fetched reference info
                         sample.references = sampleInfo.references;
+                        logger.info(
+                            `[Reference Check] Fetched ${sampleInfo.references.length} references for '${sampleName}': ${sampleInfo.references.map((r: ReferenceInfo) => r.name).join(', ')}`
+                        );
+                    } else {
+                        logger.warning(
+                            `[Reference Check] getSampleInfo returned no references for '${sampleName}'`
+                        );
                     }
                 } catch (error) {
-                    logger.debug(
-                        `Failed to fetch reference info for sample '${sampleName}':`,
+                    logger.error(
+                        `[Reference Check] Failed to fetch reference info for sample '${sampleName}':`,
                         error
                     );
                 }
+            } else {
+                logger.debug(
+                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, squiggyAPI=${!!state.squiggyAPI} - cannot fetch references`
+                );
             }
         }
 
         // If still no reference info, assume compatible (will fail in Python if not)
         if (!sample.references || sample.references.length === 0) {
+            logger.warning(
+                `[Reference Check] Sample '${sampleName}' has no reference info even after fetch - assuming compatible (may fail later)`
+            );
             compatible.push(sampleName);
             continue;
         }
 
         const hasReference = sample.references.some((ref) => ref.name === referenceName);
         if (hasReference) {
+            logger.info(
+                `[Reference Check] Sample '${sampleName}' HAS reference '${referenceName}' - COMPATIBLE`
+            );
             compatible.push(sampleName);
         } else {
+            logger.warning(
+                `[Reference Check] Sample '${sampleName}' MISSING reference '${referenceName}' - INCOMPATIBLE (has: ${sample.references.map((r: ReferenceInfo) => r.name).join(', ')})`
+            );
             incompatible.push({
                 name: sampleName,
-                references: sample.references.map((r) => r.name),
+                references: sample.references.map((r: ReferenceInfo) => r.name),
             });
         }
+    }
+
+    logger.info(
+        `[Reference Check] Result: ${compatible.length} compatible, ${incompatible.length} incompatible`
+    );
+    if (incompatible.length > 0) {
+        logger.info(
+            `[Reference Check] Incompatible samples: ${incompatible.map((s) => s.name).join(', ')}`
+        );
     }
 
     return { compatible, incompatible };
@@ -741,6 +781,10 @@ async function plotAggregateComparison(
 
             // If there are incompatible samples, show dialog
             if (incompatible.length > 0) {
+                logger.info(
+                    `[Reference Check] Found ${incompatible.length} incompatible samples - showing dialog to user`
+                );
+
                 const shouldProceed = await showReferenceCompatibilityDialog(
                     params.reference,
                     compatible,
@@ -748,8 +792,11 @@ async function plotAggregateComparison(
                 );
 
                 if (!shouldProceed) {
+                    logger.info('[Reference Check] User cancelled plot - returning');
                     return; // User cancelled
                 }
+
+                logger.info('[Reference Check] User chose to proceed with compatible samples only');
 
                 // User chose to proceed - filter to compatible samples only
                 params.sampleNames = compatible;
@@ -760,6 +807,8 @@ async function plotAggregateComparison(
                         `Need at least 2 samples with reference '${params.reference}'. Only ${compatible.length} compatible sample(s) found.`
                     );
                 }
+            } else {
+                logger.info('[Reference Check] All samples compatible - proceeding with plot');
             }
 
             // Get plot options
