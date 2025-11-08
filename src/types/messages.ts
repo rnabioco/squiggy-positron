@@ -327,6 +327,12 @@ export type ModificationsOutgoingMessage = UpdateModInfoMessage | ClearModsMessa
 
 // ========== Sample Comparison Panel Messages ==========
 
+export interface ReferenceInfo {
+    name: string;
+    readCount: number;
+    length?: number;
+}
+
 export interface SampleItem {
     name: string;
     pod5Path: string;
@@ -335,6 +341,7 @@ export interface SampleItem {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+    references?: ReferenceInfo[]; // List of references this sample aligns to
 }
 
 export interface UpdateSamplesMessage extends BaseMessage {

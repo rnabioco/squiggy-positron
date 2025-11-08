@@ -6,7 +6,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ExtensionState } from '../state/extension-state';
+import { ExtensionState, ReferenceInfo } from '../state/extension-state';
 import { ReadItem } from '../types/squiggy-reads-types';
 import { ErrorContext, safeExecuteWithProgress } from '../utils/error-handler';
 import { logger } from '../utils/logger';
@@ -599,6 +599,148 @@ async function plotDeltaComparison(
 }
 
 /**
+ * Check which samples have the specified reference
+ */
+async function checkSampleReferenceCompatibility(
+    sampleNames: string[],
+    referenceName: string,
+    state: ExtensionState
+): Promise<{ compatible: string[]; incompatible: Array<{ name: string; references: string[] }> }> {
+    logger.info(
+        `[Reference Check] Starting compatibility check for reference '${referenceName}' across ${sampleNames.length} samples: ${sampleNames.join(', ')}`
+    );
+
+    const compatible: string[] = [];
+    const incompatible: Array<{ name: string; references: string[] }> = [];
+
+    for (const sampleName of sampleNames) {
+        const sample = state.getSample(sampleName);
+        if (!sample) {
+            logger.warning(
+                `[Reference Check] Sample '${sampleName}' not found in state - skipping`
+            );
+            continue;
+        }
+
+        logger.debug(
+            `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, references=${sample.references ? JSON.stringify(sample.references) : 'undefined'}`
+        );
+
+        // If reference info is missing, try to fetch it on-demand
+        if (!sample.references || sample.references.length === 0) {
+            if (sample.hasBam && state.squiggyAPI) {
+                logger.info(
+                    `[Reference Check] Sample '${sampleName}' has no cached references - fetching on-demand from Python...`
+                );
+                try {
+                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    if (sampleInfo && sampleInfo.references) {
+                        // Update the sample with fetched reference info
+                        sample.references = sampleInfo.references;
+                        logger.info(
+                            `[Reference Check] Fetched ${sampleInfo.references.length} references for '${sampleName}': ${sampleInfo.references.map((r: ReferenceInfo) => r.name).join(', ')}`
+                        );
+                    } else {
+                        logger.warning(
+                            `[Reference Check] getSampleInfo returned no references for '${sampleName}'`
+                        );
+                    }
+                } catch (error) {
+                    logger.error(
+                        `[Reference Check] Failed to fetch reference info for sample '${sampleName}':`,
+                        error
+                    );
+                }
+            } else {
+                logger.debug(
+                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, squiggyAPI=${!!state.squiggyAPI} - cannot fetch references`
+                );
+            }
+        }
+
+        // If still no reference info, assume compatible (will fail in Python if not)
+        if (!sample.references || sample.references.length === 0) {
+            logger.warning(
+                `[Reference Check] Sample '${sampleName}' has no reference info even after fetch - assuming compatible (may fail later)`
+            );
+            compatible.push(sampleName);
+            continue;
+        }
+
+        const hasReference = sample.references.some((ref) => ref.name === referenceName);
+        if (hasReference) {
+            logger.info(
+                `[Reference Check] Sample '${sampleName}' HAS reference '${referenceName}' - COMPATIBLE`
+            );
+            compatible.push(sampleName);
+        } else {
+            logger.warning(
+                `[Reference Check] Sample '${sampleName}' MISSING reference '${referenceName}' - INCOMPATIBLE (has: ${sample.references.map((r: ReferenceInfo) => r.name).join(', ')})`
+            );
+            incompatible.push({
+                name: sampleName,
+                references: sample.references.map((r: ReferenceInfo) => r.name),
+            });
+        }
+    }
+
+    logger.info(
+        `[Reference Check] Result: ${compatible.length} compatible, ${incompatible.length} incompatible`
+    );
+    if (incompatible.length > 0) {
+        logger.info(
+            `[Reference Check] Incompatible samples: ${incompatible.map((s) => s.name).join(', ')}`
+        );
+    }
+
+    return { compatible, incompatible };
+}
+
+/**
+ * Show dialog when reference mismatch is detected
+ * Informs user which samples don't have the selected reference
+ */
+async function showReferenceCompatibilityDialog(
+    referenceName: string,
+    compatibleSamples: string[],
+    incompatibleSamples: Array<{ name: string; references: string[] }>
+): Promise<void> {
+    // Build detailed message
+    const lines: string[] = [];
+    lines.push(`⚠️ Reference Mismatch`);
+    lines.push('');
+    lines.push(
+        `The selected reference '${referenceName}' is not available in the currently selected samples.`
+    );
+    lines.push('');
+    lines.push('To fix this, either:');
+    lines.push(`  1. Change the Reference dropdown to a reference that all samples have, OR`);
+    lines.push(`  2. Un-check samples that don't have '${referenceName}'`);
+    lines.push('');
+
+    if (compatibleSamples.length > 0) {
+        lines.push(`✓ Samples with '${referenceName}' (${compatibleSamples.length}):`);
+        compatibleSamples.forEach((name) => {
+            lines.push(`  • ${name}`);
+        });
+        lines.push('');
+    }
+
+    lines.push(`✗ Samples without '${referenceName}' (${incompatibleSamples.length}):`);
+    incompatibleSamples.forEach((sample) => {
+        const refList = sample.references.slice(0, 3).join(', ');
+        const more =
+            sample.references.length > 3 ? `, ... (${sample.references.length} total)` : '';
+        lines.push(`  • ${sample.name} (has: ${refList}${more})`);
+    });
+
+    const message = lines.join('\n');
+
+    // Show informational dialog - user must fix manually
+    await vscode.window.showErrorMessage(message, { modal: true }, 'OK');
+}
+
+/**
  * Plot aggregate comparison across multiple samples
  * Compares aggregate statistics (signal, dwell time, quality) across samples
  */
@@ -629,6 +771,27 @@ async function plotAggregateComparison(
             if (!params.metrics || params.metrics.length === 0) {
                 throw new Error('At least one metric must be selected for comparison');
             }
+
+            // Check sample-reference compatibility (fetch reference info if missing)
+            const { compatible, incompatible } = await checkSampleReferenceCompatibility(
+                params.sampleNames,
+                params.reference,
+                state
+            );
+
+            // If there are incompatible samples, show dialog and abort
+            if (incompatible.length > 0) {
+                logger.info(
+                    `[Reference Check] Found ${incompatible.length} incompatible samples - showing dialog to user`
+                );
+
+                await showReferenceCompatibilityDialog(params.reference, compatible, incompatible);
+
+                logger.info('[Reference Check] User must fix sample selection - aborting plot');
+                return; // User must manually fix selection
+            }
+
+            logger.info('[Reference Check] All samples compatible - proceeding with plot');
 
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
