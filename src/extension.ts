@@ -379,7 +379,8 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                     vscode.window.showErrorMessage('No samples selected for aggregate plot');
                 }
             } catch (error) {
-                vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${error}`);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${errorMessage}`);
             }
         })
     );
