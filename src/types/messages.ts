@@ -489,8 +489,8 @@ export interface InstallSquiggyMessage extends BaseMessage {
     type: 'install';
 }
 
-export interface ManualInstructionsMessage extends BaseMessage {
-    type: 'manual';
+export interface SelectInterpreterMessage extends BaseMessage {
+    type: 'selectInterpreter';
 }
 
 export interface RetryInstallCheckMessage extends BaseMessage {
@@ -506,7 +506,7 @@ export interface UpdateSetupStatusMessage extends BaseMessage {
 export type SetupPanelIncomingMessage =
     | ReadyMessage
     | InstallSquiggyMessage
-    | ManualInstructionsMessage
+    | SelectInterpreterMessage
     | RetryInstallCheckMessage;
 
 export type SetupPanelOutgoingMessage = UpdateSetupStatusMessage;
