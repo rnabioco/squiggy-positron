@@ -75,7 +75,7 @@ extra:
 nav:
   - Home: index.md
   - User Guide: user_guide.md
-  - Quick Reference: quick_reference.md
-  - Multi-Sample Comparison: multi_sample_comparison.md
+  - Advanced:
+      - Multi-Sample Comparison: multi_sample_comparison.md
+      - API Reference: api.md
   - Developer Guide: developer.md
-  - API Reference: api.md
