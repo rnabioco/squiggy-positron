@@ -696,19 +696,23 @@ async function checkSampleReferenceCompatibility(
 
 /**
  * Show dialog when reference mismatch is detected
- * Returns true if user wants to proceed with compatible samples only, false if cancelled
+ * Informs user which samples are incompatible - user must fix selection manually
  */
 async function showReferenceCompatibilityDialog(
     referenceName: string,
     compatibleSamples: string[],
     incompatibleSamples: Array<{ name: string; references: string[] }>
-): Promise<boolean> {
+): Promise<void> {
     // Build detailed message
     const lines: string[] = [];
     lines.push(`⚠️ Reference Mismatch`);
     lines.push('');
     lines.push(
         `The selected reference '${referenceName}' is not present in all selected samples.`
+    );
+    lines.push('');
+    lines.push(
+        'Please un-check the incompatible samples in the Samples panel and try again.'
     );
     lines.push('');
 
@@ -729,15 +733,8 @@ async function showReferenceCompatibilityDialog(
 
     const message = lines.join('\n');
 
-    // Show dialog with options
-    const choice = await vscode.window.showWarningMessage(
-        message,
-        { modal: true },
-        'Plot Compatible Only',
-        'Cancel'
-    );
-
-    return choice === 'Plot Compatible Only';
+    // Show informational dialog - user must fix manually
+    await vscode.window.showErrorMessage(message, { modal: true }, 'OK');
 }
 
 /**
@@ -779,37 +776,23 @@ async function plotAggregateComparison(
                 state
             );
 
-            // If there are incompatible samples, show dialog
+            // If there are incompatible samples, show dialog and abort
             if (incompatible.length > 0) {
                 logger.info(
                     `[Reference Check] Found ${incompatible.length} incompatible samples - showing dialog to user`
                 );
 
-                const shouldProceed = await showReferenceCompatibilityDialog(
+                await showReferenceCompatibilityDialog(
                     params.reference,
                     compatible,
                     incompatible
                 );
 
-                if (!shouldProceed) {
-                    logger.info('[Reference Check] User cancelled plot - returning');
-                    return; // User cancelled
-                }
-
-                logger.info('[Reference Check] User chose to proceed with compatible samples only');
-
-                // User chose to proceed - filter to compatible samples only
-                params.sampleNames = compatible;
-
-                // Re-validate we still have enough samples
-                if (compatible.length < 2) {
-                    throw new Error(
-                        `Need at least 2 samples with reference '${params.reference}'. Only ${compatible.length} compatible sample(s) found.`
-                    );
-                }
-            } else {
-                logger.info('[Reference Check] All samples compatible - proceeding with plot');
+                logger.info('[Reference Check] User must fix sample selection - aborting plot');
+                return; // User must manually fix selection
             }
+
+            logger.info('[Reference Check] All samples compatible - proceeding with plot');
 
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
