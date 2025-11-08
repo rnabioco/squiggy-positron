@@ -92,33 +92,6 @@ except ImportError:
         return { compatible: true, version };
     }
 
-    /**
-     * Show installation instructions with copy-able command
-     */
-    async showInstallationInstructions(): Promise<void> {
-        const installCommand = `uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ ${PackageManager.PACKAGE_NAME}`;
-
-        const choice = await vscode.window.showErrorMessage(
-            `Squiggy requires the ${PackageManager.PACKAGE_NAME} Python package.\n\n` +
-                `Please install it in your active Python environment:\n\n` +
-                `${installCommand}\n\n` +
-                `Note: Installing from TestPyPI temporarily until next PyPI release.`,
-            'Copy Install Command',
-            'Open Documentation',
-            'Dismiss'
-        );
-
-        if (choice === 'Copy Install Command') {
-            await vscode.env.clipboard.writeText(installCommand);
-            vscode.window.showInformationMessage(
-                `Copied to clipboard: ${installCommand}\n\nPaste this in your terminal to install.`
-            );
-        } else if (choice === 'Open Documentation') {
-            vscode.env.openExternal(
-                vscode.Uri.parse('https://github.com/rnabioco/squiggy-positron#installation')
-            );
-        }
-    }
 
     /**
      * Show version incompatibility warning
@@ -151,7 +124,6 @@ except ImportError:
         const isInstalled = await this.isSquiggyInstalled();
 
         if (!isInstalled) {
-            await this.showInstallationInstructions();
             return false;
         }
 
