@@ -101,18 +101,45 @@ The **Reads** panel shows all reads in the POD5 file:
 
 ### 3. Customize Plots
 
-Use the **Advanced Plotting** panel to configure:
-- **Analysis Type**: Single Read or Aggregate (multi-read statistics)
-- **View Mode**: Standard or Event-Aligned (with base annotations)
-- **Normalization**: None, Z-score, Median, or MAD
-- **X-axis scaling**: Base positions vs cumulative dwell time
-- **Downsample threshold**: For large signals (default: 100,000 samples)
+The **Plotting** panel provides three analysis workflows:
 
-For **Aggregate Plots** (requires BAM):
-- Select reference sequence and maximum reads to include
-- Toggle individual panels: Modifications, Pileup, Dwell Time, Signal, Quality
-- View modification heatmaps showing frequency and confidence
-- Explore dwell time patterns with confidence bands
+#### Per-Read Plots
+View individual reads with overlay or stacked layouts:
+- **Overlay**: Alpha-blended signals on shared axes (good for pattern comparison)
+- **Stacked**: Vertically offset signals (squigualiser-style, best for ≤20 reads)
+- Configure max reads per sample (2-100)
+- Requires: POD5 file
+
+#### Composite Read Plots (Aggregate)
+Multi-read statistics aligned to a reference sequence:
+- Select reference sequence and max reads (10-500)
+- **View Style** (for 2+ samples):
+  - *Overlay*: Mean signals from all samples on one plot
+  - *Multi-Track*: Detailed 5-track view for each sample
+- **Visible Panels** (toggle individually):
+  - Base modifications - Heatmaps showing modification frequency and confidence
+  - Base pileup - Coverage and base composition
+  - Dwell time - Mean dwell with confidence bands
+  - Signal - Mean normalized signal with confidence bands
+  - Quality scores - Mean quality with confidence bands
+- **X-Axis Display**:
+  - Clip to consensus region (focus on high-coverage areas)
+  - Transform to relative coordinates (anchor position 1 to first reference base)
+- Requires: BAM file with alignments
+
+#### 2-Sample Comparisons
+Compare signal differences between exactly two samples:
+- Select exactly 2 samples from Sample Manager
+- Choose reference sequence
+- Generates delta plots showing signal differences (B - A)
+- Configure max reads per sample (10-500)
+- Requires: 2 samples with BAM files
+
+#### Common Options (All Plot Types)
+- **Normalization**: None, Z-score, Median, or MAD
+- **Sample Manager Integration**: Use eye icons in Sample Manager to select which samples to visualize
+
+> **Tip**: For multi-sample workflows, enable the samples you want to visualize using the eye icons in the Sample Manager panel, then choose your analysis type in the Plotting panel.
 
 ### 4. Explore Modifications (BAM with MM/ML tags)
 
