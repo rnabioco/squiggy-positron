@@ -91,15 +91,86 @@ export class SquigglePlotPanel {
     /**
      * Export the current plot
      */
-    public async exportPlot(outputPath: string): Promise<void> {
+    public async exportPlot(
+        outputPath: string,
+        format?: string,
+        width?: number,
+        height?: number,
+        dpi?: number
+    ): Promise<void> {
+        // Determine format from file extension if not specified
+        if (!format) {
+            const ext = outputPath.split('.').pop()?.toLowerCase();
+            if (ext === 'html' || ext === 'png' || ext === 'svg') {
+                format = ext;
+            } else {
+                throw new Error(`Unsupported file extension: ${ext}`);
+            }
+        }
+
         // For HTML export, just write the current HTML
-        if (outputPath.endsWith('.html')) {
-            // Using imported fs.promises
+        if (format === 'html') {
             await fs.writeFile(outputPath, this._currentHtml, 'utf-8');
             vscode.window.showInformationMessage(`Plot exported to ${outputPath}`);
-        } else {
-            // PNG/SVG export would require calling Python backend
-            vscode.window.showErrorMessage('PNG/SVG export not yet implemented');
+            return;
+        }
+
+        // PNG/SVG export requires Python backend
+        // This will be called via PositronRuntime from the export command
+        vscode.window.showErrorMessage(
+            'PNG/SVG export requires Python backend. Use the export command from the command palette.'
+        );
+    }
+
+    /**
+     * Export the current plot using Python backend (PNG/SVG)
+     */
+    public async exportPlotWithPython(
+        pythonExecutor: (code: string) => Promise<void>,
+        outputPath: string,
+        format: 'png' | 'svg',
+        width?: number,
+        height?: number,
+        dpi?: number
+    ): Promise<void> {
+        try {
+            // Build Python code to export the plot
+            const widthArg = width !== undefined ? `width=${width}` : 'width=None';
+            const heightArg = height !== undefined ? `height=${height}` : 'height=None';
+            const dpiArg = dpi !== undefined ? `dpi=${dpi}` : 'dpi=96';
+
+            const pythonCode = `
+from squiggy.export import export_current_plot
+export_current_plot(
+    output_path='${outputPath.replace(/\\/g, '\\\\')}',
+    format='${format}',
+    ${widthArg},
+    ${heightArg},
+    ${dpiArg}
+)
+`;
+
+            // Execute the Python code
+            await pythonExecutor(pythonCode);
+
+            vscode.window.showInformationMessage(
+                `Plot exported to ${outputPath} (${format.toUpperCase()})`
+            );
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Check if it's a selenium/webdriver error
+            if (
+                errorMessage.toLowerCase().includes('selenium') ||
+                errorMessage.toLowerCase().includes('webdriver')
+            ) {
+                vscode.window.showErrorMessage(
+                    `PNG export requires selenium. Install with: pip install squiggy-positron[export]\n\nError: ${errorMessage}`
+                );
+            } else {
+                vscode.window.showErrorMessage(`Export failed: ${errorMessage}`);
+            }
+            throw error;
         }
     }
 

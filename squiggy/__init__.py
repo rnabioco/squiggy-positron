@@ -87,6 +87,15 @@ from .plotting import (
     plot_signal_overlay_comparison,
 )
 
+# Export functions
+from .export import (
+    export_current_plot,
+    export_plot_to_png,
+    export_plot_to_svg,
+    get_current_plot,
+    set_current_plot,
+)
+
 # Utility functions and data classes
 from .utils import (
     ModelProvenance,
@@ -196,5 +205,11 @@ __all__ = [
     # Refactoring utilities (Phase 3 - NEW)
     "parse_plot_parameters",
     "open_bam_safe",
+    # Export functions (Issue #132)
+    "export_current_plot",
+    "export_plot_to_png",
+    "export_plot_to_svg",
+    "get_current_plot",
+    "set_current_plot",
     # Classes
 ]

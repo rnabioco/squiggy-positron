@@ -331,6 +331,158 @@ export function registerPlotCommands(
             }
         )
     );
+
+    // Export current plot (Issue #132)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.exportPlot', async () => {
+            await exportCurrentPlot(state);
+        })
+    );
+}
+
+/**
+ * Export the currently displayed plot to PNG or SVG
+ */
+async function exportCurrentPlot(state: ExtensionState): Promise<void> {
+    // Show dialog for export format and options
+    interface ExportOptions {
+        format: 'png' | 'svg';
+        width?: number;
+        height?: number;
+        dpi?: number;
+    }
+
+    // Step 1: Select format
+    const format = await vscode.window.showQuickPick(['PNG', 'SVG', 'HTML'], {
+        placeHolder: 'Select export format',
+        ignoreFocusOut: true,
+    });
+
+    if (!format) {
+        return;
+    }
+
+    // Step 2: Get export options (dimensions and DPI for PNG)
+    let width: number | undefined;
+    let height: number | undefined;
+    let dpi: number | undefined;
+
+    if (format !== 'HTML') {
+        // Ask for width
+        const widthInput = await vscode.window.showInputBox({
+            prompt: 'Enter width in pixels (leave blank for default)',
+            placeHolder: '1200',
+            ignoreFocusOut: true,
+        });
+
+        if (widthInput) {
+            width = parseInt(widthInput, 10);
+            if (isNaN(width) || width <= 0) {
+                vscode.window.showErrorMessage('Invalid width. Please enter a positive number.');
+                return;
+            }
+        }
+
+        // Ask for height
+        const heightInput = await vscode.window.showInputBox({
+            prompt: 'Enter height in pixels (leave blank for default)',
+            placeHolder: '800',
+            ignoreFocusOut: true,
+        });
+
+        if (heightInput) {
+            height = parseInt(heightInput, 10);
+            if (isNaN(height) || height <= 0) {
+                vscode.window.showErrorMessage('Invalid height. Please enter a positive number.');
+                return;
+            }
+        }
+
+        // Ask for DPI (PNG only)
+        if (format === 'PNG') {
+            const dpiInput = await vscode.window.showInputBox({
+                prompt: 'Enter DPI resolution (leave blank for default 96)',
+                placeHolder: '150',
+                ignoreFocusOut: true,
+            });
+
+            if (dpiInput) {
+                dpi = parseInt(dpiInput, 10);
+                if (isNaN(dpi) || dpi <= 0) {
+                    vscode.window.showErrorMessage('Invalid DPI. Please enter a positive number.');
+                    return;
+                }
+            }
+        }
+    }
+
+    // Step 3: Get output path
+    const fileExtension = format.toLowerCase();
+    const defaultFileName = `squiggy_plot.${fileExtension}`;
+
+    const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(defaultFileName),
+        filters: {
+            [format]: [fileExtension],
+        },
+    });
+
+    if (!uri) {
+        return;
+    }
+
+    const outputPath = uri.fsPath;
+
+    // Step 4: Export using Python backend
+    await safeExecuteWithProgress(
+        async () => {
+            if (!state.usePositron || !state.positronClient) {
+                throw new Error('Export requires Positron runtime');
+            }
+
+            // Build Python code to export the plot
+            const widthArg = width !== undefined ? `width=${width}` : 'width=None';
+            const heightArg = height !== undefined ? `height=${height}` : 'height=None';
+            const dpiArg = dpi !== undefined ? `dpi=${dpi}` : 'dpi=96';
+
+            if (format === 'HTML') {
+                // For HTML, we need to get the HTML from the last plot
+                const pythonCode = `
+from squiggy.export import get_current_plot
+from bokeh.embed import file_html
+from bokeh.resources import CDN
+
+fig = get_current_plot()
+if fig is None:
+    raise ValueError("No plot available. Generate a plot first using plot_read() or plot_reads().")
+
+html = file_html(fig, CDN, "Squiggy Plot")
+with open('${outputPath.replace(/\\/g, '\\\\')}', 'w', encoding='utf-8') as f:
+    f.write(html)
+`;
+                await state.positronClient.executeSilent(pythonCode);
+            } else {
+                // PNG/SVG export
+                const pythonCode = `
+from squiggy.export import export_current_plot
+export_current_plot(
+    output_path='${outputPath.replace(/\\/g, '\\\\')}',
+    format='${format.toLowerCase()}',
+    ${widthArg},
+    ${heightArg},
+    ${dpiArg}
+)
+`;
+                await state.positronClient.executeSilent(pythonCode);
+            }
+
+            vscode.window.showInformationMessage(
+                `Plot exported to ${outputPath} (${format.toUpperCase()})`
+            );
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Exporting plot to ${format}...`
+    );
 }
 
 /**
