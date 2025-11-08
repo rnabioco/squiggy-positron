@@ -1,8 +1,8 @@
 {
   "name": "squiggy-positron",
   "displayName": "Squiggy",
-  "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files",
-  "version": "0.1.14-alpha",
+  "description": "Visualize Oxford Nanopore sequencing data (squiggle plots) from POD5 files. Requires: uv pip install squiggy-positron",
+  "version": "0.1.15-alpha",
   "publisher": "rnabioco",
   "icon": "resources/icon-128.png",
   "repository": {
@@ -27,49 +27,57 @@
         "command": "squiggy.openPOD5",
         "title": "Open POD5 File",
         "category": "Squiggy",
-        "icon": "$(file-binary)"
+        "icon": "$(file-binary)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.openBAM",
         "title": "Open BAM File",
         "category": "Squiggy",
-        "icon": "$(file-code)"
+        "icon": "$(file-code)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.closePOD5",
         "title": "Close POD5 File",
         "category": "Squiggy",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.closeBAM",
         "title": "Close BAM File",
         "category": "Squiggy",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.loadTestData",
         "title": "Load Test Data",
         "category": "Squiggy",
-        "icon": "$(database)"
+        "icon": "$(database)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotRead",
         "title": "Plot Selected Read(s)",
         "category": "Squiggy",
-        "icon": "$(graph)"
+        "icon": "$(graph)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotAggregate",
         "title": "Plot Aggregate for Reference",
         "category": "Squiggy",
-        "icon": "$(graph-line)"
+        "icon": "$(graph-line)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.refreshReads",
         "title": "Refresh Read List",
         "category": "Squiggy",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.clearState",
@@ -87,86 +95,110 @@
         "command": "squiggy.openFASTA",
         "title": "Open FASTA File",
         "category": "Squiggy",
-        "icon": "$(file-text)"
+        "icon": "$(file-text)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.closeFASTA",
         "title": "Close FASTA File",
         "category": "Squiggy",
-        "icon": "$(close)"
+        "icon": "$(close)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotMotifAggregate",
         "title": "Plot Motif Aggregate",
         "category": "Squiggy",
-        "icon": "$(graph-scatter)"
+        "icon": "$(graph-scatter)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.loadSample",
         "title": "Load Sample (Multi-Sample Comparison)",
         "category": "Squiggy",
-        "icon": "$(folder-opened)"
+        "icon": "$(folder-opened)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.loadTestMultiReadDataset",
         "title": "Load Test Multi-Read Dataset",
         "category": "Squiggy",
-        "icon": "$(database)"
+        "icon": "$(database)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.plotDeltaComparison",
         "title": "Plot Delta Comparison",
         "category": "Squiggy",
-        "icon": "$(compare)"
+        "icon": "$(compare)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.loadDemoSession",
         "title": "Load Demo Session",
         "category": "Squiggy",
-        "icon": "$(rocket)"
+        "icon": "$(rocket)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.saveSession",
         "title": "Save Session",
         "category": "Squiggy",
-        "icon": "$(save)"
+        "icon": "$(save)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.restoreSession",
         "title": "Restore Session",
         "category": "Squiggy",
-        "icon": "$(history)"
+        "icon": "$(history)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.exportSession",
         "title": "Export Session to File",
         "category": "Squiggy",
-        "icon": "$(export)"
+        "icon": "$(export)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.importSession",
         "title": "Import Session from File",
         "category": "Squiggy",
-        "icon": "$(import)"
+        "icon": "$(import)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.clearSession",
         "title": "Clear Saved Session",
         "category": "Squiggy",
-        "icon": "$(trash)"
+        "icon": "$(trash)",
+        "enablement": "squiggy.packageInstalled"
       },
       {
         "command": "squiggy.showLogs",
         "title": "Show Extension Logs",
         "category": "Squiggy",
         "icon": "$(output)"
+      },
+      {
+        "command": "squiggy.checkInstallation",
+        "title": "Check Python Package Installation",
+        "category": "Squiggy",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "squiggy.setLogLevel",
+        "title": "Set Log Level",
+        "category": "Squiggy",
+        "icon": "$(settings-gear)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "squiggy-sidebar",
-          "title": "Squiggy v0.1.14-alpha",
+          "title": "Squiggy v0.1.15-alpha",
           "icon": "resources/icon-sidebar.svg"
         }
       ]
@@ -174,36 +206,48 @@
     "views": {
       "squiggy-sidebar": [
         {
+          "id": "squiggySetupPanel",
+          "name": "Setup",
+          "type": "webview",
+          "when": "squiggy.setupMode"
+        },
+        {
           "id": "squiggyComparisonSamples",
           "name": "Samples",
-          "type": "webview"
+          "type": "webview",
+          "when": "!squiggy.setupMode"
         },
         {
           "id": "squiggySessionPanel",
           "name": "Session Manager",
-          "type": "webview"
+          "type": "webview",
+          "when": "!squiggy.setupMode"
         },
         {
           "id": "squiggyReadList",
           "name": "Read Explorer",
           "type": "webview",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "when": "!squiggy.setupMode"
         },
         {
           "id": "squiggyPlotOptions",
           "name": "Plotting",
-          "type": "webview"
+          "type": "webview",
+          "when": "!squiggy.setupMode"
         },
         {
           "id": "squiggyModificationsPanel",
           "name": "Modifications Explorer",
-          "type": "webview"
+          "type": "webview",
+          "when": "!squiggy.setupMode"
         },
         {
           "id": "squiggyMotifSearch",
           "name": "Motif Explorer",
           "type": "webview",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "when": "!squiggy.setupMode"
         }
       ]
     },
@@ -271,6 +315,17 @@
           "minimum": 10,
           "maximum": 10000,
           "description": "Maximum number of reads to sample for aggregate plots"
+        },
+        "squiggy.logLevel": {
+          "type": "string",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR"
+          ],
+          "default": "INFO",
+          "description": "Minimum log level to display in Output channel (DEBUG = most verbose, ERROR = least verbose)"
         }
       }
     }

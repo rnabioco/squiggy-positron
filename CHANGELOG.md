@@ -1,5 +1,21 @@
 # Squiggy Release Notes
 
+## v0.1.15-alpha (2025-11-07)
+
+Python packaging modernization and PyPI publication enhancements.
+
+### Improvements
+
+- **Python Packaging**: Modernized packaging configuration with updated pyproject.toml and migrated build workflow from pip+build to uv
+
+### Fixes
+
+- **Twine Publishing**: Fixed Twine command to use `uv tool run twine` instead of `uv run twine` for proper isolated execution
+
+### Internal
+
+- Published Python package to PyPI as squiggy-positron (#68)
+
 ## v0.1.14-alpha (2025-11-06)
 
 Maintenance release with bug fixes for Read Explorer UI.

@@ -93,6 +93,7 @@ export const SamplesCore: React.FC = () => {
 
                         // Assign default Okabe-Ito colors to new samples (that don't already have colors)
                         const newlyAssignedColors: Array<{ name: string; color: string }> = [];
+                        const newlySelectedSamples: string[] = [];
                         samples.forEach((sample, index) => {
                             if (!newColors.has(sample.name)) {
                                 const colorIndex = index % OKABE_ITO_PALETTE.length;
@@ -101,8 +102,11 @@ export const SamplesCore: React.FC = () => {
                                 newlyAssignedColors.push({ name: sample.name, color });
                             }
                             // Default all samples to selected for visualization in local state
-                            // (Extension state is already updated by file-commands.ts on load)
-                            newSelected.add(sample.name);
+                            // Track which samples are newly selected so we can sync with extension
+                            if (!newSelected.has(sample.name)) {
+                                newSelected.add(sample.name);
+                                newlySelectedSamples.push(sample.name);
+                            }
                         });
 
                         // Persist auto-assigned colors to extension state
@@ -113,6 +117,22 @@ export const SamplesCore: React.FC = () => {
                                         type: 'updateSampleColor',
                                         sampleName: name,
                                         color: color,
+                                    });
+                                });
+                            }, 0);
+                        }
+
+                        // Sync auto-selected samples with extension state (Issue #121)
+                        if (newlySelectedSamples.length > 0) {
+                            console.log(
+                                '[SamplesCore] Auto-selecting samples in extension:',
+                                newlySelectedSamples
+                            );
+                            setTimeout(() => {
+                                newlySelectedSamples.forEach((name) => {
+                                    vscode.postMessage({
+                                        type: 'toggleSampleSelection',
+                                        sampleName: name,
                                     });
                                 });
                             }, 0);
@@ -1073,6 +1093,65 @@ export const SamplesCore: React.FC = () => {
                                                 );
                                             })()}
                                         </div>
+
+                                        {/* References (from BAM alignment) */}
+                                        {sample.references && sample.references.length > 0 && (
+                                            <div style={{ marginBottom: '4px' }}>
+                                                <div
+                                                    style={{
+                                                        color: 'var(--vscode-descriptionForeground)',
+                                                        fontSize: '0.8em',
+                                                        marginBottom: '2px',
+                                                    }}
+                                                >
+                                                    References ({sample.references.length})
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '3px 4px',
+                                                        backgroundColor:
+                                                            'var(--vscode-editor-background)',
+                                                        borderRadius: '2px',
+                                                        fontSize: '0.85em',
+                                                        maxHeight: '80px',
+                                                        overflowY: 'auto',
+                                                    }}
+                                                >
+                                                    {sample.references.map((ref, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            style={{
+                                                                padding: '1px 0',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                gap: '4px',
+                                                            }}
+                                                        >
+                                                            <span
+                                                                style={{
+                                                                    flex: 1,
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                                title={ref.name}
+                                                            >
+                                                                {ref.name}
+                                                            </span>
+                                                            <span
+                                                                style={{
+                                                                    color: 'var(--vscode-descriptionForeground)',
+                                                                    fontSize: '0.9em',
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            >
+                                                                {ref.readCount} reads
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Unload Button */}
                                         <div

@@ -327,6 +327,12 @@ export type ModificationsOutgoingMessage = UpdateModInfoMessage | ClearModsMessa
 
 // ========== Sample Comparison Panel Messages ==========
 
+export interface ReferenceInfo {
+    name: string;
+    readCount: number;
+    length?: number;
+}
+
 export interface SampleItem {
     name: string;
     pod5Path: string;
@@ -335,6 +341,7 @@ export interface SampleItem {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+    references?: ReferenceInfo[]; // List of references this sample aligns to
 }
 
 export interface UpdateSamplesMessage extends BaseMessage {
@@ -476,6 +483,34 @@ export type SessionPanelIncomingMessage =
 
 export type SessionPanelOutgoingMessage = UpdateSessionMessage;
 
+// ========== Setup Panel Messages ==========
+
+export interface InstallSquiggyMessage extends BaseMessage {
+    type: 'install';
+}
+
+export interface ManualInstructionsMessage extends BaseMessage {
+    type: 'manual';
+}
+
+export interface RetryInstallCheckMessage extends BaseMessage {
+    type: 'retry';
+}
+
+export interface UpdateSetupStatusMessage extends BaseMessage {
+    type: 'updateStatus';
+    installed: boolean;
+    message: string;
+}
+
+export type SetupPanelIncomingMessage =
+    | ReadyMessage
+    | InstallSquiggyMessage
+    | ManualInstructionsMessage
+    | RetryInstallCheckMessage;
+
+export type SetupPanelOutgoingMessage = UpdateSetupStatusMessage;
+
 // ========== Union Types for Message Handlers ==========
 
 export type IncomingWebviewMessage =
@@ -484,7 +519,8 @@ export type IncomingWebviewMessage =
     | PlotOptionsIncomingMessage
     | ModificationsIncomingMessage
     | SamplesIncomingMessage
-    | SessionPanelIncomingMessage;
+    | SessionPanelIncomingMessage
+    | SetupPanelIncomingMessage;
 
 /**
  * Common error message sent to any webview
@@ -505,4 +541,5 @@ export type OutgoingWebviewMessage =
     | ModificationsOutgoingMessage
     | SamplesOutgoingMessage
     | SessionPanelOutgoingMessage
+    | SetupPanelOutgoingMessage
     | ErrorOutgoingMessage;

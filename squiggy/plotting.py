@@ -15,7 +15,6 @@ from .constants import (
     PlotMode,
 )
 from .io import _squiggy_session, get_read_by_id
-from .logging_config import get_logger
 from .motif import search_motif
 from .plot_factory import create_plot_strategy
 from .utils import (
@@ -31,8 +30,6 @@ from .utils import (
     get_available_reads_for_reference,
     parse_plot_parameters,
 )
-
-logger = get_logger(__name__)
 
 
 def plot_read(
@@ -88,17 +85,12 @@ def plot_read(
         # Multi-sample mode: get reader from specific sample
         sample = _squiggy_session.get_sample(sample_name)
         if not sample or sample.pod5_reader is None:
-            logger.error(
-                f"Sample '{sample_name}' not loaded or has no POD5 file. "
-                f"Available samples: {list(_squiggy_session.samples.keys())}"
-            )
             raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
         reader = sample.pod5_reader
     else:
         # Single-file mode: use global reader
         reader = _squiggy_session.reader
         if reader is None:
-            logger.error("No POD5 file loaded. Call load_pod5() first.")
             raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     # Apply defaults if not specified
@@ -111,7 +103,6 @@ def plot_read(
     read_obj = get_read_by_id(read_id, sample_name=sample_name)
 
     if read_obj is None:
-        logger.error(f"Read '{read_id}' not found in loaded POD5 file.")
         raise ValueError(f"Read not found: {read_id}")
 
     # Parse parameters
@@ -139,7 +130,6 @@ def plot_read(
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode: requires alignment
         if _squiggy_session.bam_path is None:
-            logger.error("EVENTALIGN mode requires a BAM file. Call load_bam() first.")
             raise ValueError(
                 "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
@@ -148,10 +138,6 @@ def plot_read(
 
         aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
         if aligned_read is None:
-            logger.warning(
-                f"No alignment found for read '{read_id}' in BAM file "
-                f"{_squiggy_session.bam_path}. Read may be unmapped or BAM may not contain move table."
-            )
             raise ValueError(f"No alignment found for read {read_id} in BAM file.")
 
         data = {
@@ -170,10 +156,6 @@ def plot_read(
         }
 
     else:
-        logger.error(
-            f"Plot mode {plot_mode} not supported for single read. "
-            f"Use SINGLE or EVENTALIGN."
-        )
         raise ValueError(
             f"Plot mode {plot_mode} not supported for single read. Use SINGLE or EVENTALIGN."
         )
@@ -246,7 +228,6 @@ def plot_reads(
     """
 
     if not read_ids:
-        logger.error("No read IDs provided to plot_reads().")
         raise ValueError("No read IDs provided.")
 
     # Apply defaults if not specified
@@ -282,12 +263,8 @@ def plot_reads(
     missing = set(read_ids) - set(read_objs.keys())
     if missing:
         if len(missing) == 1:
-            logger.error(f"Read '{list(missing)[0]}' not found in loaded POD5 file.")
             raise ValueError(f"Read not found: {list(missing)[0]}")
         else:
-            logger.error(
-                f"{len(missing)} reads not found in loaded POD5 file: {list(missing)[:5]}"
-            )
             raise ValueError(f"Reads not found: {list(missing)}")
 
     # Build reads_data list in original order
@@ -492,15 +469,8 @@ def plot_aggregate(
         # Multi-sample mode: use sample-specific paths
         sample = _squiggy_session.get_sample(sample_name)
         if not sample or sample.pod5_path is None:
-            logger.error(
-                f"Sample '{sample_name}' not loaded or has no POD5 file. "
-                f"Available samples: {list(_squiggy_session.samples.keys())}"
-            )
             raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
         if not sample.bam_path:
-            logger.error(
-                f"Sample '{sample_name}' has no BAM file loaded. Aggregate plots require alignments."
-            )
             raise ValueError(
                 f"Sample '{sample_name}' has no BAM file loaded. Aggregate plots require alignments."
             )
@@ -510,12 +480,8 @@ def plot_aggregate(
     else:
         # Single-file mode: use global session paths
         if _squiggy_session.reader is None:
-            logger.error("No POD5 file loaded. Call load_pod5() first.")
             raise ValueError("No POD5 file loaded. Call load_pod5() first.")
         if _squiggy_session.bam_path is None:
-            logger.error(
-                "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
-            )
             raise ValueError(
                 "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
             )
@@ -537,10 +503,6 @@ def plot_aggregate(
     )
 
     if not reads_data:
-        logger.warning(
-            f"No reads found for reference '{reference_name}' in BAM file. "
-            f"BAM may be empty or reference name may be incorrect."
-        )
         raise ValueError(
             f"No reads found for reference '{reference_name}'. Check BAM file and reference name."
         )
@@ -760,9 +722,6 @@ def plot_motif_aggregate_all(
     matches = list(search_motif(fasta_file, motif, strand=strand))
 
     if not matches:
-        logger.warning(
-            f"No matches found for motif '{motif}' in FASTA file {fasta_file}"
-        )
         raise ValueError(f"No matches found for motif '{motif}' in FASTA file")
 
     # Extract and align reads from all motif matches
@@ -793,10 +752,6 @@ def plot_motif_aggregate_all(
             continue
 
     if not all_aligned_reads:
-        logger.warning(
-            f"No reads found overlapping any of {len(matches)} motif matches for '{motif}'. "
-            "Try a different motif or increase window size."
-        )
         raise ValueError(
             f"No reads found overlapping any of {len(matches)} motif matches. "
             "Try a different motif or increase window size."
@@ -904,9 +859,6 @@ def plot_delta_comparison(
 
     # Validate input
     if len(sample_names) < 2:
-        logger.error(
-            f"Delta comparison requires at least 2 samples, got {len(sample_names)}"
-        )
         raise ValueError("Delta comparison requires at least 2 samples")
 
     # Get samples
@@ -923,14 +875,9 @@ def plot_delta_comparison(
 
     # Validate both samples have POD5 and BAM loaded
     if sample_a.pod5_reader is None or sample_b.pod5_reader is None:
-        logger.error("Both samples must have POD5 files loaded for delta comparison.")
         raise ValueError("Both samples must have POD5 files loaded")
 
     if sample_a.bam_path is None or sample_b.bam_path is None:
-        logger.error(
-            "Both samples must have BAM files loaded for delta comparison. "
-            "BAM files are required to align signals to reference positions."
-        )
         raise ValueError(
             "Both samples must have BAM files loaded for delta comparison. "
             "BAM files are required to align signals to reference positions."
@@ -964,10 +911,7 @@ def plot_delta_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception as e:
-                logger.warning(
-                    "Could not determine available reads for '%s': %s", sample.name, e
-                )
+            except Exception:
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1117,21 +1061,41 @@ def plot_signal_overlay_comparison(
 
         reference_name = references[0]["name"]
 
-    # Validate all samples have same reference
-    for _i, sample in enumerate(samples[1:], start=1):
+    # Validate all samples have same reference (Issue #121)
+    samples_missing_reference = []
+    for sample in samples:
         if not sample.bam_info or "references" not in sample.bam_info:
-            raise ValueError(
-                f"Sample '{sample.name}' BAM must contain reference information"
-            )
+            samples_missing_reference.append((sample.name, "no BAM metadata"))
+            continue
 
         refs = sample.bam_info["references"]
         ref_names = [r["name"] for r in refs]
 
         if reference_name not in ref_names:
-            raise ValueError(
-                f"Sample '{sample.name}' aligns to different references. "
-                f"Expected '{reference_name}', but found: {ref_names}"
+            available_refs = ", ".join(ref_names[:3])
+            if len(ref_names) > 3:
+                available_refs += f", ... ({len(ref_names)} total)"
+            samples_missing_reference.append(
+                (sample.name, available_refs or "no references")
             )
+
+    # If any samples are missing the reference, raise a clear error
+    if samples_missing_reference:
+        error_lines = [
+            f"Cannot plot signal overlay comparison: Some samples do not have reads aligned to reference '{reference_name}':",
+            "",
+        ]
+        for sample_name, available in samples_missing_reference:
+            error_lines.append(f"  • Sample '{sample_name}': has {available}")
+
+        error_lines.extend(
+            [
+                "",
+                "Suggestion: Check which references each sample has in the Samples panel,",
+                "or ensure all samples are aligned to the same reference genome before loading.",
+            ]
+        )
+        raise ValueError("\n".join(error_lines))
 
     # Determine max_reads if not provided
     if max_reads is None:
@@ -1145,10 +1109,7 @@ def plot_signal_overlay_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception as e:
-                logger.warning(
-                    "Could not determine available reads for '%s': %s", sample.name, e
-                )
+            except Exception:
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1208,9 +1169,9 @@ def plot_signal_overlay_comparison(
             )
             if reads:
                 reference_sequence = reads[0].get("reference_sequence", "") or ""
-        except Exception as e:
+        except Exception:
             # If we can't get reference sequence, continue without it
-            logger.warning("Could not retrieve reference sequence: %s", e)
+            pass
 
     # Prepare data for plot strategy
     data = {
@@ -1311,6 +1272,41 @@ def plot_aggregate_comparison(
     if metrics is None:
         metrics = ["signal", "dwell_time", "quality"]
 
+    # Validate that all samples have the requested reference (Issue #121)
+    samples_missing_reference = []
+    for sample in samples:
+        if sample.bam_info is None or "references" not in sample.bam_info:
+            samples_missing_reference.append((sample.name, "no BAM metadata"))
+            continue
+
+        # Check if reference exists in this sample's BAM
+        ref_names = [ref["name"] for ref in sample.bam_info.get("references", [])]
+        if reference_name not in ref_names:
+            available_refs = ", ".join(ref_names[:3])
+            if len(ref_names) > 3:
+                available_refs += f", ... ({len(ref_names)} total)"
+            samples_missing_reference.append(
+                (sample.name, available_refs or "no references")
+            )
+
+    # If any samples are missing the reference, raise a clear error
+    if samples_missing_reference:
+        error_lines = [
+            f"Cannot plot aggregate comparison: Some samples do not have reads aligned to reference '{reference_name}':",
+            "",
+        ]
+        for sample_name, available in samples_missing_reference:
+            error_lines.append(f"  • Sample '{sample_name}': has {available}")
+
+        error_lines.extend(
+            [
+                "",
+                "Suggestion: Check which references each sample has in the Samples panel,",
+                "or ensure all samples are aligned to the same reference genome before loading.",
+            ]
+        )
+        raise ValueError("\n".join(error_lines))
+
     # Determine max_reads if not provided
     if max_reads is None:
         available_reads_per_sample = []
@@ -1321,10 +1317,7 @@ def plot_aggregate_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception as e:
-                logger.warning(
-                    f"Could not determine available reads for '{sample.name}': {e}"
-                )
+            except Exception:
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100

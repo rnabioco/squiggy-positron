@@ -15,6 +15,7 @@ import {
     PlottingError,
     ValidationError,
 } from '../utils/error-handler';
+import { logger } from '../utils/logger';
 
 /**
  * Result from loading a POD5 file
@@ -639,7 +640,8 @@ if '_squiggy_motif_matches_json' in globals():
 
             return (matches as any[]) || [];
         } catch (error) {
-            throw new Error(`Failed to search motif: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to search motif: ${errorMessage}`);
         }
     }
 
@@ -676,7 +678,8 @@ squiggy.plot_motif_aggregate_all(
         try {
             await this._client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to generate motif aggregate all plot: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to generate motif aggregate all plot: ${errorMessage}`);
         }
     }
 
@@ -720,33 +723,34 @@ squiggy.load_sample(
         code += `\n)`;
 
         try {
-            console.log(
+            logger.debug(
                 `[loadSample] Starting to load sample '${sampleName}' with POD5: ${pod5Path}${bamPath ? ` BAM: ${bamPath}` : ''}`
             );
             const startTime = Date.now();
 
             // Load sample silently
-            console.log(`[loadSample] Executing Python code to load sample...`);
+            logger.debug(`[loadSample] Executing Python code to load sample...`);
             await this._client.executeSilent(code);
             const executeSilentTime = Date.now();
-            console.log(
+            logger.debug(
                 `[loadSample] executeSilent completed in ${executeSilentTime - startTime}ms`
             );
 
             // Get read count for this sample
-            console.log(`[loadSample] Querying read count for sample '${sampleName}'...`);
+            logger.debug(`[loadSample] Querying read count for sample '${sampleName}'...`);
             const numReads = await this._client.getVariable(
                 `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
             );
             const queryTime = Date.now();
-            console.log(
+            logger.debug(
                 `[loadSample] Got ${numReads} reads in ${queryTime - executeSilentTime}ms (total: ${queryTime - startTime}ms)`
             );
 
             return { numReads: numReads as number };
         } catch (error) {
-            console.error(`[loadSample] Error loading sample '${sampleName}':`, error);
-            throw new Error(`Failed to load sample '${sampleName}': ${error}`);
+            logger.error(`[loadSample] Error loading sample '${sampleName}'`, error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to load sample '${sampleName}': ${errorMessage}`);
         }
     }
 
@@ -760,7 +764,8 @@ squiggy.load_sample(
             const sampleNames = await this._client.getVariable('_squiggy_session.list_samples()');
             return (sampleNames as string[]) || [];
         } catch (error) {
-            throw new Error(`Failed to list samples: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to list samples: ${errorMessage}`);
         }
     }
 
@@ -772,7 +777,6 @@ squiggy.load_sample(
 
         try {
             const code = `
-import json
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample:
     _sample_info = {
@@ -782,13 +786,15 @@ if _sample:
         'has_bam': _sample.bam_path is not None,
         'has_fasta': _sample.fasta_path is not None
     }
+    # Add reference information if BAM is loaded
+    if _sample.bam_info and 'references' in _sample.bam_info:
+        _sample_info['references'] = _sample.bam_info['references']
 else:
     _sample_info = None
-_sample_info_json = json.dumps(_sample_info)
 `;
 
             await this._client.executeSilent(code);
-            const sampleInfoJson = await this._client.getVariable('_sample_info_json');
+            const sampleInfo = await this._client.getVariable('_sample_info');
 
             // Clean up temporary variables
             await this.client
@@ -798,29 +804,15 @@ if '_sample' in globals():
     del _sample
 if '_sample_info' in globals():
     del _sample_info
-if '_sample_info_json' in globals():
-    del _sample_info_json
 `
                 )
                 .catch(() => {});
 
-            // Handle the case where sampleInfoJson is a string representation of JSON
-            if (!sampleInfoJson) {
-                return null;
-            }
-
-            try {
-                // If it's a string like "null", parse it correctly
-                const jsonString = String(sampleInfoJson);
-                const parsed = JSON.parse(jsonString);
-                return parsed;
-            } catch (parseError) {
-                // If parsing fails, sample likely doesn't exist in registry
-                console.warn(`Could not parse sample info for '${escapedName}':`, parseError);
-                return null;
-            }
+            // getVariable already handles JSON parsing, so sampleInfo is a JavaScript object
+            return sampleInfo;
         } catch (error) {
-            throw new Error(`Failed to get sample info: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to get sample info: ${errorMessage}`);
         }
     }
 
@@ -839,7 +831,8 @@ squiggy.remove_sample('${escapedName}')
 `;
             await this._client.executeSilent(code);
         } catch (error) {
-            throw new Error(`Failed to remove sample '${sampleName}': ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to remove sample '${sampleName}': ${errorMessage}`);
         }
     }
 
@@ -859,7 +852,7 @@ squiggy.remove_sample('${escapedName}')
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
-            console.log(
+            logger.debug(
                 `[getReadIdsAndReferencesForSample] Fetching data for sample '${sampleName}'...`
             );
             const startTime = Date.now();
@@ -887,7 +880,7 @@ _result = {'read_ids': _read_ids, 'references': _refs}
                 read_ids: [],
                 references: [],
             };
-            console.log(
+            logger.debug(
                 `[getReadIdsAndReferencesForSample] Got ${data.read_ids?.length || 0} reads and ${data.references?.length || 0} references in ${elapsed}ms`
             );
 
@@ -896,8 +889,8 @@ _result = {'read_ids': _read_ids, 'references': _refs}
                 references: data.references || [],
             };
         } catch (error) {
-            console.warn(
-                `Failed to get read IDs and references for sample '${sampleName}':`,
+            logger.warning(
+                `Failed to get read IDs and references for sample '${sampleName}'`,
                 error
             );
             return { readIds: [], references: [] };
@@ -921,7 +914,7 @@ _result = {'read_ids': _read_ids, 'references': _refs}
         const escapedName = sampleName.replace(/'/g, "\\'");
 
         try {
-            console.log(
+            logger.debug(
                 `[getReadIdsForSample] Fetching read IDs for sample '${sampleName}' (offset: ${offset}, limit: ${limit || 'all'})...`
             );
             const startTime = Date.now();
@@ -946,10 +939,12 @@ ${tempVar} = _sample.read_ids${sliceStr} if _sample else []
 
             const elapsed = Date.now() - startTime;
             const readIdArray = (readIds as string[]) || [];
-            console.log(`[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`);
+            logger.debug(
+                `[getReadIdsForSample] Got ${readIdArray.length} read IDs in ${elapsed}ms`
+            );
             return readIdArray;
         } catch (error) {
-            console.warn(`Failed to get read IDs for sample '${sampleName}':`, error);
+            logger.warning(`Failed to get read IDs for sample '${sampleName}'`, error);
             return [];
         }
     }
@@ -988,7 +983,7 @@ else:
 
             return (references as string[]) || [];
         } catch (error) {
-            console.warn(`Failed to get references for sample '${sampleName}':`, error);
+            logger.warning(`Failed to get references for sample '${sampleName}'`, error);
             return [];
         }
     }
@@ -1022,7 +1017,7 @@ else:
             const counts = await this._client.getVariable('_counts');
             return (counts as { [referenceName: string]: number }) || {};
         } catch (error) {
-            console.warn(`Failed to get reference read counts for sample '${sampleName}':`, error);
+            logger.warning(`Failed to get reference read counts for sample '${sampleName}'`, error);
             return {};
         }
     }
@@ -1054,8 +1049,8 @@ else:
             const readIds = await this._client.getVariable('_reads');
             return (readIds as string[]) || [];
         } catch (error) {
-            console.warn(
-                `Failed to get reads for reference '${referenceName}' in sample '${sampleName}':`,
+            logger.warning(
+                `Failed to get reads for reference '${referenceName}' in sample '${sampleName}'`,
                 error
             );
             return [];
@@ -1238,7 +1233,7 @@ squiggy.plot_aggregate_comparison(
                 );
             }
 
-            throw new Error(`Failed to generate aggregate comparison plot: ${error}`);
+            throw new Error(`Failed to generate aggregate comparison plot: ${errorMessage}`);
         }
     }
 }

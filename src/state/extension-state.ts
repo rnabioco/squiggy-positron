@@ -20,6 +20,7 @@ import { LoadedItem } from '../types/loaded-item';
 import { SessionStateManager } from './session-state-manager';
 import { PathResolver } from './path-resolver';
 import { FileResolver } from './file-resolver';
+import { logger } from '../utils/logger';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
@@ -31,6 +32,12 @@ import { FileResolver } from './file-resolver';
  * - `isLoaded`: Tracks kernel state (prepares for lazy loading in #79 TSV import)
  * - `metadata`: Extensible object for future attributes without interface changes
  */
+export interface ReferenceInfo {
+    name: string;
+    readCount: number;
+    length?: number;
+}
+
 export interface SampleInfo {
     // Core identifiers
     sampleId: string; // Unique ID (can be UUID or derived from pod5 path)
@@ -45,6 +52,9 @@ export interface SampleInfo {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+
+    // Reference information (from BAM alignment)
+    references?: ReferenceInfo[]; // List of references this sample aligns to
 
     // Kernel state (for lazy loading)
     isLoaded: boolean; // Whether files are loaded into kernel
@@ -540,7 +550,11 @@ squiggy.close_fasta()
      * @private
      */
     private _notifyVisualizationSelectionChanged(): void {
-        this._onVisualizationSelectionChanged.fire(this.getSamplesForVisualization());
+        const selected = this.getSamplesForVisualization();
+        logger.info(
+            `[ExtensionState] Visualization selection changed: ${selected.length} samples selected: ${selected.join(', ')}`
+        );
+        this._onVisualizationSelectionChanged.fire(selected);
     }
 
     // ========== Multi-Sample Management (Phase 4) ==========
@@ -739,16 +753,33 @@ squiggy.close_fasta()
             }
         }
 
-        // Get plot options from provider
-        const plotOptions = this._plotOptionsProvider?.getOptions() || {
-            mode: 'SINGLE',
-            normalization: 'ZNORM',
-            showDwellTime: false,
-            showBaseAnnotations: true,
-            scaleDwellTime: false,
-            downsample: 5,
-            showSignalPoints: false,
-        };
+        // Get plot options from provider with fallback defaults
+        const providerOptions = this._plotOptionsProvider?.getOptions();
+
+        // Debug logging if provider is missing
+        if (!providerOptions) {
+            console.warn('[ExtensionState] plotOptionsProvider returned undefined, using defaults');
+        }
+
+        const plotOptions = providerOptions
+            ? {
+                  mode: providerOptions.mode || 'SINGLE',
+                  normalization: providerOptions.normalization || 'ZNORM',
+                  showDwellTime: providerOptions.showDwellTime ?? false,
+                  showBaseAnnotations: providerOptions.showBaseAnnotations ?? true,
+                  scaleDwellTime: providerOptions.scaleDwellTime ?? false,
+                  downsample: providerOptions.downsample ?? 5,
+                  showSignalPoints: providerOptions.showSignalPoints ?? false,
+              }
+            : {
+                  mode: 'SINGLE',
+                  normalization: 'ZNORM',
+                  showDwellTime: false,
+                  showBaseAnnotations: true,
+                  scaleDwellTime: false,
+                  downsample: 5,
+                  showSignalPoints: false,
+              };
 
         // Get modification filters if available
         const modFilters = this._modificationsProvider?.getFilters?.();
@@ -867,7 +898,7 @@ squiggy.close_fasta()
                 // Trigger reads view to load for the selected sample
                 // Delay to ensure sample is fully registered in Python registry
                 setTimeout(() => {
-                    console.log(
+                    logger.debug(
                         `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
                     );
                     Promise.resolve(
@@ -876,8 +907,8 @@ squiggy.close_fasta()
                             sampleName
                         )
                     ).catch((err: unknown) => {
-                        console.error(
-                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}':`,
+                        logger.error(
+                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}'`,
                             err
                         );
                     });
@@ -1079,7 +1110,7 @@ squiggy.close_fasta()
         if (resolvedPod5Paths.length > 0) {
             // CRITICAL: Load sample into Python registry so TypeScript queries work
             try {
-                console.log(
+                logger.debug(
                     `[restoreSample] Loading sample '${sampleName}' into Python registry...`
                 );
                 await this._squiggyAPI.loadSample(
@@ -1088,11 +1119,11 @@ squiggy.close_fasta()
                     resolvedBamPath,
                     resolvedFastaPath
                 );
-                console.log(
+                logger.debug(
                     `[restoreSample] Sample '${sampleName}' successfully loaded into Python registry`
                 );
             } catch (error) {
-                console.error(`[restoreSample] Failed to load sample into Python registry:`, error);
+                logger.error(`[restoreSample] Failed to load sample into Python registry`, error);
                 // Continue anyway - sample is in TypeScript state
             }
 

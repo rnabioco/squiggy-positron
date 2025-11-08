@@ -11,6 +11,7 @@
 
 import * as positron from 'positron';
 import { KernelNotAvailableError, retryOperation, isTransientError } from '../utils/error-handler';
+import { logger } from '../utils/logger';
 
 /**
  * Low-level client for Positron runtime API
@@ -80,7 +81,7 @@ export class PositronRuntimeClient {
 
             // Function to check if current state is ready
             const checkState = (state: string) => {
-                console.log(`Squiggy: Kernel state is ${state}`);
+                logger.debug(`Squiggy: Kernel state is ${state}`);
 
                 // Ready states - can execute code
                 if (state === 'ready' || state === 'idle' || state === 'busy') {
@@ -153,7 +154,7 @@ export class PositronRuntimeClient {
                     positron.RuntimeCodeExecutionMode.Silent
                 );
                 // Success - kernel is ready
-                console.log('Squiggy: Kernel is ready (polling check)');
+                logger.debug('Squiggy: Kernel is ready (polling check)');
                 this.kernelReadyCache = { ready: true, timestamp: Date.now() };
                 return;
             } catch (_error) {
@@ -205,7 +206,40 @@ export class PositronRuntimeClient {
                     observer
                 );
             } catch (error) {
-                throw new Error(`Failed to execute Python code: ${error}`);
+                // Extract error message from various error formats
+                let errorMessage: string;
+
+                // Debug: log the actual error object structure
+                logger.debug('[executeCode] Error type:', typeof error);
+                logger.debug('[executeCode] Error instanceof Error:', error instanceof Error);
+                if (typeof error === 'object' && error !== null) {
+                    logger.debug('[executeCode] Error keys:', Object.keys(error));
+                    logger.debug('[executeCode] Error object:', error);
+                }
+
+                if (error instanceof Error) {
+                    errorMessage = error.message;
+                } else if (typeof error === 'object' && error !== null) {
+                    // Try common error properties in order
+                    if ('message' in error && typeof error.message === 'string') {
+                        errorMessage = error.message;
+                    } else if ('reason' in error && typeof error.reason === 'string') {
+                        errorMessage = error.reason;
+                    } else if ('value' in error && typeof error.value === 'string') {
+                        errorMessage = error.value;
+                    } else {
+                        // Last resort: stringify the object
+                        try {
+                            errorMessage = JSON.stringify(error);
+                        } catch {
+                            errorMessage = 'Unknown error';
+                        }
+                    }
+                } else {
+                    errorMessage = String(error);
+                }
+
+                throw new Error(`Failed to execute Python code: ${errorMessage}`);
             }
         };
 

@@ -17,6 +17,7 @@ import {
 } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
 import { LoadedItem } from '../types/loaded-item';
+import { logger } from '../utils/logger';
 // SampleInfo and formatFileSize unused - reserved for future features
 
 export class SamplesPanelProvider extends BaseWebviewProvider {
@@ -55,7 +56,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
      * @private
      */
     private _handleVisualizationSelectionChanged(selectedSamples: string[]): void {
-        console.log('[SamplesPanelProvider] Visualization selection changed:', selectedSamples);
+        logger.debug('[SamplesPanelProvider] Visualization selection changed:', selectedSamples);
         // Send update to webview
         if (this._view?.webview) {
             this._view.webview.postMessage({
@@ -83,7 +84,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 hasFasta: item.hasReference,
             }));
 
-        console.log(
+        logger.debug(
             '[SamplesPanelProvider] Unified state changed, now showing',
             this._samples.length,
             'samples'
@@ -152,7 +153,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
         sample.bamPath = bamPath;
         sample.hasBam = true;
 
-        console.log(`[SamplesPanelProvider] Changed BAM for ${sampleName} to ${bamPath}`);
+        logger.debug(`[SamplesPanelProvider] Changed BAM for ${sampleName} to ${bamPath}`);
 
         // Update via Python backend
         await vscode.commands.executeCommand('squiggy.updateSampleFiles', sampleName, {
@@ -194,7 +195,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
         sample.fastaPath = fastaPath;
         sample.hasFasta = true;
 
-        console.log(`[SamplesPanelProvider] Changed FASTA for ${sampleName} to ${fastaPath}`);
+        logger.debug(`[SamplesPanelProvider] Changed FASTA for ${sampleName} to ${fastaPath}`);
 
         // Update via Python backend
         await vscode.commands.executeCommand('squiggy.updateSampleFiles', sampleName, {
@@ -251,7 +252,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     // Update map key: remove old, add new
                     this._state.removeSample(message.oldName);
                     this._state.addSample(sample);
-                    console.log(
+                    logger.debug(
                         `[SamplesPanelProvider] Renamed sample: ${message.oldName} → ${message.newName}`
                     );
                     this.updateView();
@@ -267,7 +268,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                         sample.metadata = {};
                     }
                     sample.metadata.displayColor = message.color || undefined;
-                    console.log(
+                    logger.debug(
                         `[SamplesPanelProvider] Updated color for ${message.sampleName}: ${message.color}`
                     );
                     this.updateView();
@@ -278,14 +279,20 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             case 'toggleSampleSelection': {
                 // Toggle sample selection for visualization
                 const isSelected = this._state.isSampleSelectedForVisualization(message.sampleName);
+                logger.info(
+                    `[SamplesPanelProvider] Toggling selection for '${message.sampleName}': currently ${isSelected ? 'SELECTED' : 'NOT SELECTED'}`
+                );
                 if (isSelected) {
                     this._state.removeSampleFromVisualization(message.sampleName);
+                    logger.info(
+                        `[SamplesPanelProvider] REMOVED '${message.sampleName}' from visualization selection`
+                    );
                 } else {
                     this._state.addSampleToVisualization(message.sampleName);
+                    logger.info(
+                        `[SamplesPanelProvider] ADDED '${message.sampleName}' to visualization selection`
+                    );
                 }
-                console.log(
-                    `[SamplesPanelProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
-                );
                 break;
             }
 
@@ -304,22 +311,22 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     }
 
     protected updateView(): void {
-        console.log('[SamplesPanelProvider] updateView called');
-        console.log('[SamplesPanelProvider] _view exists:', !!this._view);
+        logger.debug('[SamplesPanelProvider] updateView called');
+        logger.debug('[SamplesPanelProvider] _view exists:', !!this._view);
 
         if (!this._view) {
-            console.log('[SamplesPanelProvider] No view to update');
+            logger.debug('[SamplesPanelProvider] No view to update');
             return;
         }
 
         // Rebuild samples list from extension state
         const sampleNames = this._state.getAllSampleNames();
-        console.log('[SamplesPanelProvider] Sample names from state:', sampleNames);
+        logger.debug('[SamplesPanelProvider] Sample names from state:', sampleNames);
 
         this._samples = Array.from(sampleNames)
             .map((name) => {
                 const sampleInfo = this._state.getSample(name);
-                console.log(`[SamplesPanelProvider] Sample '${name}' info:`, sampleInfo);
+                logger.debug(`[SamplesPanelProvider] Sample '${name}' info:`, sampleInfo);
                 if (!sampleInfo) {
                     return null;
                 }
@@ -337,16 +344,16 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             })
             .filter((item): item is SampleItem => item !== null);
 
-        console.log('[SamplesPanelProvider] Built samples array:', this._samples);
+        logger.debug('[SamplesPanelProvider] Built samples array:', this._samples);
 
         if (this._samples.length === 0) {
-            console.log('[SamplesPanelProvider] Sending clearSamples message');
+            logger.debug('[SamplesPanelProvider] Sending clearSamples message');
             const message: ClearSamplesMessage = {
                 type: 'clearSamples',
             };
             this.postMessage(message);
         } else {
-            console.log(
+            logger.debug(
                 '[SamplesPanelProvider] Sending updateSamples message with',
                 this._samples.length,
                 'samples'
@@ -365,13 +372,13 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     public async refresh(): Promise<void> {
         // If view doesn't exist yet, try to show it
         if (!this._view) {
-            console.log('[SamplesPanelProvider] View not yet created, showing panel...');
+            logger.debug('[SamplesPanelProvider] View not yet created, showing panel...');
             try {
                 await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
                 // Wait a bit for view to be created
                 await new Promise((resolve) => setTimeout(resolve, 500));
             } catch (error) {
-                console.error('[SamplesPanelProvider] Error showing panel:', error);
+                logger.error('[SamplesPanelProvider] Error showing panel', error);
             }
         }
 
@@ -393,9 +400,9 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
      * Handle dropped files - parse and auto-match POD5/BAM pairs
      */
     private async handleFilesDropped(filePaths: string[]): Promise<void> {
-        console.log('🎯 DEBUG: handleFilesDropped called with paths:', filePaths);
+        logger.debug('🎯 DEBUG: handleFilesDropped called with paths:', filePaths);
         if (filePaths.length === 0) {
-            console.log('🎯 DEBUG: No file paths provided');
+            logger.debug('🎯 DEBUG: No file paths provided');
             return;
         }
 

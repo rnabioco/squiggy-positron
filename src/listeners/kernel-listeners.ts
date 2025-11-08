@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
+import { logger } from '../utils/logger';
 
 /**
  * Register listeners for Positron kernel/session events
@@ -16,10 +17,12 @@ import { ExtensionState } from '../state/extension-state';
  *
  * @param context VSCode extension context
  * @param state Extension state manager
+ * @param onSessionChange Optional callback to run when session changes (e.g., re-check installation)
  */
 export function registerKernelListeners(
     context: vscode.ExtensionContext,
-    state: ExtensionState
+    state: ExtensionState,
+    onSessionChange?: () => Promise<void>
 ): void {
     if (!state.usePositron) {
         // Only register listeners when using Positron runtime
@@ -30,10 +33,19 @@ export function registerKernelListeners(
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const positron = require('positron');
 
-        // Helper function to clear extension state
+        // Helper function to clear extension state and re-check installation
         const clearExtensionState = async (reason: string) => {
             await state.clearAll();
-            console.log(`Squiggy: ${reason}, state cleared`);
+            logger.debug(`Squiggy: ${reason}, state cleared`);
+
+            // Re-check installation after session change if callback provided
+            if (onSessionChange) {
+                try {
+                    await onSessionChange();
+                } catch (error) {
+                    logger.error('Error in session change callback', error);
+                }
+            }
         };
 
         // Listen for session changes (kernel switches)
@@ -48,7 +60,7 @@ export function registerKernelListeners(
         const setupSessionListeners = async () => {
             try {
                 const session = await positron.runtime.getForegroundSession();
-                console.log(
+                logger.debug(
                     'Squiggy: Setting up session listeners, session:',
                     session?.metadata.sessionId
                 );
@@ -58,19 +70,28 @@ export function registerKernelListeners(
                         session.onDidChangeRuntimeState((runtimeState: string) => {
                             // Only log important state changes (not idle/busy cycles)
                             if (runtimeState === 'restarting' || runtimeState === 'exited') {
-                                console.log('Squiggy: Kernel state changed to:', runtimeState);
+                                logger.debug('Squiggy: Kernel state changed to:', runtimeState);
                                 clearExtensionState(`Kernel ${runtimeState}`);
+                            } else if (runtimeState === 'ready' && onSessionChange) {
+                                // Kernel restarted and is now ready - re-check installation
+                                logger.info('Kernel ready after restart - rechecking installation');
+                                onSessionChange().catch((error) => {
+                                    logger.error(
+                                        'Error rechecking installation after restart',
+                                        error
+                                    );
+                                });
                             }
                         })
                     );
-                    console.log('Squiggy: Successfully attached runtime state listener');
+                    logger.debug('Squiggy: Successfully attached runtime state listener');
                 } else {
-                    console.log(
+                    logger.debug(
                         'Squiggy: No session or no onDidChangeRuntimeState event available'
                     );
                 }
             } catch (error) {
-                console.error('Squiggy: Error setting up session listeners:', error);
+                logger.error('Squiggy: Error setting up session listeners:', error);
             }
         };
         setupSessionListeners();
