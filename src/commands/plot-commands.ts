@@ -696,7 +696,7 @@ async function checkSampleReferenceCompatibility(
 
 /**
  * Show dialog when reference mismatch is detected
- * Informs user which samples are incompatible - user must fix selection manually
+ * Informs user which samples don't have the selected reference
  */
 async function showReferenceCompatibilityDialog(
     referenceName: string,
@@ -708,23 +708,23 @@ async function showReferenceCompatibilityDialog(
     lines.push(`⚠️ Reference Mismatch`);
     lines.push('');
     lines.push(
-        `The selected reference '${referenceName}' is not present in all selected samples.`
+        `The selected reference '${referenceName}' is not available in the currently selected samples.`
     );
     lines.push('');
-    lines.push(
-        'Please un-check the incompatible samples in the Samples panel and try again.'
-    );
+    lines.push('To fix this, either:');
+    lines.push(`  1. Change the Reference dropdown to a reference that all samples have, OR`);
+    lines.push(`  2. Un-check samples that don't have '${referenceName}'`);
     lines.push('');
 
     if (compatibleSamples.length > 0) {
-        lines.push(`✓ Compatible samples (${compatibleSamples.length}):`);
+        lines.push(`✓ Samples with '${referenceName}' (${compatibleSamples.length}):`);
         compatibleSamples.forEach((name) => {
             lines.push(`  • ${name}`);
         });
         lines.push('');
     }
 
-    lines.push(`✗ Incompatible samples (${incompatibleSamples.length}):`);
+    lines.push(`✗ Samples without '${referenceName}' (${incompatibleSamples.length}):`);
     incompatibleSamples.forEach((sample) => {
         const refList = sample.references.slice(0, 3).join(', ');
         const more = sample.references.length > 3 ? `, ... (${sample.references.length} total)` : '';
