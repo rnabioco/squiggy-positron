@@ -1075,7 +1075,9 @@ def plot_signal_overlay_comparison(
             available_refs = ", ".join(ref_names[:3])
             if len(ref_names) > 3:
                 available_refs += f", ... ({len(ref_names)} total)"
-            samples_missing_reference.append((sample.name, available_refs or "no references"))
+            samples_missing_reference.append(
+                (sample.name, available_refs or "no references")
+            )
 
     # If any samples are missing the reference, raise a clear error
     if samples_missing_reference:
@@ -1283,7 +1285,9 @@ def plot_aggregate_comparison(
             available_refs = ", ".join(ref_names[:3])
             if len(ref_names) > 3:
                 available_refs += f", ... ({len(ref_names)} total)"
-            samples_missing_reference.append((sample.name, available_refs or "no references"))
+            samples_missing_reference.append(
+                (sample.name, available_refs or "no references")
+            )
 
     # If any samples are missing the reference, raise a clear error
     if samples_missing_reference:
