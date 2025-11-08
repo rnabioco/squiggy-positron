@@ -209,6 +209,14 @@ export class PositronRuntimeClient {
                 // Extract error message from various error formats
                 let errorMessage: string;
 
+                // Debug: log the actual error object structure
+                logger.debug('[executeCode] Error type:', typeof error);
+                logger.debug('[executeCode] Error instanceof Error:', error instanceof Error);
+                if (typeof error === 'object' && error !== null) {
+                    logger.debug('[executeCode] Error keys:', Object.keys(error));
+                    logger.debug('[executeCode] Error object:', error);
+                }
+
                 if (error instanceof Error) {
                     errorMessage = error.message;
                 } else if (typeof error === 'object' && error !== null) {
