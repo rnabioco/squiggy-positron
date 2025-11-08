@@ -192,6 +192,13 @@
         "title": "Set Log Level",
         "category": "Squiggy",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "squiggy.exportPlot",
+        "title": "Export Current Plot (PNG/SVG/HTML)",
+        "category": "Squiggy",
+        "icon": "$(file-media)",
+        "enablement": "squiggy.packageInstalled"
       }
     ],
     "viewsContainers": {

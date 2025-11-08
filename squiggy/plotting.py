@@ -164,6 +164,11 @@ def plot_read(
     strategy = create_plot_strategy(plot_mode, theme_enum)
     html, fig = strategy.create_plot(data, options)
 
+    # Store figure for export functionality
+    from .export import set_current_plot
+
+    set_current_plot(fig)
+
     # Route to Positron Plots pane if running in Positron
     _route_to_plots_pane(fig)
 
@@ -397,6 +402,11 @@ def plot_reads(
     # Create strategy and generate plot
     strategy = create_plot_strategy(plot_mode, theme_enum)
     html, fig = strategy.create_plot(data, options)
+
+    # Store figure for export functionality
+    from .export import set_current_plot
+
+    set_current_plot(fig)
 
     # Route to Positron Plots pane if running in Positron
     _route_to_plots_pane(fig)
@@ -641,6 +651,11 @@ def plot_aggregate(
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
     html, grid = strategy.create_plot(data, options)
+
+    # Store figure for export functionality
+    from .export import set_current_plot
+
+    set_current_plot(grid)
 
     # Route to Positron Plots pane if running in Positron
     _route_to_plots_pane(grid)
@@ -974,6 +989,11 @@ def plot_delta_comparison(
     strategy = create_plot_strategy(PlotMode.DELTA, theme_enum)
     html, grid = strategy.create_plot(data, options)
 
+    # Store figure for export functionality
+    from .export import set_current_plot
+
+    set_current_plot(grid)
+
     # Route to Positron Plots pane if running in Positron
     _route_to_plots_pane(grid)
 
@@ -1186,6 +1206,11 @@ def plot_signal_overlay_comparison(
     strategy = create_plot_strategy(PlotMode.SIGNAL_OVERLAY_COMPARISON, theme_enum)
     html, grid = strategy.create_plot(data, options)
 
+    # Store figure for export functionality
+    from .export import set_current_plot
+
+    set_current_plot(grid)
+
     # Route to Positron Plots pane if running in Positron
     _route_to_plots_pane(grid)
 
@@ -1390,6 +1415,11 @@ def plot_aggregate_comparison(
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE_COMPARISON, theme_enum)
     html, grid = strategy.create_plot(data, options)
+
+    # Store figure for export functionality
+    from .export import set_current_plot
+
+    set_current_plot(grid)
 
     # Route to Positron Plots pane if running in Positron
     _route_to_plots_pane(grid)
