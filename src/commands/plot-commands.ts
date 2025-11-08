@@ -599,6 +599,85 @@ async function plotDeltaComparison(
 }
 
 /**
+ * Check which samples have the specified reference
+ */
+function checkSampleReferenceCompatibility(
+    sampleNames: string[],
+    referenceName: string,
+    state: ExtensionState
+): { compatible: string[]; incompatible: Array<{ name: string; references: string[] }> } {
+    const compatible: string[] = [];
+    const incompatible: Array<{ name: string; references: string[] }> = [];
+
+    for (const sampleName of sampleNames) {
+        const sample = state.getSample(sampleName);
+        if (!sample || !sample.references || sample.references.length === 0) {
+            // No reference info available - assume compatible (will fail in Python if not)
+            compatible.push(sampleName);
+            continue;
+        }
+
+        const hasReference = sample.references.some((ref) => ref.name === referenceName);
+        if (hasReference) {
+            compatible.push(sampleName);
+        } else {
+            incompatible.push({
+                name: sampleName,
+                references: sample.references.map((r) => r.name),
+            });
+        }
+    }
+
+    return { compatible, incompatible };
+}
+
+/**
+ * Show dialog when reference mismatch is detected
+ * Returns true if user wants to proceed with compatible samples only, false if cancelled
+ */
+async function showReferenceCompatibilityDialog(
+    referenceName: string,
+    compatibleSamples: string[],
+    incompatibleSamples: Array<{ name: string; references: string[] }>
+): Promise<boolean> {
+    // Build detailed message
+    const lines: string[] = [];
+    lines.push(`⚠️ Reference Mismatch`);
+    lines.push('');
+    lines.push(
+        `The selected reference '${referenceName}' is not present in all selected samples.`
+    );
+    lines.push('');
+
+    if (compatibleSamples.length > 0) {
+        lines.push(`✓ Compatible samples (${compatibleSamples.length}):`);
+        compatibleSamples.forEach((name) => {
+            lines.push(`  • ${name}`);
+        });
+        lines.push('');
+    }
+
+    lines.push(`✗ Incompatible samples (${incompatibleSamples.length}):`);
+    incompatibleSamples.forEach((sample) => {
+        const refList = sample.references.slice(0, 3).join(', ');
+        const more = sample.references.length > 3 ? `, ... (${sample.references.length} total)` : '';
+        lines.push(`  • ${sample.name} (has: ${refList}${more})`);
+    });
+
+    const message = lines.join('\n');
+
+    // Show dialog with options
+    const choice = await vscode.window.showWarningMessage(
+        message,
+        { modal: true },
+        'Plot Compatible Only',
+        'Cancel'
+    );
+
+    return choice === 'Plot Compatible Only';
+}
+
+/**
  * Plot aggregate comparison across multiple samples
  * Compares aggregate statistics (signal, dwell time, quality) across samples
  */
@@ -628,6 +707,36 @@ async function plotAggregateComparison(
 
             if (!params.metrics || params.metrics.length === 0) {
                 throw new Error('At least one metric must be selected for comparison');
+            }
+
+            // Check sample-reference compatibility
+            const { compatible, incompatible } = checkSampleReferenceCompatibility(
+                params.sampleNames,
+                params.reference,
+                state
+            );
+
+            // If there are incompatible samples, show dialog
+            if (incompatible.length > 0) {
+                const shouldProceed = await showReferenceCompatibilityDialog(
+                    params.reference,
+                    compatible,
+                    incompatible
+                );
+
+                if (!shouldProceed) {
+                    return; // User cancelled
+                }
+
+                // User chose to proceed - filter to compatible samples only
+                params.sampleNames = compatible;
+
+                // Re-validate we still have enough samples
+                if (compatible.length < 2) {
+                    throw new Error(
+                        `Need at least 2 samples with reference '${params.reference}'. Only ${compatible.length} compatible sample(s) found.`
+                    );
+                }
             }
 
             // Get plot options
