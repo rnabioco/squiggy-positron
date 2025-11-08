@@ -2,17 +2,6 @@
 
 Complete guide to comparing multiple POD5 datasets using the Squiggy multi-sample comparison feature.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Key Concepts](#key-concepts)
-- [Quick Start](#quick-start)
-- [Sample Management](#sample-management)
-- [Running Comparisons](#running-comparisons)
-- [Interpreting Results](#interpreting-results)
-- [Advanced Usage](#advanced-usage)
-- [Troubleshooting](#troubleshooting)
-
 ## Overview
 
 The multi-sample comparison feature allows you to:
