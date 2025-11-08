@@ -22,7 +22,13 @@ tests/**
 # images
 resources/screenshot.png
 
-# Python development files
+# Python package (now distributed via PyPI separately)
+squiggy/**
+pyproject.toml
+
+# Python development files (exclude test code but include test data)
+tests/*.py
+tests/__pycache__/**
 .pytest_cache/**
 .ruff_cache/**
 **/__pycache__/**
@@ -33,6 +39,7 @@ resources/screenshot.png
 .venv/**
 codecov.yml
 *.egg-info/**
+dist/**
 .coverage
 uv.lock
 

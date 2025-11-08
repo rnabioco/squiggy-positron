@@ -57,7 +57,7 @@ source .venv/bin/activate  # macOS/Linux
 .venv\Scripts\activate     # Windows
 
 # Install squiggy package
-pip install squiggy
+pip install squiggy-positron
 ```
 
 **Option 2: conda**
@@ -65,7 +65,7 @@ pip install squiggy
 ```bash
 conda create -n squiggy python=3.12
 conda activate squiggy
-pip install squiggy
+pip install squiggy-positron
 ```
 
 **Option 3: Automatic Installation via Extension**
@@ -617,7 +617,7 @@ samtools index your_file.bam
 
 **Solution**:
 - Ensure you're using a virtual environment (not system Python)
-- Install the package: `pip install squiggy`
+- Install the package: `pip install squiggy-positron`
 - Restart the Python console in Positron
 - Check the selected Python interpreter in Positron matches your virtual environment
 

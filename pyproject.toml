@@ -1,12 +1,12 @@
 [project]
-name = "squiggy"
+name = "squiggy-positron"
 version = "0.1.14"
-description = "Nanopore squiggle visualization tool for POD5 files"
-readme = "README.md"
+description = "Python backend for Squiggy Positron extension - Nanopore squiggle visualization. Not recommended for standalone use."
+readme = "docs/PYPI_README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Jay Hesselberth", email = "jay.hesselberth@gmail.com" }]
-keywords = ["nanopore", "oxford-nanopore", "pod5", "squiggle", "visualization"]
+keywords = ["nanopore", "oxford-nanopore", "pod5", "squiggle", "visualization", "positron", "ide-extension"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
@@ -103,8 +103,8 @@ indent-style = "space"
 
 [tool.setuptools]
 packages = ["squiggy"]
-# Using root squiggy/ package (extension version without Qt)
-# Old Qt-based app is archived in legacy/squiggy/
+# Package imports as 'squiggy' even though PyPI name is 'squiggy-positron'
+# This maintains compatibility with existing code
 
 [tool.setuptools.package-data]
 squiggy = [
