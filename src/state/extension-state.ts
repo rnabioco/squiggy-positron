@@ -550,7 +550,11 @@ squiggy.close_fasta()
      * @private
      */
     private _notifyVisualizationSelectionChanged(): void {
-        this._onVisualizationSelectionChanged.fire(this.getSamplesForVisualization());
+        const selected = this.getSamplesForVisualization();
+        logger.info(
+            `[ExtensionState] Visualization selection changed: ${selected.length} samples selected: ${selected.join(', ')}`
+        );
+        this._onVisualizationSelectionChanged.fire(selected);
     }
 
     // ========== Multi-Sample Management (Phase 4) ==========
