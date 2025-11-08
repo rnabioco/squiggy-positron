@@ -2,123 +2,64 @@
 
 Complete guide to using the Squiggy Positron extension for nanopore signal visualization.
 
-## Table of Contents
+## Installation
 
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Sample Data](#sample-data)
-- [Loading Data](#loading-data)
-- [Browsing Reads](#browsing-reads)
-- [Plotting Reads](#plotting-reads)
-- [Plot Customization](#plot-customization)
-- [Base Modifications](#base-modifications)
-- [Aggregate Plots](#aggregate-plots) (NEW!)
-- [Exporting Plots](#exporting-plots)
-- [Multi-Sample Comparison](#multi-sample-comparison)
-- [Common Errors](#common-errors)
-- [Keyboard Shortcuts](#keyboard-shortcuts)
+### Recommended: Install from OpenVSX
 
-## Prerequisites
+1. Open Positron IDE
+2. Open the Extensions panel (sidebar icon or `Cmd+Shift+X` / `Ctrl+Shift+X`)
+3. Search for "Squiggy"
+4. Click **Install**
 
-Before using Squiggy, ensure you have:
+Or visit the [OpenVSX marketplace page](https://open-vsx.org/extension/rnabioco/squiggy-positron).
 
-- **Positron IDE** 2024.09.0 or later installed
-- **Python 3.12+** with a virtual environment (venv, conda, or uv)
-- **POD5 files** from Oxford Nanopore sequencing
-- **BAM files** (optional, required for base annotations and modifications)
-  - Must be indexed (`.bai` file present)
-  - Should contain move tables (`mv` tag) for event-aligned visualization
-  - May contain modification tags (`MM`/`ML`) for modification analysis
-
-## Getting Started
-
-### Installation
+### Alternative: Install from VSIX
 
 1. Download the latest `.vsix` file from [GitHub Releases](https://github.com/rnabioco/squiggy-positron/releases)
 2. In Positron: `Extensions` → `...` → `Install from VSIX...`
-3. Select the downloaded `.vsix` file
-4. Reload Positron when prompted
+3. Select the downloaded file
+4. Reload when prompted
 
-### Python Requirements
+## Getting Started
 
-**Important**: Use a virtual environment for Python package management.
+### First Time Setup
 
-#### Setting Up a Virtual Environment
+When you first activate Squiggy, if the Python package is not installed, you'll see a **Setup** panel in the sidebar with step-by-step instructions:
 
-**Option 1: venv (Recommended)**
+1. **Create a virtual environment** - The panel provides commands you can copy to create a `.venv` folder in your workspace
+2. **Install the Python package** - Copy the provided `uv pip install` command to install `squiggy-positron`
+3. **Select Python interpreter** - Click the "Select Python Interpreter" button and choose your new virtual environment
+4. **Verify** - Click "Check Again" to confirm the setup is complete
 
-```bash
-# Create virtual environment in your project directory
-python3 -m venv .venv
+The setup panel will automatically disappear once Squiggy detects the Python package in your active environment.
 
-# Activate it
-source .venv/bin/activate  # macOS/Linux
-# OR
-.venv\Scripts\activate     # Windows
-
-# Install squiggy package
-pip install squiggy-positron
-```
-
-**Option 2: conda**
-
-```bash
-conda create -n squiggy python=3.12
-conda activate squiggy
-pip install squiggy-positron
-```
-
-**Option 3: Automatic Installation via Extension**
-
-When you first open a POD5 file, Squiggy will:
-1. Check if the Python package is installed in your active kernel
-2. Detect your Python environment type (venv, conda, or system Python)
-3. Prompt you to install automatically (if safe) or show manual instructions
-
-> **Note**: If you're using Homebrew Python or system Python, the extension will refuse automatic installation and guide you to create a virtual environment first. This follows [PEP 668](https://peps.python.org/pep-0668/) guidelines for externally-managed Python environments.
-
-#### Python Environment in Positron
-
-After creating your virtual environment:
-1. Use Positron's **Interpreter selector** to choose your environment
-2. Start a new Python console (it will use the selected interpreter)
-3. The extension will work with this active kernel
-
-**Dependencies installed with squiggy**: `pod5`, `pysam`, `bokeh`, `numpy`
+> **Why a virtual environment?** Squiggy requires the `squiggy-positron` Python package along with dependencies like `pod5`, `pysam`, and `bokeh`. Virtual environments keep these isolated from your system Python, following Python best practices.
 
 ### Opening the Extension
 
-Click the Squiggy icon in the Activity Bar (left sidebar) to open the extension panels:
-- **Files** - POD5/BAM file information
+Once setup is complete, click the **Squiggy icon** in the Activity Bar (left sidebar) to reveal:
+
+- **Setup** - Installation instructions (only visible when package not installed)
+- **Files** - POD5/BAM/FASTA file information
 - **Search** - Filter reads by ID or reference
-- **Reads** - Hierarchical read list
+- **Reads** - Hierarchical read list with Plot buttons
 - **Advanced Plotting** - Visualization settings and analysis type
-- **Base Modifications** - Modification filtering (when BAM loaded)
-- **Samples** - Manage multiple samples for comparison
+- **Base Modifications** - Modification filtering (appears when BAM with mods loaded)
+- **Samples** - Multi-sample comparison manager
 
 ## Sample Data
 
-Squiggy includes sample data for testing and learning. The test data is bundled with the package:
+Squiggy includes sample data for testing and learning:
 
-- **Location**: `squiggy/data/` directory
 - **POD5 file**: `yeast_trna_reads.pod5` (180 reads from yeast tRNA sequencing)
 - **BAM file**: `yeast_trna_mappings.bam` (corresponding alignments with base calls)
 
-To use the sample data:
+**To load sample data:**
+1. Open Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`)
+2. Type `Squiggy: Load Test Data`
+3. Sample files automatically load into the extension
 
-```python
-from squiggy import get_test_data_path
-from pathlib import Path
-
-# Get the path to the test data directory
-data_dir = Path(get_test_data_path())
-
-# Access the sample files
-pod5_file = data_dir / 'yeast_trna_reads.pod5'
-bam_file = data_dir / 'yeast_trna_mappings.bam'
-```
-
-Alternatively, download individual files from the [GitHub repository](https://github.com/rnabioco/squiggy-positron/tree/main/squiggy/data).
+Alternatively, download files directly from the [GitHub repository](https://github.com/rnabioco/squiggy-positron/tree/main/squiggy/data).
 
 ## Loading Data
 
@@ -581,6 +522,51 @@ For comprehensive documentation on multi-sample comparison including:
 - Performance tips
 
 See the **[Multi-Sample Comparison Guide](multi_sample_comparison.md)**.
+
+## Advanced: Python API
+
+While most users interact with Squiggy through the extension's graphical interface, a Python API is available for programmatic access and notebook-based analysis.
+
+**When to use the Python API:**
+- Custom automation workflows
+- Batch processing multiple files
+- Integration with existing analysis pipelines
+- Jupyter/IPython notebook analysis
+
+**Quick example:**
+
+```python
+from squiggy import load_pod5, load_bam, plot_read
+
+# Load files
+load_pod5("data.pod5")
+load_bam("alignments.bam")
+
+# Generate plot
+html = plot_read("read_001", plot_mode="EVENTALIGN", normalization="ZNORM")
+```
+
+For complete API documentation, see the **[API Reference](api.md)**.
+
+> **Note:** 99% of users will not need the Python API. The extension's UI provides all common functionality through an intuitive interface.
+
+## System Requirements
+
+**Software:**
+- **Positron IDE** 2024.09.0 or later
+- **Python** 3.12 or later
+- **Operating Systems**: macOS (Intel/Apple Silicon), Linux, Windows
+
+**Hardware:**
+- **Memory**: 4GB RAM minimum (8GB+ recommended for large POD5 files)
+- **Disk Space**: Varies by dataset (POD5 files can be several GB)
+
+**Data Files:**
+- **POD5 files** - Oxford Nanopore signal data (required)
+- **BAM files** - Aligned reads (optional, enables advanced features)
+  - Must be indexed (`.bai` file in same directory)
+  - Should contain move tables (`mv` tag) for event-aligned visualization
+  - May contain modification tags (`MM`/`ML`) for base modification analysis
 
 ## Common Errors
 
