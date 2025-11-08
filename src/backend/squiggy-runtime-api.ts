@@ -777,7 +777,6 @@ squiggy.load_sample(
 
         try {
             const code = `
-import json
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample:
     _sample_info = {
@@ -792,11 +791,10 @@ if _sample:
         _sample_info['references'] = _sample.bam_info['references']
 else:
     _sample_info = None
-_sample_info_json = json.dumps(_sample_info)
 `;
 
             await this._client.executeSilent(code);
-            const sampleInfoJson = await this._client.getVariable('_sample_info_json');
+            const sampleInfo = await this._client.getVariable('_sample_info');
 
             // Clean up temporary variables
             await this.client
@@ -806,27 +804,12 @@ if '_sample' in globals():
     del _sample
 if '_sample_info' in globals():
     del _sample_info
-if '_sample_info_json' in globals():
-    del _sample_info_json
 `
                 )
                 .catch(() => {});
 
-            // Handle the case where sampleInfoJson is a string representation of JSON
-            if (!sampleInfoJson) {
-                return null;
-            }
-
-            try {
-                // If it's a string like "null", parse it correctly
-                const jsonString = String(sampleInfoJson);
-                const parsed = JSON.parse(jsonString);
-                return parsed;
-            } catch (parseError) {
-                // If parsing fails, sample likely doesn't exist in registry
-                logger.warning(`Could not parse sample info for '${escapedName}'`, parseError);
-                return null;
-            }
+            // getVariable already handles JSON parsing, so sampleInfo is a JavaScript object
+            return sampleInfo;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to get sample info: ${errorMessage}`);
