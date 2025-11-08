@@ -242,19 +242,38 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 plotOptionsProvider.updateBamStatus(hasBam);
             }
 
-            // If we have BAM files, fetch and update references
+            // If we have BAM files, fetch and aggregate references from all samples
             if (hasBam && state.squiggyAPI && plotOptionsProvider) {
-                // Get references from the first sample with BAM
-                const sampleWithBam = samples.find((s) => s.hasBam);
-                if (sampleWithBam) {
+                // Get all samples with BAM files
+                const samplesWithBam = samples.filter((s) => s.hasBam);
+                if (samplesWithBam.length > 0) {
                     logger.debug(
-                        '[extension.ts] Fetching references for sample:',
-                        sampleWithBam.name
+                        '[extension.ts] Fetching references from',
+                        samplesWithBam.length,
+                        'samples with BAM:',
+                        samplesWithBam.map((s) => s.name).join(', ')
                     );
-                    state.squiggyAPI.getReferencesForSample(sampleWithBam.name).then((refs) => {
-                        logger.debug('[extension.ts] Got references:', refs);
+
+                    // Fetch references from all samples in parallel
+                    Promise.all(
+                        samplesWithBam.map((sample) =>
+                            state.squiggyAPI!.getReferencesForSample(sample.name)
+                        )
+                    ).then((allRefs) => {
+                        // Aggregate unique references from all samples
+                        const uniqueRefs = Array.from(
+                            new Set(allRefs.flat().filter((ref) => ref !== null && ref !== undefined))
+                        );
+
+                        logger.debug(
+                            '[extension.ts] Aggregated',
+                            uniqueRefs.length,
+                            'unique references from all samples:',
+                            uniqueRefs
+                        );
+
                         if (plotOptionsProvider) {
-                            plotOptionsProvider.updateReferences(refs);
+                            plotOptionsProvider.updateReferences(uniqueRefs);
                         }
                     });
                 }
