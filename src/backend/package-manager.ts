@@ -45,9 +45,16 @@ except ImportError:
         try {
             await this.client.executeSilent(code);
             const result = await this.client.getVariable('_squiggy_installed');
-            await this.client.executeSilent('del _squiggy_installed').catch(() => {});
+            // Always clean up, even if getVariable failed
+            await this.client
+                .executeSilent("if '_squiggy_installed' in globals(): del _squiggy_installed")
+                .catch(() => {});
             return result === true;
         } catch {
+            // Clean up on error path too
+            await this.client
+                .executeSilent("if '_squiggy_installed' in globals(): del _squiggy_installed")
+                .catch(() => {});
             return false; // ImportError or other exception means not installed
         }
     }
