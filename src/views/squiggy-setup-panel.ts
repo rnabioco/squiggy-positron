@@ -35,8 +35,8 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
                 await this.handleInstall();
                 break;
 
-            case 'manual':
-                await this.showManualInstructions();
+            case 'selectInterpreter':
+                await this.selectPythonInterpreter();
                 break;
 
             case 'retry':
@@ -63,20 +63,14 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
      * Handle installation instructions request
      */
     private async handleInstall(): Promise<void> {
-        // Show installation instructions (PyPI-based)
-        await this.showManualInstructions();
+        // Deprecated - kept for backward compatibility but does nothing
     }
 
     /**
-     * Show manual installation instructions
+     * Open Python interpreter selection dialog
      */
-    private async showManualInstructions(): Promise<void> {
-        if (!this.state.packageManager) {
-            vscode.window.showErrorMessage('Package manager not available');
-            return;
-        }
-
-        await this.state.packageManager.showInstallationInstructions();
+    private async selectPythonInterpreter(): Promise<void> {
+        await vscode.commands.executeCommand('python.setInterpreter');
     }
 
     /**
@@ -155,31 +149,77 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             margin-bottom: 16px;
         }
 
-        .info-box {
-            background-color: var(--vscode-textBlockQuote-background);
-            border-left: 3px solid var(--vscode-textLink-foreground);
-            padding: 12px 16px;
+        .warning-box {
+            background-color: var(--vscode-inputValidation-warningBackground);
+            border: 1px solid var(--vscode-inputValidation-warningBorder);
+            border-radius: 4px;
+            padding: 16px;
             margin-top: 16px;
-            margin-bottom: 16px;
+            margin-bottom: 24px;
         }
 
-        .info-box p {
-            margin: 8px 0;
+        .warning-box h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            color: var(--vscode-foreground);
+            font-size: 14px;
         }
 
-        .info-box p:first-child {
+        .warning-box ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .warning-box li {
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+
+        .warning-box code {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 6px 10px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            display: block;
+            margin-top: 6px;
+            overflow-x: auto;
+        }
+
+        .command-wrapper {
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .command-wrapper code {
+            flex: 1;
             margin-top: 0;
         }
 
-        .info-box p:last-child {
-            margin-bottom: 0;
+        .copy-button {
+            background: var(--vscode-button-secondaryBackground);
+            border: none;
+            color: var(--vscode-button-secondaryForeground);
+            cursor: pointer;
+            padding: 6px 10px;
+            font-size: 14px;
+            border-radius: 3px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            align-self: stretch;
+            width: auto;
+            margin-top: 0;
         }
 
-        .button-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 16px;
+        .copy-button:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .copy-button.copied {
+            background-color: var(--vscode-testing-iconPassed);
+            color: #ffffff;
         }
 
         button {
@@ -191,40 +231,33 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             border-radius: 2px;
             font-size: 13px;
             text-align: center;
+            font-weight: 500;
+            display: block;
+            margin-top: 8px;
+            width: 100%;
         }
 
         button:hover {
             background-color: var(--vscode-button-hoverBackground);
         }
 
-        button.primary-large {
+        button.select-interpreter {
             background-color: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
-            padding: 12px 20px;
-            font-size: 15px;
-            font-weight: 600;
-            border: 2px solid var(--vscode-focusBorder);
         }
 
-        button.primary-large:hover {
+        button.select-interpreter:hover {
             background-color: var(--vscode-button-hoverBackground);
-            border-color: var(--vscode-button-hoverBackground);
         }
 
-        button.secondary {
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
+        button.check-again {
+            background-color: #d4a500;
+            color: #000000;
+            font-weight: 600;
         }
 
-        button.secondary:hover {
-            background-color: var(--vscode-button-secondaryHoverBackground);
-        }
-
-        .note {
-            color: var(--vscode-descriptionForeground);
-            font-size: 12px;
-            margin-top: 16px;
-            font-style: italic;
+        button.check-again:hover {
+            background-color: #e6b800;
         }
     </style>
 </head>
@@ -237,32 +270,79 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
         in your active Python environment.
     </div>
 
-    <div class="button-group">
-        <button class="primary-large" onclick="manual()">📖 View Detailed Instructions</button>
-        <button class="secondary" onclick="retry()">Check Again</button>
-    </div>
-
-    <div class="info-box">
-        <p><strong>Quick Install (from TestPyPI - temporary):</strong></p>
-        <p><code>uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron</code></p>
-        <p>or with pip:</p>
-        <p><code>pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron</code></p>
-        <p>Click "📖 View Detailed Instructions" above to copy the install command to your clipboard.</p>
-    </div>
-
-    <div class="note">
-        After installing, click "Check Again" to activate the extension.
+    <div class="warning-box">
+        <h3>📋 Setup Instructions</h3>
+        <ol>
+            <li>
+                Navigate to a project folder for virtual environment installation
+            </li>
+            <li>
+                (Optional) Install uv if not already installed
+                <div class="command-wrapper">
+                    <code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>
+                    <button class="copy-button" onclick="copyCommand('curl -LsSf https://astral.sh/uv/install.sh | sh', this)" title="Copy to clipboard">📋</button>
+                </div>
+            </li>
+            <li>
+                Create virtual environment
+                <div class="command-wrapper">
+                    <code>uv venv</code>
+                    <button class="copy-button" onclick="copyCommand('uv venv', this)" title="Copy to clipboard">📋</button>
+                </div>
+            </li>
+            <li>
+                Install Squiggy
+                <div class="command-wrapper">
+                    <code>uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron</code>
+                    <button class="copy-button" onclick="copyCommand('uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron', this)" title="Copy to clipboard">📋</button>
+                </div>
+            </li>
+            <li>
+                Select Python interpreter from new environment
+                <div style="margin-top: 6px; font-size: 12px; color: var(--vscode-descriptionForeground);">
+                    (Optional) Activate in terminal first: <code style="font-size: 11px; padding: 2px 4px;">source .venv/bin/activate</code>
+                </div>
+                <div style="margin-top: 6px; font-size: 12px;">
+                    Click button below and select the interpreter from your workspace (look for <strong>.venv</strong> path or <strong>"uv:"</strong> label):
+                </div>
+                <button class="select-interpreter" onclick="selectInterpreter()">🐍 Select Python Interpreter</button>
+            </li>
+            <li>
+                If setup panel doesn't disappear automatically, click:
+                <button class="check-again" onclick="retry()">✓ Check Again</button>
+            </li>
+        </ol>
     </div>
 
     <script>
         const vscode = acquireVsCodeApi();
 
-        function manual() {
-            vscode.postMessage({ type: 'manual' });
+        function selectInterpreter() {
+            vscode.postMessage({ type: 'selectInterpreter' });
         }
 
         function retry() {
             vscode.postMessage({ type: 'retry' });
+        }
+
+        function copyCommand(command, button) {
+            // Use the Clipboard API to copy the command
+            navigator.clipboard.writeText(command).then(() => {
+                // Visual feedback: change emoji temporarily
+                button.textContent = '✓';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.textContent = '📋';
+                    button.classList.remove('copied');
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy command:', err);
+                button.textContent = '✗';
+                setTimeout(() => {
+                    button.textContent = '📋';
+                }, 1500);
+            });
         }
 
         // Signal ready

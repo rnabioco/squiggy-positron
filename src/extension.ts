@@ -177,23 +177,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     if (state.packageManager) {
         const isInstalled = await state.packageManager.isSquiggyInstalled();
         await vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', isInstalled);
-
-        // Show helpful message if not installed
-        if (!isInstalled) {
-            const choice = await vscode.window.showWarningMessage(
-                'Squiggy requires the squiggy-positron Python package. ' +
-                    'Install it with: uv pip install squiggy-positron',
-                'Copy Install Command',
-                'Dismiss'
-            );
-
-            if (choice === 'Copy Install Command') {
-                await vscode.env.clipboard.writeText('uv pip install squiggy-positron');
-                vscode.window.showInformationMessage(
-                    'Copied to clipboard. Paste in your terminal to install.'
-                );
-            }
-        }
+        // Setup panel now handles all installation guidance - no popup needed
     } else {
         // No package manager available (non-Positron mode) - assume package is available
         await vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', true);
