@@ -4,13 +4,12 @@ version = "0.1.14"
 description = "Python backend for Squiggy Positron extension - Nanopore squiggle visualization. Not recommended for standalone use."
 readme = "docs/PYPI_README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Jay Hesselberth", email = "jay.hesselberth@gmail.com" }]
 keywords = ["nanopore", "oxford-nanopore", "pod5", "squiggle", "visualization", "positron", "ide-extension"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -102,9 +101,12 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.setuptools]
-packages = ["squiggy"]
 # Package imports as 'squiggy' even though PyPI name is 'squiggy-positron'
 # This maintains compatibility with existing code
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["squiggy*"]
 
 [tool.setuptools.package-data]
 squiggy = [
