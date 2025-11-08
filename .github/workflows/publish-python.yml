@@ -33,7 +33,7 @@ jobs:
 
       - name: Check package contents
         run: |
-          uv run twine check dist/*
+          uv tool run twine check dist/*
           tar -tzf dist/*.tar.gz | head -20
 
       - name: Publish to TestPyPI
