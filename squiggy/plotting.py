@@ -1061,21 +1061,41 @@ def plot_signal_overlay_comparison(
 
         reference_name = references[0]["name"]
 
-    # Validate all samples have same reference
-    for _i, sample in enumerate(samples[1:], start=1):
+    # Validate all samples have same reference (Issue #121)
+    samples_missing_reference = []
+    for sample in samples:
         if not sample.bam_info or "references" not in sample.bam_info:
-            raise ValueError(
-                f"Sample '{sample.name}' BAM must contain reference information"
-            )
+            samples_missing_reference.append((sample.name, "no BAM metadata"))
+            continue
 
         refs = sample.bam_info["references"]
         ref_names = [r["name"] for r in refs]
 
         if reference_name not in ref_names:
-            raise ValueError(
-                f"Sample '{sample.name}' aligns to different references. "
-                f"Expected '{reference_name}', but found: {ref_names}"
+            available_refs = ", ".join(ref_names[:3])
+            if len(ref_names) > 3:
+                available_refs += f", ... ({len(ref_names)} total)"
+            samples_missing_reference.append(
+                (sample.name, available_refs or "no references")
             )
+
+    # If any samples are missing the reference, raise a clear error
+    if samples_missing_reference:
+        error_lines = [
+            f"Cannot plot signal overlay comparison: Some samples do not have reads aligned to reference '{reference_name}':",
+            "",
+        ]
+        for sample_name, available in samples_missing_reference:
+            error_lines.append(f"  • Sample '{sample_name}': has {available}")
+
+        error_lines.extend(
+            [
+                "",
+                "Suggestion: Check which references each sample has in the Samples panel,",
+                "or ensure all samples are aligned to the same reference genome before loading.",
+            ]
+        )
+        raise ValueError("\n".join(error_lines))
 
     # Determine max_reads if not provided
     if max_reads is None:
@@ -1251,6 +1271,41 @@ def plot_aggregate_comparison(
     # Determine which metrics to display
     if metrics is None:
         metrics = ["signal", "dwell_time", "quality"]
+
+    # Validate that all samples have the requested reference (Issue #121)
+    samples_missing_reference = []
+    for sample in samples:
+        if sample.bam_info is None or "references" not in sample.bam_info:
+            samples_missing_reference.append((sample.name, "no BAM metadata"))
+            continue
+
+        # Check if reference exists in this sample's BAM
+        ref_names = [ref["name"] for ref in sample.bam_info.get("references", [])]
+        if reference_name not in ref_names:
+            available_refs = ", ".join(ref_names[:3])
+            if len(ref_names) > 3:
+                available_refs += f", ... ({len(ref_names)} total)"
+            samples_missing_reference.append(
+                (sample.name, available_refs or "no references")
+            )
+
+    # If any samples are missing the reference, raise a clear error
+    if samples_missing_reference:
+        error_lines = [
+            f"Cannot plot aggregate comparison: Some samples do not have reads aligned to reference '{reference_name}':",
+            "",
+        ]
+        for sample_name, available in samples_missing_reference:
+            error_lines.append(f"  • Sample '{sample_name}': has {available}")
+
+        error_lines.extend(
+            [
+                "",
+                "Suggestion: Check which references each sample has in the Samples panel,",
+                "or ensure all samples are aligned to the same reference genome before loading.",
+            ]
+        )
+        raise ValueError("\n".join(error_lines))
 
     # Determine max_reads if not provided
     if max_reads is None:

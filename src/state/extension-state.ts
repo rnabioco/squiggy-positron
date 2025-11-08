@@ -32,6 +32,12 @@ import { logger } from '../utils/logger';
  * - `isLoaded`: Tracks kernel state (prepares for lazy loading in #79 TSV import)
  * - `metadata`: Extensible object for future attributes without interface changes
  */
+export interface ReferenceInfo {
+    name: string;
+    readCount: number;
+    length?: number;
+}
+
 export interface SampleInfo {
     // Core identifiers
     sampleId: string; // Unique ID (can be UUID or derived from pod5 path)
@@ -46,6 +52,9 @@ export interface SampleInfo {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+
+    // Reference information (from BAM alignment)
+    references?: ReferenceInfo[]; // List of references this sample aligns to
 
     // Kernel state (for lazy loading)
     isLoaded: boolean; // Whether files are loaded into kernel
@@ -541,7 +550,11 @@ squiggy.close_fasta()
      * @private
      */
     private _notifyVisualizationSelectionChanged(): void {
-        this._onVisualizationSelectionChanged.fire(this.getSamplesForVisualization());
+        const selected = this.getSamplesForVisualization();
+        logger.info(
+            `[ExtensionState] Visualization selection changed: ${selected.length} samples selected: ${selected.join(', ')}`
+        );
+        this._onVisualizationSelectionChanged.fire(selected);
     }
 
     // ========== Multi-Sample Management (Phase 4) ==========
