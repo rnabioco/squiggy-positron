@@ -92,7 +92,6 @@ except ImportError:
         return { compatible: true, version };
     }
 
-
     /**
      * Show version incompatibility warning
      */
