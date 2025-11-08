@@ -262,7 +262,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                     ).then((allRefs) => {
                         // Aggregate unique references from all samples
                         const uniqueRefs = Array.from(
-                            new Set(allRefs.flat().filter((ref) => ref !== null && ref !== undefined))
+                            new Set(
+                                allRefs.flat().filter((ref) => ref !== null && ref !== undefined)
+                            )
                         );
 
                         logger.debug(
@@ -399,7 +401,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 }
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`Failed to generate aggregate plot: ${errorMessage}`);
+                vscode.window.showErrorMessage(
+                    `Failed to generate aggregate plot: ${errorMessage}`
+                );
             }
         })
     );

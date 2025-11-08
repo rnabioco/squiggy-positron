@@ -616,7 +616,9 @@ async function checkSampleReferenceCompatibility(
     for (const sampleName of sampleNames) {
         const sample = state.getSample(sampleName);
         if (!sample) {
-            logger.warning(`[Reference Check] Sample '${sampleName}' not found in state - skipping`);
+            logger.warning(
+                `[Reference Check] Sample '${sampleName}' not found in state - skipping`
+            );
             continue;
         }
 
@@ -727,7 +729,8 @@ async function showReferenceCompatibilityDialog(
     lines.push(`✗ Samples without '${referenceName}' (${incompatibleSamples.length}):`);
     incompatibleSamples.forEach((sample) => {
         const refList = sample.references.slice(0, 3).join(', ');
-        const more = sample.references.length > 3 ? `, ... (${sample.references.length} total)` : '';
+        const more =
+            sample.references.length > 3 ? `, ... (${sample.references.length} total)` : '';
         lines.push(`  • ${sample.name} (has: ${refList}${more})`);
     });
 
@@ -782,11 +785,7 @@ async function plotAggregateComparison(
                     `[Reference Check] Found ${incompatible.length} incompatible samples - showing dialog to user`
                 );
 
-                await showReferenceCompatibilityDialog(
-                    params.reference,
-                    compatible,
-                    incompatible
-                );
+                await showReferenceCompatibilityDialog(params.reference, compatible, incompatible);
 
                 logger.info('[Reference Check] User must fix sample selection - aborting plot');
                 return; // User must manually fix selection

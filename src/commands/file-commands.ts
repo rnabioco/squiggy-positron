@@ -962,7 +962,10 @@ async function loadSampleForComparison(
                         references = sampleInfo.references;
                     }
                 } catch (error) {
-                    console.warn(`Failed to fetch reference info for sample '${sampleName}':`, error);
+                    console.warn(
+                        `Failed to fetch reference info for sample '${sampleName}':`,
+                        error
+                    );
                 }
             }
 
@@ -1000,7 +1003,7 @@ async function loadSampleForComparison(
                 readCount,
                 hasBam: !!bamPath,
                 hasFasta: !!fastaPath,
-                references,  // Add reference information
+                references, // Add reference information
                 isLoaded: true,
                 metadata: {
                     autoDetected: false,
@@ -1127,7 +1130,7 @@ async function loadTestMultiReadDataset(
                         readCount,
                         hasBam: !!sample.bamPath,
                         hasFasta: !!sample.fastaPath,
-                        references,  // Add reference information
+                        references, // Add reference information
                         isLoaded: true,
                         metadata: {
                             // Note: autoDetected tracks whether files were matched by naming convention.

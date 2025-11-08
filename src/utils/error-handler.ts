@@ -188,9 +188,10 @@ function formatErrorMessage(error: unknown, context: ErrorContext): string {
     }
 
     // Unknown error type - try to extract message if possible
-    const errorMessage = typeof error === 'object' && error !== null && 'message' in error
-        ? String((error as { message: unknown }).message)
-        : String(error);
+    const errorMessage =
+        typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as { message: unknown }).message)
+            : String(error);
     return `Failed ${context}: ${errorMessage}`;
 }
 
