@@ -279,14 +279,20 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             case 'toggleSampleSelection': {
                 // Toggle sample selection for visualization
                 const isSelected = this._state.isSampleSelectedForVisualization(message.sampleName);
+                logger.info(
+                    `[SamplesPanelProvider] Toggling selection for '${message.sampleName}': currently ${isSelected ? 'SELECTED' : 'NOT SELECTED'}`
+                );
                 if (isSelected) {
                     this._state.removeSampleFromVisualization(message.sampleName);
+                    logger.info(
+                        `[SamplesPanelProvider] REMOVED '${message.sampleName}' from visualization selection`
+                    );
                 } else {
                     this._state.addSampleToVisualization(message.sampleName);
+                    logger.info(
+                        `[SamplesPanelProvider] ADDED '${message.sampleName}' to visualization selection`
+                    );
                 }
-                logger.debug(
-                    `[SamplesPanelProvider] Toggled selection for ${message.sampleName}: now ${!isSelected}`
-                );
                 break;
             }
 
