@@ -47,6 +47,7 @@ def plot_read(
     show_signal_points: bool = False,
     clip_x_to_alignment: bool = True,
     sample_name: str | None = None,
+    coordinate_space: str = "signal",
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -68,6 +69,8 @@ def plot_read(
                              If False, x-axis extends to include soft-clipped regions.
         sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        coordinate_space: X-axis coordinate system ('signal' or 'sequence').
+                         'signal' uses sample indices, 'sequence' uses genomic positions (requires BAM).
 
     Returns:
         Bokeh HTML string
@@ -113,18 +116,40 @@ def plot_read(
 
     # Prepare data based on plot mode
     if plot_mode == PlotMode.SINGLE:
-        # Single read mode: no alignment needed
+        # Single read mode
         data = {
             "signal": read_obj.signal,
             "read_id": read_id,
             "sample_rate": read_obj.run_info.sample_rate,
         }
 
+        # If sequence coordinate space requested, get alignment data
+        if coordinate_space == "sequence":
+            if sample_name:
+                sample = _squiggy_session.get_sample(sample_name)
+                bam_path = sample.bam_path if sample else None
+            else:
+                bam_path = _squiggy_session.bam_path
+
+            if bam_path is None:
+                raise ValueError(
+                    "Sequence coordinate space requires a BAM file. Call load_bam() first or use coordinate_space='signal'."
+                )
+
+            from .alignment import extract_alignment_from_bam
+
+            aligned_read = extract_alignment_from_bam(bam_path, read_id)
+            if aligned_read is None:
+                raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+
+            data["aligned_read"] = aligned_read
+
         options = {
             "normalization": norm_method,
             "downsample": downsample,
             "show_signal_points": show_signal_points,
             "x_axis_mode": "dwell_time" if scale_dwell_time else "regular_time",
+            "coordinate_space": coordinate_space,
         }
 
     elif plot_mode == PlotMode.EVENTALIGN:

@@ -261,7 +261,8 @@ squiggy.get_read_to_reference_mapping()
         enabledModTypes: string[] = [],
         downsample: number = 5,
         showSignalPoints: boolean = false,
-        sampleName?: string
+        sampleName?: string,
+        coordinateSpace?: 'signal' | 'sequence'
     ): Promise<void> {
         try {
             // Validate inputs
@@ -279,6 +280,9 @@ squiggy.get_read_to_reference_mapping()
             // Build sample name parameter if in multi-sample mode
             const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
 
+            // Build coordinate space parameter if specified
+            const coordinateSpaceParam = coordinateSpace ? `, coordinate_space='${coordinateSpace}'` : '';
+
             // Build the plot function call with proper multi-line formatting
             const plotCall =
                 readIds.length === 1
@@ -293,7 +297,7 @@ squiggy.get_read_to_reference_mapping()
     min_mod_probability=${minModProbability},
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
-    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
 )`
                     : `squiggy.plot_reads(
     ${readIdsJson},
@@ -306,7 +310,7 @@ squiggy.get_read_to_reference_mapping()
     min_mod_probability=${minModProbability},
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
-    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
 )`;
 
             const code = `
@@ -739,7 +743,7 @@ squiggy.load_sample(
             // Get read count for this sample
             logger.debug(`[loadSample] Querying read count for sample '${sampleName}'...`);
             const numReads = await this._client.getVariable(
-                `len(_squiggy_session.get_sample('${escapedSampleName}').read_ids)`
+                `len(squiggy._squiggy_session.get_sample('${escapedSampleName}').read_ids)`
             );
             const queryTime = Date.now();
             logger.debug(
@@ -761,7 +765,7 @@ squiggy.load_sample(
      */
     async listSamples(): Promise<string[]> {
         try {
-            const sampleNames = await this._client.getVariable('_squiggy_session.list_samples()');
+            const sampleNames = await this._client.getVariable('squiggy._squiggy_session.list_samples()');
             return (sampleNames as string[]) || [];
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -777,6 +781,7 @@ squiggy.load_sample(
 
         try {
             const code = `
+from squiggy import _squiggy_session
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample:
     _sample_info = {
@@ -860,6 +865,7 @@ squiggy.remove_sample('${escapedName}')
             // Execute setup code first to create variables
             // Uses ref_counts (reference → read count) which is built once during sample load
             const setupCode = `
+from squiggy import _squiggy_session
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample:
     _read_ids = _sample.read_ids
@@ -927,6 +933,7 @@ _result = {'read_ids': _read_ids, 'references': _refs}
             const tempVar = '_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
+from squiggy import _squiggy_session
 _sample = _squiggy_session.get_sample('${escapedName}')
 ${tempVar} = _sample.read_ids${sliceStr} if _sample else []
 `);
@@ -968,6 +975,7 @@ ${tempVar} = _sample.read_ids${sliceStr} if _sample else []
             const tempVar = '_squiggy_temp_refs_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
+from squiggy import _squiggy_session
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
     ${tempVar} = list(_sample.bam_info['ref_mapping'].keys())
@@ -1007,6 +1015,7 @@ else:
         try {
             // Execute setup code first to create variables
             const setupCode = `
+from squiggy import _squiggy_session
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_counts' in _sample.bam_info:
     _counts = _sample.bam_info['ref_counts']
@@ -1039,6 +1048,7 @@ else:
         try {
             // Execute setup code first to create variables
             const setupCode = `
+from squiggy import _squiggy_session
 _sample = _squiggy_session.get_sample('${escapedName}')
 if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
     _reads = _sample.bam_info['ref_mapping'].get('${escapedRef}', [])

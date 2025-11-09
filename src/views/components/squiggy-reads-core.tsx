@@ -39,6 +39,10 @@ export const ReadsCore: React.FC = () => {
     const [availableSamples, setAvailableSamples] = React.useState<string[]>([]);
     const [selectedSample, setSelectedSample] = React.useState<string | null>(null);
 
+    // Plot mode state (signal vs sequence coordinates)
+    const [plotMode, setPlotMode] = React.useState<'signal' | 'sequence'>('signal');
+    const [hasBam, setHasBam] = React.useState(false);
+
     // Loading state
     const [isLoading, setIsLoading] = React.useState(false);
     const [loadingMessage, setLoadingMessage] = React.useState('');
@@ -73,6 +77,9 @@ export const ReadsCore: React.FC = () => {
                     break;
                 case 'updateReads':
                     // Handle unified message from backend
+                    // Update BAM status (grouped = BAM loaded)
+                    setHasBam(!!message.groupedByReference);
+
                     if (message.groupedByReference) {
                         // For grouped reads, message.reads contains reference headers
                         // Populate the referenceToReads map for expansion logic
@@ -171,6 +178,9 @@ export const ReadsCore: React.FC = () => {
     }, []);
 
     const handleSetReads = (items: ReadListItem[]) => {
+        // Set hasBam to false since flat list means no BAM
+        setHasBam(false);
+
         setState((prev) => ({
             ...prev,
             items,
@@ -189,6 +199,9 @@ export const ReadsCore: React.FC = () => {
     ) => {
         // Store full data for expansion
         referenceToReadsRef.current = new Map(referenceToReads);
+
+        // Set hasBam since grouped reads means BAM is loaded
+        setHasBam(true);
 
         setState((prev) => {
             // Rebuild items with sorting applied
@@ -229,6 +242,9 @@ export const ReadsCore: React.FC = () => {
         // Clear cache for fresh load
         referenceCacheRef.current.clear();
         referenceToReadsRef.current.clear();
+
+        // Set hasBam since having references means BAM is loaded
+        setHasBam(true);
 
         setState((prev) => ({
             ...prev,
@@ -418,7 +434,7 @@ export const ReadsCore: React.FC = () => {
     };
 
     const handlePlotRead = (readId: string) => {
-        vscode.postMessage({ type: 'plotRead', readId });
+        vscode.postMessage({ type: 'plotRead', readId, coordinateSpace: plotMode });
     };
 
     const handleSelectRead = (readId: string, multiSelect: boolean) => {
@@ -507,6 +523,29 @@ export const ReadsCore: React.FC = () => {
             {state.totalReadCount === 0 && availableSamples.length === 0 && (
                 <div className="reads-empty-state">
                     <p>No samples loaded. Load POD5 files to get started.</p>
+                </div>
+            )}
+
+            {/* Plot Mode toggle (only show when BAM is loaded) */}
+            {hasBam && (
+                <div className="reads-plot-mode-selector">
+                    <label>Plot Mode:</label>
+                    <div className="reads-plot-mode-buttons">
+                        <button
+                            className={`reads-plot-mode-btn ${plotMode === 'signal' ? 'active' : ''}`}
+                            onClick={() => setPlotMode('signal')}
+                            title="Plot using signal sample indices (x-axis = sample number)"
+                        >
+                            Signal
+                        </button>
+                        <button
+                            className={`reads-plot-mode-btn ${plotMode === 'sequence' ? 'active' : ''}`}
+                            onClick={() => setPlotMode('sequence')}
+                            title="Plot using genomic coordinates (x-axis = reference position)"
+                        >
+                            Sequence
+                        </button>
+                    </div>
                 </div>
             )}
 

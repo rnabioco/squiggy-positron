@@ -433,10 +433,16 @@ squiggy.load_bam('${escapedPath}')
         minModProbability: number = 0.5,
         enabledModTypes: string[] = [],
         downsample: number = 5,
-        showSignalPoints: boolean = false
+        showSignalPoints: boolean = false,
+        sampleName?: string,
+        coordinateSpace?: 'signal' | 'sequence'
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
         const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+        // Build optional parameters
+        const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+        const coordinateSpaceParam = coordinateSpace ? `, coordinate_space='${coordinateSpace}'` : '';
 
         const code = `
 import sys
@@ -450,8 +456,8 @@ try:
     # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
     ${
         readIds.length === 1
-            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
-            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'})`
+            ? `squiggy.plot_read('${readIds[0]}', mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam})`
+            : `squiggy.plot_reads(${readIdsJson}, mode='${mode}', normalization='${normalization}', theme='${theme}', show_dwell_time=${showDwellTime ? 'True' : 'False'}, show_labels=${showBaseAnnotations ? 'True' : 'False'}, scale_dwell_time=${scaleDwellTime ? 'True' : 'False'}, min_mod_probability=${minModProbability}, enabled_mod_types=${enabledModTypesJson}, downsample=${downsample}, show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam})`
     }
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
@@ -549,31 +555,21 @@ squiggy.plot_aggregate(
      * Check if squiggy package is installed in the kernel
      */
     async isSquiggyInstalled(): Promise<boolean> {
-        const code = `
-try:
-    import squiggy
-    # Verify package has expected functions
-    _squiggy_installed = (hasattr(squiggy, 'load_pod5') and
-                          hasattr(squiggy, 'load_bam') and
-                          hasattr(squiggy, 'plot_read'))
-except ImportError:
-    _squiggy_installed = False
-`;
-
         try {
-            await this.executeSilent(code);
-            const result = await this.getVariable('_squiggy_installed');
-            // Always clean up, even if getVariable failed
-            await this.executeSilent(
-                "if '_squiggy_installed' in globals(): del _squiggy_installed"
-            ).catch(() => {});
+            // Use a self-contained expression that evaluates inline
+            // This avoids race conditions with variable persistence
+            const checkExpression = `(lambda: (
+                __import__('squiggy') and
+                hasattr(__import__('squiggy'), 'load_pod5') and
+                hasattr(__import__('squiggy'), 'load_bam') and
+                hasattr(__import__('squiggy'), 'plot_read')
+            ))()`;
+
+            const result = await this.getVariable(checkExpression);
             return result === true;
         } catch {
-            // Clean up on error path too
-            await this.executeSilent(
-                "if '_squiggy_installed' in globals(): del _squiggy_installed"
-            ).catch(() => {});
-            return false; // ImportError or other exception means not installed
+            // Import error or other exception means not installed
+            return false;
         }
     }
 

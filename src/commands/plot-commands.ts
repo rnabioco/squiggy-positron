@@ -22,7 +22,7 @@ export function registerPlotCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotRead',
-            async (readIdOrItem?: string | ReadItem) => {
+            async (readIdOrItem?: string | ReadItem, coordinateSpace?: 'signal' | 'sequence') => {
                 // Validate that at least one sample is loaded (for multi-sample mode)
                 const hasSamples = state.getAllSampleNames().length > 0;
                 const hasLegacyPod5 = !!state.currentPod5File;
@@ -52,7 +52,7 @@ export function registerPlotCommands(
                     return;
                 }
 
-                await plotReads(readIds, state);
+                await plotReads(readIds, state, coordinateSpace);
             }
         )
     );
@@ -336,7 +336,7 @@ export function registerPlotCommands(
 /**
  * Plot reads
  */
-async function plotReads(readIds: string[], state: ExtensionState): Promise<void> {
+async function plotReads(readIds: string[], state: ExtensionState, coordinateSpace?: 'signal' | 'sequence'): Promise<void> {
     // Track current plot for refresh
     state.currentPlotReadIds = readIds;
 
@@ -352,7 +352,7 @@ async function plotReads(readIds: string[], state: ExtensionState): Promise<void
             const normalization = options.normalization;
 
             logger.info(
-                `Generating ${mode} plot for ${readIds.length} read${readIds.length !== 1 ? 's' : ''} (normalization: ${normalization})`
+                `Generating ${mode} plot for ${readIds.length} read${readIds.length !== 1 ? 's' : ''} (normalization: ${normalization}, coordinate space: ${coordinateSpace || 'default'})`
             );
 
             // Get modification filters
@@ -379,7 +379,8 @@ async function plotReads(readIds: string[], state: ExtensionState): Promise<void
                     modFilters.enabledModTypes,
                     options.downsample,
                     options.showSignalPoints,
-                    state.selectedReadExplorerSample || undefined // Pass current sample for multi-sample mode
+                    state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
+                    coordinateSpace
                 );
                 logger.info('Plot generated successfully');
             } else if (state.pythonBackend) {

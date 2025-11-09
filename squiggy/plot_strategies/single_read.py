@@ -104,6 +104,7 @@ class SingleReadPlotStrategy(PlotStrategy):
                 - sequence (optional): str DNA/RNA sequence
                 - seq_to_sig_map (optional): list[int] mapping seq positions to signal
                 - modifications (optional): list of ModificationAnnotation objects
+                - aligned_read (optional): AlignedRead object for reference-anchored mode
 
             options: Plot options dictionary containing:
                 - normalization: NormalizationMethod enum (default: NONE)
@@ -116,6 +117,7 @@ class SingleReadPlotStrategy(PlotStrategy):
                 - modification_overlay_opacity: float mod opacity 0-1 (default: 0.6)
                 - min_mod_probability: float min mod probability (default: 0.5)
                 - enabled_mod_types: list[str] enabled mod types (default: None)
+                - coordinate_space: str ('signal' or 'sequence', default: 'signal')
 
         Returns:
             Tuple of (html_string, bokeh_figure_or_layout)
@@ -133,6 +135,7 @@ class SingleReadPlotStrategy(PlotStrategy):
         sequence = data.get("sequence")
         seq_to_sig_map = data.get("seq_to_sig_map")
         modifications = data.get("modifications")
+        aligned_read = data.get("aligned_read")
 
         from ..constants import DEFAULT_DOWNSAMPLE
 
@@ -147,20 +150,29 @@ class SingleReadPlotStrategy(PlotStrategy):
         modification_overlay_opacity = options.get("modification_overlay_opacity", 0.6)
         min_mod_probability = options.get("min_mod_probability", 0.5)
         enabled_mod_types = options.get("enabled_mod_types", None)
+        coordinate_space = options.get("coordinate_space", "signal")
 
         # Process signal (normalize and downsample)
         signal, seq_to_sig_map = self._process_signal(
             signal, normalization, downsample, seq_to_sig_map
         )
 
-        # Create x-axis
-        time_ms, x_label = self._create_x_axis(
-            signal=signal,
-            sample_rate=sample_rate,
-            sequence=sequence,
-            seq_to_sig_map=seq_to_sig_map,
-            scale_dwell_time=scale_dwell_time,
-        )
+        # Create x-axis - use genomic positions if in sequence space with alignment
+        if coordinate_space == "sequence" and aligned_read:
+            time_ms, signal, x_label = self._create_genomic_position_axis(
+                signal=signal,
+                aligned_read=aligned_read,
+                downsample=downsample,
+            )
+        else:
+            # Original behavior: time-based or sample-based x-axis
+            time_ms, x_label = self._create_x_axis(
+                signal=signal,
+                sample_rate=sample_rate,
+                sequence=sequence,
+                seq_to_sig_map=seq_to_sig_map,
+                scale_dwell_time=scale_dwell_time,
+            )
 
         # Create main figure
         title = self._format_title(read_id, normalization, downsample)
@@ -342,6 +354,101 @@ class SingleReadPlotStrategy(PlotStrategy):
                 base_positions[i] = seq_pos + progress
 
         return base_positions, "Base Position"
+
+    def _create_genomic_position_axis(
+        self,
+        signal: np.ndarray,
+        aligned_read,
+        downsample: int,
+    ) -> tuple[np.ndarray, np.ndarray, str]:
+        """
+        Create genomic position x-axis for reference-anchored plotting
+
+        Similar to overlay/stacked strategies, collapses multiple samples at same
+        genomic position by averaging to avoid vertical lines.
+
+        Returns:
+            Tuple of (positions, collapsed_signal, label)
+        """
+        # Build genomic position array from aligned read
+        ref_positions = []
+
+        # Find first valid genomic position
+        first_genomic_pos = None
+        for base in aligned_read.bases:
+            if base.genomic_pos is not None:
+                first_genomic_pos = base.genomic_pos
+                break
+
+        # Build position array
+        for base in aligned_read.bases:
+            num_samples = base.signal_end - base.signal_start
+            if base.genomic_pos is not None:
+                # Mapped base - use genomic position
+                ref_positions.extend([base.genomic_pos] * num_samples)
+            elif first_genomic_pos is not None:
+                # Insertion or soft-clip - use last valid position
+                if ref_positions:
+                    ref_positions.extend([ref_positions[-1]] * num_samples)
+                else:
+                    ref_positions.extend([first_genomic_pos] * num_samples)
+
+        if not ref_positions:
+            # Fallback to sample indices if no genomic positions available
+            return np.arange(len(signal)), signal, "Sample"
+
+        # Convert to float for NaN support
+        ref_positions = np.array(ref_positions, dtype=float)
+
+        # Downsample if needed
+        if downsample > 1 and len(ref_positions) > len(signal):
+            ref_positions = ref_positions[::downsample]
+
+        # Ensure lengths match
+        if len(ref_positions) < len(signal):
+            ref_positions = np.pad(
+                ref_positions,
+                (0, len(signal) - len(ref_positions)),
+                mode="edge",
+            )
+        elif len(ref_positions) > len(signal):
+            ref_positions = ref_positions[: len(signal)]
+
+        # Collapse repeated positions (average signal at each unique position)
+        unique_positions = []
+        unique_signals = []
+
+        current_pos = ref_positions[0]
+        current_signals = [signal[0]]
+
+        for i in range(1, len(ref_positions)):
+            if ref_positions[i] == current_pos:
+                # Same position - accumulate signal values
+                current_signals.append(signal[i])
+            else:
+                # New position - save mean of accumulated signals
+                unique_positions.append(current_pos)
+                unique_signals.append(np.mean(current_signals))
+
+                # Check for deletion (position jump > 1)
+                if ref_positions[i] - current_pos > 1:
+                    # Insert NaN to break line at deletion
+                    unique_positions.append(np.nan)
+                    unique_signals.append(np.nan)
+
+                # Start new position
+                current_pos = ref_positions[i]
+                current_signals = [signal[i]]
+
+        # Don't forget the last position
+        unique_positions.append(current_pos)
+        unique_signals.append(np.mean(current_signals))
+
+        # Convert to arrays
+        collapsed_positions = np.array(unique_positions)
+        collapsed_signal = np.array(unique_signals)
+
+        return collapsed_positions, collapsed_signal, "Reference Position"
 
     # =========================================================================
     # Private Methods: Rendering

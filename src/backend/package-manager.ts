@@ -21,31 +21,20 @@ export class PackageManager {
      * Check if squiggy package is installed in the kernel
      */
     async isSquiggyInstalled(): Promise<boolean> {
-        const code = `
-try:
-    import squiggy
-    # Verify package has expected functions
-    _squiggy_installed = (hasattr(squiggy, 'load_pod5') and
-                          hasattr(squiggy, 'load_bam') and
-                          hasattr(squiggy, 'plot_read'))
-except ImportError:
-    _squiggy_installed = False
-`;
-
         try {
-            await this.client.executeSilent(code);
-            const result = await this.client.getVariable('_squiggy_installed');
-            // Always clean up, even if getVariable failed
-            await this.client
-                .executeSilent("if '_squiggy_installed' in globals(): del _squiggy_installed")
-                .catch(() => {});
+            // Use a self-contained lambda expression to avoid variable persistence issues
+            const checkExpression = `(lambda: (
+                __import__('squiggy') and
+                hasattr(__import__('squiggy'), 'load_pod5') and
+                hasattr(__import__('squiggy'), 'load_bam') and
+                hasattr(__import__('squiggy'), 'plot_read')
+            ))()`;
+
+            const result = await this.client.getVariable(checkExpression);
             return result === true;
         } catch {
-            // Clean up on error path too
-            await this.client
-                .executeSilent("if '_squiggy_installed' in globals(): del _squiggy_installed")
-                .catch(() => {});
-            return false; // ImportError or other exception means not installed
+            // Import error or other exception means not installed
+            return false;
         }
     }
 

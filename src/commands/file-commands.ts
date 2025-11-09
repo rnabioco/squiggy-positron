@@ -848,6 +848,9 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
             // Maintain legacy state for backward compatibility
             state.currentFastaFile = filePath;
 
+            // Update plot options to enable reference track
+            state.plotOptionsProvider?.updateFastaStatus(true);
+
             logger.debug(`[openFASTAFile] Successfully loaded: ${path.basename(filePath)}`);
             vscode.window.showInformationMessage(`FASTA file loaded: ${path.basename(filePath)}`);
         },
@@ -877,6 +880,9 @@ squiggy.close_fasta()
 
         // Clear extension state (legacy)
         state.currentFastaFile = undefined;
+
+        // Update plot options to disable reference track
+        state.plotOptionsProvider?.updateFastaStatus(false);
 
         vscode.window.showInformationMessage('FASTA file closed');
     } catch (error) {
