@@ -94,9 +94,9 @@ export class SquigglePlotPanel {
     public async exportPlot(
         outputPath: string,
         format?: string,
-        width?: number,
-        height?: number,
-        dpi?: number
+        _width?: number,
+        _height?: number,
+        _dpi?: number
     ): Promise<void> {
         // Determine format from file extension if not specified
         if (!format) {

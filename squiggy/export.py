@@ -5,9 +5,7 @@ This module provides functions to export Bokeh plots to static image formats
 (PNG, SVG) with dimension control.
 """
 
-import io
 import warnings
-from pathlib import Path
 from typing import Any
 
 from bokeh.io import export_png, export_svgs
@@ -134,8 +132,6 @@ def export_plot_to_svg(
         # Returns a generator of SVG strings - we take the first one
         plot.output_backend = "svg"
 
-        # Use BytesIO to capture SVG output
-        svg_io = io.BytesIO()
         export_svgs(plot, filename=output_path)
 
     finally:
