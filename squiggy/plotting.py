@@ -176,7 +176,11 @@ def plot_read(
 
         # Fetch reference sequence (FASTA-first pattern)
         reference_sequence = ""
-        if hasattr(aligned_read, 'reference_name') and hasattr(aligned_read, 'reference_start') and hasattr(aligned_read, 'reference_end'):
+        if (
+            hasattr(aligned_read, "reference_name")
+            and hasattr(aligned_read, "reference_start")
+            and hasattr(aligned_read, "reference_end")
+        ):
             reference_sequence = get_reference_sequence_from_fasta(
                 fasta_file=fasta_path,
                 reference_name=aligned_read.reference_name,
@@ -1221,8 +1225,11 @@ def plot_signal_overlay_comparison(
             if first_sample.fasta_path:
                 try:
                     import pysam
+
                     fasta = pysam.FastaFile(first_sample.fasta_path)
-                    reference_sequence = fasta.fetch(reference_name, min_pos, max_pos + 1)
+                    reference_sequence = fasta.fetch(
+                        reference_name, min_pos, max_pos + 1
+                    )
                     fasta.close()
                 except Exception:
                     # FASTA fetch failed, will fall back to BAM
@@ -1238,7 +1245,9 @@ def plot_signal_overlay_comparison(
                         max_reads=1,
                     )
                     if reads:
-                        reference_sequence = reads[0].get("reference_sequence", "") or ""
+                        reference_sequence = (
+                            reads[0].get("reference_sequence", "") or ""
+                        )
                 except Exception:
                     # If we can't get reference sequence, continue without it
                     pass

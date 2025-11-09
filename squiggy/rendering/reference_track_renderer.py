@@ -104,11 +104,15 @@ class ReferenceTrackRenderer:
 
         y_position = 0.5  # Center vertically
 
-        for i, (pos, ref_base) in enumerate(zip(positions, reference_sequence, strict=True)):
+        for i, (pos, ref_base) in enumerate(
+            zip(positions, reference_sequence, strict=True)
+        ):
             ref_base_upper = ref_base.upper()
 
             # Determine color
-            base_color = base_colors.get(ref_base_upper, base_colors.get("N", "#808080"))
+            base_color = base_colors.get(
+                ref_base_upper, base_colors.get("N", "#808080")
+            )
 
             # Check for mismatch if query sequence provided
             is_mismatch = False
@@ -162,7 +166,11 @@ class ReferenceTrackRenderer:
             mismatch_source = ColumnDataSource(data=mismatch_data)
 
             # Add rectangle background for mismatches
-            rect_width = (max(positions) - min(positions)) / len(positions) if len(positions) > 1 else 1
+            rect_width = (
+                (max(positions) - min(positions)) / len(positions)
+                if len(positions) > 1
+                else 1
+            )
             fig.rect(
                 x="x",
                 y="y",
@@ -235,9 +243,13 @@ class ReferenceTrackRenderer:
             "is_mismatch": [],
         }
 
-        for i, (pos, ref_base) in enumerate(zip(positions, reference_sequence, strict=True)):
+        for i, (pos, ref_base) in enumerate(
+            zip(positions, reference_sequence, strict=True)
+        ):
             ref_base_upper = ref_base.upper()
-            base_color = base_colors.get(ref_base_upper, base_colors.get("N", "#808080"))
+            base_color = base_colors.get(
+                ref_base_upper, base_colors.get("N", "#808080")
+            )
 
             # Check for mismatch
             is_mismatch = False

@@ -262,7 +262,14 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
             const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
             const hasFasta = samples.some((s) => s.hasFasta); // Any sample with FASTA
 
-            logger.debug('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam, 'hasFasta:', hasFasta);
+            logger.debug(
+                '[extension.ts] Setting hasPod5:',
+                hasPod5,
+                'hasBam:',
+                hasBam,
+                'hasFasta:',
+                hasFasta
+            );
 
             if (plotOptionsProvider) {
                 plotOptionsProvider.updatePod5Status(hasPod5);

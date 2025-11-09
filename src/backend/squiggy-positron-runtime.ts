@@ -442,7 +442,9 @@ squiggy.load_bam('${escapedPath}')
 
         // Build optional parameters
         const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
-        const coordinateSpaceParam = coordinateSpace ? `, coordinate_space='${coordinateSpace}'` : '';
+        const coordinateSpaceParam = coordinateSpace
+            ? `, coordinate_space='${coordinateSpace}'`
+            : '';
 
         const code = `
 import sys

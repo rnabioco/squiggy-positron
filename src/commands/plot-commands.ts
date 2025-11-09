@@ -336,7 +336,11 @@ export function registerPlotCommands(
 /**
  * Plot reads
  */
-async function plotReads(readIds: string[], state: ExtensionState, coordinateSpace?: 'signal' | 'sequence'): Promise<void> {
+async function plotReads(
+    readIds: string[],
+    state: ExtensionState,
+    coordinateSpace?: 'signal' | 'sequence'
+): Promise<void> {
     // Track current plot for refresh
     state.currentPlotReadIds = readIds;
 

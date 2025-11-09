@@ -180,11 +180,19 @@ class OverlayPlotStrategy(PlotStrategy):
                 if not ref_positions:
                     # Skip unmapped/unaligned reads in sequence space mode
                     # This can happen if: read is unmapped, all bases are insertions, or soft-clipped
-                    print(f"Warning: Skipping read {read_id} - no genomic positions available")
-                    print(f"  Read has {len(aligned_read.bases)} bases, chromosome: {aligned_read.chromosome}")
+                    print(
+                        f"Warning: Skipping read {read_id} - no genomic positions available"
+                    )
+                    print(
+                        f"  Read has {len(aligned_read.bases)} bases, chromosome: {aligned_read.chromosome}"
+                    )
                     if aligned_read.bases:
-                        first_bases_genomic = [b.genomic_pos for b in aligned_read.bases[:5]]
-                        print(f"  First 5 bases genomic positions: {first_bases_genomic}")
+                        first_bases_genomic = [
+                            b.genomic_pos for b in aligned_read.bases[:5]
+                        ]
+                        print(
+                            f"  First 5 bases genomic positions: {first_bases_genomic}"
+                        )
                     skipped_reads.append(read_id)
                     continue
 

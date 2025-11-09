@@ -281,7 +281,9 @@ squiggy.get_read_to_reference_mapping()
             const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
 
             // Build coordinate space parameter if specified
-            const coordinateSpaceParam = coordinateSpace ? `, coordinate_space='${coordinateSpace}'` : '';
+            const coordinateSpaceParam = coordinateSpace
+                ? `, coordinate_space='${coordinateSpace}'`
+                : '';
 
             // Build the plot function call with proper multi-line formatting
             const plotCall =
@@ -765,7 +767,9 @@ squiggy.load_sample(
      */
     async listSamples(): Promise<string[]> {
         try {
-            const sampleNames = await this._client.getVariable('squiggy._squiggy_session.list_samples()');
+            const sampleNames = await this._client.getVariable(
+                'squiggy._squiggy_session.list_samples()'
+            );
             return (sampleNames as string[]) || [];
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
