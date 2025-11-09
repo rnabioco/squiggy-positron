@@ -14,19 +14,38 @@ export class SquigglePlotPanel {
     private _currentHtml: string = '';
     private _currentReadIds: string[] = [];
 
+    // State for single read toggle
+    private _currentCoordinateSpace: 'signal' | 'sequence' = 'signal';
+    private _hasBam: boolean = false;
+    private _onToggleCoordinateSpace?: (
+        readId: string,
+        coordinateSpace: 'signal' | 'sequence'
+    ) => Promise<void>;
+
     private constructor(panel: vscode.WebviewPanel, _extensionUri: vscode.Uri) {
         this._panel = panel;
 
         // Set up event listeners
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
-        // Handle messages from the webview (if needed)
+        // Handle messages from the webview
         this._panel.webview.onDidReceiveMessage(
-            (message) => {
+            async (message) => {
                 switch (message.command) {
                     case 'alert':
                         vscode.window.showInformationMessage(message.text);
                         return;
+                    case 'toggleCoordinateSpace': {
+                        // Toggle between 'signal' and 'sequence' for single read plots
+                        const newSpace = message.coordinateSpace as 'signal' | 'sequence';
+                        this._currentCoordinateSpace = newSpace;
+
+                        // Call the callback to regenerate the plot
+                        if (this._onToggleCoordinateSpace && this._currentReadIds.length === 1) {
+                            await this._onToggleCoordinateSpace(this._currentReadIds[0], newSpace);
+                        }
+                        return;
+                    }
                 }
             },
             null,
@@ -65,11 +84,27 @@ export class SquigglePlotPanel {
     }
 
     /**
+     * Set the toggle callback for single read plots
+     */
+    public setToggleCallback(
+        callback: (readId: string, coordinateSpace: 'signal' | 'sequence') => Promise<void>,
+        hasBam: boolean
+    ): void {
+        this._onToggleCoordinateSpace = callback;
+        this._hasBam = hasBam;
+    }
+
+    /**
      * Set the plot HTML content
      */
-    public setPlot(bokehHtml: string, readIds: string[]): void {
+    public setPlot(
+        bokehHtml: string,
+        readIds: string[],
+        coordinateSpace: 'signal' | 'sequence' = 'signal'
+    ): void {
         this._currentHtml = bokehHtml;
         this._currentReadIds = readIds;
+        this._currentCoordinateSpace = coordinateSpace;
 
         // Update panel title
         const title =
@@ -172,6 +207,31 @@ export class SquigglePlotPanel {
         // Extract the Bokeh plot HTML and wrap it with proper CSP
         // The Bokeh HTML from Python includes CDN resources which we need to allow
 
+        // Show toggle for single read plots with BAM
+        const showToggle = this._currentReadIds.length === 1 && this._hasBam;
+        const isSequenceMode = this._currentCoordinateSpace === 'sequence';
+
+        const toggleHtml = showToggle
+            ? `
+            <div id="coordinate-toggle">
+                <button
+                    id="signal-btn"
+                    class="toggle-btn ${!isSequenceMode ? 'active' : ''}"
+                    onclick="setCoordinateSpace('signal')"
+                >
+                    Signal
+                </button>
+                <button
+                    id="sequence-btn"
+                    class="toggle-btn ${isSequenceMode ? 'active' : ''}"
+                    onclick="setCoordinateSpace('sequence')"
+                >
+                    Sequence
+                </button>
+            </div>
+        `
+            : '';
+
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -197,13 +257,55 @@ export class SquigglePlotPanel {
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+        }
+        #coordinate-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 0;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 2px;
+            z-index: 1000;
+        }
+        .toggle-btn {
+            background: transparent;
+            border: none;
+            color: var(--vscode-foreground);
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: var(--vscode-font-family);
+            border-radius: 2px;
+            transition: background-color 0.2s;
+        }
+        .toggle-btn:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+        .toggle-btn.active {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
         }
     </style>
 </head>
 <body>
     <div id="plot-container">
+        ${toggleHtml}
         ${bokehHtml}
     </div>
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        function setCoordinateSpace(space) {
+            vscode.postMessage({
+                command: 'toggleCoordinateSpace',
+                coordinateSpace: space
+            });
+        }
+    </script>
 </body>
 </html>`;
     }

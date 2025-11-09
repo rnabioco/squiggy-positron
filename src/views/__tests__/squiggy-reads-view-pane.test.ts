@@ -76,11 +76,16 @@ describe('ReadsViewPane', () => {
         it('should handle plotRead message', async () => {
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 
-            await messageHandler({ type: 'plotRead', readId: 'read_001' });
+            await messageHandler({
+                type: 'plotRead',
+                readId: 'read_001',
+                coordinateSpace: 'signal',
+            });
 
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
                 'squiggy.plotRead',
-                'read_001'
+                'read_001',
+                'signal'
             );
         });
 

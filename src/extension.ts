@@ -241,15 +241,24 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 logger.error('[extension.ts] plotOptionsProvider is undefined!');
             }
 
-            // Update POD5/BAM status in plot options pane based on loaded samples
+            // Update POD5/BAM/FASTA status in plot options pane based on loaded samples
             const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
             const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
+            const hasFasta = samples.some((s) => s.hasFasta); // Any sample with FASTA
 
-            logger.debug('[extension.ts] Setting hasPod5:', hasPod5, 'hasBam:', hasBam);
+            logger.debug(
+                '[extension.ts] Setting hasPod5:',
+                hasPod5,
+                'hasBam:',
+                hasBam,
+                'hasFasta:',
+                hasFasta
+            );
 
             if (plotOptionsProvider) {
                 plotOptionsProvider.updatePod5Status(hasPod5);
                 plotOptionsProvider.updateBamStatus(hasBam);
+                plotOptionsProvider.updateFastaStatus(hasFasta);
             }
 
             // If we have BAM files, fetch and aggregate references from all samples

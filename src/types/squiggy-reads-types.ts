@@ -85,7 +85,7 @@ export type ReadsViewMessage =
       }
     | { type: 'updateSearch'; searchText: string }
     | { type: 'selectRead'; readId: string; multiSelect: boolean }
-    | { type: 'plotRead'; readId: string }
+    | { type: 'plotRead'; readId: string; coordinateSpace?: 'signal' | 'sequence' }
     | { type: 'toggleReference'; referenceName: string }
     | { type: 'expandReference'; referenceName: string; offset: number; limit: number }
     | { type: 'updateColumnWidths'; nameWidth: number; detailsWidth: number }

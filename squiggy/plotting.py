@@ -47,6 +47,7 @@ def plot_read(
     show_signal_points: bool = False,
     clip_x_to_alignment: bool = True,
     sample_name: str | None = None,
+    coordinate_space: str = "signal",
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -68,6 +69,8 @@ def plot_read(
                              If False, x-axis extends to include soft-clipped regions.
         sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        coordinate_space: X-axis coordinate system ('signal' or 'sequence').
+                         'signal' uses sample indices, 'sequence' uses genomic positions (requires BAM).
 
     Returns:
         Bokeh HTML string
@@ -113,36 +116,84 @@ def plot_read(
 
     # Prepare data based on plot mode
     if plot_mode == PlotMode.SINGLE:
-        # Single read mode: no alignment needed
+        # Single read mode
         data = {
             "signal": read_obj.signal,
             "read_id": read_id,
             "sample_rate": read_obj.run_info.sample_rate,
         }
 
+        # If sequence coordinate space requested, get alignment data
+        if coordinate_space == "sequence":
+            if sample_name:
+                sample = _squiggy_session.get_sample(sample_name)
+                bam_path = sample.bam_path if sample else None
+            else:
+                bam_path = _squiggy_session.bam_path
+
+            if bam_path is None:
+                raise ValueError(
+                    "Sequence coordinate space requires a BAM file. Call load_bam() first or use coordinate_space='signal'."
+                )
+
+            from .alignment import extract_alignment_from_bam
+
+            aligned_read = extract_alignment_from_bam(bam_path, read_id)
+            if aligned_read is None:
+                raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+
+            data["aligned_read"] = aligned_read
+
         options = {
             "normalization": norm_method,
             "downsample": downsample,
             "show_signal_points": show_signal_points,
             "x_axis_mode": "dwell_time" if scale_dwell_time else "regular_time",
+            "coordinate_space": coordinate_space,
         }
 
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode: requires alignment
-        if _squiggy_session.bam_path is None:
+        if sample_name:
+            sample = _squiggy_session.get_sample(sample_name)
+            bam_path = sample.bam_path if sample else None
+            fasta_path = sample.fasta_path if sample else None
+        else:
+            bam_path = _squiggy_session.bam_path
+            fasta_path = _squiggy_session.fasta_path
+
+        if bam_path is None:
             raise ValueError(
                 "EVENTALIGN mode requires a BAM file. Call load_bam() first."
             )
 
         from .alignment import extract_alignment_from_bam
+        from .utils import get_reference_sequence_from_fasta
 
-        aligned_read = extract_alignment_from_bam(_squiggy_session.bam_path, read_id)
+        aligned_read = extract_alignment_from_bam(bam_path, read_id)
         if aligned_read is None:
             raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+
+        # Fetch reference sequence (FASTA-first pattern)
+        reference_sequence = ""
+        if (
+            hasattr(aligned_read, "reference_name")
+            and hasattr(aligned_read, "reference_start")
+            and hasattr(aligned_read, "reference_end")
+        ):
+            reference_sequence = get_reference_sequence_from_fasta(
+                fasta_file=fasta_path,
+                reference_name=aligned_read.reference_name,
+                start=aligned_read.reference_start,
+                end=aligned_read.reference_end,
+                bam_file=bam_path,
+                read_id=read_id,
+            )
 
         data = {
             "reads": [(read_id, read_obj.signal, read_obj.run_info.sample_rate)],
             "aligned_reads": [aligned_read],
+            "reference_sequence": reference_sequence,  # Add reference sequence
         }
 
         options = {
@@ -768,6 +819,7 @@ def plot_motif_aggregate_all(
         all_aligned_reads,
         bam_file=None,  # Reads are in motif-relative coordinates
         reference_name=None,
+        fasta_file=fasta_file,  # Use FASTA for accurate reference sequence
     )
 
     # Add motif sequence as reference bases for display
@@ -1154,24 +1206,51 @@ def plot_signal_overlay_comparison(
             "coverage", [1] * len(agg_stats.get("mean_signal", []))
         )
 
-    # Get reference sequence
+    # Get reference sequence (FASTA-first pattern)
     reference_sequence = ""
     if plot_data:
-        # Use first read from first sample to get reference sequence
-        try:
-            # Get first read from plot data
+        # Determine genomic region from plot data
+        all_positions = []
+        for data in plot_data:
+            positions = data.get("positions", [])
+            if len(positions) > 0:
+                all_positions.extend(positions)
+
+        if all_positions:
+            min_pos = int(min(all_positions))
+            max_pos = int(max(all_positions))
+
+            # Try FASTA first (most accurate and complete)
             first_sample = samples[0]
-            reads = extract_reads_for_reference(
-                pod5_file=first_sample.pod5_path,
-                bam_file=first_sample.bam_path,
-                reference_name=reference_name,
-                max_reads=1,
-            )
-            if reads:
-                reference_sequence = reads[0].get("reference_sequence", "") or ""
-        except Exception:
-            # If we can't get reference sequence, continue without it
-            pass
+            if first_sample.fasta_path:
+                try:
+                    import pysam
+
+                    fasta = pysam.FastaFile(first_sample.fasta_path)
+                    reference_sequence = fasta.fetch(
+                        reference_name, min_pos, max_pos + 1
+                    )
+                    fasta.close()
+                except Exception:
+                    # FASTA fetch failed, will fall back to BAM
+                    pass
+
+            # Fallback to BAM reconstruction if FASTA unavailable
+            if not reference_sequence:
+                try:
+                    reads = extract_reads_for_reference(
+                        pod5_file=first_sample.pod5_path,
+                        bam_file=first_sample.bam_path,
+                        reference_name=reference_name,
+                        max_reads=1,
+                    )
+                    if reads:
+                        reference_sequence = (
+                            reads[0].get("reference_sequence", "") or ""
+                        )
+                except Exception:
+                    # If we can't get reference sequence, continue without it
+                    pass
 
     # Prepare data for plot strategy
     data = {

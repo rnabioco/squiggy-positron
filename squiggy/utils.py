@@ -896,6 +896,76 @@ def get_reference_sequence_for_read(bam_file, read_id):
         raise ValueError(f"Error extracting reference sequence: {str(e)}") from e
 
 
+def get_reference_sequence_from_fasta(
+    fasta_file, reference_name, start, end, bam_file=None, read_id=None
+):
+    """
+    Get reference sequence using FASTA-first pattern
+
+    Tries to fetch reference from FASTA file first (most accurate), falls back
+    to BAM reconstruction if FASTA unavailable or fetch fails.
+
+    Args:
+        fasta_file: Path to FASTA reference file (can be None)
+        reference_name: Name of reference sequence (chromosome/contig)
+        start: Start position (0-based, inclusive)
+        end: End position (0-based, exclusive)
+        bam_file: Optional BAM file path for fallback reconstruction
+        read_id: Optional read ID for BAM fallback (if getting seq for single read)
+
+    Returns:
+        str: Reference sequence, or empty string if unavailable
+
+    Examples:
+        >>> # Fetch from FASTA
+        >>> seq = get_reference_sequence_from_fasta(
+        ...     fasta_file="ref.fa",
+        ...     reference_name="chr1",
+        ...     start=1000,
+        ...     end=1100
+        ... )
+        >>>
+        >>> # With BAM fallback
+        >>> seq = get_reference_sequence_from_fasta(
+        ...     fasta_file=None,  # No FASTA available
+        ...     reference_name="chr1",
+        ...     start=1000,
+        ...     end=1100,
+        ...     bam_file="alignments.bam",
+        ...     read_id="read_001"
+        ... )
+    """
+    reference_sequence = ""
+
+    # Try FASTA first (most accurate and complete)
+    if fasta_file:
+        try:
+            fasta = pysam.FastaFile(str(fasta_file))
+            reference_sequence = fasta.fetch(reference_name, start, end)
+            fasta.close()
+            return reference_sequence
+        except Exception:
+            # FASTA fetch failed, will try BAM fallback
+            pass
+
+    # Fallback to BAM reconstruction if FASTA unavailable
+    if not reference_sequence and bam_file and read_id:
+        try:
+            ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+                bam_file, read_id
+            )
+            if ref_seq and ref_start is not None:
+                # Trim to requested region
+                region_start = max(0, start - ref_start)
+                region_end = min(len(ref_seq), end - ref_start)
+                reference_sequence = ref_seq[region_start:region_end]
+        except Exception:
+            # BAM fallback failed, return empty string
+            pass
+
+    return reference_sequence
+
+
 def get_available_reads_for_reference(bam_file, reference_name):
     """Count total reads available for a reference in a BAM file
 
