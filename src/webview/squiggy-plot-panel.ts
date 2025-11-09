@@ -17,7 +17,10 @@ export class SquigglePlotPanel {
     // State for single read toggle
     private _currentCoordinateSpace: 'signal' | 'sequence' = 'signal';
     private _hasBam: boolean = false;
-    private _onToggleCoordinateSpace?: (readId: string, coordinateSpace: 'signal' | 'sequence') => Promise<void>;
+    private _onToggleCoordinateSpace?: (
+        readId: string,
+        coordinateSpace: 'signal' | 'sequence'
+    ) => Promise<void>;
 
     private constructor(panel: vscode.WebviewPanel, _extensionUri: vscode.Uri) {
         this._panel = panel;
@@ -32,7 +35,7 @@ export class SquigglePlotPanel {
                     case 'alert':
                         vscode.window.showInformationMessage(message.text);
                         return;
-                    case 'toggleCoordinateSpace':
+                    case 'toggleCoordinateSpace': {
                         // Toggle between 'signal' and 'sequence' for single read plots
                         const newSpace = message.coordinateSpace as 'signal' | 'sequence';
                         this._currentCoordinateSpace = newSpace;
@@ -42,6 +45,7 @@ export class SquigglePlotPanel {
                             await this._onToggleCoordinateSpace(this._currentReadIds[0], newSpace);
                         }
                         return;
+                    }
                 }
             },
             null,
@@ -93,7 +97,11 @@ export class SquigglePlotPanel {
     /**
      * Set the plot HTML content
      */
-    public setPlot(bokehHtml: string, readIds: string[], coordinateSpace: 'signal' | 'sequence' = 'signal'): void {
+    public setPlot(
+        bokehHtml: string,
+        readIds: string[],
+        coordinateSpace: 'signal' | 'sequence' = 'signal'
+    ): void {
         this._currentHtml = bokehHtml;
         this._currentReadIds = readIds;
         this._currentCoordinateSpace = coordinateSpace;
@@ -203,7 +211,8 @@ export class SquigglePlotPanel {
         const showToggle = this._currentReadIds.length === 1 && this._hasBam;
         const isSequenceMode = this._currentCoordinateSpace === 'sequence';
 
-        const toggleHtml = showToggle ? `
+        const toggleHtml = showToggle
+            ? `
             <div id="coordinate-toggle">
                 <button
                     id="signal-btn"
@@ -220,7 +229,8 @@ export class SquigglePlotPanel {
                     Sequence
                 </button>
             </div>
-        ` : '';
+        `
+            : '';
 
         return `<!DOCTYPE html>
 <html lang="en">
