@@ -303,7 +303,7 @@ describe('PlotOptionsViewProvider', () => {
             jest.clearAllMocks();
         });
 
-        it('should update BAM status to true and switch to EVENTALIGN mode', () => {
+        it('should update BAM status to true and keep mode as SINGLE', () => {
             provider.updateBamStatus(true);
 
             expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
@@ -313,7 +313,7 @@ describe('PlotOptionsViewProvider', () => {
 
             const options = provider.getOptions();
             expect(options.plotType).toBe('AGGREGATE');
-            expect(options.mode).toBe('EVENTALIGN');
+            expect(options.mode).toBe('SINGLE'); // No longer auto-switches to EVENTALIGN
         });
 
         it('should update BAM status to false and switch back to MULTI_READ_OVERLAY mode', () => {
@@ -345,7 +345,7 @@ describe('PlotOptionsViewProvider', () => {
             expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith('squiggy');
             expect(mockConfig.update).toHaveBeenCalledWith(
                 'defaultPlotMode',
-                'EVENTALIGN',
+                'SINGLE', // No longer auto-switches to EVENTALIGN
                 vscode.ConfigurationTarget.Workspace
             );
         });
