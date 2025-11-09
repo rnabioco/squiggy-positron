@@ -11,6 +11,7 @@ import {
     UpdatePlotOptionsMessage,
     UpdateBamStatusMessage,
     UpdatePod5StatusMessage,
+    UpdateFastaStatusMessage,
     UpdateReferencesMessage,
     UpdateLoadedSamplesMessage,
     SampleItem,
@@ -409,11 +410,13 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         logger.debug('[PlotOptions] updateBamStatus called with:', hasBam);
         this._hasBamFile = hasBam;
 
-        // When BAM loads, switch to AGGREGATE and EVENTALIGN
+        // When BAM loads, switch to AGGREGATE but keep mode as SINGLE
+        // (coordinate_space toggle controls signal vs sequence coordinates)
         if (hasBam) {
             this._plotType = 'AGGREGATE';
-            this._plotMode = 'EVENTALIGN';
-            this._updateConfig('defaultPlotMode', 'EVENTALIGN');
+            // Keep mode as SINGLE - no longer auto-switch to EVENTALIGN
+            this._plotMode = 'SINGLE';
+            this._updateConfig('defaultPlotMode', 'SINGLE');
         }
         // When BAM unloads, switch to MULTI_READ_OVERLAY
         else {
@@ -428,6 +431,21 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             hasBam: this._hasBamFile,
         };
         logger.debug('[PlotOptions] Sending BAM status:', hasBam);
+        this.postMessage(message);
+    }
+
+    /**
+     * Update FASTA file status
+     */
+    public updateFastaStatus(hasFasta: boolean) {
+        logger.debug('[PlotOptions] updateFastaStatus called with:', hasFasta);
+
+        // Update webview
+        const message: UpdateFastaStatusMessage = {
+            type: 'updateFastaStatus',
+            hasFasta: hasFasta,
+        };
+        logger.debug('[PlotOptions] Sending FASTA status:', hasFasta);
         this.postMessage(message);
     }
 

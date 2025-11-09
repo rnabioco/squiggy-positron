@@ -16,7 +16,7 @@ from ..constants import (
     NormalizationMethod,
     Theme,
 )
-from ..rendering import BaseAnnotationRenderer, ThemeManager
+from ..rendering import BaseAnnotationRenderer, ReferenceTrackRenderer, ThemeManager
 from .base import PlotStrategy
 
 
@@ -135,6 +135,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         # Extract data
         reads_data = data["reads"]
         aligned_reads = data["aligned_reads"]
+        reference_sequence = data.get("reference_sequence", "")
 
         from ..constants import DEFAULT_DOWNSAMPLE
 
@@ -241,10 +242,68 @@ class EventAlignPlotStrategy(PlotStrategy):
         # Configure legend
         self.theme_manager.configure_legend(fig)
 
+        # Create reference track if reference sequence available
+        ref_fig = None
+        if reference_sequence and len(first_aligned.bases) > 0:
+            # Create reference track
+            ref_renderer = ReferenceTrackRenderer(self.theme_manager)
+
+            # Get positions for reference bases
+            positions = list(range(len(first_aligned.bases)))
+
+            # Get query sequence for mismatch highlighting
+            query_sequence = "".join([base.base for base in first_aligned.bases])
+
+            try:
+                ref_fig = ref_renderer.create_reference_track(
+                    reference_sequence=reference_sequence,
+                    positions=positions,
+                    x_label="",  # No x-label (shared with main plot)
+                    title="Reference",
+                    height=60,
+                    query_sequence=query_sequence,  # Enable mismatch highlighting
+                )
+
+                # Link x-range for synchronized zoom/pan
+                ref_fig.x_range = fig.x_range
+
+                # Minimize borders
+                ref_fig.min_border_top = 0
+                ref_fig.min_border_bottom = 0
+                ref_fig.min_border_left = 5
+                ref_fig.min_border_right = 5
+
+            except Exception:
+                # If reference track creation fails, continue without it
+                ref_fig = None
+
         # Generate HTML
         html_title = self._format_html_title(reads_data)
-        html = file_html(fig, CDN, title=html_title)
-        return html, fig
+
+        if ref_fig is not None:
+            # Create column layout with reference track above signal
+            from bokeh.layouts import column
+
+            fig.min_border_top = 0
+            fig.min_border_left = 5
+            fig.min_border_right = 5
+
+            layout = column(
+                ref_fig,
+                fig,
+                sizing_mode="stretch_width",
+                spacing=0,
+            )
+
+            # Store reference to main plot
+            object.__setattr__(layout, "main_plot", fig)
+
+            html = file_html(layout, CDN, title=html_title)
+            return html, layout
+        else:
+            # No reference track - return single plot
+            html = file_html(fig, CDN, title=html_title)
+            return html, fig
 
     # =========================================================================
     # Private Methods: Signal Processing

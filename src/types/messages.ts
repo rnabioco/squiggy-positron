@@ -69,6 +69,7 @@ export type FilePanelOutgoingMessage = UpdateFilesMessage;
 export interface PlotReadMessage extends BaseMessage {
     type: 'plotRead';
     readId: string;
+    coordinateSpace?: 'signal' | 'sequence';
 }
 
 export interface PlotAggregateMessage extends BaseMessage {
@@ -164,6 +165,11 @@ export interface UpdateBamStatusMessage extends BaseMessage {
 export interface UpdatePod5StatusMessage extends BaseMessage {
     type: 'updatePod5Status';
     hasPod5: boolean;
+}
+
+export interface UpdateFastaStatusMessage extends BaseMessage {
+    type: 'updateFastaStatus';
+    hasFasta: boolean;
 }
 
 export interface RequestReferencesMessage extends BaseMessage {
@@ -294,6 +300,7 @@ export type PlotOptionsOutgoingMessage =
     | UpdatePlotOptionsMessage
     | UpdateBamStatusMessage
     | UpdatePod5StatusMessage
+    | UpdateFastaStatusMessage
     | UpdateReferencesMessage
     | UpdateLoadedSamplesMessage
     | UpdateSelectedSamplesMessage;

@@ -555,12 +555,8 @@ describe('PositronRuntime', () => {
             const result = await runtime.isSquiggyInstalled();
 
             expect(result).toBe(true);
-            // Verify cleanup was called
-            const calls = positron.runtime.executeCode.mock.calls;
-            const cleanupCall = calls.find((call: any[]) =>
-                call[1].includes('del _squiggy_installed')
-            );
-            expect(cleanupCall).toBeDefined();
+            // New lambda-based implementation doesn't use temporary variables
+            // so no cleanup is needed
         }, 10000); // Increase timeout for kernel ready checks
 
         it('should return false when squiggy is not installed', async () => {

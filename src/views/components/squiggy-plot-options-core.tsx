@@ -23,6 +23,7 @@ interface PlotOptionsState {
     // File status
     hasPod5: boolean;
     hasBam: boolean;
+    hasFasta: boolean;
 
     // Common options
     normalization: 'NONE' | 'ZNORM' | 'MEDIAN' | 'MAD';
@@ -64,6 +65,7 @@ export const PlotOptionsCore: React.FC = () => {
         coordinateSpace: 'signal', // Default to signal space
         hasPod5: false,
         hasBam: false,
+        hasFasta: false,
         normalization: 'ZNORM',
         // Single Read options (used by Read Explorer clicks, not this panel)
         plotMode: 'SINGLE',
@@ -140,25 +142,23 @@ export const PlotOptionsCore: React.FC = () => {
                     break;
                 case 'updateBamStatus':
                     console.log('[PlotOptions React] Updating hasBam:', message.hasBam);
-                    setOptions((prev) => {
-                        const newOptions: PlotOptionsState = {
-                            ...prev,
-                            hasBam: message.hasBam,
-                            // When BAM loads, switch to AGGREGATE/EVENTALIGN
-                            // When BAM unloads, switch to MULTI_READ_OVERLAY
-                            plotMode: (message.hasBam ? 'EVENTALIGN' : 'SINGLE') as
-                                | 'SINGLE'
-                                | 'EVENTALIGN',
-                            plotType: (message.hasBam
-                                ? 'AGGREGATE'
-                                : 'MULTI_READ_OVERLAY') as PlotType,
-                        };
-                        return newOptions;
-                    });
+                    setOptions((prev) => ({
+                        ...prev,
+                        hasBam: message.hasBam,
+                        // Enable reference-anchored mode when BAM loads (but don't auto-switch plot type)
+                        showBaseAnnotations: message.hasBam ? true : prev.showBaseAnnotations,
+                    }));
                     // Request references when BAM is loaded
                     if (message.hasBam) {
                         vscode.postMessage({ type: 'requestReferences' });
                     }
+                    break;
+                case 'updateFastaStatus':
+                    console.log('[PlotOptions React] Updating hasFasta:', message.hasFasta);
+                    setOptions((prev) => ({
+                        ...prev,
+                        hasFasta: message.hasFasta,
+                    }));
                     break;
                 case 'updateReferences':
                     setOptions((prev) => ({
@@ -289,20 +289,26 @@ export const PlotOptionsCore: React.FC = () => {
     };
 
     const handleGenerateMultiReadOverlay = () => {
+        // Coordinate space: 'signal' if not reference-anchored, 'sequence' (reference-anchored) if enabled
+        const coordinateSpace = options.showBaseAnnotations ? 'sequence' : 'signal';
+
         sendMessage('generateMultiReadOverlay', {
             sampleNames: options.selectedSamples,
             maxReads: options.maxReadsMulti,
             normalization: options.normalization,
-            coordinateSpace: options.coordinateSpace,
+            coordinateSpace: coordinateSpace,
         });
     };
 
     const handleGenerateMultiReadStacked = () => {
+        // Coordinate space: 'signal' if not reference-anchored, 'sequence' (reference-anchored) if enabled
+        const coordinateSpace = options.showBaseAnnotations ? 'sequence' : 'signal';
+
         sendMessage('generateMultiReadStacked', {
             sampleNames: options.selectedSamples,
             maxReads: options.maxReadsMulti,
             normalization: options.normalization,
-            coordinateSpace: options.coordinateSpace,
+            coordinateSpace: coordinateSpace,
         });
     };
 
@@ -576,6 +582,95 @@ export const PlotOptionsCore: React.FC = () => {
                                 <span>Stacked (offset)</span>
                             </label>
                         </div>
+                    </div>
+
+                    {/* Display Options */}
+                    <div style={{ marginBottom: '12px' }}>
+                        <div
+                            style={{
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                color: 'var(--vscode-foreground)',
+                            }}
+                        >
+                            Display Options
+                        </div>
+
+                        {/* Reference-anchored mode */}
+                        <label
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                cursor: options.hasBam ? 'pointer' : 'not-allowed',
+                                marginBottom: '8px',
+                                opacity: options.hasBam ? 1 : 0.5,
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={options.showBaseAnnotations}
+                                disabled={!options.hasBam}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showBaseAnnotations: e.target.checked,
+                                    }))
+                                }
+                                style={{ marginRight: '8px' }}
+                            />
+                            <span>Reference-anchored</span>
+                        </label>
+                        <div
+                            style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-descriptionForeground)',
+                                fontStyle: 'italic',
+                                marginLeft: '24px',
+                                marginBottom: '8px',
+                            }}
+                        >
+                            {!options.hasBam
+                                ? 'Requires BAM file with alignment'
+                                : 'Plot using genomic coordinates (x-axis = reference position)'}
+                        </div>
+
+                        {/* Show reference track - only when reference-anchored mode enabled and FASTA loaded */}
+                        {options.showBaseAnnotations && (
+                            <label
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    cursor: options.hasFasta ? 'pointer' : 'not-allowed',
+                                    marginBottom: '8px',
+                                    marginLeft: '24px',
+                                    opacity: options.hasFasta ? 1 : 0.5,
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={options.hasFasta}
+                                    disabled={!options.hasFasta}
+                                    readOnly
+                                    style={{ marginRight: '8px' }}
+                                />
+                                <span>Show reference track</span>
+                            </label>
+                        )}
+                        {options.showBaseAnnotations && (
+                            <div
+                                style={{
+                                    fontSize: '0.85em',
+                                    color: 'var(--vscode-descriptionForeground)',
+                                    fontStyle: 'italic',
+                                    marginLeft: '48px',
+                                    marginBottom: '8px',
+                                }}
+                            >
+                                {!options.hasFasta
+                                    ? 'Load FASTA file to show reference sequence'
+                                    : 'Reference bases with mismatch highlighting'}
+                            </div>
+                        )}
                     </div>
 
                     {/* Max Reads per Sample */}

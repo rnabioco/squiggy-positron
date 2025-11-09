@@ -43,6 +43,7 @@ from .io import (
     Pod5Index,
     Sample,
     SquiggySession,
+    _squiggy_session,
     close_all_samples,
     close_bam,
     close_fasta,
@@ -154,6 +155,7 @@ __all__ = [
     "compare_samples",
     # Session management
     "SquiggySession",
+    "_squiggy_session",
     "Sample",
     # Performance optimization classes
     "LazyReadList",

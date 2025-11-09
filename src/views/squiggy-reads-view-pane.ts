@@ -34,7 +34,11 @@ export class ReadsViewPane extends BaseWebviewProvider {
     protected async handleMessage(message: ReadsViewIncomingMessage): Promise<void> {
         switch (message.type) {
             case 'plotRead':
-                vscode.commands.executeCommand('squiggy.plotRead', message.readId);
+                vscode.commands.executeCommand(
+                    'squiggy.plotRead',
+                    message.readId,
+                    message.coordinateSpace
+                );
                 break;
             case 'plotAggregate':
                 vscode.commands.executeCommand('squiggy.plotAggregate', message.referenceName);
