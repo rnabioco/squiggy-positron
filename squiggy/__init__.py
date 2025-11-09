@@ -37,6 +37,15 @@ from .constants import (
     Theme,
 )
 
+# Export functions
+from .export import (
+    export_current_plot,
+    export_plot_to_png,
+    export_plot_to_svg,
+    get_current_plot,
+    set_current_plot,
+)
+
 # I/O functions
 from .io import (
     LazyReadList,
@@ -85,15 +94,6 @@ from .plotting import (
     plot_read,
     plot_reads,
     plot_signal_overlay_comparison,
-)
-
-# Export functions
-from .export import (
-    export_current_plot,
-    export_plot_to_png,
-    export_plot_to_svg,
-    get_current_plot,
-    set_current_plot,
 )
 
 # Utility functions and data classes

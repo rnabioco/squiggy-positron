@@ -345,12 +345,6 @@ export function registerPlotCommands(
  */
 async function exportCurrentPlot(state: ExtensionState): Promise<void> {
     // Show dialog for export format and options
-    interface ExportOptions {
-        format: 'png' | 'svg';
-        width?: number;
-        height?: number;
-        dpi?: number;
-    }
 
     // Step 1: Select format
     const format = await vscode.window.showQuickPick(['PNG', 'SVG', 'HTML'], {
