@@ -318,10 +318,13 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
         return;
     }
 
+    // Get dedicated kernel API
+    const api = await state.ensureBackgroundKernel();
+
     // Track POD5 pagination context
     if (!state.pod5LoadContext) {
         // Initialize context if not present
-        const totalReads = await state.squiggyAPI.client.getVariable(
+        const totalReads = await api.client.getVariable(
             'len(squiggy.io._squiggy_session.read_ids)'
         );
         state.pod5LoadContext = {
@@ -343,7 +346,7 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
         state.readsViewPane?.setLoading(true, 'Loading more reads...');
 
         // Fetch next batch
-        const nextBatch = await state.squiggyAPI.getReadIds(currentOffset, pageSize);
+        const nextBatch = await api.getReadIds(currentOffset, pageSize);
 
         // Send to React
         state.readsViewPane?.appendReads(nextBatch);
@@ -424,10 +427,13 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
 
         logger.debug(`[loadReadsForSample] Starting to load reads for '${sampleName}'`);
 
+        // Get background API (sample data is in dedicated kernel)
+        const api = await state.ensureBackgroundKernel();
+
         // Get read IDs and references in a single optimized batch query
         // (avoids two separate getVariable() calls which each add 3x kernel round-trips)
         const { readIds, references } = await Promise.race([
-            state.squiggyAPI.getReadIdsAndReferencesForSample(sampleName),
+            api.getReadIdsAndReferencesForSample(sampleName),
             new Promise<{ readIds: string[]; references: string[] }>((_, reject) =>
                 setTimeout(
                     () =>
@@ -460,7 +466,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
             const refCounts: { referenceName: string; readCount: number }[] = [];
 
             const readCounts = await Promise.race([
-                state.squiggyAPI.getReadsCountForAllReferencesSample(sampleName),
+                api.getReadsCountForAllReferencesSample(sampleName),
                 new Promise<{ [ref: string]: number }>((_, reject) =>
                     setTimeout(
                         () =>
@@ -587,9 +593,10 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
             // Maintain legacy state for backward compatibility
             state.currentPod5File = filePath;
 
-            // Get and display read IDs
+            // Get and display read IDs from dedicated kernel
             if (state.usePositron && state.squiggyAPI) {
-                const readIds = await state.squiggyAPI.getReadIds(0, 1000);
+                const api = await state.ensureBackgroundKernel();
+                const readIds = await api.getReadIds(0, 1000);
                 if (readIds.length > 0) {
                     state.readsViewPane?.setReads(readIds);
                 }
@@ -658,12 +665,13 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
             // Maintain legacy state for backward compatibility
             state.currentBamFile = filePath;
 
-            // Get references for lazy loading
+            // Get references for lazy loading from dedicated kernel
             let referenceToReads: Record<string, string[]> = {};
             if (state.usePositron && state.squiggyAPI) {
-                const references = await state.squiggyAPI.getReferences();
+                const api = await state.ensureBackgroundKernel();
+                const references = await api.getReferences();
                 for (const ref of references) {
-                    const readCount = await state.squiggyAPI.client.getVariable(
+                    const readCount = await api.client.getVariable(
                         `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                     );
                     referenceToReads[ref] = new Array(readCount as number);
