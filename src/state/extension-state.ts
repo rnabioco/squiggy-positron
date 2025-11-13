@@ -181,20 +181,46 @@ export class ExtensionState {
     /**
      * Ensure background kernel is started and return the background API
      * Lazily starts the kernel on first call
+     *
+     * FALLBACK: If background kernel fails to start, falls back to foreground API
      */
     async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
         if (!this._usePositron || !this._kernelManager) {
-            throw new Error('Background kernel only available in Positron mode');
+            logger.warning('Background kernel not available, using foreground API');
+            if (!this._squiggyAPI) {
+                throw new Error('No API available (neither background nor foreground)');
+            }
+            return this._squiggyAPI;
         }
 
         // Start kernel if not already started
         const currentState = this._kernelManager.getState();
         if (currentState === SquiggyKernelState.Uninitialized) {
             logger.info('Starting background kernel (first use)...');
-            await this._kernelManager.start();
+            try {
+                await this._kernelManager.start();
+            } catch (error) {
+                logger.error(`Failed to start background kernel: ${error}`);
+                logger.warning('Falling back to foreground kernel API');
+                // Fall back to foreground API
+                if (!this._squiggyAPI) {
+                    throw error;
+                }
+                return this._squiggyAPI;
+            }
         } else if (currentState === SquiggyKernelState.Error) {
             logger.info('Restarting background kernel (was in error state)...');
-            await this._kernelManager.restart();
+            try {
+                await this._kernelManager.restart();
+            } catch (error) {
+                logger.error(`Failed to restart background kernel: ${error}`);
+                logger.warning('Falling back to foreground kernel API');
+                // Fall back to foreground API
+                if (!this._squiggyAPI) {
+                    throw error;
+                }
+                return this._squiggyAPI;
+            }
         }
 
         // Create background API if not already created
