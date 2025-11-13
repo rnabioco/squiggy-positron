@@ -1105,14 +1105,18 @@ squiggy.close_fasta()
             throw new Error('Squiggy API not initialized');
         }
 
+        // Get background API (starts dedicated kernel if needed)
+        const api = await this.ensureBackgroundKernel();
+        logger.debug('[restoreSample] Background API ready, loading files...');
+
         // Load POD5 (assuming single POD5 for now)
         if (resolvedPod5Paths.length > 0) {
             const pod5Path = resolvedPod5Paths[0];
-            const _pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
+            const _pod5Result = await api.loadPOD5(pod5Path);
             this._currentPod5File = pod5Path;
 
             // Get first 1000 read IDs for reads view (lazy loading)
-            const readIds = await this._squiggyAPI.getReadIds(0, 1000);
+            const readIds = await api.getReadIds(0, 1000);
             if (readIds.length > 0) {
                 this._readsViewPane?.setReads(readIds);
             }
@@ -1123,16 +1127,16 @@ squiggy.close_fasta()
 
         // Load BAM if present
         if (resolvedBamPath) {
-            const _bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
+            const _bamResult = await api.loadBAM(resolvedBamPath);
             this._currentBamFile = resolvedBamPath;
 
             // Get references only (lazy loading - don't fetch reads yet)
-            const references = await this._squiggyAPI.getReferences();
+            const references = await api.getReferences();
             const referenceToReads: Record<string, string[]> = {};
 
             // Build reference count map by getting length for each reference
             for (const ref of references) {
-                const readCount = (await this._squiggyAPI.client.getVariable(
+                const readCount = (await api.client.getVariable(
                     `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                 )) as number;
                 referenceToReads[ref] = new Array(readCount); // Placeholder
@@ -1173,7 +1177,7 @@ squiggy.close_fasta()
 
         // Load FASTA if present
         if (resolvedFastaPath) {
-            await this._squiggyAPI.loadFASTA?.(resolvedFastaPath);
+            await api.loadFASTA?.(resolvedFastaPath);
             this._currentFastaFile = resolvedFastaPath;
         }
 
