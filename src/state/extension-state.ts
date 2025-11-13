@@ -11,7 +11,7 @@ import { PositronRuntimeClient } from '../backend/positron-runtime-client';
 import { SquiggyRuntimeAPI } from '../backend/squiggy-runtime-api';
 import { PackageManager } from '../backend/package-manager';
 import { PythonBackend } from '../backend/squiggy-python-backend';
-import { SquiggyKernelManager } from '../backend/squiggy-kernel-manager';
+import { SquiggyKernelManager, SquiggyKernelState } from '../backend/squiggy-kernel-manager';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
@@ -83,7 +83,8 @@ export interface SampleInfo {
 export class ExtensionState {
     // Backend instances
     private _positronClient?: PositronRuntimeClient;
-    private _squiggyAPI?: SquiggyRuntimeAPI;
+    private _squiggyAPI?: SquiggyRuntimeAPI; // For notebook/console (foreground kernel)
+    private _backgroundSquiggyAPI?: SquiggyRuntimeAPI; // For extension UI (background kernel)
     private _packageManager?: PackageManager;
     private _pythonBackend?: PythonBackend | null;
     private _kernelManager?: SquiggyKernelManager;
@@ -178,6 +179,34 @@ export class ExtensionState {
     }
 
     /**
+     * Ensure background kernel is started and return the background API
+     * Lazily starts the kernel on first call
+     */
+    async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
+        if (!this._usePositron || !this._kernelManager) {
+            throw new Error('Background kernel only available in Positron mode');
+        }
+
+        // Start kernel if not already started
+        const currentState = this._kernelManager.getState();
+        if (currentState === SquiggyKernelState.Uninitialized) {
+            logger.info('Starting background kernel (first use)...');
+            await this._kernelManager.start();
+        } else if (currentState === SquiggyKernelState.Error) {
+            logger.info('Restarting background kernel (was in error state)...');
+            await this._kernelManager.restart();
+        }
+
+        // Create background API if not already created
+        if (!this._backgroundSquiggyAPI) {
+            this._backgroundSquiggyAPI = new SquiggyRuntimeAPI(this._kernelManager);
+            logger.info('Background Squiggy API created');
+        }
+
+        return this._backgroundSquiggyAPI;
+    }
+
+    /**
      * Initialize UI panel providers
      */
     initializePanels(
@@ -247,6 +276,10 @@ squiggy.close_fasta()
 
     get squiggyAPI(): SquiggyRuntimeAPI | undefined {
         return this._squiggyAPI;
+    }
+
+    get backgroundSquiggyAPI(): SquiggyRuntimeAPI | undefined {
+        return this._backgroundSquiggyAPI;
     }
 
     get packageManager(): PackageManager | undefined {

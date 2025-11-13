@@ -13,6 +13,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { logger } from '../utils/logger';
+import { RuntimeClient } from './runtime-client-interface';
 
 export enum SquiggyKernelState {
     Uninitialized = 'uninitialized',
@@ -22,7 +23,7 @@ export enum SquiggyKernelState {
     Restarting = 'restarting',
 }
 
-export class SquiggyKernelManager {
+export class SquiggyKernelManager implements RuntimeClient {
     private session: positron.LanguageRuntimeSession | undefined;
     private state: SquiggyKernelState = SquiggyKernelState.Uninitialized;
     private stateChangeEmitter = new vscode.EventEmitter<SquiggyKernelState>();
@@ -196,15 +197,19 @@ export class SquiggyKernelManager {
 
     /**
      * Execute code silently (no console output)
+     * @param code Python code to execute
+     * @param enableRetry Ignored (for RuntimeClient interface compatibility)
      */
-    async executeSilent(code: string): Promise<void> {
+    async executeSilent(code: string, enableRetry?: boolean): Promise<void> {
         await this.execute(code, positron.RuntimeCodeExecutionMode.Silent);
     }
 
     /**
      * Get a variable value from the background kernel
+     * @param varName Python variable name or expression
+     * @param enableRetry Ignored (for RuntimeClient interface compatibility)
      */
-    async getVariable(varName: string): Promise<unknown> {
+    async getVariable(varName: string, enableRetry?: boolean): Promise<unknown> {
         if (!this.session) {
             throw new Error('Background kernel not started');
         }

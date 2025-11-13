@@ -369,9 +369,10 @@ async function plotReads(
             const colorThemeKind = vscode.window.activeColorTheme.kind;
             const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
-            if (state.usePositron && state.squiggyAPI) {
-                // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generatePlot(
+            if (state.usePositron) {
+                // Use background kernel - plot appears in Plots pane automatically
+                const api = await state.ensureBackgroundKernel();
+                await api.generatePlot(
                     readIds,
                     mode,
                     normalization,
@@ -386,7 +387,7 @@ async function plotReads(
                     state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
                     coordinateSpace
                 );
-                logger.info('Plot generated successfully');
+                logger.info('Plot generated successfully (background kernel)');
             } else if (state.pythonBackend) {
                 // Use subprocess backend - still need webview fallback
                 // TODO: subprocess backend doesn't have Plots pane integration
@@ -424,9 +425,10 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
             const config = vscode.workspace.getConfiguration('squiggy');
             const maxReads = config.get<number>('aggregateSampleSize', 100);
 
-            if (state.usePositron && state.squiggyAPI) {
-                // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generateAggregatePlot(
+            if (state.usePositron) {
+                // Use background kernel - plot appears in Plots pane automatically
+                const api = await state.ensureBackgroundKernel();
+                await api.generateAggregatePlot(
                     referenceName,
                     maxReads,
                     normalization,
@@ -486,9 +488,10 @@ async function plotMotifAggregateAll(
             const config = vscode.workspace.getConfiguration('squiggy');
             const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
 
-            if (state.usePositron && state.squiggyAPI) {
-                // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generateMotifAggregateAllPlot(
+            if (state.usePositron) {
+                // Use background kernel - plot appears in Plots pane automatically
+                const api = await state.ensureBackgroundKernel();
+                await api.generateMotifAggregateAllPlot(
                     params.fastaFile,
                     params.motif,
                     params.upstream,

@@ -118,18 +118,14 @@ export class FileLoadingService {
             `[loadSampleIntoRegistry] Starting - sample: '${sampleName}', pod5: ${pod5Path}, bam: ${bamPath || 'none'}`
         );
 
-        // Verify API is available
-        if (!this.state.squiggyAPI) {
-            const msg = 'Squiggy API not initialized';
-            logger.error(`[loadSampleIntoRegistry] ${msg}`);
-            throw new Error(msg);
-        }
-        logger.debug(`[loadSampleIntoRegistry] API is available, calling loadSample()...`);
+        //Get background API (starts kernel if needed)
+        const api = await this.state.ensureBackgroundKernel();
+        logger.debug(`[loadSampleIntoRegistry] Background API ready, calling loadSample()...`);
 
         try {
-            // Load sample into registry
-            logger.debug(`[loadSampleIntoRegistry] About to call squiggyAPI.loadSample()`);
-            const pod5Result = await this.state.squiggyAPI.loadSample(
+            // Load sample into registry (using background kernel)
+            logger.debug(`[loadSampleIntoRegistry] About to call backgroundAPI.loadSample()`);
+            const pod5Result = await api.loadSample(
                 sampleName,
                 pod5Path,
                 bamPath,
@@ -165,21 +161,11 @@ export class FileLoadingService {
      */
     private async loadPOD5(filePath: string): Promise<POD5LoadResult> {
         try {
-            // Verify API is available
-            if (!this.state.squiggyAPI) {
-                return {
-                    success: false,
-                    filePath,
-                    fileType: 'pod5',
-                    fileSize: 0,
-                    fileSizeFormatted: '0 B',
-                    readCount: 0,
-                    error: 'Squiggy API not initialized',
-                };
-            }
+            // Get background API (starts kernel if needed)
+            const api = await this.state.ensureBackgroundKernel();
 
-            // Load via API
-            const result = await this.state.squiggyAPI.loadPOD5(filePath);
+            // Load via background API (isolated from user's kernel)
+            const result = await api.loadPOD5(filePath);
 
             // Extract metadata
             const metadata = await this.extractFileMetadata(filePath);
@@ -216,26 +202,11 @@ export class FileLoadingService {
      */
     private async loadBAM(filePath: string): Promise<BAMLoadResult> {
         try {
-            // Verify API is available
-            if (!this.state.squiggyAPI) {
-                return {
-                    success: false,
-                    filePath,
-                    fileType: 'bam',
-                    fileSize: 0,
-                    fileSizeFormatted: '0 B',
-                    readCount: 0,
-                    numReferences: 0,
-                    hasModifications: false,
-                    modificationTypes: [],
-                    hasProbabilities: false,
-                    hasEventAlignment: false,
-                    error: 'Squiggy API not initialized',
-                };
-            }
+            // Get background API (starts kernel if needed)
+            const api = await this.state.ensureBackgroundKernel();
 
-            // Load via API
-            const result = await this.state.squiggyAPI.loadBAM(filePath);
+            // Load via background API (isolated from user's kernel)
+            const result = await api.loadBAM(filePath);
 
             // Extract metadata
             const metadata = await this.extractFileMetadata(filePath);
@@ -282,20 +253,11 @@ export class FileLoadingService {
      */
     private async loadFASTA(filePath: string): Promise<FASTALoadResult> {
         try {
-            // Verify API has FASTA loading
-            if (!this.state.squiggyAPI?.loadFASTA) {
-                return {
-                    success: false,
-                    filePath,
-                    fileType: 'fasta',
-                    fileSize: 0,
-                    fileSizeFormatted: '0 B',
-                    error: 'Squiggy API does not support FASTA loading',
-                };
-            }
+            // Get background API (starts kernel if needed)
+            const api = await this.state.ensureBackgroundKernel();
 
-            // Load via API
-            await this.state.squiggyAPI.loadFASTA(filePath);
+            // Load via background API (isolated from user's kernel)
+            await api.loadFASTA(filePath);
 
             // Extract metadata
             const metadata = await this.extractFileMetadata(filePath);

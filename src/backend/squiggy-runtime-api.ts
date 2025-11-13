@@ -8,6 +8,7 @@
  */
 
 import { PositronRuntimeClient } from './positron-runtime-client';
+import { RuntimeClient } from './runtime-client-interface';
 import {
     POD5Error,
     BAMError,
@@ -54,15 +55,19 @@ export interface SampleLoadResult {
 
 /**
  * High-level API for squiggy operations in the Python kernel
+ *
+ * Can work with either:
+ * - PositronRuntimeClient (foreground session - for notebook API)
+ * - SquiggyKernelManager (background session - for extension UI)
  */
 export class SquiggyRuntimeAPI {
-    constructor(private readonly _client: PositronRuntimeClient) {}
+    constructor(private readonly _client: RuntimeClient) {}
 
     /**
-     * Get access to the underlying Positron runtime client
+     * Get access to the underlying runtime client
      * For advanced use cases that need direct kernel access
      */
-    get client(): PositronRuntimeClient {
+    get client(): RuntimeClient {
         return this._client;
     }
 
