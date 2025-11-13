@@ -701,6 +701,8 @@ function updateKernelStatusBar(kernelState: SquiggyKernelState): void {
         return;
     }
 
+    logger.info(`Updating kernel status bar: ${kernelState}`);
+
     switch (kernelState) {
         case SquiggyKernelState.Uninitialized:
             kernelStatusBarItem.text = '$(circle-outline) Squiggy Kernel';

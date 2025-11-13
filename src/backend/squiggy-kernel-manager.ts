@@ -106,7 +106,8 @@ export class SquiggyKernelManager implements RuntimeClient {
             // Verify squiggy is importable
             await this.verifySquiggyAvailable();
 
-            this.setState(SquiggyKernelState.Ready);
+            // State should already be Ready from handleRuntimeStateChange
+            // Don't set it manually to avoid interfering with event flow
             logger.info('Squiggy dedicated kernel ready');
         } catch (error) {
             this.setState(SquiggyKernelState.Error);
@@ -130,9 +131,16 @@ export class SquiggyKernelManager implements RuntimeClient {
             if (this.session) {
                 // Use Positron API to restart the session
                 await positron.runtime.restartSession(this.session.metadata.sessionId);
+
+                // Wait for kernel to be ready after restart
+                logger.info('Waiting for restarted kernel to be ready...');
+                await this.waitForReady();
+                logger.info('Restarted kernel is ready, setting up environment...');
+
                 await this.setupPythonPath();
                 await this.verifySquiggyAvailable();
-                this.setState(SquiggyKernelState.Ready);
+
+                // State should already be Ready from handleRuntimeStateChange
                 logger.info('Squiggy dedicated kernel restarted');
             } else {
                 // No session - start fresh
