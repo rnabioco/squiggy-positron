@@ -11,6 +11,7 @@ import { PositronRuntimeClient } from '../backend/positron-runtime-client';
 import { SquiggyRuntimeAPI } from '../backend/squiggy-runtime-api';
 import { PackageManager } from '../backend/package-manager';
 import { PythonBackend } from '../backend/squiggy-python-backend';
+import { SquiggyKernelManager } from '../backend/squiggy-kernel-manager';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
@@ -85,6 +86,7 @@ export class ExtensionState {
     private _squiggyAPI?: SquiggyRuntimeAPI;
     private _packageManager?: PackageManager;
     private _pythonBackend?: PythonBackend | null;
+    private _kernelManager?: SquiggyKernelManager;
     private _usePositron: boolean = false;
 
     // UI panel providers
@@ -147,6 +149,12 @@ export class ExtensionState {
             // Use Positron runtime
             this._squiggyAPI = new SquiggyRuntimeAPI(this._positronClient);
             this._packageManager = new PackageManager(this._positronClient);
+
+            // Initialize background kernel manager for extension UI
+            this._kernelManager = new SquiggyKernelManager(context.extensionPath);
+            context.subscriptions.push(this._kernelManager);
+
+            logger.info('Background kernel manager initialized (will start on demand)');
         } else {
             // Fallback to subprocess JSON-RPC
             const pythonPath = this.getPythonPath();
@@ -247,6 +255,10 @@ squiggy.close_fasta()
 
     get pythonBackend(): PythonBackend | null | undefined {
         return this._pythonBackend;
+    }
+
+    get kernelManager(): SquiggyKernelManager | undefined {
+        return this._kernelManager;
     }
 
     get usePositron(): boolean {
