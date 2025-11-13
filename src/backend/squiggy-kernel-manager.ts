@@ -61,11 +61,30 @@ export class SquiggyKernelManager implements RuntimeClient {
 
         try {
             // Get the Python runtime manager from Positron
-            const pythonExt = vscode.extensions.getExtension('positron.positron-python');
+            // Try multiple possible extension IDs
+            let pythonExt = vscode.extensions.getExtension('positron.positron-python');
             if (!pythonExt) {
-                throw new Error('Positron Python extension not found');
+                pythonExt = vscode.extensions.getExtension('vscode.positron-python');
+            }
+            if (!pythonExt) {
+                pythonExt = vscode.extensions.getExtension('positron-python');
             }
 
+            if (!pythonExt) {
+                // List available extensions for debugging
+                const allExtensions = vscode.extensions.all
+                    .map(ext => ext.id)
+                    .filter(id => id.toLowerCase().includes('python') || id.toLowerCase().includes('positron'))
+                    .join(', ');
+
+                throw new Error(
+                    `Positron Python extension not found. ` +
+                    `Available Python/Positron extensions: ${allExtensions || 'none'}. ` +
+                    `This feature requires running in Positron IDE.`
+                );
+            }
+
+            logger.info(`Found Python extension: ${pythonExt.id}`);
             await pythonExt.activate();
             const runtimeManager = pythonExt.exports as any; // PositronPythonRuntimeManager
 
