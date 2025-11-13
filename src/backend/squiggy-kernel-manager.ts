@@ -95,6 +95,11 @@ export class SquiggyKernelManager implements RuntimeClient {
             this.session.onDidChangeRuntimeState(this.handleRuntimeStateChange.bind(this));
             this.session.onDidEndSession(this.handleSessionEnd.bind(this));
 
+            // Wait for kernel to be ready before executing code
+            logger.info('Waiting for dedicated kernel to be ready...');
+            await this.waitForReady();
+            logger.info('Dedicated kernel is ready, setting up environment...');
+
             // Set up PYTHONPATH to include squiggy package
             await this.setupPythonPath();
 
@@ -253,6 +258,44 @@ if '${tempVar}' in globals():
         this.isDisposed = true;
         this.shutdown();
         this.stateChangeEmitter.dispose();
+    }
+
+    /**
+     * Wait for the kernel to be ready before executing code
+     * Uses the onDidChangeRuntimeState event to wait for idle/ready state
+     */
+    private async waitForReady(timeoutMs: number = 10000): Promise<void> {
+        if (!this.session) {
+            throw new Error('No session to wait for');
+        }
+
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+
+            // Set up timeout
+            const timeout = setTimeout(() => {
+                disposable.dispose();
+                reject(new Error(`Timeout waiting for kernel to be ready (${timeoutMs}ms)`));
+            }, timeoutMs);
+
+            // Listen for state changes
+            const disposable = this.session!.onDidChangeRuntimeState((state) => {
+                logger.debug(`Waiting for ready: current state = ${state}`);
+
+                if (state === positron.RuntimeState.Ready ||
+                    state === positron.RuntimeState.Idle) {
+                    clearTimeout(timeout);
+                    disposable.dispose();
+                    logger.debug(`Kernel ready after ${Date.now() - startTime}ms`);
+                    resolve();
+                } else if (state === positron.RuntimeState.Exited ||
+                           state === positron.RuntimeState.Offline) {
+                    clearTimeout(timeout);
+                    disposable.dispose();
+                    reject(new Error(`Kernel failed to start (state: ${state})`));
+                }
+            });
+        });
     }
 
     /**
