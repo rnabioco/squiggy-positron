@@ -370,7 +370,7 @@ async function plotReads(
             const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
             if (state.usePositron) {
-                // Use background kernel - plot appears in Plots pane automatically
+                // Use dedicated kernel - plot appears in Plots pane automatically
                 const api = await state.ensureBackgroundKernel();
                 await api.generatePlot(
                     readIds,
@@ -387,7 +387,7 @@ async function plotReads(
                     state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
                     coordinateSpace
                 );
-                logger.info('Plot generated successfully (background kernel)');
+                logger.info('Plot generated successfully (dedicated kernel)');
             } else if (state.pythonBackend) {
                 // Use subprocess backend - still need webview fallback
                 // TODO: subprocess backend doesn't have Plots pane integration
@@ -426,7 +426,7 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
             const maxReads = config.get<number>('aggregateSampleSize', 100);
 
             if (state.usePositron) {
-                // Use background kernel - plot appears in Plots pane automatically
+                // Use dedicated kernel - plot appears in Plots pane automatically
                 const api = await state.ensureBackgroundKernel();
                 await api.generateAggregatePlot(
                     referenceName,
@@ -489,7 +489,7 @@ async function plotMotifAggregateAll(
             const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
 
             if (state.usePositron) {
-                // Use background kernel - plot appears in Plots pane automatically
+                // Use dedicated kernel - plot appears in Plots pane automatically
                 const api = await state.ensureBackgroundKernel();
                 await api.generateMotifAggregateAllPlot(
                     params.fastaFile,

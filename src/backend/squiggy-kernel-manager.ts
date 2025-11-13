@@ -1,13 +1,16 @@
 /**
  * Squiggy Kernel Manager
  *
- * Manages a dedicated background Python kernel for Squiggy extension operations.
- * This isolates Squiggy state from the user's workspace while maintaining
- * notebook API compatibility.
+ * Manages a dedicated console Python kernel for Squiggy extension operations.
+ * This creates a separate kernel session to isolate extension state from the
+ * user's foreground workspace.
  *
  * Architecture:
- * - Extension UI → Background kernel (isolated state, no Variables pane clutter)
- * - Notebook API → User's kernel (full programmatic access, as before)
+ * - Extension UI → Dedicated console kernel (separate session)
+ * - Notebook API → User's foreground kernel (full programmatic access)
+ *
+ * Note: Uses Console session mode because Positron's public API doesn't expose
+ * Background session mode through positron.runtime.startLanguageRuntime().
  */
 
 import * as vscode from 'vscode';
@@ -57,81 +60,40 @@ export class SquiggyKernelManager implements RuntimeClient {
         }
 
         this.setState(SquiggyKernelState.Starting);
-        logger.info('Starting Squiggy background kernel...');
+        logger.info('Starting Squiggy dedicated kernel...');
 
         try {
-            // Get the Python runtime manager from Positron
-            // Try multiple possible extension IDs
-            let pythonExt = vscode.extensions.getExtension('positron.positron-python');
-            if (!pythonExt) {
-                pythonExt = vscode.extensions.getExtension('vscode.positron-python');
-            }
-            if (!pythonExt) {
-                pythonExt = vscode.extensions.getExtension('positron-python');
+            // Get preferred Python runtime
+            const runtime = await positron.runtime.getPreferredRuntime('python');
+
+            if (!runtime) {
+                throw new Error('No Python runtime available');
             }
 
-            if (!pythonExt) {
-                // List available extensions for debugging
-                const allExtensions = vscode.extensions.all
-                    .map(ext => ext.id)
-                    .filter(id => id.toLowerCase().includes('python') || id.toLowerCase().includes('positron'))
-                    .join(', ');
-
-                throw new Error(
-                    `Positron Python extension not found. ` +
-                    `Available Python/Positron extensions: ${allExtensions || 'none'}. ` +
-                    `This feature requires running in Positron IDE.`
-                );
-            }
-
-            logger.info(`Found Python extension: ${pythonExt.id}`);
-            await pythonExt.activate();
-            const runtimeManager = pythonExt.exports as any; // PositronPythonRuntimeManager
-
-            if (!runtimeManager || !runtimeManager.getRegisteredRuntimes) {
-                throw new Error('Python runtime manager not available');
-            }
-
-            // Get available Python runtimes
-            const runtimes: positron.LanguageRuntimeMetadata[] =
-                await runtimeManager.getRegisteredRuntimes();
-
-            if (runtimes.length === 0) {
-                throw new Error('No Python runtimes available');
-            }
-
-            // Use the first available Python runtime
-            // TODO: In future, could match foreground session's Python version
-            const runtime = runtimes[0];
             logger.info(
                 `Using Python runtime: ${runtime.runtimeName} (${runtime.runtimeVersion})`
             );
 
-            // Create session metadata for background mode
-            const sessionMetadata = {
-                sessionId: `squiggy-background-${Date.now()}`,
-                sessionName: 'Squiggy Background',
-                sessionMode: 'background', // RuntimeSessionMode.Background
-                createdTimestamp: Date.now(),
-                notebookUri: undefined,
-                startReason: 'Extension Activation',
-            };
-
-            // Create the background session
-            this.session = await runtimeManager.createSession(runtime, sessionMetadata);
+            // Start a dedicated console session for Squiggy
+            // NOTE: positron.runtime.startLanguageRuntime() only supports Console and Notebook modes
+            // Background mode is not exposed through the public API
+            // This creates a Console session which is separate from the foreground session
+            const sessionName = 'Squiggy Dedicated Kernel';
+            this.session = await positron.runtime.startLanguageRuntime(
+                runtime.runtimeId,
+                sessionName,
+                undefined // notebookUri - undefined means Console mode
+            );
 
             if (!this.session) {
-                throw new Error('Failed to create background session');
+                throw new Error('Failed to create dedicated session');
             }
 
-            logger.info(`Background session created: ${sessionMetadata.sessionId}`);
+            logger.info(`Dedicated session created: ${this.session.metadata.sessionId}`);
 
             // Listen for session state changes
             this.session.onDidChangeRuntimeState(this.handleRuntimeStateChange.bind(this));
             this.session.onDidEndSession(this.handleSessionEnd.bind(this));
-
-            // Start the session
-            await (this.session as any).start();
 
             // Set up PYTHONPATH to include squiggy package
             await this.setupPythonPath();
@@ -140,39 +102,39 @@ export class SquiggyKernelManager implements RuntimeClient {
             await this.verifySquiggyAvailable();
 
             this.setState(SquiggyKernelState.Ready);
-            logger.info('Squiggy background kernel ready');
+            logger.info('Squiggy dedicated kernel ready');
         } catch (error) {
             this.setState(SquiggyKernelState.Error);
-            logger.error(`Failed to start background kernel: ${error}`);
+            logger.error(`Failed to start dedicated kernel: ${error}`);
             throw error;
         }
     }
 
     /**
-     * Restart the background kernel
+     * Restart the dedicated kernel
      */
     async restart(): Promise<void> {
         if (this.isDisposed) {
             throw new Error('Kernel manager has been disposed');
         }
 
-        logger.info('Restarting Squiggy background kernel...');
+        logger.info('Restarting Squiggy dedicated kernel...');
         this.setState(SquiggyKernelState.Restarting);
 
         try {
             if (this.session) {
-                // Try to restart existing session
-                await (this.session as any).restart();
+                // Use Positron API to restart the session
+                await positron.runtime.restartSession(this.session.metadata.sessionId);
                 await this.setupPythonPath();
                 await this.verifySquiggyAvailable();
                 this.setState(SquiggyKernelState.Ready);
-                logger.info('Squiggy background kernel restarted');
+                logger.info('Squiggy dedicated kernel restarted');
             } else {
                 // No session - start fresh
                 await this.start();
             }
         } catch (error) {
-            logger.error(`Failed to restart background kernel: ${error}`);
+            logger.error(`Failed to restart dedicated kernel: ${error}`);
             this.setState(SquiggyKernelState.Error);
 
             // Try to recover by starting fresh
@@ -182,7 +144,7 @@ export class SquiggyKernelManager implements RuntimeClient {
     }
 
     /**
-     * Execute code in the background kernel
+     * Execute code in the dedicated kernel
      *
      * @param code Python code to execute
      * @param mode Execution mode (default: Silent)
@@ -193,23 +155,25 @@ export class SquiggyKernelManager implements RuntimeClient {
         mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent
     ): Promise<Record<string, unknown>> {
         if (!this.session) {
-            throw new Error('Background kernel not started');
+            throw new Error('Dedicated kernel not started');
         }
 
         if (this.state !== SquiggyKernelState.Ready) {
-            throw new Error(`Background kernel not ready (state: ${this.state})`);
+            throw new Error(`Dedicated kernel not ready (state: ${this.state})`);
         }
 
         try {
-            // Execute in the background session
-            return await (this.session as any).execute(
+            // Execute code using Positron runtime API
+            return await positron.runtime.executeCode(
+                'python',
                 code,
-                'auto', // executionId
+                false, // focus
+                true, // allowIncomplete
                 mode,
                 positron.RuntimeErrorBehavior.Continue
             );
         } catch (error) {
-            logger.error(`Background kernel execution failed: ${error}`);
+            logger.error(`Dedicated kernel execution failed: ${error}`);
             throw error;
         }
     }
@@ -224,13 +188,13 @@ export class SquiggyKernelManager implements RuntimeClient {
     }
 
     /**
-     * Get a variable value from the background kernel
+     * Get a variable value from the dedicated kernel
      * @param varName Python variable name or expression
      * @param enableRetry Ignored (for RuntimeClient interface compatibility)
      */
     async getVariable(varName: string, enableRetry?: boolean): Promise<unknown> {
         if (!this.session) {
-            throw new Error('Background kernel not started');
+            throw new Error('Dedicated kernel not started');
         }
 
         const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
@@ -268,13 +232,13 @@ if '${tempVar}' in globals():
     }
 
     /**
-     * Shutdown the background kernel
+     * Shutdown the dedicated kernel
      */
     async shutdown(): Promise<void> {
         if (this.session) {
-            logger.info('Shutting down Squiggy background kernel...');
+            logger.info('Shutting down Squiggy dedicated kernel...');
             try {
-                await (this.session as any).shutdown();
+                await positron.runtime.deleteSession(this.session.metadata.sessionId);
             } catch (error) {
                 logger.error(`Error shutting down kernel: ${error}`);
             }
@@ -314,7 +278,7 @@ if squiggy_path not in sys.path:
     sys.path.insert(0, squiggy_path)
     print(f"Added {squiggy_path} to sys.path")
 `);
-            logger.info(`Added ${squiggyPath} to PYTHONPATH in background kernel`);
+            logger.info(`Added ${squiggyPath} to PYTHONPATH in dedicated kernel`);
         } catch (error) {
             logger.warning(`Failed to set up PYTHONPATH: ${error}`);
         }
@@ -331,9 +295,9 @@ assert hasattr(squiggy, 'load_pod5'), "squiggy.load_pod5 not found"
 assert hasattr(squiggy, 'load_bam'), "squiggy.load_bam not found"
 assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
 `);
-            logger.info('Squiggy package verified in background kernel');
+            logger.info('Squiggy package verified in dedicated kernel');
         } catch (error) {
-            throw new Error(`Squiggy package not available in background kernel: ${error}`);
+            throw new Error(`Squiggy package not available in dedicated kernel: ${error}`);
         }
     }
 
@@ -341,7 +305,7 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
      * Handle runtime state changes
      */
     private handleRuntimeStateChange(state: positron.RuntimeState): void {
-        logger.debug(`Background kernel state changed: ${state}`);
+        logger.debug(`Dedicated kernel state changed: ${state}`);
 
         switch (state) {
             case positron.RuntimeState.Ready:
@@ -365,7 +329,7 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             case positron.RuntimeState.Exited:
             case positron.RuntimeState.Offline:
                 this.setState(SquiggyKernelState.Error);
-                logger.error(`Background kernel exited unexpectedly (state: ${state})`);
+                logger.error(`Dedicated kernel exited unexpectedly (state: ${state})`);
                 // TODO: Implement auto-restart logic
                 break;
         }
@@ -375,7 +339,7 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
      * Handle session end
      */
     private handleSessionEnd(exit: any): void {
-        logger.warning(`Background kernel session ended: ${JSON.stringify(exit)}`);
+        logger.warning(`Dedicated kernel session ended: ${JSON.stringify(exit)}`);
         this.session = undefined;
         this.setState(SquiggyKernelState.Error);
         // TODO: Implement auto-restart logic

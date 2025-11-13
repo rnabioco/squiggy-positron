@@ -179,16 +179,16 @@ export class ExtensionState {
     }
 
     /**
-     * Ensure background kernel is started and return the background API
+     * Ensure dedicated kernel is started and return the dedicated API
      * Lazily starts the kernel on first call
      *
-     * FALLBACK: If background kernel fails to start, falls back to foreground API
+     * FALLBACK: If dedicated kernel fails to start, falls back to foreground API
      */
     async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
         if (!this._usePositron || !this._kernelManager) {
-            logger.warning('Background kernel not available, using foreground API');
+            logger.warning('Dedicated kernel not available, using foreground API');
             if (!this._squiggyAPI) {
-                throw new Error('No API available (neither background nor foreground)');
+                throw new Error('No API available (neither dedicated nor foreground)');
             }
             return this._squiggyAPI;
         }
@@ -196,11 +196,11 @@ export class ExtensionState {
         // Start kernel if not already started
         const currentState = this._kernelManager.getState();
         if (currentState === SquiggyKernelState.Uninitialized) {
-            logger.info('Starting background kernel (first use)...');
+            logger.info('Starting dedicated kernel (first use)...');
             try {
                 await this._kernelManager.start();
             } catch (error) {
-                logger.error(`Failed to start background kernel: ${error}`);
+                logger.error(`Failed to start dedicated kernel: ${error}`);
                 logger.warning('Falling back to foreground kernel API');
                 // Fall back to foreground API
                 if (!this._squiggyAPI) {
@@ -209,11 +209,11 @@ export class ExtensionState {
                 return this._squiggyAPI;
             }
         } else if (currentState === SquiggyKernelState.Error) {
-            logger.info('Restarting background kernel (was in error state)...');
+            logger.info('Restarting dedicated kernel (was in error state)...');
             try {
                 await this._kernelManager.restart();
             } catch (error) {
-                logger.error(`Failed to restart background kernel: ${error}`);
+                logger.error(`Failed to restart dedicated kernel: ${error}`);
                 logger.warning('Falling back to foreground kernel API');
                 // Fall back to foreground API
                 if (!this._squiggyAPI) {
@@ -223,10 +223,10 @@ export class ExtensionState {
             }
         }
 
-        // Create background API if not already created
+        // Create dedicated kernel API if not already created
         if (!this._backgroundSquiggyAPI) {
             this._backgroundSquiggyAPI = new SquiggyRuntimeAPI(this._kernelManager);
-            logger.info('Background Squiggy API created');
+            logger.info('Dedicated kernel Squiggy API created');
         }
 
         return this._backgroundSquiggyAPI;

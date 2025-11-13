@@ -123,7 +123,7 @@ export class FileLoadingService {
         logger.debug(`[loadSampleIntoRegistry] Background API ready, calling loadSample()...`);
 
         try {
-            // Load sample into registry (using background kernel)
+            // Load sample into registry (using dedicated kernel)
             logger.debug(`[loadSampleIntoRegistry] About to call backgroundAPI.loadSample()`);
             const pod5Result = await api.loadSample(
                 sampleName,
