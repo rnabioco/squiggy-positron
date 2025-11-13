@@ -13,6 +13,7 @@ import { ExtensionState } from '../../state/extension-state';
 describe('Plot Commands', () => {
     let mockContext: vscode.ExtensionContext;
     let mockState: any;
+    let mockAPI: any;
     let commandHandlers: Map<string, Function>;
 
     // Helper to register commands
@@ -32,12 +33,15 @@ describe('Plot Commands', () => {
         } as any;
 
         // Mock state with minimal required properties
+        mockAPI = {
+            generatePlot: (jest.fn() as any).mockResolvedValue(undefined),
+            generateAggregatePlot: (jest.fn() as any).mockResolvedValue(undefined),
+        };
+
         mockState = {
             usePositron: true,
-            squiggyAPI: {
-                generatePlot: (jest.fn() as any).mockResolvedValue(undefined),
-                generateAggregatePlot: (jest.fn() as any).mockResolvedValue(undefined),
-            },
+            squiggyAPI: mockAPI,
+            ensureBackgroundKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
             currentPod5File: null,
             currentBamFile: null,
             currentFastaFile: null,
@@ -83,6 +87,14 @@ describe('Plot Commands', () => {
 
         // Reset all vscode mocks
         jest.clearAllMocks();
+
+        // Re-setup ensureBackgroundKernel after clearAllMocks
+        mockAPI = {
+            generatePlot: (jest.fn() as any).mockResolvedValue(undefined),
+            generateAggregatePlot: (jest.fn() as any).mockResolvedValue(undefined),
+        };
+        mockState.ensureBackgroundKernel = (jest.fn() as any).mockResolvedValue(mockAPI);
+        mockState.squiggyAPI = mockAPI;
     });
 
     afterEach(() => {

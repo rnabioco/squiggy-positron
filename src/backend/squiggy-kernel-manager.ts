@@ -77,9 +77,7 @@ export class SquiggyKernelManager implements RuntimeClient {
                 throw new Error('No Python runtime available');
             }
 
-            logger.info(
-                `Using Python runtime: ${runtime.runtimeName} (${runtime.runtimeVersion})`
-            );
+            logger.info(`Using Python runtime: ${runtime.runtimeName} (${runtime.runtimeVersion})`);
 
             // Start a dedicated console session for Squiggy
             // NOTE: positron.runtime.startLanguageRuntime() only supports Console and Notebook modes
@@ -201,18 +199,18 @@ export class SquiggyKernelManager implements RuntimeClient {
     /**
      * Execute code silently (no console output)
      * @param code Python code to execute
-     * @param enableRetry Ignored (for RuntimeClient interface compatibility)
+     * @param _enableRetry Ignored (for RuntimeClient interface compatibility)
      */
-    async executeSilent(code: string, enableRetry?: boolean): Promise<void> {
+    async executeSilent(code: string, _enableRetry?: boolean): Promise<void> {
         await this.execute(code, positron.RuntimeCodeExecutionMode.Silent);
     }
 
     /**
      * Get a variable value from the dedicated kernel
      * @param varName Python variable name or expression
-     * @param enableRetry Ignored (for RuntimeClient interface compatibility)
+     * @param _enableRetry Ignored (for RuntimeClient interface compatibility)
      */
-    async getVariable(varName: string, enableRetry?: boolean): Promise<unknown> {
+    async getVariable(varName: string, _enableRetry?: boolean): Promise<unknown> {
         if (!this.session) {
             throw new Error('Dedicated kernel not started');
         }
@@ -243,10 +241,12 @@ if '${tempVar}' in globals():
             const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
             return JSON.parse(cleaned);
         } catch (error) {
-            await this.executeSilent(`
+            await this.executeSilent(
+                `
 if '${tempVar}' in globals():
     del ${tempVar}
-`).catch(() => {});
+`
+            ).catch(() => {});
             throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }
@@ -297,14 +297,15 @@ if '${tempVar}' in globals():
             const disposable = this.session!.onDidChangeRuntimeState((state) => {
                 logger.debug(`Waiting for ready: current state = ${state}`);
 
-                if (state === positron.RuntimeState.Ready ||
-                    state === positron.RuntimeState.Idle) {
+                if (state === positron.RuntimeState.Ready || state === positron.RuntimeState.Idle) {
                     clearTimeout(timeout);
                     disposable.dispose();
                     logger.debug(`Kernel ready after ${Date.now() - startTime}ms`);
                     resolve();
-                } else if (state === positron.RuntimeState.Exited ||
-                           state === positron.RuntimeState.Offline) {
+                } else if (
+                    state === positron.RuntimeState.Exited ||
+                    state === positron.RuntimeState.Offline
+                ) {
                     clearTimeout(timeout);
                     disposable.dispose();
                     reject(new Error(`Kernel failed to start (state: ${state})`));

@@ -542,7 +542,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.restartBackgroundKernel', async () => {
             if (!state.kernelManager) {
-                vscode.window.showWarningMessage('Dedicated kernel not available (not in Positron mode)');
+                vscode.window.showWarningMessage(
+                    'Dedicated kernel not available (not in Positron mode)'
+                );
                 return;
             }
 
@@ -578,7 +580,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 }
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`Failed to restart dedicated kernel: ${errorMessage}`);
+                vscode.window.showErrorMessage(
+                    `Failed to restart dedicated kernel: ${errorMessage}`
+                );
                 logger.error(`Dedicated kernel restart failed: ${errorMessage}`);
             }
         })
@@ -670,10 +674,7 @@ function initializeKernelStatusBar(context: vscode.ExtensionContext): void {
     }
 
     // Create status bar item
-    kernelStatusBarItem = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Right,
-        100
-    );
+    kernelStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     kernelStatusBarItem.command = 'squiggy.restartBackgroundKernel';
     context.subscriptions.push(kernelStatusBarItem);
 

@@ -7,7 +7,6 @@
  * Built on top of PositronRuntimeClient for low-level kernel communication.
  */
 
-import { PositronRuntimeClient } from './positron-runtime-client';
 import { RuntimeClient } from './runtime-client-interface';
 import {
     POD5Error,

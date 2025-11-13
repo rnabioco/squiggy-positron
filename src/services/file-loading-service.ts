@@ -125,12 +125,7 @@ export class FileLoadingService {
         try {
             // Load sample into registry (using dedicated kernel)
             logger.debug(`[loadSampleIntoRegistry] About to call backgroundAPI.loadSample()`);
-            const pod5Result = await api.loadSample(
-                sampleName,
-                pod5Path,
-                bamPath,
-                fastaPath
-            );
+            const pod5Result = await api.loadSample(sampleName, pod5Path, bamPath, fastaPath);
             logger.debug(
                 `[loadSampleIntoRegistry] loadSample returned successfully with ${pod5Result.numReads} reads`
             );
