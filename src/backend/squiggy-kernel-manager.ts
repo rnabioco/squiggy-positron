@@ -47,6 +47,13 @@ export class SquiggyKernelManager implements RuntimeClient {
     }
 
     /**
+     * Get the dedicated kernel session ID (if running)
+     */
+    getSessionId(): string | undefined {
+        return this.session?.metadata.sessionId;
+    }
+
+    /**
      * Start the background Python kernel
      */
     async start(): Promise<void> {
