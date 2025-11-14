@@ -85,13 +85,12 @@ export class PackageManager {
      * Show version incompatibility warning
      */
     async showVersionWarning(installedVersion: string): Promise<void> {
-        const upgradeCommand = `uv pip install --upgrade --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ ${PackageManager.PACKAGE_NAME}`;
+        const upgradeCommand = `uv pip install --upgrade ${PackageManager.PACKAGE_NAME}`;
 
         const choice = await vscode.window.showWarningMessage(
             `Squiggy extension requires ${PackageManager.PACKAGE_NAME} >= ${PackageManager.REQUIRED_VERSION}\n\n` +
                 `Installed version: ${installedVersion}\n\n` +
-                `Please upgrade:\n${upgradeCommand}\n\n` +
-                `Note: Installing from TestPyPI temporarily until next PyPI release.`,
+                `Please upgrade:\n${upgradeCommand}`,
             'Copy Upgrade Command',
             'Dismiss'
         );
