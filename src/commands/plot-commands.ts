@@ -369,9 +369,10 @@ async function plotReads(
             const colorThemeKind = vscode.window.activeColorTheme.kind;
             const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
-            if (state.usePositron && state.squiggyAPI) {
-                // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generatePlot(
+            if (state.usePositron) {
+                // Use dedicated kernel - plot appears in Plots pane automatically
+                const api = await state.ensureBackgroundKernel();
+                await api.generatePlot(
                     readIds,
                     mode,
                     normalization,
@@ -386,7 +387,7 @@ async function plotReads(
                     state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
                     coordinateSpace
                 );
-                logger.info('Plot generated successfully');
+                logger.info('Plot generated successfully (dedicated kernel)');
             } else if (state.pythonBackend) {
                 // Use subprocess backend - still need webview fallback
                 // TODO: subprocess backend doesn't have Plots pane integration
@@ -424,9 +425,10 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
             const config = vscode.workspace.getConfiguration('squiggy');
             const maxReads = config.get<number>('aggregateSampleSize', 100);
 
-            if (state.usePositron && state.squiggyAPI) {
-                // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generateAggregatePlot(
+            if (state.usePositron) {
+                // Use dedicated kernel - plot appears in Plots pane automatically
+                const api = await state.ensureBackgroundKernel();
+                await api.generateAggregatePlot(
                     referenceName,
                     maxReads,
                     normalization,
@@ -486,9 +488,10 @@ async function plotMotifAggregateAll(
             const config = vscode.workspace.getConfiguration('squiggy');
             const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
 
-            if (state.usePositron && state.squiggyAPI) {
-                // Use Positron kernel - plot appears in Plots pane automatically
-                await state.squiggyAPI.generateMotifAggregateAllPlot(
+            if (state.usePositron) {
+                // Use dedicated kernel - plot appears in Plots pane automatically
+                const api = await state.ensureBackgroundKernel();
+                await api.generateMotifAggregateAllPlot(
                     params.fastaFile,
                     params.motif,
                     params.upstream,
@@ -522,10 +525,6 @@ async function plotSignalOverlayComparison(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
             const normalization = options?.normalization || 'ZNORM';
@@ -536,7 +535,8 @@ async function plotSignalOverlayComparison(
 
             // Generate signal overlay plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateSignalOverlayComparison(
+                const api = await state.ensureBackgroundKernel();
+                await api.generateSignalOverlayComparison(
                     sampleNames,
                     normalization,
                     theme,
@@ -568,10 +568,6 @@ async function plotDeltaComparison(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
             const normalization = options?.normalization || 'ZNORM';
@@ -582,7 +578,8 @@ async function plotDeltaComparison(
 
             // Generate delta plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateDeltaPlot(
+                const api = await state.ensureBackgroundKernel();
+                await api.generateDeltaPlot(
                     sampleNames,
                     referenceName,
                     normalization,
@@ -633,12 +630,13 @@ async function checkSampleReferenceCompatibility(
 
         // If reference info is missing, try to fetch it on-demand
         if (!sample.references || sample.references.length === 0) {
-            if (sample.hasBam && state.squiggyAPI) {
+            if (sample.hasBam && state.usePositron) {
                 logger.info(
                     `[Reference Check] Sample '${sampleName}' has no cached references - fetching on-demand from Python...`
                 );
                 try {
-                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    const api = await state.ensureBackgroundKernel();
+                    const sampleInfo = await api.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         // Update the sample with fetched reference info
                         sample.references = sampleInfo.references;
@@ -658,7 +656,7 @@ async function checkSampleReferenceCompatibility(
                 }
             } else {
                 logger.debug(
-                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, squiggyAPI=${!!state.squiggyAPI} - cannot fetch references`
+                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, usePositron=${state.usePositron} - cannot fetch references`
                 );
             }
         }
@@ -817,7 +815,8 @@ async function plotAggregateComparison(
 
             // Generate aggregate comparison plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateAggregateComparison(
+                const api = await state.ensureBackgroundKernel();
+                await api.generateAggregateComparison(
                     params.sampleNames,
                     params.reference,
                     params.metrics,
@@ -861,6 +860,9 @@ async function plotMultiReadOverlay(
                 throw new Error('At least one sample must be selected');
             }
 
+            // Get background API
+            const api = await state.ensureBackgroundKernel();
+
             // Extract reads from each sample and build mappings
             const allReadIds: string[] = [];
             const readSampleMap: Record<string, string> = {};
@@ -876,11 +878,7 @@ async function plotMultiReadOverlay(
                 const sampleColor = sample.metadata?.displayColor || '#888888';
 
                 // Get read IDs for this sample
-                const readIds = await state.squiggyAPI.getReadIdsForSample(
-                    sampleName,
-                    0,
-                    maxReadsPerSample
-                );
+                const readIds = await api.getReadIdsForSample(sampleName, 0, maxReadsPerSample);
 
                 // Add to combined list and build mappings
                 for (const readId of readIds) {
@@ -913,7 +911,7 @@ async function plotMultiReadOverlay(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate plot with OVERLAY mode using multi-sample support
-            await state.squiggyAPI.generateMultiSamplePlot(
+            await api.generateMultiSamplePlot(
                 allReadIds,
                 readSampleMap,
                 readColors,
@@ -947,14 +945,13 @@ async function plotMultiReadStacked(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Validate params
             if (sampleNames.length === 0) {
                 throw new Error('At least one sample must be selected');
             }
+
+            // Get background API
+            const api = await state.ensureBackgroundKernel();
 
             // Extract reads from each sample and build mappings
             const allReadIds: string[] = [];
@@ -971,11 +968,7 @@ async function plotMultiReadStacked(
                 const sampleColor = sample.metadata?.displayColor || '#888888';
 
                 // Get read IDs for this sample
-                const readIds = await state.squiggyAPI.getReadIdsForSample(
-                    sampleName,
-                    0,
-                    maxReadsPerSample
-                );
+                const readIds = await api.getReadIdsForSample(sampleName, 0, maxReadsPerSample);
 
                 // Add to combined list and build mappings
                 for (const readId of readIds) {
@@ -1021,7 +1014,7 @@ async function plotMultiReadStacked(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate plot with STACKED mode using multi-sample support
-            await state.squiggyAPI.generateMultiSamplePlot(
+            await api.generateMultiSamplePlot(
                 allReadIds,
                 readSampleMap,
                 readColors,

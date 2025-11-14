@@ -22,6 +22,7 @@ describe('MotifSearchPanelProvider', () => {
             currentFastaFile: null,
             usePositron: false,
             squiggyAPI: null,
+            ensureBackgroundKernel: jest.fn(),
         } as any;
 
         // Mock webview view
@@ -102,18 +103,21 @@ describe('MotifSearchPanelProvider', () => {
         it('should search motif successfully with Positron runtime', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
             mockState.usePositron = true;
-            mockState.squiggyAPI = {
-                searchMotif: (jest.fn() as any).mockResolvedValue([
-                    { chrom: 'chr1', position: 100, sequence: 'GGACA', strand: '+' },
-                    { chrom: 'chr1', position: 500, sequence: 'AGACT', strand: '+' },
-                ]),
-            };
+
+            const mockSearchMotif = (jest.fn() as any).mockResolvedValue([
+                { chrom: 'chr1', position: 100, sequence: 'GGACA', strand: '+' },
+                { chrom: 'chr1', position: 500, sequence: 'AGACT', strand: '+' },
+            ]);
+
+            mockState.ensureBackgroundKernel.mockResolvedValue({
+                searchMotif: mockSearchMotif,
+            });
 
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 
             await messageHandler({ type: 'searchMotif', motif: 'DRACH', strand: 'both' });
 
-            expect(mockState.squiggyAPI.searchMotif).toHaveBeenCalledWith(
+            expect(mockSearchMotif).toHaveBeenCalledWith(
                 '/path/to/reference.fasta',
                 'DRACH',
                 undefined,
@@ -137,16 +141,19 @@ describe('MotifSearchPanelProvider', () => {
         it('should handle default strand parameter', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
             mockState.usePositron = true;
-            mockState.squiggyAPI = {
-                searchMotif: (jest.fn() as any).mockResolvedValue([]),
-            };
+
+            const mockSearchMotif = (jest.fn() as any).mockResolvedValue([]);
+
+            mockState.ensureBackgroundKernel.mockResolvedValue({
+                searchMotif: mockSearchMotif,
+            });
 
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 
             // Call without strand parameter
             await messageHandler({ type: 'searchMotif', motif: 'CCA' });
 
-            expect(mockState.squiggyAPI.searchMotif).toHaveBeenCalledWith(
+            expect(mockSearchMotif).toHaveBeenCalledWith(
                 '/path/to/reference.fasta',
                 'CCA',
                 undefined,
@@ -157,9 +164,14 @@ describe('MotifSearchPanelProvider', () => {
         it('should handle errors during motif search', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
             mockState.usePositron = true;
-            mockState.squiggyAPI = {
-                searchMotif: (jest.fn() as any).mockRejectedValue(new Error('Search failed')),
-            };
+
+            const mockSearchMotif = (jest.fn() as any).mockRejectedValue(
+                new Error('Search failed')
+            );
+
+            mockState.ensureBackgroundKernel.mockResolvedValue({
+                searchMotif: mockSearchMotif,
+            });
 
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 
@@ -182,9 +194,12 @@ describe('MotifSearchPanelProvider', () => {
         it('should handle non-Error exceptions during search', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
             mockState.usePositron = true;
-            mockState.squiggyAPI = {
-                searchMotif: (jest.fn() as any).mockRejectedValue('String error'),
-            };
+
+            const mockSearchMotif = (jest.fn() as any).mockRejectedValue('String error');
+
+            mockState.ensureBackgroundKernel.mockResolvedValue({
+                searchMotif: mockSearchMotif,
+            });
 
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 
@@ -198,11 +213,14 @@ describe('MotifSearchPanelProvider', () => {
         it('should set searching state before and after search', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
             mockState.usePositron = true;
-            mockState.squiggyAPI = {
-                searchMotif: (jest.fn() as any).mockImplementation(
-                    () => new Promise((resolve) => setTimeout(() => resolve([]), 10))
-                ),
-            };
+
+            const mockSearchMotif = (jest.fn() as any).mockImplementation(
+                () => new Promise((resolve) => setTimeout(() => resolve([]), 10))
+            );
+
+            mockState.ensureBackgroundKernel.mockResolvedValue({
+                searchMotif: mockSearchMotif,
+            });
 
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 

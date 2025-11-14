@@ -11,6 +11,7 @@ import { PositronRuntimeClient } from '../backend/positron-runtime-client';
 import { SquiggyRuntimeAPI } from '../backend/squiggy-runtime-api';
 import { PackageManager } from '../backend/package-manager';
 import { PythonBackend } from '../backend/squiggy-python-backend';
+import { SquiggyKernelManager, SquiggyKernelState } from '../backend/squiggy-kernel-manager';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
 import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel';
@@ -82,9 +83,11 @@ export interface SampleInfo {
 export class ExtensionState {
     // Backend instances
     private _positronClient?: PositronRuntimeClient;
-    private _squiggyAPI?: SquiggyRuntimeAPI;
+    private _squiggyAPI?: SquiggyRuntimeAPI; // For notebook/console (foreground kernel)
+    private _backgroundSquiggyAPI?: SquiggyRuntimeAPI; // For extension UI (background kernel)
     private _packageManager?: PackageManager;
     private _pythonBackend?: PythonBackend | null;
+    private _kernelManager?: SquiggyKernelManager;
     private _usePositron: boolean = false;
 
     // UI panel providers
@@ -147,6 +150,12 @@ export class ExtensionState {
             // Use Positron runtime
             this._squiggyAPI = new SquiggyRuntimeAPI(this._positronClient);
             this._packageManager = new PackageManager(this._positronClient);
+
+            // Initialize background kernel manager for extension UI
+            this._kernelManager = new SquiggyKernelManager(context.extensionPath);
+            context.subscriptions.push(this._kernelManager);
+
+            logger.info('Background kernel manager initialized (will start on demand)');
         } else {
             // Fallback to subprocess JSON-RPC
             const pythonPath = this.getPythonPath();
@@ -167,6 +176,60 @@ export class ExtensionState {
                 );
             }
         }
+    }
+
+    /**
+     * Ensure dedicated kernel is started and return the dedicated API
+     * Lazily starts the kernel on first call
+     *
+     * FALLBACK: If dedicated kernel fails to start, falls back to foreground API
+     */
+    async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
+        if (!this._usePositron || !this._kernelManager) {
+            logger.warning('Dedicated kernel not available, using foreground API');
+            if (!this._squiggyAPI) {
+                throw new Error('No API available (neither dedicated nor foreground)');
+            }
+            return this._squiggyAPI;
+        }
+
+        // Start kernel if not already started
+        const currentState = this._kernelManager.getState();
+        if (currentState === SquiggyKernelState.Uninitialized) {
+            logger.info('Starting dedicated kernel (first use)...');
+            try {
+                await this._kernelManager.start();
+            } catch (error) {
+                logger.error(`Failed to start dedicated kernel: ${error}`);
+                logger.warning('Falling back to foreground kernel API');
+                // Fall back to foreground API
+                if (!this._squiggyAPI) {
+                    throw error;
+                }
+                return this._squiggyAPI;
+            }
+        } else if (currentState === SquiggyKernelState.Error) {
+            logger.info('Restarting dedicated kernel (was in error state)...');
+            try {
+                await this._kernelManager.restart();
+            } catch (error) {
+                logger.error(`Failed to restart dedicated kernel: ${error}`);
+                logger.warning('Falling back to foreground kernel API');
+                // Fall back to foreground API
+                if (!this._squiggyAPI) {
+                    throw error;
+                }
+                return this._squiggyAPI;
+            }
+        }
+
+        // Create dedicated kernel API if not already created
+        if (!this._backgroundSquiggyAPI) {
+            this._backgroundSquiggyAPI = new SquiggyRuntimeAPI(this._kernelManager);
+            logger.info('Dedicated kernel Squiggy API created');
+        }
+
+        return this._backgroundSquiggyAPI;
     }
 
     /**
@@ -241,12 +304,20 @@ squiggy.close_fasta()
         return this._squiggyAPI;
     }
 
+    get backgroundSquiggyAPI(): SquiggyRuntimeAPI | undefined {
+        return this._backgroundSquiggyAPI;
+    }
+
     get packageManager(): PackageManager | undefined {
         return this._packageManager;
     }
 
     get pythonBackend(): PythonBackend | null | undefined {
         return this._pythonBackend;
+    }
+
+    get kernelManager(): SquiggyKernelManager | undefined {
+        return this._kernelManager;
     }
 
     get usePositron(): boolean {
@@ -1034,14 +1105,18 @@ squiggy.close_fasta()
             throw new Error('Squiggy API not initialized');
         }
 
+        // Get background API (starts dedicated kernel if needed)
+        const api = await this.ensureBackgroundKernel();
+        logger.debug('[restoreSample] Background API ready, loading files...');
+
         // Load POD5 (assuming single POD5 for now)
         if (resolvedPod5Paths.length > 0) {
             const pod5Path = resolvedPod5Paths[0];
-            const _pod5Result = await this._squiggyAPI.loadPOD5(pod5Path);
+            const _pod5Result = await api.loadPOD5(pod5Path);
             this._currentPod5File = pod5Path;
 
             // Get first 1000 read IDs for reads view (lazy loading)
-            const readIds = await this._squiggyAPI.getReadIds(0, 1000);
+            const readIds = await api.getReadIds(0, 1000);
             if (readIds.length > 0) {
                 this._readsViewPane?.setReads(readIds);
             }
@@ -1052,16 +1127,16 @@ squiggy.close_fasta()
 
         // Load BAM if present
         if (resolvedBamPath) {
-            const _bamResult = await this._squiggyAPI.loadBAM(resolvedBamPath);
+            const _bamResult = await api.loadBAM(resolvedBamPath);
             this._currentBamFile = resolvedBamPath;
 
             // Get references only (lazy loading - don't fetch reads yet)
-            const references = await this._squiggyAPI.getReferences();
+            const references = await api.getReferences();
             const referenceToReads: Record<string, string[]> = {};
 
             // Build reference count map by getting length for each reference
             for (const ref of references) {
-                const readCount = (await this._squiggyAPI.client.getVariable(
+                const readCount = (await api.client.getVariable(
                     `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                 )) as number;
                 referenceToReads[ref] = new Array(readCount); // Placeholder
@@ -1102,7 +1177,7 @@ squiggy.close_fasta()
 
         // Load FASTA if present
         if (resolvedFastaPath) {
-            await this._squiggyAPI.loadFASTA?.(resolvedFastaPath);
+            await api.loadFASTA?.(resolvedFastaPath);
             this._currentFastaFile = resolvedFastaPath;
         }
 
@@ -1113,7 +1188,7 @@ squiggy.close_fasta()
                 logger.debug(
                     `[restoreSample] Loading sample '${sampleName}' into Python registry...`
                 );
-                await this._squiggyAPI.loadSample(
+                await api.loadSample(
                     sampleName,
                     resolvedPod5Paths[0],
                     resolvedBamPath,

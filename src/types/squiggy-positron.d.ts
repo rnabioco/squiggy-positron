@@ -90,6 +90,32 @@ declare module 'positron' {
         ): Thenable<Array<Array<RuntimeVariable>>>;
 
         /**
+         * Get the preferred runtime for a given language
+         */
+        export function getPreferredRuntime(
+            languageId: string
+        ): Thenable<LanguageRuntimeMetadata | undefined>;
+
+        /**
+         * Start a new language runtime session
+         */
+        export function startLanguageRuntime(
+            runtimeId: string,
+            sessionName: string,
+            notebookUri?: import('vscode').Uri
+        ): Thenable<LanguageRuntimeSession>;
+
+        /**
+         * Restart an existing session
+         */
+        export function restartSession(sessionId: string): Thenable<void>;
+
+        /**
+         * Delete/shutdown a session
+         */
+        export function deleteSession(sessionId: string): Thenable<void>;
+
+        /**
          * Event that fires when the foreground session changes (including kernel restarts)
          */
         export const onDidChangeForegroundSession: import('vscode').Event<string | undefined>;

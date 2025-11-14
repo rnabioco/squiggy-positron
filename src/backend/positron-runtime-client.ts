@@ -12,13 +12,14 @@
 import * as positron from 'positron';
 import { KernelNotAvailableError, retryOperation, isTransientError } from '../utils/error-handler';
 import { logger } from '../utils/logger';
+import { RuntimeClient } from './runtime-client-interface';
 
 /**
  * Low-level client for Positron runtime API
  *
  * Manages kernel communication, code execution, and variable access.
  */
-export class PositronRuntimeClient {
+export class PositronRuntimeClient implements RuntimeClient {
     private kernelReadyCache: { ready: boolean; timestamp: number } | null = null;
     private readonly KERNEL_CACHE_TTL = 1000; // 1 second - kernel state is fairly stable
 
