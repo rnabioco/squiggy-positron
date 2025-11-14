@@ -165,7 +165,9 @@ describe('MotifSearchPanelProvider', () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
             mockState.usePositron = true;
 
-            const mockSearchMotif = (jest.fn() as any).mockRejectedValue(new Error('Search failed'));
+            const mockSearchMotif = (jest.fn() as any).mockRejectedValue(
+                new Error('Search failed')
+            );
 
             mockState.ensureBackgroundKernel.mockResolvedValue({
                 searchMotif: mockSearchMotif,
