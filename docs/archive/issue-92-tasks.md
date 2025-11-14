@@ -7,7 +7,7 @@ Establish unified extension state so that File Explorer and Sample Comparison Ma
 
 ## Problem Statement
 
-- **File Explorer** and **Sample Comparison Manager** both interact with the same Python kernel state (`_squiggy_session`)
+- **File Explorer** and **Sample Comparison Manager** both interact with the same Python kernel state (`squiggy_kernel`)
 - However, they operate on **separate extension-level state**, creating sync issues:
   - Loading files in File Explorer doesn't update Sample Comparison Manager
   - Loading files in Sample Comparison Manager doesn't update File Explorer
@@ -23,7 +23,7 @@ File Explorer           Sample Comparison Manager
  Extension State A      Extension State B
      ↓                           ↓
     ↘                           ↙
-       _squiggy_session (Python)
+       squiggy_kernel (Python)
 ```
 
 ### Target Architecture (After)
@@ -32,7 +32,7 @@ File Explorer           Sample Comparison Manager
          ↘                   ↙
    Unified Extension State
          ↓
-    _squiggy_session (Python)
+    squiggy_kernel (Python)
 ```
 
 ## Implementation Tasks

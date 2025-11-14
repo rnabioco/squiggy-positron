@@ -183,10 +183,10 @@ def get_reads_for_reference_region(
     Returns:
         List of read IDs overlapping the region
     """
-    if _squiggy_session.bam_path is None:
+    if squiggy_kernel.bam_path is None:
         raise RuntimeError("No BAM file loaded")
 
-    with pysam.AlignmentFile(_squiggy_session.bam_path, "rb") as bam:
+    with pysam.AlignmentFile(squiggy_kernel.bam_path, "rb") as bam:
         read_ids = []
         for read in bam.fetch(reference_name, start - 1, end):  # Convert to 0-based
             if not read.is_unmapped:

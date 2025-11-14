@@ -11,7 +11,7 @@ class TestLoadPOD5:
     def test_load_pod5_returns_reader_and_ids(self, sample_pod5_file):
         """Test that load_pod5 populates global session with reader and read IDs"""
         from squiggy import load_pod5
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         result = load_pod5(str(sample_pod5_file))
 
@@ -19,13 +19,13 @@ class TestLoadPOD5:
         assert result is None
 
         # Should populate global session
-        assert _squiggy_session.reader is not None
+        assert squiggy_kernel._reader is not None
         # read_ids can be either list or LazyReadList (optimized)
         from squiggy.io import LazyReadList
 
-        assert isinstance(_squiggy_session.read_ids, (list, LazyReadList))
-        assert len(_squiggy_session.read_ids) > 0
-        assert all(isinstance(rid, str) for rid in _squiggy_session.read_ids)
+        assert isinstance(squiggy_kernel._read_ids, (list, LazyReadList))
+        assert len(squiggy_kernel._read_ids) > 0
+        assert all(isinstance(rid, str) for rid in squiggy_kernel._read_ids)
 
     def test_load_pod5_stores_global_state(self, sample_pod5_file):
         """Test that load_pod5 stores global state"""
@@ -72,17 +72,17 @@ class TestLoadPOD5:
     def test_load_pod5_closes_previous_reader(self, sample_pod5_file):
         """Test that loading a new file closes the previous reader"""
         from squiggy import load_pod5
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         # Load first time
         load_pod5(str(sample_pod5_file))
-        assert _squiggy_session.reader is not None
+        assert squiggy_kernel._reader is not None
 
         # Load second time
         load_pod5(str(sample_pod5_file))
 
         # Should still have a reader
-        assert _squiggy_session.reader is not None
+        assert squiggy_kernel._reader is not None
         # Previous reader should be closed (we can't easily test this, but no errors should occur)
 
 
@@ -92,7 +92,7 @@ class TestLoadBAM:
     def test_load_bam_returns_metadata(self, indexed_bam_file):
         """Test that load_bam populates global session with BAM metadata"""
         from squiggy import load_bam
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         result = load_bam(str(indexed_bam_file))
 
@@ -100,14 +100,14 @@ class TestLoadBAM:
         assert result is None
 
         # Should populate global session
-        assert _squiggy_session.bam_info is not None
-        assert isinstance(_squiggy_session.bam_info, dict)
-        assert "file_path" in _squiggy_session.bam_info
-        assert "num_reads" in _squiggy_session.bam_info
-        assert "references" in _squiggy_session.bam_info
-        assert "has_modifications" in _squiggy_session.bam_info
-        assert "modification_types" in _squiggy_session.bam_info
-        assert "has_event_alignment" in _squiggy_session.bam_info
+        assert squiggy_kernel._bam_info is not None
+        assert isinstance(squiggy_kernel._bam_info, dict)
+        assert "file_path" in squiggy_kernel._bam_info
+        assert "num_reads" in squiggy_kernel._bam_info
+        assert "references" in squiggy_kernel._bam_info
+        assert "has_modifications" in squiggy_kernel._bam_info
+        assert "modification_types" in squiggy_kernel._bam_info
+        assert "has_event_alignment" in squiggy_kernel._bam_info
 
     def test_load_bam_stores_global_state(self, indexed_bam_file):
         """Test that load_bam stores global path"""
@@ -129,10 +129,10 @@ class TestLoadBAM:
     def test_load_bam_references_structure(self, indexed_bam_file):
         """Test that references have expected structure"""
         from squiggy import load_bam
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         load_bam(str(indexed_bam_file))
-        references = _squiggy_session.bam_info["references"]
+        references = squiggy_kernel._bam_info["references"]
 
         assert isinstance(references, list)
         if len(references) > 0:
@@ -334,14 +334,14 @@ class TestCloseBAM:
         close_bam()
 
 
-class TestSquiggySession:
-    """Tests for SquiggySession class"""
+class TestSquiggyKernel:
+    """Tests for SquiggyKernel class"""
 
     def test_session_repr_no_files(self):
         """Test that session repr shows no files loaded"""
-        from squiggy.io import SquiggySession
+        from squiggy.io import SquiggyKernel
 
-        session = SquiggySession()
+        session = SquiggyKernel()
         repr_str = repr(session)
 
         assert "No files loaded" in repr_str
@@ -349,11 +349,11 @@ class TestSquiggySession:
     def test_session_repr_pod5_only(self, sample_pod5_file):
         """Test that session repr shows POD5 file info"""
         from squiggy import load_pod5
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         load_pod5(str(sample_pod5_file))
 
-        repr_str = repr(_squiggy_session)
+        repr_str = repr(squiggy_kernel)
 
         assert "POD5:" in repr_str
         assert sample_pod5_file.name in repr_str
@@ -362,12 +362,12 @@ class TestSquiggySession:
     def test_session_repr_both_files(self, sample_pod5_file, indexed_bam_file):
         """Test that session repr shows both POD5 and BAM info"""
         from squiggy import load_bam, load_pod5
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         load_pod5(str(sample_pod5_file))
         load_bam(str(indexed_bam_file))
 
-        repr_str = repr(_squiggy_session)
+        repr_str = repr(squiggy_kernel)
 
         assert "POD5:" in repr_str
         assert "BAM:" in repr_str
@@ -377,90 +377,90 @@ class TestSquiggySession:
     def test_session_stores_pod5_data(self, sample_pod5_file):
         """Test that session stores POD5 data correctly"""
         from squiggy import load_pod5
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         load_pod5(str(sample_pod5_file))
 
         # Check session was populated
-        assert _squiggy_session.reader is not None
-        assert _squiggy_session.pod5_path is not None
-        assert len(_squiggy_session.read_ids) > 0
+        assert squiggy_kernel._reader is not None
+        assert squiggy_kernel._pod5_path is not None
+        assert len(squiggy_kernel._read_ids) > 0
 
     def test_session_stores_bam_data(self, indexed_bam_file):
         """Test that session stores BAM data correctly"""
         from squiggy import load_bam
-        from squiggy.io import _squiggy_session, get_read_to_reference_mapping
+        from squiggy.io import get_read_to_reference_mapping, squiggy_kernel
 
         load_bam(str(indexed_bam_file))
         mapping = get_read_to_reference_mapping()
 
         # Check session was populated
-        assert _squiggy_session.bam_path is not None
-        assert _squiggy_session.bam_info is not None
-        assert _squiggy_session.ref_mapping is not None
-        assert _squiggy_session.ref_mapping == mapping
+        assert squiggy_kernel._bam_path is not None
+        assert squiggy_kernel._bam_info is not None
+        assert squiggy_kernel._ref_mapping is not None
+        assert squiggy_kernel._ref_mapping == mapping
 
     def test_session_close_pod5(self, sample_pod5_file):
         """Test that session.close_pod5() clears POD5 state"""
         from squiggy import load_pod5
-        from squiggy.io import _squiggy_session
+        from squiggy.io import squiggy_kernel
 
         load_pod5(str(sample_pod5_file))
 
         # Verify loaded
-        assert _squiggy_session.reader is not None
-        assert _squiggy_session.pod5_path is not None
-        assert len(_squiggy_session.read_ids) > 0
+        assert squiggy_kernel._reader is not None
+        assert squiggy_kernel._pod5_path is not None
+        assert len(squiggy_kernel._read_ids) > 0
 
         # Close
-        _squiggy_session.close_pod5()
+        squiggy_kernel.close_pod5()
 
         # Verify cleared
-        assert _squiggy_session.reader is None
-        assert _squiggy_session.pod5_path is None
-        assert len(_squiggy_session.read_ids) == 0
+        assert squiggy_kernel._reader is None
+        assert squiggy_kernel._pod5_path is None
+        assert len(squiggy_kernel._read_ids) == 0
 
     def test_session_close_bam(self, indexed_bam_file):
         """Test that session.close_bam() clears BAM state"""
         from squiggy import load_bam
-        from squiggy.io import _squiggy_session, get_read_to_reference_mapping
+        from squiggy.io import get_read_to_reference_mapping, squiggy_kernel
 
         load_bam(str(indexed_bam_file))
         get_read_to_reference_mapping()
 
         # Verify loaded
-        assert _squiggy_session.bam_path is not None
-        assert _squiggy_session.bam_info is not None
-        assert _squiggy_session.ref_mapping is not None
+        assert squiggy_kernel._bam_path is not None
+        assert squiggy_kernel._bam_info is not None
+        assert squiggy_kernel._ref_mapping is not None
 
         # Close
-        _squiggy_session.close_bam()
+        squiggy_kernel.close_bam()
 
         # Verify cleared
-        assert _squiggy_session.bam_path is None
-        assert _squiggy_session.bam_info is None
-        assert _squiggy_session.ref_mapping is None
+        assert squiggy_kernel._bam_path is None
+        assert squiggy_kernel._bam_info is None
+        assert squiggy_kernel._ref_mapping is None
 
     def test_session_close_all(self, sample_pod5_file, indexed_bam_file):
         """Test that session.close_all() clears all state"""
         from squiggy import load_bam, load_pod5
-        from squiggy.io import _squiggy_session, get_read_to_reference_mapping
+        from squiggy.io import get_read_to_reference_mapping, squiggy_kernel
 
         load_pod5(str(sample_pod5_file))
         load_bam(str(indexed_bam_file))
         get_read_to_reference_mapping()
 
         # Verify loaded
-        assert _squiggy_session.reader is not None
-        assert _squiggy_session.bam_path is not None
+        assert squiggy_kernel._reader is not None
+        assert squiggy_kernel._bam_path is not None
 
         # Close all
-        _squiggy_session.close_all()
+        squiggy_kernel.close_all()
 
         # Verify all cleared
-        assert _squiggy_session.reader is None
-        assert _squiggy_session.pod5_path is None
-        assert len(_squiggy_session.read_ids) == 0
-        assert _squiggy_session.bam_path is None
-        assert _squiggy_session.bam_info is None
-        assert _squiggy_session.ref_mapping is None
+        assert squiggy_kernel._reader is None
+        assert squiggy_kernel._pod5_path is None
+        assert len(squiggy_kernel._read_ids) == 0
+        assert squiggy_kernel._bam_path is None
+        assert squiggy_kernel._bam_info is None
+        assert squiggy_kernel._ref_mapping is None

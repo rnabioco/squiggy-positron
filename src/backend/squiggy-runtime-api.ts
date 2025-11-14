@@ -70,7 +70,7 @@ export class SquiggyRuntimeAPI {
      * Load a POD5 file
      *
      * Executes squiggy.load_pod5() in the kernel. The session object is stored
-     * in _squiggy_session kernel variable accessible from console/notebooks.
+     * in squiggy_kernel kernel variable accessible from console/notebooks.
      *
      * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
      * @throws POD5Error if loading fails
@@ -86,18 +86,18 @@ export class SquiggyRuntimeAPI {
             const escapedPath = filePath.replace(/'/g, "\\'");
 
             // Load file silently (no console output)
-            // This populates the global _squiggy_session in Python
+            // This populates the global squiggy_kernel in Python
             await this._client.executeSilent(
                 `
 import squiggy
-from squiggy.io import _squiggy_session
+from squiggy.io import squiggy_kernel
 squiggy.load_pod5('${escapedPath}')
 `,
                 true // Enable retry for transient failures
             );
 
             // Get read count by reading from session object (no print needed)
-            const numReads = await this._client.getVariable('len(_squiggy_session.read_ids)');
+            const numReads = await this._client.getVariable('len(squiggy_kernel._read_ids)');
 
             return { numReads: numReads as number };
         } catch (error) {
@@ -122,7 +122,7 @@ squiggy.load_pod5('${escapedPath}')
         const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
 
         // Read from session object (no print needed)
-        const readIds = await this._client.getVariable(`_squiggy_session.read_ids${sliceStr}`);
+        const readIds = await this._client.getVariable(`squiggy_kernel._read_ids${sliceStr}`);
 
         return readIds as string[];
     }
@@ -144,11 +144,11 @@ squiggy.load_pod5('${escapedPath}')
             const escapedPath = filePath.replace(/'/g, "\\'");
 
             // Load BAM silently (no console output)
-            // This populates _squiggy_session.bam_info and .bam_path
+            // This populates squiggy_kernel._bam_info and .bam_path
             await this._client.executeSilent(
                 `
 import squiggy
-from squiggy.io import _squiggy_session
+from squiggy.io import squiggy_kernel
 squiggy.load_bam('${escapedPath}')
 squiggy.get_read_to_reference_mapping()
 `,
@@ -157,19 +157,19 @@ squiggy.get_read_to_reference_mapping()
 
             // Read metadata directly from session object (no print needed)
             const numReads = await this._client.getVariable(
-                "_squiggy_session.bam_info['num_reads']"
+                "squiggy_kernel._bam_info['num_reads']"
             );
             const hasModifications = await this._client.getVariable(
-                "_squiggy_session.bam_info.get('has_modifications', False)"
+                "squiggy_kernel._bam_info.get('has_modifications', False)"
             );
             const modificationTypes = await this._client.getVariable(
-                "_squiggy_session.bam_info.get('modification_types', [])"
+                "squiggy_kernel._bam_info.get('modification_types', [])"
             );
             const hasProbabilities = await this._client.getVariable(
-                "_squiggy_session.bam_info.get('has_probabilities', False)"
+                "squiggy_kernel._bam_info.get('has_probabilities', False)"
             );
             const hasEventAlignment = await this._client.getVariable(
-                "_squiggy_session.bam_info.get('has_event_alignment', False)"
+                "squiggy_kernel._bam_info.get('has_event_alignment', False)"
             );
 
             return {
@@ -197,7 +197,7 @@ squiggy.get_read_to_reference_mapping()
     async getReferences(): Promise<string[]> {
         // Read keys directly from session object (no print needed)
         const references = await this._client.getVariable(
-            'list(_squiggy_session.ref_mapping.keys()) if _squiggy_session.ref_mapping else []'
+            'list(squiggy_kernel._ref_mapping.keys()) if squiggy_kernel._ref_mapping else []'
         );
         return references as string[];
     }
@@ -211,7 +211,7 @@ squiggy.get_read_to_reference_mapping()
 
         // Read directly from session object (no print needed)
         const readIds = await this._client.getVariable(
-            `_squiggy_session.ref_mapping.get('${escapedRef}', []) if _squiggy_session.ref_mapping else []`
+            `squiggy_kernel._ref_mapping.get('${escapedRef}', []) if squiggy_kernel._ref_mapping else []`
         );
 
         return readIds as string[];
@@ -235,7 +235,7 @@ squiggy.get_read_to_reference_mapping()
 
         // Get total count for this reference
         const totalCount = await this._client.getVariable(
-            `len(squiggy.io._squiggy_session.ref_mapping.get('${escapedRef}', []))`
+            `len(squiggy.io.squiggy_kernel._ref_mapping.get('${escapedRef}', []))`
         );
 
         return { readIds: readIds as string[], totalCount: totalCount as number };
@@ -581,7 +581,7 @@ squiggy.plot_aggregate(
 import squiggy
 
 # Load FASTA file using squiggy.load_fasta()
-# This populates _squiggy_session.fasta_path and _squiggy_session.fasta_info
+# This populates squiggy_kernel._fasta_path and squiggy_kernel._fasta_info
 squiggy.load_fasta('${escapedPath}')
 `;
 
@@ -745,7 +745,7 @@ squiggy.load_sample(
             // Get read count for this sample
             logger.debug(`[loadSample] Querying read count for sample '${sampleName}'...`);
             const numReads = await this._client.getVariable(
-                `len(squiggy._squiggy_session.get_sample('${escapedSampleName}').read_ids)`
+                `len(squiggy.squiggy_kernel.get_sample('${escapedSampleName}')._read_ids)`
             );
             const queryTime = Date.now();
             logger.debug(
@@ -768,7 +768,7 @@ squiggy.load_sample(
     async listSamples(): Promise<string[]> {
         try {
             const sampleNames = await this._client.getVariable(
-                'squiggy._squiggy_session.list_samples()'
+                'squiggy.squiggy_kernel.list_samples()'
             );
             return (sampleNames as string[]) || [];
         } catch (error) {
@@ -785,19 +785,19 @@ squiggy.load_sample(
 
         try {
             const code = `
-from squiggy import _squiggy_session
-_sample = _squiggy_session.get_sample('${escapedName}')
+from squiggy import squiggy_kernel
+_sample = squiggy_kernel.get_sample('${escapedName}')
 if _sample:
     _sample_info = {
         'name': _sample.name,
-        'read_count': len(_sample.read_ids),
+        'read_count': len(_sample._read_ids),
         'pod5_path': _sample.pod5_path,
         'has_bam': _sample.bam_path is not None,
         'has_fasta': _sample.fasta_path is not None
     }
     # Add reference information if BAM is loaded
-    if _sample.bam_info and 'references' in _sample.bam_info:
-        _sample_info['references'] = _sample.bam_info['references']
+    if _sample._bam_info and 'references' in _sample._bam_info:
+        _sample_info['references'] = _sample._bam_info['references']
 else:
     _sample_info = None
 `;
@@ -869,12 +869,12 @@ squiggy.remove_sample('${escapedName}')
             // Execute setup code first to create variables
             // Uses ref_counts (reference → read count) which is built once during sample load
             const setupCode = `
-from squiggy import _squiggy_session
-_sample = _squiggy_session.get_sample('${escapedName}')
+from squiggy import squiggy_kernel
+_sample = squiggy_kernel.get_sample('${escapedName}')
 if _sample:
-    _read_ids = _sample.read_ids
-    if _sample.bam_info and 'ref_counts' in _sample.bam_info:
-        _refs = list(_sample.bam_info['ref_counts'].keys())
+    _read_ids = _sample._read_ids
+    if _sample._bam_info and 'ref_counts' in _sample._bam_info:
+        _refs = list(_sample._bam_info['ref_counts'].keys())
     else:
         _refs = []
 else:
@@ -893,6 +893,22 @@ _result = {'read_ids': _read_ids, 'references': _refs}
             logger.debug(
                 `[getReadIdsAndReferencesForSample] Got ${data.read_ids?.length || 0} reads and ${data.references?.length || 0} references in ${elapsed}ms`
             );
+
+            // Clean up temporary variables
+            await this._client
+                .executeSilent(
+                    `
+if '_sample' in globals():
+    del _sample
+if '_read_ids' in globals():
+    del _read_ids
+if '_refs' in globals():
+    del _refs
+if '_result' in globals():
+    del _result
+`
+                )
+                .catch(() => {});
 
             return {
                 readIds: data.read_ids || [],
@@ -937,16 +953,25 @@ _result = {'read_ids': _read_ids, 'references': _refs}
             const tempVar = '_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
-from squiggy import _squiggy_session
-_sample = _squiggy_session.get_sample('${escapedName}')
-${tempVar} = _sample.read_ids${sliceStr} if _sample else []
+from squiggy import squiggy_kernel
+_sample = squiggy_kernel.get_sample('${escapedName}')
+${tempVar} = _sample._read_ids${sliceStr} if _sample else []
 `);
 
             // Now read the temp variable as a single expression
             const readIds = await this._client.getVariable(tempVar);
 
-            // Clean up temp variable
-            await this._client.executeSilent(`del ${tempVar}`);
+            // Clean up temp variables
+            await this._client
+                .executeSilent(
+                    `
+if '${tempVar}' in globals():
+    del ${tempVar}
+if '_sample' in globals():
+    del _sample
+`
+                )
+                .catch(() => {});
 
             const elapsed = Date.now() - startTime;
             const readIdArray = (readIds as string[]) || [];
@@ -979,10 +1004,10 @@ ${tempVar} = _sample.read_ids${sliceStr} if _sample else []
             const tempVar = '_squiggy_temp_refs_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
-from squiggy import _squiggy_session
-_sample = _squiggy_session.get_sample('${escapedName}')
-if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
-    ${tempVar} = list(_sample.bam_info['ref_mapping'].keys())
+from squiggy import squiggy_kernel
+_sample = squiggy_kernel.get_sample('${escapedName}')
+if _sample and _sample._bam_info and 'ref_mapping' in _sample._bam_info:
+    ${tempVar} = list(_sample._bam_info['ref_mapping'].keys())
 else:
     ${tempVar} = []
 `);
@@ -990,8 +1015,17 @@ else:
             // Read the temp variable
             const references = await this._client.getVariable(tempVar);
 
-            // Clean up
-            await this._client.executeSilent(`del ${tempVar}`);
+            // Clean up temp variables
+            await this._client
+                .executeSilent(
+                    `
+if '${tempVar}' in globals():
+    del ${tempVar}
+if '_sample' in globals():
+    del _sample
+`
+                )
+                .catch(() => {});
 
             return (references as string[]) || [];
         } catch (error) {
@@ -1019,15 +1053,28 @@ else:
         try {
             // Execute setup code first to create variables
             const setupCode = `
-from squiggy import _squiggy_session
-_sample = _squiggy_session.get_sample('${escapedName}')
-if _sample and _sample.bam_info and 'ref_counts' in _sample.bam_info:
-    _counts = _sample.bam_info['ref_counts']
+from squiggy import squiggy_kernel
+_sample = squiggy_kernel.get_sample('${escapedName}')
+if _sample and _sample._bam_info and 'ref_counts' in _sample._bam_info:
+    _counts = _sample._bam_info['ref_counts']
 else:
     _counts = {}
 `;
             await this._client.executeSilent(setupCode);
             const counts = await this._client.getVariable('_counts');
+
+            // Clean up temporary variables
+            await this._client
+                .executeSilent(
+                    `
+if '_sample' in globals():
+    del _sample
+if '_counts' in globals():
+    del _counts
+`
+                )
+                .catch(() => {});
+
             return (counts as { [referenceName: string]: number }) || {};
         } catch (error) {
             logger.warning(`Failed to get reference read counts for sample '${sampleName}'`, error);
@@ -1052,15 +1099,28 @@ else:
         try {
             // Execute setup code first to create variables
             const setupCode = `
-from squiggy import _squiggy_session
-_sample = _squiggy_session.get_sample('${escapedName}')
-if _sample and _sample.bam_info and 'ref_mapping' in _sample.bam_info:
-    _reads = _sample.bam_info['ref_mapping'].get('${escapedRef}', [])
+from squiggy import squiggy_kernel
+_sample = squiggy_kernel.get_sample('${escapedName}')
+if _sample and _sample._bam_info and 'ref_mapping' in _sample._bam_info:
+    _reads = _sample._bam_info['ref_mapping'].get('${escapedRef}', [])
 else:
     _reads = []
 `;
             await this._client.executeSilent(setupCode);
             const readIds = await this._client.getVariable('_reads');
+
+            // Clean up temporary variables
+            await this._client
+                .executeSilent(
+                    `
+if '_sample' in globals():
+    del _sample
+if '_reads' in globals():
+    del _reads
+`
+                )
+                .catch(() => {});
+
             return (readIds as string[]) || [];
         } catch (error) {
             logger.warning(

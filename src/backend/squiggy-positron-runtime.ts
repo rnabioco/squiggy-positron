@@ -291,14 +291,14 @@ if '${tempVar}' in globals():
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         // Load file silently (no console output)
-        // This populates _squiggy_session.reader and _squiggy_session.read_ids
+        // This populates squiggy_kernel._reader and squiggy_kernel._read_ids
         await this.executeSilent(`
 import squiggy
 squiggy.load_pod5('${escapedPath}')
 `);
 
         // Get read count from session (no global variables created)
-        const numReads = await this.getVariable('len(squiggy.io._squiggy_session.read_ids)');
+        const numReads = await this.getVariable('len(squiggy.io.squiggy_kernel._read_ids)');
 
         return { numReads: numReads as number };
     }
@@ -313,7 +313,7 @@ squiggy.load_pod5('${escapedPath}')
         const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
 
         // Read from session instead of global variable
-        const readIds = await this.getVariable(`squiggy.io._squiggy_session.read_ids${sliceStr}`);
+        const readIds = await this.getVariable(`squiggy.io.squiggy_kernel._read_ids${sliceStr}`);
 
         return readIds as string[];
     }
@@ -334,27 +334,25 @@ squiggy.load_pod5('${escapedPath}')
         const escapedPath = filePath.replace(/'/g, "\\'");
 
         // Load BAM silently (no console output)
-        // This populates _squiggy_session.bam_info and _squiggy_session.ref_mapping
+        // This populates squiggy_kernel._bam_info and squiggy_kernel._ref_mapping
         await this.executeSilent(`
 import squiggy
 squiggy.load_bam('${escapedPath}')
 `);
 
         // Read metadata from session (no global variables created)
-        const numReads = await this.getVariable(
-            "squiggy.io._squiggy_session.bam_info['num_reads']"
-        );
+        const numReads = await this.getVariable("squiggy.io.squiggy_kernel._bam_info['num_reads']");
         const hasModifications = await this.getVariable(
-            "squiggy.io._squiggy_session.bam_info.get('has_modifications', False)"
+            "squiggy.io.squiggy_kernel._bam_info.get('has_modifications', False)"
         );
         const modificationTypes = await this.getVariable(
-            "squiggy.io._squiggy_session.bam_info.get('modification_types', [])"
+            "squiggy.io.squiggy_kernel._bam_info.get('modification_types', [])"
         );
         const hasProbabilities = await this.getVariable(
-            "squiggy.io._squiggy_session.bam_info.get('has_probabilities', False)"
+            "squiggy.io.squiggy_kernel._bam_info.get('has_probabilities', False)"
         );
         const hasEventAlignment = await this.getVariable(
-            "squiggy.io._squiggy_session.bam_info.get('has_event_alignment', False)"
+            "squiggy.io.squiggy_kernel._bam_info.get('has_event_alignment', False)"
         );
 
         return {
@@ -372,7 +370,7 @@ squiggy.load_bam('${escapedPath}')
     async getReferences(): Promise<string[]> {
         // Read from session instead of global variable
         const references = await this.getVariable(
-            'list(squiggy.io._squiggy_session.ref_mapping.keys())'
+            'list(squiggy.io.squiggy_kernel._ref_mapping.keys())'
         );
         return references as string[];
     }
@@ -386,7 +384,7 @@ squiggy.load_bam('${escapedPath}')
 
         // Read from session instead of global variable
         const readIds = await this.getVariable(
-            `squiggy.io._squiggy_session.ref_mapping.get('${escapedRef}', [])`
+            `squiggy.io.squiggy_kernel._ref_mapping.get('${escapedRef}', [])`
         );
 
         return readIds as string[];
@@ -410,7 +408,7 @@ squiggy.load_bam('${escapedPath}')
 
         // Get total count for this reference
         const totalCount = await this.getVariable(
-            `len(squiggy.io._squiggy_session.ref_mapping.get('${escapedRef}', []))`
+            `len(squiggy.io.squiggy_kernel._ref_mapping.get('${escapedRef}', []))`
         );
 
         return { readIds: readIds as string[], totalCount: totalCount as number };
@@ -715,7 +713,7 @@ print('SUCCESS')
 import squiggy
 
 # Load FASTA file using squiggy.load_fasta()
-# This populates _squiggy_session.fasta_path and _squiggy_session.fasta_info
+# This populates squiggy_kernel._fasta_path and squiggy_kernel._fasta_info
 squiggy.load_fasta(${JSON.stringify(fastaPath)})
 `;
 

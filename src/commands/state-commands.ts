@@ -43,7 +43,7 @@ export function registerStateCommands(
 
 /**
  * Refresh reads list by querying Python backend
- * Re-fetches data from _squiggy_session instead of using cached data
+ * Re-fetches data from squiggy_kernel instead of using cached data
  */
 async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
     if (!state.usePositron || !state.squiggyAPI) {
@@ -59,7 +59,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
 
         // Check if POD5 is loaded in Python session
         const hasPod5 = await state.squiggyAPI.client.getVariable(
-            '_squiggy_session.reader is not None'
+            'squiggy_kernel._reader is not None'
         );
 
         if (!hasPod5) {
@@ -70,7 +70,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
 
         // Check if BAM is loaded
         const hasBAM = await state.squiggyAPI.client.getVariable(
-            '_squiggy_session.bam_path is not None'
+            'squiggy_kernel._bam_path is not None'
         );
 
         if (hasBAM) {
@@ -98,7 +98,7 @@ async function refreshPOD5Only(state: ExtensionState): Promise<void> {
     }
 
     // Get total read count
-    const totalReads = await state.squiggyAPI.client.getVariable('len(_squiggy_session.read_ids)');
+    const totalReads = await state.squiggyAPI.client.getVariable('len(squiggy_kernel._read_ids)');
 
     // Reset pagination context
     state.pod5LoadContext = {
@@ -130,7 +130,7 @@ async function refreshWithBAM(state: ExtensionState): Promise<void> {
 
     for (const ref of references) {
         const readCount = await state.squiggyAPI.client.getVariable(
-            `len(_squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+            `len(squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
         );
         referenceList.push({
             referenceName: ref,
@@ -156,7 +156,7 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
     try {
         // Check if BAM is loaded in Python
         const hasBAM = await state.squiggyAPI.client.getVariable(
-            '_squiggy_session.bam_path is not None'
+            'squiggy_kernel._bam_path is not None'
         );
 
         if (!hasBAM) {
@@ -168,7 +168,7 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
         }
 
         // Get BAM info
-        const bamInfo = await state.squiggyAPI.client.getVariable('_squiggy_session.bam_info');
+        const bamInfo = await state.squiggyAPI.client.getVariable('squiggy_kernel._bam_info');
 
         if (!bamInfo || typeof bamInfo !== 'object') {
             vscode.window.showWarningMessage('BAM loaded but no metadata found');
