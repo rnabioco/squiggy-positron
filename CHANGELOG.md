@@ -1,5 +1,35 @@
 # Squiggy Release Notes
 
+## v0.1.16-alpha (2025-11-14)
+
+Comprehensive release with improved UI organization, reference display standardization, and background kernel architecture for cleaner Variables pane.
+
+### Features
+
+- **Background Kernel Architecture**: Experimental dual-mode operation isolates extension UI from user's foreground kernel, eliminating Variables pane clutter (#143)
+- **PyPI Publication**: Python package now published to production PyPI as `squiggy-positron` (#147)
+- **Sample Management**: Delete samples from samples panel for better workflow control (#128)
+
+### Improvements
+
+- **Reference Display**: Standardized FASTA reference display with Signal/Sequence toggle across all panels (#141)
+- **Reference Navigation**: Enhanced reference sequence navigation and exploration UI (#134)
+- **Package Installation**: Redesigned Python package installation interface with better progress feedback (#138)
+- **Delayed Activation**: Extension now activates only after Python package installation completes (#126)
+- **Console Logging**: Added Python console logging functionality for better debugging (#130)
+
+### Fixes
+
+- **Variables Pane**: Cleaned up Positron Variables pane by hiding internal state variables (#145)
+- **Composite Plots**: Fixed handling of mixed-reference samples in composite read plots (#133)
+- **Composite Selection**: All selected samples now properly included in composite plots (#127)
+- **Read Explorer**: Fixed empty state and auto-load issues (#115, #122)
+
+### Documentation
+
+- **Startup Documentation**: Updated to reflect modern startup procedure (#139)
+- **Quickstart Guide**: Improved README quickstart section (#136)
+
 ## v0.1.15-alpha (2025-11-07)
 
 Python packaging modernization and PyPI publication enhancements.
