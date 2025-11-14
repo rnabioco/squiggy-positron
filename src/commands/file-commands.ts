@@ -367,7 +367,7 @@ async function expandReference(
     limit: number,
     state: ExtensionState
 ): Promise<void> {
-    if (!state.usePositron || !state.squiggyAPI) {
+    if (!state.usePositron) {
         return;
     }
 
@@ -375,13 +375,16 @@ async function expandReference(
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
 
+        // Get background API
+        const api = await state.ensureBackgroundKernel();
+
         // Check if we're in multi-sample mode or single-file mode
         if (state.selectedReadExplorerSample) {
             // Multi-sample mode: get reads for reference within a specific sample
             logger.debug(
                 `[expandReference] Multi-sample mode: getting reads for ${referenceName} in sample ${state.selectedReadExplorerSample}`
             );
-            const readIds = await state.squiggyAPI.getReadsForReferenceSample(
+            const readIds = await api.getReadsForReferenceSample(
                 state.selectedReadExplorerSample,
                 referenceName
             );
@@ -391,7 +394,7 @@ async function expandReference(
         } else if (state.currentBamFile) {
             // Single-file mode: get reads for reference from loaded BAM
             logger.debug(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
-            const result = await state.squiggyAPI.getReadsForReferencePaginated(
+            const result = await api.getReadsForReferencePaginated(
                 referenceName,
                 offset,
                 limit
@@ -799,8 +802,9 @@ squiggy.close_bam()
         vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
         // If POD5 is still loaded, revert to flat read list
-        if (state.currentPod5File && state.usePositron && state.squiggyAPI) {
-            const readIds = await state.squiggyAPI.getReadIds(0, 1000);
+        if (state.currentPod5File && state.usePositron) {
+            const api = await state.ensureBackgroundKernel();
+            const readIds = await api.getReadIds(0, 1000);
             state.readsViewPane?.setReads(readIds);
         }
 
@@ -980,9 +984,10 @@ async function loadSampleForComparison(
 
             // Get complete sample info including references (if BAM was loaded)
             let references = undefined;
-            if (bamPath && state.squiggyAPI) {
+            if (bamPath && state.usePositron) {
                 try {
-                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    const api = await state.ensureBackgroundKernel();
+                    const sampleInfo = await api.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         references = sampleInfo.references;
                     }
@@ -1145,9 +1150,10 @@ paths = {
 
                     // Get complete sample info including references (if BAM was loaded)
                     let references = undefined;
-                    if (sample.bamPath && state.squiggyAPI) {
+                    if (sample.bamPath && state.usePositron) {
                         try {
-                            const sampleInfo = await state.squiggyAPI.getSampleInfo(sample.name);
+                            const api = await state.ensureBackgroundKernel();
+                            const sampleInfo = await api.getSampleInfo(sample.name);
                             if (sampleInfo && sampleInfo.references) {
                                 references = sampleInfo.references;
                             }

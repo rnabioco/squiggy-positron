@@ -320,14 +320,17 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {
-            if (!state.squiggyAPI) {
+            if (!state.usePositron) {
                 vscode.window.showErrorMessage('API not available');
                 return;
             }
 
             try {
+                // Get background API
+                const api = await state.ensureBackgroundKernel();
+
                 // Call Python to remove sample
-                await state.squiggyAPI.removeSample(sampleName);
+                await api.removeSample(sampleName);
 
                 // Update extension state
                 state.removeSample(sampleName);
@@ -355,12 +358,15 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
             logger.debug('[Extension] Aggregate plot requested with samples:', options.sampleNames);
 
-            if (!state.squiggyAPI) {
+            if (!state.usePositron) {
                 vscode.window.showErrorMessage('API not available');
                 return;
             }
 
             try {
+                // Get background API
+                const api = await state.ensureBackgroundKernel();
+
                 // Get current theme
                 const isDarkTheme =
                     vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
@@ -372,7 +378,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 // Route based on number of samples selected
                 if (options.sampleNames.length === 1) {
                     // Single-sample aggregate plot
-                    await state.squiggyAPI.generateAggregatePlot(
+                    await api.generateAggregatePlot(
                         options.reference,
                         options.maxReads,
                         options.normalization,

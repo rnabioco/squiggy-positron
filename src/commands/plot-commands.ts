@@ -525,10 +525,6 @@ async function plotSignalOverlayComparison(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
             const normalization = options?.normalization || 'ZNORM';
@@ -539,7 +535,8 @@ async function plotSignalOverlayComparison(
 
             // Generate signal overlay plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateSignalOverlayComparison(
+                const api = await state.ensureBackgroundKernel();
+                await api.generateSignalOverlayComparison(
                     sampleNames,
                     normalization,
                     theme,
@@ -571,10 +568,6 @@ async function plotDeltaComparison(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
             const normalization = options?.normalization || 'ZNORM';
@@ -585,7 +578,8 @@ async function plotDeltaComparison(
 
             // Generate delta plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateDeltaPlot(
+                const api = await state.ensureBackgroundKernel();
+                await api.generateDeltaPlot(
                     sampleNames,
                     referenceName,
                     normalization,
@@ -636,12 +630,13 @@ async function checkSampleReferenceCompatibility(
 
         // If reference info is missing, try to fetch it on-demand
         if (!sample.references || sample.references.length === 0) {
-            if (sample.hasBam && state.squiggyAPI) {
+            if (sample.hasBam && state.usePositron) {
                 logger.info(
                     `[Reference Check] Sample '${sampleName}' has no cached references - fetching on-demand from Python...`
                 );
                 try {
-                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    const api = await state.ensureBackgroundKernel();
+                    const sampleInfo = await api.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         // Update the sample with fetched reference info
                         sample.references = sampleInfo.references;
@@ -661,7 +656,7 @@ async function checkSampleReferenceCompatibility(
                 }
             } else {
                 logger.debug(
-                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, squiggyAPI=${!!state.squiggyAPI} - cannot fetch references`
+                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, usePositron=${state.usePositron} - cannot fetch references`
                 );
             }
         }
@@ -820,7 +815,8 @@ async function plotAggregateComparison(
 
             // Generate aggregate comparison plot
             if (state.usePositron && state.positronClient) {
-                await state.squiggyAPI.generateAggregateComparison(
+                const api = await state.ensureBackgroundKernel();
+                await api.generateAggregateComparison(
                     params.sampleNames,
                     params.reference,
                     params.metrics,
@@ -864,6 +860,9 @@ async function plotMultiReadOverlay(
                 throw new Error('At least one sample must be selected');
             }
 
+            // Get background API
+            const api = await state.ensureBackgroundKernel();
+
             // Extract reads from each sample and build mappings
             const allReadIds: string[] = [];
             const readSampleMap: Record<string, string> = {};
@@ -879,7 +878,7 @@ async function plotMultiReadOverlay(
                 const sampleColor = sample.metadata?.displayColor || '#888888';
 
                 // Get read IDs for this sample
-                const readIds = await state.squiggyAPI.getReadIdsForSample(
+                const readIds = await api.getReadIdsForSample(
                     sampleName,
                     0,
                     maxReadsPerSample
@@ -916,7 +915,7 @@ async function plotMultiReadOverlay(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate plot with OVERLAY mode using multi-sample support
-            await state.squiggyAPI.generateMultiSamplePlot(
+            await api.generateMultiSamplePlot(
                 allReadIds,
                 readSampleMap,
                 readColors,
@@ -950,14 +949,13 @@ async function plotMultiReadStacked(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Validate params
             if (sampleNames.length === 0) {
                 throw new Error('At least one sample must be selected');
             }
+
+            // Get background API
+            const api = await state.ensureBackgroundKernel();
 
             // Extract reads from each sample and build mappings
             const allReadIds: string[] = [];
@@ -974,7 +972,7 @@ async function plotMultiReadStacked(
                 const sampleColor = sample.metadata?.displayColor || '#888888';
 
                 // Get read IDs for this sample
-                const readIds = await state.squiggyAPI.getReadIdsForSample(
+                const readIds = await api.getReadIdsForSample(
                     sampleName,
                     0,
                     maxReadsPerSample
@@ -1024,7 +1022,7 @@ async function plotMultiReadStacked(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate plot with STACKED mode using multi-sample support
-            await state.squiggyAPI.generateMultiSamplePlot(
+            await api.generateMultiSamplePlot(
                 allReadIds,
                 readSampleMap,
                 readColors,

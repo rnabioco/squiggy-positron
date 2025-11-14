@@ -1188,7 +1188,7 @@ squiggy.close_fasta()
                 logger.debug(
                     `[restoreSample] Loading sample '${sampleName}' into Python registry...`
                 );
-                await this._squiggyAPI.loadSample(
+                await api.loadSample(
                     sampleName,
                     resolvedPod5Paths[0],
                     resolvedBamPath,
