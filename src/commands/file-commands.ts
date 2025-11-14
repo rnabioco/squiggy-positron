@@ -318,12 +318,13 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
         return;
     }
 
+    // Get dedicated kernel API
+    const api = await state.ensureBackgroundKernel();
+
     // Track POD5 pagination context
     if (!state.pod5LoadContext) {
         // Initialize context if not present
-        const totalReads = await state.squiggyAPI.client.getVariable(
-            'len(squiggy.io.squiggy_kernel._read_ids)'
-        );
+        const totalReads = await api.client.getVariable('len(squiggy.io.squiggy_kernel._read_ids)');
         state.pod5LoadContext = {
             currentOffset: 1000, // Initial load was 1000
             pageSize: 500,
@@ -343,7 +344,7 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
         state.readsViewPane?.setLoading(true, 'Loading more reads...');
 
         // Fetch next batch
-        const nextBatch = await state.squiggyAPI.getReadIds(currentOffset, pageSize);
+        const nextBatch = await api.getReadIds(currentOffset, pageSize);
 
         // Send to React
         state.readsViewPane?.appendReads(nextBatch);
@@ -364,7 +365,7 @@ async function expandReference(
     limit: number,
     state: ExtensionState
 ): Promise<void> {
-    if (!state.usePositron || !state.squiggyAPI) {
+    if (!state.usePositron) {
         return;
     }
 
@@ -372,13 +373,16 @@ async function expandReference(
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
 
+        // Get background API
+        const api = await state.ensureBackgroundKernel();
+
         // Check if we're in multi-sample mode or single-file mode
         if (state.selectedReadExplorerSample) {
             // Multi-sample mode: get reads for reference within a specific sample
             logger.debug(
                 `[expandReference] Multi-sample mode: getting reads for ${referenceName} in sample ${state.selectedReadExplorerSample}`
             );
-            const readIds = await state.squiggyAPI.getReadsForReferenceSample(
+            const readIds = await api.getReadsForReferenceSample(
                 state.selectedReadExplorerSample,
                 referenceName
             );
@@ -388,11 +392,7 @@ async function expandReference(
         } else if (state.currentBamFile) {
             // Single-file mode: get reads for reference from loaded BAM
             logger.debug(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
-            const result = await state.squiggyAPI.getReadsForReferencePaginated(
-                referenceName,
-                offset,
-                limit
-            );
+            const result = await api.getReadsForReferencePaginated(referenceName, offset, limit);
 
             // Send to React
             state.readsViewPane?.setReadsForReference(
@@ -424,10 +424,13 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
 
         logger.debug(`[loadReadsForSample] Starting to load reads for '${sampleName}'`);
 
+        // Get background API (sample data is in dedicated kernel)
+        const api = await state.ensureBackgroundKernel();
+
         // Get read IDs and references in a single optimized batch query
         // (avoids two separate getVariable() calls which each add 3x kernel round-trips)
         const { readIds, references } = await Promise.race([
-            state.squiggyAPI.getReadIdsAndReferencesForSample(sampleName),
+            api.getReadIdsAndReferencesForSample(sampleName),
             new Promise<{ readIds: string[]; references: string[] }>((_, reject) =>
                 setTimeout(
                     () =>
@@ -460,7 +463,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
             const refCounts: { referenceName: string; readCount: number }[] = [];
 
             const readCounts = await Promise.race([
-                state.squiggyAPI.getReadsCountForAllReferencesSample(sampleName),
+                api.getReadsCountForAllReferencesSample(sampleName),
                 new Promise<{ [ref: string]: number }>((_, reject) =>
                     setTimeout(
                         () =>
@@ -587,9 +590,10 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
             // Maintain legacy state for backward compatibility
             state.currentPod5File = filePath;
 
-            // Get and display read IDs
+            // Get and display read IDs from dedicated kernel
             if (state.usePositron && state.squiggyAPI) {
-                const readIds = await state.squiggyAPI.getReadIds(0, 1000);
+                const api = await state.ensureBackgroundKernel();
+                const readIds = await api.getReadIds(0, 1000);
                 if (readIds.length > 0) {
                     state.readsViewPane?.setReads(readIds);
                 }
@@ -658,12 +662,13 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
             // Maintain legacy state for backward compatibility
             state.currentBamFile = filePath;
 
-            // Get references for lazy loading
+            // Get references for lazy loading from dedicated kernel
             let referenceToReads: Record<string, string[]> = {};
             if (state.usePositron && state.squiggyAPI) {
-                const references = await state.squiggyAPI.getReferences();
+                const api = await state.ensureBackgroundKernel();
+                const references = await api.getReferences();
                 for (const ref of references) {
-                    const readCount = await state.squiggyAPI.client.getVariable(
+                    const readCount = await api.client.getVariable(
                         `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                     );
                     referenceToReads[ref] = new Array(readCount as number);
@@ -791,8 +796,9 @@ squiggy.close_bam()
         vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
         // If POD5 is still loaded, revert to flat read list
-        if (state.currentPod5File && state.usePositron && state.squiggyAPI) {
-            const readIds = await state.squiggyAPI.getReadIds(0, 1000);
+        if (state.currentPod5File && state.usePositron) {
+            const api = await state.ensureBackgroundKernel();
+            const readIds = await api.getReadIds(0, 1000);
             state.readsViewPane?.setReads(readIds);
         }
 
@@ -972,9 +978,10 @@ async function loadSampleForComparison(
 
             // Get complete sample info including references (if BAM was loaded)
             let references = undefined;
-            if (bamPath && state.squiggyAPI) {
+            if (bamPath && state.usePositron) {
                 try {
-                    const sampleInfo = await state.squiggyAPI.getSampleInfo(sampleName);
+                    const api = await state.ensureBackgroundKernel();
+                    const sampleInfo = await api.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         references = sampleInfo.references;
                     }
@@ -1137,9 +1144,10 @@ paths = {
 
                     // Get complete sample info including references (if BAM was loaded)
                     let references = undefined;
-                    if (sample.bamPath && state.squiggyAPI) {
+                    if (sample.bamPath && state.usePositron) {
                         try {
-                            const sampleInfo = await state.squiggyAPI.getSampleInfo(sample.name);
+                            const api = await state.ensureBackgroundKernel();
+                            const sampleInfo = await api.getSampleInfo(sample.name);
                             if (sampleInfo && sampleInfo.references) {
                                 references = sampleInfo.references;
                             }

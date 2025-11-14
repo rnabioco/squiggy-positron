@@ -20,12 +20,16 @@ import { registerStateCommands } from './commands/state-commands';
 import { registerSessionCommands } from './commands/session-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 import { logger } from './utils/logger';
+import { SquiggyKernelState } from './backend/squiggy-kernel-manager';
 
 // Global extension state
 const state = new ExtensionState();
 
 // Track if we're in setup mode (squiggy not installed)
 let isSetupMode = false;
+
+// Status bar item for dedicated kernel
+let kernelStatusBarItem: vscode.StatusBarItem;
 
 /**
  * Extension activation
@@ -36,6 +40,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Initialize backends (Positron or subprocess fallback)
     await state.initializeBackends(context);
+
+    // Initialize dedicated kernel status bar (Positron only)
+    if (state.usePositron && state.kernelManager) {
+        initializeKernelStatusBar(context);
+    }
 
     // Register all panels and commands immediately
     // (The UI will be controlled by the squiggy.setupMode context key)
@@ -311,14 +320,17 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {
-            if (!state.squiggyAPI) {
+            if (!state.usePositron) {
                 vscode.window.showErrorMessage('API not available');
                 return;
             }
 
             try {
+                // Get background API
+                const api = await state.ensureBackgroundKernel();
+
                 // Call Python to remove sample
-                await state.squiggyAPI.removeSample(sampleName);
+                await api.removeSample(sampleName);
 
                 // Update extension state
                 state.removeSample(sampleName);
@@ -346,12 +358,15 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
             logger.debug('[Extension] Aggregate plot requested with samples:', options.sampleNames);
 
-            if (!state.squiggyAPI) {
+            if (!state.usePositron) {
                 vscode.window.showErrorMessage('API not available');
                 return;
             }
 
             try {
+                // Get background API
+                const api = await state.ensureBackgroundKernel();
+
                 // Get current theme
                 const isDarkTheme =
                     vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
@@ -363,7 +378,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 // Route based on number of samples selected
                 if (options.sampleNames.length === 1) {
                     // Single-sample aggregate plot
-                    await state.squiggyAPI.generateAggregatePlot(
+                    await api.generateAggregatePlot(
                         options.reference,
                         options.maxReads,
                         options.normalization,
@@ -529,6 +544,56 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         })
     );
 
+    // Register command to restart dedicated kernel
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.restartBackgroundKernel', async () => {
+            if (!state.kernelManager) {
+                vscode.window.showWarningMessage(
+                    'Dedicated kernel not available (not in Positron mode)'
+                );
+                return;
+            }
+
+            try {
+                const currentState = state.kernelManager.getState();
+
+                if (currentState === SquiggyKernelState.Uninitialized) {
+                    // Start for the first time
+                    await vscode.window.withProgress(
+                        {
+                            location: vscode.ProgressLocation.Notification,
+                            title: 'Starting Squiggy dedicated kernel...',
+                            cancellable: false,
+                        },
+                        async () => {
+                            await state.kernelManager!.start();
+                        }
+                    );
+                    vscode.window.showInformationMessage('Squiggy dedicated kernel started');
+                } else {
+                    // Restart existing kernel
+                    await vscode.window.withProgress(
+                        {
+                            location: vscode.ProgressLocation.Notification,
+                            title: 'Restarting Squiggy dedicated kernel...',
+                            cancellable: false,
+                        },
+                        async () => {
+                            await state.kernelManager!.restart();
+                        }
+                    );
+                    vscode.window.showInformationMessage('Squiggy dedicated kernel restarted');
+                }
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(
+                    `Failed to restart dedicated kernel: ${errorMessage}`
+                );
+                logger.error(`Dedicated kernel restart failed: ${errorMessage}`);
+            }
+        })
+    );
+
     // Register command to check installation
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.checkInstallation', async () => {
@@ -607,10 +672,84 @@ async function checkInstallationAndReload(_context: vscode.ExtensionContext): Pr
 }
 
 /**
+ * Initialize dedicated kernel status bar
+ */
+function initializeKernelStatusBar(context: vscode.ExtensionContext): void {
+    if (!state.kernelManager) {
+        return;
+    }
+
+    // Create status bar item
+    kernelStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    kernelStatusBarItem.command = 'squiggy.restartBackgroundKernel';
+    context.subscriptions.push(kernelStatusBarItem);
+
+    // Update status bar based on current state
+    updateKernelStatusBar(state.kernelManager.getState());
+
+    // Listen for state changes
+    context.subscriptions.push(
+        state.kernelManager.onDidChangeState((newState) => {
+            updateKernelStatusBar(newState);
+        })
+    );
+
+    // Show status bar
+    kernelStatusBarItem.show();
+
+    logger.info('Kernel status bar initialized');
+}
+
+/**
+ * Update kernel status bar based on state
+ */
+function updateKernelStatusBar(kernelState: SquiggyKernelState): void {
+    if (!kernelStatusBarItem) {
+        return;
+    }
+
+    logger.info(`Updating kernel status bar: ${kernelState}`);
+
+    switch (kernelState) {
+        case SquiggyKernelState.Uninitialized:
+            kernelStatusBarItem.text = '$(circle-outline) Squiggy Kernel';
+            kernelStatusBarItem.tooltip = 'Squiggy dedicated kernel not started (click to start)';
+            kernelStatusBarItem.backgroundColor = undefined;
+            break;
+        case SquiggyKernelState.Starting:
+            kernelStatusBarItem.text = '$(sync~spin) Squiggy Kernel';
+            kernelStatusBarItem.tooltip = 'Starting Squiggy dedicated kernel...';
+            kernelStatusBarItem.backgroundColor = undefined;
+            break;
+        case SquiggyKernelState.Ready:
+            kernelStatusBarItem.text = '$(check) Squiggy Kernel';
+            kernelStatusBarItem.tooltip = 'Squiggy dedicated kernel ready (click to restart)';
+            kernelStatusBarItem.backgroundColor = undefined;
+            break;
+        case SquiggyKernelState.Restarting:
+            kernelStatusBarItem.text = '$(sync~spin) Squiggy Kernel';
+            kernelStatusBarItem.tooltip = 'Restarting Squiggy dedicated kernel...';
+            kernelStatusBarItem.backgroundColor = undefined;
+            break;
+        case SquiggyKernelState.Error:
+            kernelStatusBarItem.text = '$(error) Squiggy Kernel';
+            kernelStatusBarItem.tooltip = 'Squiggy dedicated kernel error (click to restart)';
+            kernelStatusBarItem.backgroundColor = new vscode.ThemeColor(
+                'statusBarItem.errorBackground'
+            );
+            break;
+    }
+}
+
+/**
  * Extension deactivation
  */
 export function deactivate() {
     if (state.pythonBackend) {
         state.pythonBackend.stop();
+    }
+
+    if (kernelStatusBarItem) {
+        kernelStatusBarItem.dispose();
     }
 }

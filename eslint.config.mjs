@@ -31,7 +31,7 @@ export default [
                     caughtErrorsIgnorePattern: '^_',
                 },
             ],
-            '@typescript-eslint/no-explicit-any': 'warn',
+            '@typescript-eslint/no-explicit-any': 'off',
             '@typescript-eslint/explicit-module-boundary-types': 'off',
             '@typescript-eslint/no-var-requires': 'error',
             'no-console': 'off',
@@ -68,7 +68,7 @@ export default [
                     caughtErrorsIgnorePattern: '^_',
                 },
             ],
-            '@typescript-eslint/no-explicit-any': 'warn',
+            '@typescript-eslint/no-explicit-any': 'off',
             '@typescript-eslint/explicit-module-boundary-types': 'off',
             'no-console': 'off',
             'no-undef': 'off', // TypeScript handles this

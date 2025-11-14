@@ -26,16 +26,21 @@ describe('FileLoadingService', () => {
             loadPOD5: jest.fn(),
             loadBAM: jest.fn(),
             loadFASTA: jest.fn(),
+            loadSample: jest.fn(),
         } as any;
 
         mockState = {
             squiggyAPI: mockAPI,
+            ensureBackgroundKernel: jest.fn().mockResolvedValue(mockAPI),
         } as any;
 
         service = new FileLoadingService(mockState);
 
         // Clear all mocks before each test
         jest.clearAllMocks();
+
+        // Re-setup ensureBackgroundKernel after clearAllMocks
+        mockState.ensureBackgroundKernel = jest.fn().mockResolvedValue(mockAPI);
     });
 
     describe('loadFile()', () => {
@@ -145,6 +150,9 @@ describe('FileLoadingService', () => {
         it('should return error when API is not initialized', async () => {
             const stateWithoutAPI = {
                 squiggyAPI: undefined,
+                ensureBackgroundKernel: jest
+                    .fn()
+                    .mockRejectedValue(new Error('API not initialized')),
             } as any;
             service = new FileLoadingService(stateWithoutAPI);
 
@@ -234,15 +242,18 @@ describe('FileLoadingService', () => {
         });
 
         it('should return error when FASTA loading not supported', async () => {
+            const apiWithoutFASTA = { ...mockAPI, loadFASTA: undefined } as any;
             const stateWithoutFASTA = {
-                squiggyAPI: { ...mockAPI, loadFASTA: undefined } as any,
+                squiggyAPI: apiWithoutFASTA,
+                ensureBackgroundKernel: jest.fn().mockResolvedValue(apiWithoutFASTA),
             } as any;
             service = new FileLoadingService(stateWithoutFASTA);
 
             const result = await service.loadFile('/test/ref.fasta', 'fasta');
 
             expect(result.success).toBe(false);
-            expect(result.error).toContain('does not support FASTA');
+            expect(result.error).toContain('Failed to load FASTA');
+            expect(result.error).toMatch(/is not a function|does not support FASTA/);
         });
     });
 

@@ -31,16 +31,20 @@ describe('State Commands', () => {
             extensionUri: vscode.Uri.file('/mock/extension/path'),
         } as any;
 
+        // Mock API
+        const mockAPI = {
+            client: {
+                getVariable: (jest.fn() as any).mockResolvedValue(true),
+            },
+            getReadIds: (jest.fn() as any).mockResolvedValue(['read_001', 'read_002']),
+            getReferences: (jest.fn() as any).mockResolvedValue(['ref1', 'ref2']),
+        };
+
         // Mock state with minimal required properties
         mockState = {
             usePositron: true,
-            squiggyAPI: {
-                client: {
-                    getVariable: (jest.fn() as any).mockResolvedValue(true),
-                },
-                getReadIds: (jest.fn() as any).mockResolvedValue(['read_001', 'read_002']),
-                getReferences: (jest.fn() as any).mockResolvedValue(['ref1', 'ref2']),
-            },
+            squiggyAPI: mockAPI,
+            ensureBackgroundKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
             readsViewPane: {
                 setLoading: jest.fn(),
                 setReads: jest.fn(),

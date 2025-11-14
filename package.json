@@ -86,6 +86,12 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "squiggy.restartBackgroundKernel",
+        "title": "Restart Squiggy Background Kernel",
+        "category": "Squiggy",
+        "icon": "$(debug-restart)"
+      },
+      {
         "command": "squiggy.debugModificationsPanel",
         "title": "Debug Modifications Panel",
         "category": "Squiggy",

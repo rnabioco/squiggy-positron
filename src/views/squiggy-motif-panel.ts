@@ -341,8 +341,9 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         this.updateView();
 
         try {
-            if (this.state.usePositron && this.state.squiggyAPI) {
-                const matches = await this.state.squiggyAPI.searchMotif(
+            if (this.state.usePositron) {
+                const api = await this.state.ensureBackgroundKernel();
+                const matches = await api.searchMotif(
                     this.state.currentFastaFile,
                     motif,
                     undefined, // region

@@ -50,8 +50,20 @@ export function registerKernelListeners(
 
         // Listen for session changes (kernel switches)
         context.subscriptions.push(
-            positron.runtime.onDidChangeForegroundSession((_sessionId: string | undefined) => {
-                clearExtensionState('Python session changed');
+            positron.runtime.onDidChangeForegroundSession(async (sessionId: string | undefined) => {
+                // Don't clear state if this is our dedicated kernel starting
+                if (state.kernelManager) {
+                    const dedicatedSessionId = state.kernelManager.getSessionId();
+                    if (dedicatedSessionId && sessionId === dedicatedSessionId) {
+                        logger.debug(
+                            `Squiggy: Foreground session changed to dedicated kernel (${sessionId}), NOT clearing state`
+                        );
+                        return;
+                    }
+                }
+
+                // Clear state for actual user session changes
+                await clearExtensionState('Python session changed');
             })
         );
 
