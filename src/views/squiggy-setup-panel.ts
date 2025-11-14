@@ -293,8 +293,8 @@ export class SquiggySetupPanelProvider extends BaseWebviewProvider {
             <li>
                 Install Squiggy
                 <div class="command-wrapper">
-                    <code>uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron</code>
-                    <button class="copy-button" onclick="copyCommand('uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ squiggy-positron', this)" title="Copy to clipboard">📋</button>
+                    <code>uv pip install squiggy-positron</code>
+                    <button class="copy-button" onclick="copyCommand('uv pip install squiggy-positron', this)" title="Copy to clipboard">📋</button>
                 </div>
             </li>
             <li>
