@@ -61,9 +61,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
         const api = await state.ensureBackgroundKernel();
 
         // Check if POD5 is loaded in Python session
-        const hasPod5 = await api.client.getVariable(
-            'squiggy_kernel._reader is not None'
-        );
+        const hasPod5 = await api.client.getVariable('squiggy_kernel._reader is not None');
 
         if (!hasPod5) {
             vscode.window.showInformationMessage('No POD5 file loaded in Python session');
@@ -72,9 +70,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
         }
 
         // Check if BAM is loaded
-        const hasBAM = await api.client.getVariable(
-            'squiggy_kernel._bam_path is not None'
-        );
+        const hasBAM = await api.client.getVariable('squiggy_kernel._bam_path is not None');
 
         if (hasBAM) {
             // BAM mode: grouped by reference with lazy loading
@@ -159,9 +155,7 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
         const api = await state.ensureBackgroundKernel();
 
         // Check if BAM is loaded in Python
-        const hasBAM = await api.client.getVariable(
-            'squiggy_kernel._bam_path is not None'
-        );
+        const hasBAM = await api.client.getVariable('squiggy_kernel._bam_path is not None');
 
         if (!hasBAM) {
             vscode.window.showInformationMessage(

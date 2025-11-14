@@ -878,11 +878,7 @@ async function plotMultiReadOverlay(
                 const sampleColor = sample.metadata?.displayColor || '#888888';
 
                 // Get read IDs for this sample
-                const readIds = await api.getReadIdsForSample(
-                    sampleName,
-                    0,
-                    maxReadsPerSample
-                );
+                const readIds = await api.getReadIdsForSample(sampleName, 0, maxReadsPerSample);
 
                 // Add to combined list and build mappings
                 for (const readId of readIds) {
@@ -972,11 +968,7 @@ async function plotMultiReadStacked(
                 const sampleColor = sample.metadata?.displayColor || '#888888';
 
                 // Get read IDs for this sample
-                const readIds = await api.getReadIdsForSample(
-                    sampleName,
-                    0,
-                    maxReadsPerSample
-                );
+                const readIds = await api.getReadIdsForSample(sampleName, 0, maxReadsPerSample);
 
                 // Add to combined list and build mappings
                 for (const readId of readIds) {

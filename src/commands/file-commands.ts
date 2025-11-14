@@ -324,9 +324,7 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
     // Track POD5 pagination context
     if (!state.pod5LoadContext) {
         // Initialize context if not present
-        const totalReads = await api.client.getVariable(
-            'len(squiggy.io.squiggy_kernel._read_ids)'
-        );
+        const totalReads = await api.client.getVariable('len(squiggy.io.squiggy_kernel._read_ids)');
         state.pod5LoadContext = {
             currentOffset: 1000, // Initial load was 1000
             pageSize: 500,
@@ -394,11 +392,7 @@ async function expandReference(
         } else if (state.currentBamFile) {
             // Single-file mode: get reads for reference from loaded BAM
             logger.debug(`[expandReference] Single-file mode: getting reads for ${referenceName}`);
-            const result = await api.getReadsForReferencePaginated(
-                referenceName,
-                offset,
-                limit
-            );
+            const result = await api.getReadsForReferencePaginated(referenceName, offset, limit);
 
             // Send to React
             state.readsViewPane?.setReadsForReference(
