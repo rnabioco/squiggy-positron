@@ -8,14 +8,10 @@
 
 ## Installation
 
-> ⚠️ **Temporary**: Until the next minor release on PyPI, please install from TestPyPI using the command below.
-
 This package is intended to be installed as a dependency of the Squiggy Positron extension:
 
 ```bash
-uv pip install --index-url https://test.pypi.org/simple/ \
-    --extra-index-url https://pypi.org/simple/ \
-    squiggy-positron
+uv pip install squiggy-positron
 ```
 
 After installing the package, install the Squiggy extension in Positron IDE from the Extensions marketplace.
@@ -92,24 +88,6 @@ print("Plot created successfully!")
 
 pod5.close()
 ```
-
-### 5. Interactive Testing (Optional)
-
-For a comprehensive test suite, download the testing notebook:
-
-```bash
-# Download the test notebook from GitHub
-curl -O https://raw.githubusercontent.com/rnabioco/squiggy-positron/main/examples/testing_testpypi.ipynb
-```
-
-Then open `testing_testpypi.ipynb` in Positron. This notebook tests:
-- Package import and dependencies
-- Bundled test data access
-- POD5 and BAM file loading
-- All plot modes and normalization methods
-- Error handling
-
-**All test data is included in the package** - no Git LFS or manual downloads required!
 
 ## Features
 
