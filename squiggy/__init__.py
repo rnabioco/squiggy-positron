@@ -42,8 +42,7 @@ from .io import (
     LazyReadList,
     Pod5Index,
     Sample,
-    SquiggySession,
-    _squiggy_session,
+    SquiggyKernel,
     close_all_samples,
     close_bam,
     close_fasta,
@@ -66,6 +65,7 @@ from .io import (
     load_pod5,
     load_sample,
     remove_sample,
+    squiggy_kernel,
 )
 from .motif import (
     IUPAC_CODES,
@@ -153,9 +153,9 @@ __all__ = [
     "get_common_reads",
     "get_unique_reads",
     "compare_samples",
-    # Session management
-    "SquiggySession",
-    "_squiggy_session",
+    # Kernel state management
+    "SquiggyKernel",
+    "squiggy_kernel",
     "Sample",
     # Performance optimization classes
     "LazyReadList",

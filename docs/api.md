@@ -79,7 +79,7 @@ html = plot_read(read_ids[0])
 
 ## Session Management
 
-::: squiggy.io.SquiggySession
+::: squiggy.io.SquiggyKernel
 
 ::: squiggy.io.Sample
 

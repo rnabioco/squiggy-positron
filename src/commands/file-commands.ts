@@ -325,7 +325,7 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
     if (!state.pod5LoadContext) {
         // Initialize context if not present
         const totalReads = await api.client.getVariable(
-            'len(squiggy.io._squiggy_session.read_ids)'
+            'len(squiggy.io.squiggy_kernel._read_ids)'
         );
         state.pod5LoadContext = {
             currentOffset: 1000, // Initial load was 1000
@@ -672,7 +672,7 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 const references = await api.getReferences();
                 for (const ref of references) {
                     const readCount = await api.client.getVariable(
-                        `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                        `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                     );
                     referenceToReads[ref] = new Array(readCount as number);
                 }

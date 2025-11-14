@@ -14,7 +14,7 @@ from .constants import (
     DEFAULT_POSITION_LABEL_INTERVAL,
     PlotMode,
 )
-from .io import _squiggy_session, get_read_by_id
+from .io import get_read_by_id, squiggy_kernel
 from .motif import search_motif
 from .plot_factory import create_plot_strategy
 from .utils import (
@@ -86,13 +86,13 @@ def plot_read(
     # Determine which POD5 reader to use
     if sample_name:
         # Multi-sample mode: get reader from specific sample
-        sample = _squiggy_session.get_sample(sample_name)
-        if not sample or sample.pod5_reader is None:
+        sample = squiggy_kernel.get_sample(sample_name)
+        if not sample or sample._pod5_reader is None:
             raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
-        reader = sample.pod5_reader
+        reader = sample._pod5_reader
     else:
         # Single-file mode: use global reader
-        reader = _squiggy_session.reader
+        reader = squiggy_kernel._reader
         if reader is None:
             raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
@@ -126,10 +126,10 @@ def plot_read(
         # If sequence coordinate space requested, get alignment data
         if coordinate_space == "sequence":
             if sample_name:
-                sample = _squiggy_session.get_sample(sample_name)
-                bam_path = sample.bam_path if sample else None
+                sample = squiggy_kernel.get_sample(sample_name)
+                bam_path = sample._bam_path if sample else None
             else:
-                bam_path = _squiggy_session.bam_path
+                bam_path = squiggy_kernel._bam_path
 
             if bam_path is None:
                 raise ValueError(
@@ -155,12 +155,12 @@ def plot_read(
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode: requires alignment
         if sample_name:
-            sample = _squiggy_session.get_sample(sample_name)
-            bam_path = sample.bam_path if sample else None
-            fasta_path = sample.fasta_path if sample else None
+            sample = squiggy_kernel.get_sample(sample_name)
+            bam_path = sample._bam_path if sample else None
+            fasta_path = sample._fasta_path if sample else None
         else:
-            bam_path = _squiggy_session.bam_path
-            fasta_path = _squiggy_session.fasta_path
+            bam_path = squiggy_kernel._bam_path
+            fasta_path = squiggy_kernel._fasta_path
 
         if bam_path is None:
             raise ValueError(
@@ -306,7 +306,7 @@ def plot_reads(
         # Legacy mode: fetch from global session
         from .io import get_reads_batch
 
-        if _squiggy_session.reader is None:
+        if squiggy_kernel._reader is None:
             raise ValueError("No POD5 file loaded. Call load_pod5() first.")
         read_objs = get_reads_batch(read_ids, sample_name=None)
 
@@ -338,12 +338,12 @@ def plot_reads(
                 aligned_reads = []
                 for read_id in read_ids:
                     sample_name_for_read = read_sample_map[read_id]
-                    sample = _squiggy_session.get_sample(sample_name_for_read)
-                    if not sample or not sample.bam_path:
+                    sample = squiggy_kernel.get_sample(sample_name_for_read)
+                    if not sample or not sample._bam_path:
                         raise ValueError(
                             f"Sequence space requires BAM files. Sample '{sample_name_for_read}' has no BAM file loaded."
                         )
-                    aligned_read = extract_alignment_from_bam(sample.bam_path, read_id)
+                    aligned_read = extract_alignment_from_bam(sample._bam_path, read_id)
                     if aligned_read is None:
                         raise ValueError(
                             f"No alignment found for read {read_id} in sample '{sample_name_for_read}'."
@@ -353,14 +353,14 @@ def plot_reads(
                 # Single-sample mode: use sample's BAM file
                 from .alignment import extract_alignment_from_bam
 
-                sample = _squiggy_session.get_sample(sample_name)
-                if not sample or not sample.bam_path:
+                sample = squiggy_kernel.get_sample(sample_name)
+                if not sample or not sample._bam_path:
                     raise ValueError(
                         f"Sequence space requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
                     )
                 aligned_reads = []
                 for read_id in read_ids:
-                    aligned_read = extract_alignment_from_bam(sample.bam_path, read_id)
+                    aligned_read = extract_alignment_from_bam(sample._bam_path, read_id)
                     if aligned_read is None:
                         raise ValueError(
                             f"No alignment found for read {read_id} in BAM file."
@@ -370,14 +370,14 @@ def plot_reads(
                 # Legacy mode: use global BAM file
                 from .alignment import extract_alignment_from_bam
 
-                if _squiggy_session.bam_path is None:
+                if squiggy_kernel._bam_path is None:
                     raise ValueError(
                         "Sequence space requires a BAM file. Call load_bam() first."
                     )
                 aligned_reads = []
                 for read_id in read_ids:
                     aligned_read = extract_alignment_from_bam(
-                        _squiggy_session.bam_path, read_id
+                        squiggy_kernel._bam_path, read_id
                     )
                     if aligned_read is None:
                         raise ValueError(
@@ -403,19 +403,19 @@ def plot_reads(
         # Determine which BAM file to use
         if sample_name:
             # Multi-sample mode: use sample's BAM file
-            sample = _squiggy_session.get_sample(sample_name)
-            if not sample or not sample.bam_path:
+            sample = squiggy_kernel.get_sample(sample_name)
+            if not sample or not sample._bam_path:
                 raise ValueError(
                     f"EVENTALIGN mode requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
                 )
-            bam_path = sample.bam_path
+            bam_path = sample._bam_path
         else:
             # Single-file mode: use global BAM file
-            if _squiggy_session.bam_path is None:
+            if squiggy_kernel._bam_path is None:
                 raise ValueError(
                     "EVENTALIGN mode requires a BAM file. Call load_bam() first."
                 )
-            bam_path = _squiggy_session.bam_path
+            bam_path = squiggy_kernel._bam_path
 
         from .alignment import extract_alignment_from_bam
 
@@ -518,27 +518,27 @@ def plot_aggregate(
     # Determine which sample to use
     if sample_name:
         # Multi-sample mode: use sample-specific paths
-        sample = _squiggy_session.get_sample(sample_name)
-        if not sample or sample.pod5_path is None:
+        sample = squiggy_kernel.get_sample(sample_name)
+        if not sample or sample._pod5_path is None:
             raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
-        if not sample.bam_path:
+        if not sample._bam_path:
             raise ValueError(
                 f"Sample '{sample_name}' has no BAM file loaded. Aggregate plots require alignments."
             )
-        pod5_path = sample.pod5_path
-        bam_path = sample.bam_path
-        fasta_path = sample.fasta_path
+        pod5_path = sample._pod5_path
+        bam_path = sample._bam_path
+        fasta_path = sample._fasta_path
     else:
         # Single-file mode: use global session paths
-        if _squiggy_session.reader is None:
+        if squiggy_kernel._reader is None:
             raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-        if _squiggy_session.bam_path is None:
+        if squiggy_kernel._bam_path is None:
             raise ValueError(
                 "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
             )
-        pod5_path = _squiggy_session.pod5_path
-        bam_path = _squiggy_session.bam_path
-        fasta_path = _squiggy_session.fasta_path
+        pod5_path = squiggy_kernel._pod5_path
+        bam_path = squiggy_kernel._bam_path
+        fasta_path = squiggy_kernel._fasta_path
 
     # Parse parameters
     params = parse_plot_parameters(normalization=normalization, theme=theme)
@@ -756,9 +756,9 @@ def plot_motif_aggregate_all(
         downstream = DEFAULT_MOTIF_WINDOW_DOWNSTREAM
 
     # Validate state
-    if _squiggy_session.reader is None:
+    if squiggy_kernel._reader is None:
         raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-    if _squiggy_session.bam_path is None:
+    if squiggy_kernel._bam_path is None:
         raise ValueError(
             "No BAM file loaded. Motif aggregate plots require alignments. "
             "Call load_bam() first."
@@ -783,8 +783,8 @@ def plot_motif_aggregate_all(
         try:
             # Extract reads for this motif match
             reads_data, _ = extract_reads_for_motif(
-                pod5_file=_squiggy_session.pod5_path,
-                bam_file=_squiggy_session.bam_path,
+                pod5_file=squiggy_kernel._pod5_path,
+                bam_file=squiggy_kernel._bam_path,
                 fasta_file=fasta_file,
                 motif=motif,
                 match_index=match_index,
@@ -916,7 +916,7 @@ def plot_delta_comparison(
     # Get samples
     samples = []
     for name in sample_names:
-        sample = _squiggy_session.get_sample(name)
+        sample = squiggy_kernel.get_sample(name)
         if sample is None:
             raise ValueError(f"Sample '{name}' not found")
         samples.append(sample)
@@ -926,10 +926,10 @@ def plot_delta_comparison(
     sample_b = samples[1]
 
     # Validate both samples have POD5 and BAM loaded
-    if sample_a.pod5_reader is None or sample_b.pod5_reader is None:
+    if sample_a._pod5_reader is None or sample_b._pod5_reader is None:
         raise ValueError("Both samples must have POD5 files loaded")
 
-    if sample_a.bam_path is None or sample_b.bam_path is None:
+    if sample_a._bam_path is None or sample_b._bam_path is None:
         raise ValueError(
             "Both samples must have BAM files loaded for delta comparison. "
             "BAM files are required to align signals to reference positions."
@@ -942,10 +942,10 @@ def plot_delta_comparison(
 
     # Get first reference from sample A's BAM
     # (assumes both samples have the same reference genome)
-    if not sample_a.bam_info or "references" not in sample_a.bam_info:
+    if not sample_a._bam_info or "references" not in sample_a._bam_info:
         raise ValueError("BAM file must be loaded with reference information")
 
-    references = sample_a.bam_info["references"]
+    references = sample_a._bam_info["references"]
     if not references:
         raise ValueError("No references found in BAM file")
 
@@ -959,7 +959,7 @@ def plot_delta_comparison(
         for sample in [sample_a, sample_b]:
             try:
                 available = get_available_reads_for_reference(
-                    bam_file=sample.bam_path,
+                    bam_file=sample._bam_path,
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
@@ -975,16 +975,16 @@ def plot_delta_comparison(
     # Extract aligned reads from both samples using the proper utility function
 
     reads_a = extract_reads_for_reference(
-        pod5_file=sample_a.pod5_path,
-        bam_file=sample_a.bam_path,
+        pod5_file=sample_a._pod5_path,
+        bam_file=sample_a._bam_path,
         reference_name=reference_name,
         max_reads=max_reads,
         random_sample=True,
     )
 
     reads_b = extract_reads_for_reference(
-        pod5_file=sample_b.pod5_path,
-        bam_file=sample_b.bam_path,
+        pod5_file=sample_b._pod5_path,
+        bam_file=sample_b._bam_path,
         reference_name=reference_name,
         max_reads=max_reads,
         random_sample=True,
@@ -1081,16 +1081,16 @@ def plot_signal_overlay_comparison(
     # Get samples
     samples = []
     for name in sample_names:
-        sample = _squiggy_session.get_sample(name)
+        sample = squiggy_kernel.get_sample(name)
         if sample is None:
             raise ValueError(f"Sample '{name}' not found")
         samples.append(sample)
 
     # Validate all samples have POD5 and BAM loaded
     for sample in samples:
-        if sample.pod5_reader is None:
+        if sample._pod5_reader is None:
             raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
-        if sample.bam_path is None:
+        if sample._bam_path is None:
             raise ValueError(
                 f"Sample '{sample.name}' must have BAM file loaded. "
                 "BAM files are required to align signals to reference positions."
@@ -1104,10 +1104,10 @@ def plot_signal_overlay_comparison(
     # Determine reference name
     if reference_name is None:
         # Get first reference from first sample's BAM
-        if not samples[0].bam_info or "references" not in samples[0].bam_info:
+        if not samples[0]._bam_info or "references" not in samples[0]._bam_info:
             raise ValueError("BAM file must contain reference information")
 
-        references = samples[0].bam_info["references"]
+        references = samples[0]._bam_info["references"]
         if not references:
             raise ValueError("No references found in BAM file")
 
@@ -1116,11 +1116,11 @@ def plot_signal_overlay_comparison(
     # Validate all samples have same reference (Issue #121)
     samples_missing_reference = []
     for sample in samples:
-        if not sample.bam_info or "references" not in sample.bam_info:
+        if not sample._bam_info or "references" not in sample._bam_info:
             samples_missing_reference.append((sample.name, "no BAM metadata"))
             continue
 
-        refs = sample.bam_info["references"]
+        refs = sample._bam_info["references"]
         ref_names = [r["name"] for r in refs]
 
         if reference_name not in ref_names:
@@ -1157,7 +1157,7 @@ def plot_signal_overlay_comparison(
         for sample in samples:
             try:
                 available = get_available_reads_for_reference(
-                    bam_file=sample.bam_path,
+                    bam_file=sample._bam_path,
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
@@ -1176,8 +1176,8 @@ def plot_signal_overlay_comparison(
 
     for sample in samples:
         reads = extract_reads_for_reference(
-            pod5_file=sample.pod5_path,
-            bam_file=sample.bam_path,
+            pod5_file=sample._pod5_path,
+            bam_file=sample._bam_path,
             reference_name=reference_name,
             max_reads=max_reads,
             random_sample=True,
@@ -1222,11 +1222,11 @@ def plot_signal_overlay_comparison(
 
             # Try FASTA first (most accurate and complete)
             first_sample = samples[0]
-            if first_sample.fasta_path:
+            if first_sample._fasta_path:
                 try:
                     import pysam
 
-                    fasta = pysam.FastaFile(first_sample.fasta_path)
+                    fasta = pysam.FastaFile(first_sample._fasta_path)
                     reference_sequence = fasta.fetch(
                         reference_name, min_pos, max_pos + 1
                     )
@@ -1239,8 +1239,8 @@ def plot_signal_overlay_comparison(
             if not reference_sequence:
                 try:
                     reads = extract_reads_for_reference(
-                        pod5_file=first_sample.pod5_path,
-                        bam_file=first_sample.bam_path,
+                        pod5_file=first_sample._pod5_path,
+                        bam_file=first_sample._bam_path,
                         reference_name=reference_name,
                         max_reads=1,
                     )
@@ -1328,16 +1328,16 @@ def plot_aggregate_comparison(
     # Get samples
     samples = []
     for name in sample_names:
-        sample = _squiggy_session.get_sample(name)
+        sample = squiggy_kernel.get_sample(name)
         if sample is None:
             raise ValueError(f"Sample '{name}' not found")
         samples.append(sample)
 
     # Validate all samples have POD5 and BAM loaded
     for sample in samples:
-        if sample.pod5_reader is None:
+        if sample._pod5_reader is None:
             raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
-        if sample.bam_path is None:
+        if sample._bam_path is None:
             raise ValueError(
                 f"Sample '{sample.name}' must have BAM file loaded for aggregate comparison. "
                 "BAM files are required to align signals to reference positions."
@@ -1354,12 +1354,12 @@ def plot_aggregate_comparison(
     # Validate that all samples have the requested reference (Issue #121)
     samples_missing_reference = []
     for sample in samples:
-        if sample.bam_info is None or "references" not in sample.bam_info:
+        if sample._bam_info is None or "references" not in sample._bam_info:
             samples_missing_reference.append((sample.name, "no BAM metadata"))
             continue
 
         # Check if reference exists in this sample's BAM
-        ref_names = [ref["name"] for ref in sample.bam_info.get("references", [])]
+        ref_names = [ref["name"] for ref in sample._bam_info.get("references", [])]
         if reference_name not in ref_names:
             available_refs = ", ".join(ref_names[:3])
             if len(ref_names) > 3:
@@ -1392,7 +1392,7 @@ def plot_aggregate_comparison(
         for sample in samples:
             try:
                 available = get_available_reads_for_reference(
-                    bam_file=sample.bam_path,
+                    bam_file=sample._bam_path,
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
@@ -1411,8 +1411,8 @@ def plot_aggregate_comparison(
     for i, sample in enumerate(samples):
         # Extract aligned reads for this sample
         reads = extract_reads_for_reference(
-            pod5_file=sample.pod5_path,
-            bam_file=sample.bam_path,
+            pod5_file=sample._pod5_path,
+            bam_file=sample._bam_path,
             reference_name=reference_name,
             max_reads=max_reads,
             random_sample=True,
