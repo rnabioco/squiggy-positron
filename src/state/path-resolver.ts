@@ -51,8 +51,19 @@ else:
                 // Now read the variable
                 const result = await positronClient.getVariable(tempVar);
 
-                // Clean up temp variable
-                await positronClient.executeSilent(`del ${tempVar}`);
+                // Clean up temp variables
+                await positronClient
+                    .executeSilent(
+                        `
+if '${tempVar}' in globals():
+    del ${tempVar}
+if 'spec' in globals():
+    del spec
+if 'package_dir' in globals():
+    del package_dir
+`
+                    )
+                    .catch(() => {});
 
                 if (result && result !== 'None' && result !== 'null') {
                     return result;

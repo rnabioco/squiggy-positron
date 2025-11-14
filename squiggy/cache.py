@@ -46,6 +46,18 @@ class SquiggyCache:
         if self.enabled:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
 
+    def __repr__(self) -> str:
+        """Return informative summary of cache state"""
+        if not self.enabled:
+            return "<SquiggyCache: disabled>"
+
+        # Count cache files if directory exists
+        num_files = 0
+        if self.cache_dir.exists():
+            num_files = len(list(self.cache_dir.glob("*.cache")))
+
+        return f"<SquiggyCache: {num_files} cached files in {self.cache_dir}>"
+
     def _get_cache_path(self, file_path: Path, suffix: str) -> Path:
         """
         Get cache file path for given data file

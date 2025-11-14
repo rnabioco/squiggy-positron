@@ -354,15 +354,15 @@ class MyPanelProvider implements vscode.WebviewViewProvider {
 **Public API** (`squiggy/__init__.py`):
 ```python
 from squiggy import load_pod5, load_bam, plot_read, plot_reads, close_pod5, close_bam
-from squiggy.io import _squiggy_session
+from squiggy.io import squiggy_kernel
 
-# Load files into kernel state (populates _squiggy_session)
+# Load files into kernel state (populates squiggy_kernel)
 load_pod5("data.pod5")
 load_bam("alignments.bam")
 
 # Check session state
-print(_squiggy_session)
-# <SquiggySession: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
+print(squiggy_kernel)
+# <SquiggyKernel: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
 
 # Generate Bokeh plot HTML
 html = plot_read(
@@ -377,11 +377,11 @@ html = plot_read(
 # Cleanup
 close_pod5()  # Close POD5 reader
 close_bam()   # Clear BAM state
-_squiggy_session.close_all()  # Or close everything via session
+squiggy_kernel.close_all()  # Or close everything via session
 ```
 
 **State Management** (`squiggy/io.py`):
-- **NEW**: Consolidated `SquiggySession` object (`_squiggy_session`) - single variable in Variables pane
+- **NEW**: Consolidated `SquiggyKernel` object (`squiggy_kernel`) - single variable in Variables pane
 - **Legacy**: Individual globals: `_current_pod5_reader`, `_current_bam_path`, `_current_read_ids`
 - Lazy loading of POD5 reads
 - BAM indexing and reference extraction
@@ -546,11 +546,11 @@ panel.webview.onDidReceiveMessage((message) => {
 
 **Session-Based State** (Recommended):
 
-Python state is consolidated in a `SquiggySession` object for cleaner UX:
+Python state is consolidated in a `SquiggyKernel` object for cleaner UX:
 
 ```python
 # Global session instance in squiggy/io.py
-from squiggy.io import _squiggy_session
+from squiggy.io import squiggy_kernel
 
 # Load files - automatically populates session
 import squiggy
@@ -558,20 +558,20 @@ squiggy.load_pod5('data.pod5')
 squiggy.load_bam('alignments.bam')
 
 # Session is visible in Variables pane as single object
-print(_squiggy_session)
-# <SquiggySession: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
+print(squiggy_kernel)
+# <SquiggyKernel: POD5: data.pod5 (1,234 reads) | BAM: alignments.bam (1,234 reads)>
 
 # Access session attributes
-_squiggy_session.reader      # POD5 reader
-_squiggy_session.read_ids    # List of read IDs
-_squiggy_session.bam_path    # BAM file path
-_squiggy_session.bam_info    # BAM metadata dict
-_squiggy_session.ref_mapping # Reference to read IDs mapping
+squiggy_kernel.reader      # POD5 reader
+squiggy_kernel.read_ids    # List of read IDs
+squiggy_kernel.bam_path    # BAM file path
+squiggy_kernel.bam_info    # BAM metadata dict
+squiggy_kernel.ref_mapping # Reference to read IDs mapping
 
 # Cleanup
-_squiggy_session.close_pod5()  # Close POD5 only
-_squiggy_session.close_bam()   # Clear BAM only
-_squiggy_session.close_all()   # Close everything
+squiggy_kernel.close_pod5()  # Close POD5 only
+squiggy_kernel.close_bam()   # Clear BAM only
+squiggy_kernel.close_all()   # Close everything
 ```
 
 **Legacy Global State** (Deprecated but still supported):
@@ -595,12 +595,12 @@ def load_pod5(file_path):
 The TypeScript extension uses the session object for cleaner kernel state:
 
 ```typescript
-// Load POD5 - populates _squiggy_session in kernel
+// Load POD5 - populates squiggy_kernel in kernel
 await squiggyAPI.loadPOD5(filePath);
 
 // Access data via session
-const readIds = await client.getVariable('_squiggy_session.read_ids[:100]');
-const bamInfo = await client.getVariable('_squiggy_session.bam_info');
+const readIds = await client.getVariable('squiggy_kernel.read_ids[:100]');
+const bamInfo = await client.getVariable('squiggy_kernel.bam_info');
 ```
 
 ## Testing Strategy

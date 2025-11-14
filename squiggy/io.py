@@ -102,6 +102,12 @@ class LazyReadList:
             self._cached_length = len(self._materialized_ids)
         return self._materialized_ids
 
+    def __repr__(self) -> str:
+        """Return informative summary of lazy read list"""
+        count = len(self)
+        materialized = " (materialized)" if self._materialized_ids is not None else ""
+        return f"<LazyReadList: {count:,} reads{materialized}>"
+
 
 class Pod5Index:
     """
@@ -164,6 +170,11 @@ class Pod5Index:
         """Number of indexed reads"""
         return len(self._index)
 
+    def __repr__(self) -> str:
+        """Return informative summary of index"""
+        count = len(self._index)
+        return f"<Pod5Index: {count:,} reads indexed>"
+
 
 def get_reads_batch(
     read_ids: list[str], sample_name: str | None = None
@@ -195,14 +206,14 @@ def get_reads_batch(
     """
     # Determine which reader to use
     if sample_name:
-        sample = _squiggy_session.get_sample(sample_name)
-        if not sample or sample.pod5_reader is None:
+        sample = squiggy_kernel.get_sample(sample_name)
+        if not sample or sample._pod5_reader is None:
             raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
-        reader = sample.pod5_reader
+        reader = sample._pod5_reader
     else:
-        if _squiggy_session.reader is None:
+        if squiggy_kernel._reader is None:
             raise RuntimeError("No POD5 file is currently loaded")
-        reader = _squiggy_session.reader
+        reader = squiggy_kernel._reader
 
     needed = set(read_ids)
     found = {}
@@ -292,18 +303,18 @@ def get_read_by_id(
     """
     # Determine which reader to use
     if sample_name:
-        sample = _squiggy_session.get_sample(sample_name)
-        if not sample or sample.pod5_reader is None:
+        sample = squiggy_kernel.get_sample(sample_name)
+        if not sample or sample._pod5_reader is None:
             raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
-        reader = sample.pod5_reader
+        reader = sample._pod5_reader
         pod5_index = sample.pod5_index if hasattr(sample, "pod5_index") else None
     else:
-        if _squiggy_session.reader is None:
+        if squiggy_kernel._reader is None:
             raise RuntimeError("No POD5 file is currently loaded")
-        reader = _squiggy_session.reader
+        reader = squiggy_kernel._reader
         pod5_index = (
-            _squiggy_session.pod5_index
-            if hasattr(_squiggy_session, "pod5_index")
+            squiggy_kernel._pod5_index
+            if hasattr(squiggy_kernel, "pod5_index")
             else None
         )
 
@@ -348,38 +359,38 @@ class Sample:
         >>> sample = Sample('model_v4.2')
         >>> sample.load_pod5('data_v4.2.pod5')
         >>> sample.load_bam('align_v4.2.bam')
-        >>> print(f"{sample.name}: {len(sample.read_ids)} reads")
+        >>> print(f"{sample.name}: {len(sample._read_ids)} reads")
     """
 
     def __init__(self, name: str):
         """Initialize a new sample with the given name"""
         self.name = name
-        self.pod5_path: str | None = None
-        self.pod5_reader: pod5.Reader | None = None
-        self.read_ids: list[str] = []
-        self.bam_path: str | None = None
-        self.bam_info: dict | None = None
-        self.model_provenance: dict | None = None
-        self.fasta_path: str | None = None
-        self.fasta_info: dict | None = None
+        self._pod5_path: str | None = None
+        self._pod5_reader: pod5.Reader | None = None
+        self._read_ids: list[str] = []
+        self._bam_path: str | None = None
+        self._bam_info: dict | None = None
+        self._model_provenance: dict | None = None
+        self._fasta_path: str | None = None
+        self._fasta_info: dict | None = None
 
     def __repr__(self) -> str:
         """Return informative summary of sample state"""
         parts = [f"Sample({self.name})"]
 
-        if self.pod5_path:
-            filename = os.path.basename(self.pod5_path)
-            parts.append(f"POD5: {filename} ({len(self.read_ids):,} reads)")
+        if self._pod5_path:
+            filename = os.path.basename(self._pod5_path)
+            parts.append(f"POD5: {filename} ({len(self._read_ids):,} reads)")
 
-        if self.bam_path:
-            filename = os.path.basename(self.bam_path)
-            num_reads = self.bam_info.get("num_reads", 0) if self.bam_info else 0
+        if self._bam_path:
+            filename = os.path.basename(self._bam_path)
+            num_reads = self._bam_info.get("num_reads", 0) if self._bam_info else 0
             parts.append(f"BAM: {filename} ({num_reads:,} reads)")
 
-        if self.fasta_path:
-            filename = os.path.basename(self.fasta_path)
+        if self._fasta_path:
+            filename = os.path.basename(self._fasta_path)
             num_refs = (
-                len(self.fasta_info.get("references", [])) if self.fasta_info else 0
+                len(self._fasta_info.get("references", [])) if self._fasta_info else 0
             )
             parts.append(f"FASTA: {filename} ({num_refs:,} references)")
 
@@ -390,23 +401,23 @@ class Sample:
 
     def close(self):
         """Close all resources and clear sample state"""
-        if self.pod5_reader is not None:
-            self.pod5_reader.close()
-            self.pod5_reader = None
-        self.pod5_path = None
-        self.read_ids = []
-        self.bam_path = None
-        self.bam_info = None
-        self.model_provenance = None
-        self.fasta_path = None
-        self.fasta_info = None
+        if self._pod5_reader is not None:
+            self._pod5_reader.close()
+            self._pod5_reader = None
+        self._pod5_path = None
+        self._read_ids = []
+        self._bam_path = None
+        self._bam_info = None
+        self._model_provenance = None
+        self._fasta_path = None
+        self._fasta_info = None
 
 
-class SquiggySession:
+class SquiggyKernel:
     """
-    Manages state for loaded POD5 and BAM files, supporting multiple samples
+    Manages kernel state for loaded POD5 and BAM files, supporting multiple samples
 
-    This enhanced session manages multiple POD5/BAM pairs (samples) simultaneously,
+    This kernel state manager handles multiple POD5/BAM pairs (samples) simultaneously,
     enabling comparison workflows. Maintains backward compatibility with single-sample
     API by delegating to the first loaded sample.
 
@@ -434,72 +445,89 @@ class SquiggySession:
     """
 
     def __init__(self, cache_dir: str | None = None, use_cache: bool = True):
-        # Multi-sample support (NEW)
+        # Multi-sample support (NEW) - PUBLIC
         self.samples: dict[str, Sample] = {}
 
-        # Single-sample properties (for backward compatibility)
-        self.reader: pod5.Reader | None = None
-        self.pod5_path: str | None = None
-        self.read_ids: list[str] | LazyReadList = []
-        self.bam_path: str | None = None
-        self.bam_info: dict | None = None
-        self.ref_mapping: dict[str, list[str]] | None = None
-        self.fasta_path: str | None = None
-        self.fasta_info: dict | None = None
+        # Single-sample properties (for backward compatibility) - INTERNAL
+        self._reader: pod5.Reader | None = None
+        self._pod5_path: str | None = None
+        self._read_ids: list[str] | LazyReadList = []
+        self._bam_path: str | None = None
+        self._bam_info: dict | None = None
+        self._ref_mapping: dict[str, list[str]] | None = None
+        self._fasta_path: str | None = None
+        self._fasta_info: dict | None = None
 
-        # Performance optimization attributes (NEW)
-        self.pod5_index: Pod5Index | None = None
+        # Performance optimization attributes (NEW) - INTERNAL
+        self._pod5_index: Pod5Index | None = None
 
-        # Cache integration (NEW)
+        # Cache integration (NEW) - PUBLIC
         from .cache import SquiggyCache
 
         cache_path = Path(cache_dir) if cache_dir else None
         self.cache = SquiggyCache(cache_path, enabled=use_cache) if use_cache else None
 
+    def __dir__(self):
+        """Control what appears in Variables pane - only show public API"""
+        return [
+            "samples",
+            "cache",
+            "load_sample",
+            "get_sample",
+            "list_samples",
+            "remove_sample",
+            "close_all",
+            "close_bam",
+            "close_fasta",
+            "close_pod5",
+        ]
+
     def __repr__(self) -> str:
         """Return informative summary of loaded files"""
         if self.samples:
             # Multi-sample mode
-            parts = [f"SquiggySession: {len(self.samples)} sample(s)"]
+            parts = [f"SquiggyKernel: {len(self.samples)} sample(s)"]
             for name in sorted(self.samples.keys()):
                 sample = self.samples[name]
-                if sample.pod5_path:
-                    num_reads = len(sample.read_ids)
+                if sample._pod5_path:
+                    num_reads = len(sample._read_ids)
                     parts.append(f"  {name}: {num_reads:,} reads")
             return "<" + "\n".join(parts) + ">"
         else:
             # Single-sample backward compat mode
             parts = []
 
-            if self.pod5_path:
-                filename = os.path.basename(self.pod5_path)
-                parts.append(f"POD5: {filename} ({len(self.read_ids):,} reads)")
+            if self._pod5_path:
+                filename = os.path.basename(self._pod5_path)
+                parts.append(f"POD5: {filename} ({len(self._read_ids):,} reads)")
 
-            if self.bam_path:
-                filename = os.path.basename(self.bam_path)
-                num_reads = self.bam_info.get("num_reads", 0) if self.bam_info else 0
+            if self._bam_path:
+                filename = os.path.basename(self._bam_path)
+                num_reads = self._bam_info.get("num_reads", 0) if self._bam_info else 0
                 parts.append(f"BAM: {filename} ({num_reads:,} reads)")
 
-                if self.bam_info:
-                    if self.bam_info.get("has_modifications"):
+                if self._bam_info:
+                    if self._bam_info.get("has_modifications"):
                         mod_types = ", ".join(
-                            str(m) for m in self.bam_info["modification_types"]
+                            str(m) for m in self._bam_info["modification_types"]
                         )
                         parts.append(f"Modifications: {mod_types}")
-                    if self.bam_info.get("has_event_alignment"):
+                    if self._bam_info.get("has_event_alignment"):
                         parts.append("Event alignment: yes")
 
-            if self.fasta_path:
-                filename = os.path.basename(self.fasta_path)
+            if self._fasta_path:
+                filename = os.path.basename(self._fasta_path)
                 num_refs = (
-                    len(self.fasta_info.get("references", [])) if self.fasta_info else 0
+                    len(self._fasta_info.get("references", []))
+                    if self._fasta_info
+                    else 0
                 )
                 parts.append(f"FASTA: {filename} ({num_refs:,} references)")
 
             if not parts:
-                return "<SquiggySession: No files loaded>"
+                return "<SquiggyKernel: No files loaded>"
 
-            return f"<SquiggySession: {' | '.join(parts)}>"
+            return f"<SquiggyKernel: {' | '.join(parts)}>"
 
     # Multi-sample API methods (NEW)
 
@@ -523,9 +551,9 @@ class SquiggySession:
             The created Sample object
 
         Examples:
-            >>> session = SquiggySession()
-            >>> sample = session.load_sample('v4.2', 'data_v4.2.pod5', 'align_v4.2.bam')
-            >>> print(f"Loaded {len(sample.read_ids)} reads")
+            >>> sk = SquiggyKernel()
+            >>> sample = sk.load_sample('v4.2', 'data_v4.2.pod5', 'align_v4.2.bam')
+            >>> print(f"Loaded {len(sample._read_ids)} reads")
         """
         # Close existing sample with this name if any
         if name in self.samples:
@@ -543,9 +571,9 @@ class SquiggySession:
 
         read_ids = [str(read.read_id) for read in reader.reads()]
 
-        sample.pod5_path = abs_pod5_path
-        sample.pod5_reader = reader
-        sample.read_ids = read_ids
+        sample._pod5_path = abs_pod5_path
+        sample._pod5_reader = reader
+        sample._read_ids = read_ids
 
         # Load BAM if provided
         if bam_path:
@@ -574,15 +602,15 @@ class SquiggySession:
                 ],  # Reference name → read IDs (needed for expanding)
             }
 
-            sample.bam_path = abs_bam_path
-            sample.bam_info = bam_info
+            sample._bam_path = abs_bam_path
+            sample._bam_info = bam_info
 
             # Validate that POD5 and BAM have overlapping read IDs
             bam_read_ids = set()
             for ref_read_ids in metadata["ref_mapping"].values():
                 bam_read_ids.update(ref_read_ids)
 
-            pod5_read_ids = set(sample.read_ids)
+            pod5_read_ids = set(sample._read_ids)
             overlap = pod5_read_ids & bam_read_ids
 
             if len(overlap) == 0:
@@ -625,13 +653,13 @@ class SquiggySession:
             finally:
                 fasta.close()
 
-            sample.fasta_path = abs_fasta_path
-            sample.fasta_info = fasta_info
+            sample._fasta_path = abs_fasta_path
+            sample._fasta_info = fasta_info
 
             # Validate that FASTA and BAM have matching references (if BAM is loaded)
-            if sample.bam_info:
+            if sample._bam_info:
                 # Extract reference names from BAM metadata (stored as list of dicts)
-                bam_refs = {ref["name"] for ref in sample.bam_info["references"]}
+                bam_refs = {ref["name"] for ref in sample._bam_info["references"]}
                 fasta_refs = set(references)
                 overlap_refs = bam_refs & fasta_refs
 
@@ -659,8 +687,8 @@ class SquiggySession:
             Sample object or None if not found
 
         Examples:
-            >>> session = SquiggySession()
-            >>> sample = session.get_sample('model_v4.2')
+            >>> sk = SquiggyKernel()
+            >>> sample = sk.get_sample('model_v4.2')
         """
         sample = self.samples.get(name)
         return sample
@@ -673,8 +701,8 @@ class SquiggySession:
             List of sample names in order they were loaded
 
         Examples:
-            >>> session = SquiggySession()
-            >>> names = session.list_samples()
+            >>> sk = SquiggyKernel()
+            >>> names = sk.list_samples()
             >>> print(f"Loaded samples: {names}")
         """
         return list(self.samples.keys())
@@ -687,8 +715,8 @@ class SquiggySession:
             name: Sample name to remove
 
         Examples:
-            >>> session = SquiggySession()
-            >>> session.remove_sample('model_v4.2')
+            >>> sk = SquiggyKernel()
+            >>> sk.remove_sample('model_v4.2')
         """
         if name in self.samples:
             self.samples[name].close()
@@ -698,23 +726,23 @@ class SquiggySession:
 
     def close_pod5(self):
         """Close POD5 reader and clear POD5 state (backward compat mode)"""
-        if self.reader is not None:
-            self.reader.close()
-            self.reader = None
-        self.pod5_path = None
-        self.read_ids = []
-        self.pod5_index = None  # Clear index
+        if self._reader is not None:
+            self._reader.close()
+            self._reader = None
+        self._pod5_path = None
+        self._read_ids = []
+        self._pod5_index = None  # Clear index
 
     def close_bam(self):
         """Clear BAM state (backward compat mode)"""
-        self.bam_path = None
-        self.bam_info = None
-        self.ref_mapping = None
+        self._bam_path = None
+        self._bam_info = None
+        self._ref_mapping = None
 
     def close_fasta(self):
         """Clear FASTA state (backward compat mode)"""
-        self.fasta_path = None
-        self.fasta_info = None
+        self._fasta_path = None
+        self._fasta_info = None
 
     def close_all(self):
         """Close all resources and clear all state"""
@@ -729,15 +757,15 @@ class SquiggySession:
         self.close_fasta()
 
 
-# Global session instance (single source of truth for kernel state)
-_squiggy_session = SquiggySession()
+# Global kernel state instance (single source of truth for kernel state)
+squiggy_kernel = SquiggyKernel()
 
 
 def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) -> None:
     """
     Load a POD5 file into the global kernel session (OPTIMIZED)
 
-    This function mutates the global _squiggy_session object, making
+    This function mutates the global squiggy_kernel object, making
     POD5 data available for subsequent plotting and analysis calls.
 
     Performance optimizations:
@@ -751,15 +779,15 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
         use_cache: Whether to use persistent cache (default: True)
 
     Returns:
-        None (mutates global _squiggy_session)
+        None (mutates global squiggy_kernel)
 
     Examples:
         >>> from squiggy import load_pod5
-        >>> from squiggy.io import _squiggy_session
+        >>> from squiggy.io import squiggy_kernel
         >>> load_pod5('data.pod5')
-        >>> print(f"Loaded {len(_squiggy_session.read_ids)} reads")
-        >>> # Session is available as _squiggy_session in kernel
-        >>> first_read = next(_squiggy_session.reader.reads())
+        >>> print(f"Loaded {len(squiggy_kernel._read_ids)} reads")
+        >>> # Session is available as squiggy_kernel in kernel
+        >>> first_read = next(squiggy_kernel._reader.reads())
     """
     # Convert to absolute path
     abs_path = Path(file_path).resolve()
@@ -768,7 +796,7 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
         raise FileNotFoundError(f"Failed to open pod5 file at: {abs_path}")
 
     # Close previous reader if exists
-    _squiggy_session.close_pod5()
+    squiggy_kernel.close_pod5()
 
     # Open new reader
     reader = pod5.Reader(str(abs_path))
@@ -778,8 +806,8 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
 
     # Try to load index from cache
     cached_index = None
-    if use_cache and _squiggy_session.cache:
-        cached_index = _squiggy_session.cache.load_pod5_index(abs_path)
+    if use_cache and squiggy_kernel.cache:
+        cached_index = squiggy_kernel.cache.load_pod5_index(abs_path)
 
     # Build or restore index
     if build_index:
@@ -793,17 +821,17 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
             pod5_index.build(reader)
 
             # Save to cache for next time
-            if use_cache and _squiggy_session.cache:
-                _squiggy_session.cache.save_pod5_index(abs_path, pod5_index._index)
+            if use_cache and squiggy_kernel.cache:
+                squiggy_kernel.cache.save_pod5_index(abs_path, pod5_index._index)
 
-        _squiggy_session.pod5_index = pod5_index
+        squiggy_kernel._pod5_index = pod5_index
     else:
-        _squiggy_session.pod5_index = None
+        squiggy_kernel._pod5_index = None
 
     # Store state in session
-    _squiggy_session.reader = reader
-    _squiggy_session.pod5_path = str(abs_path)
-    _squiggy_session.read_ids = lazy_read_list
+    squiggy_kernel._reader = reader
+    squiggy_kernel._pod5_path = str(abs_path)
+    squiggy_kernel._read_ids = lazy_read_list
 
 
 def get_bam_event_alignment_status(file_path: str) -> bool:
@@ -1057,7 +1085,7 @@ def load_bam(
     """
     Load a BAM file into the global kernel session (OPTIMIZED)
 
-    This function mutates the global _squiggy_session object, making
+    This function mutates the global squiggy_kernel object, making
     BAM alignment data available for subsequent plotting and analysis calls.
 
     Performance optimizations:
@@ -1071,16 +1099,16 @@ def load_bam(
         use_cache: Whether to use persistent cache (default: True)
 
     Returns:
-        None (mutates global _squiggy_session)
+        None (mutates global squiggy_kernel)
 
     Examples:
         >>> from squiggy import load_bam
-        >>> from squiggy.io import _squiggy_session
+        >>> from squiggy.io import squiggy_kernel
         >>> load_bam('alignments.bam')
-        >>> print(_squiggy_session.bam_info['references'])
-        >>> if _squiggy_session.bam_info['has_modifications']:
-        ...     print(f"Modifications: {_squiggy_session.bam_info['modification_types']}")
-        >>> if _squiggy_session.bam_info['has_event_alignment']:
+        >>> print(squiggy_kernel._bam_info['references'])
+        >>> if squiggy_kernel._bam_info['has_modifications']:
+        ...     print(f"Modifications: {squiggy_kernel._bam_info['modification_types']}")
+        >>> if squiggy_kernel._bam_info['has_event_alignment']:
         ...     print("Event alignment data available")
     """
     # Convert to absolute path
@@ -1091,16 +1119,16 @@ def load_bam(
 
     # Try cache first for complete metadata (Phase 2 optimization)
     metadata = None
-    if use_cache and _squiggy_session.cache:
-        metadata = _squiggy_session.cache.load_bam_metadata(abs_path)
+    if use_cache and squiggy_kernel.cache:
+        metadata = squiggy_kernel.cache.load_bam_metadata(abs_path)
 
     # If cache miss or disabled, collect fresh metadata (Phase 1 single-pass scan)
     if metadata is None:
         metadata = _collect_bam_metadata_single_pass(abs_path, build_ref_mapping)
 
         # Save to cache for instant future loads (Phase 2)
-        if use_cache and _squiggy_session.cache:
-            _squiggy_session.cache.save_bam_metadata(abs_path, metadata)
+        if use_cache and squiggy_kernel.cache:
+            squiggy_kernel.cache.save_bam_metadata(abs_path, metadata)
 
     # Build metadata dict for session
     bam_info = {
@@ -1117,9 +1145,9 @@ def load_bam(
     ref_mapping = metadata.get("ref_mapping")
 
     # Store state in session
-    _squiggy_session.bam_path = str(abs_path)
-    _squiggy_session.bam_info = bam_info
-    _squiggy_session.ref_mapping = ref_mapping
+    squiggy_kernel._bam_path = str(abs_path)
+    squiggy_kernel._bam_info = bam_info
+    squiggy_kernel._ref_mapping = ref_mapping
 
 
 def get_reads_for_reference_paginated(
@@ -1156,19 +1184,19 @@ def get_reads_for_reference_paginated(
         >>> # Get next 500 reads
         >>> more_reads = get_reads_for_reference_paginated('chr1', offset=500, limit=500)
     """
-    if _squiggy_session.ref_mapping is None:
+    if squiggy_kernel._ref_mapping is None:
         raise RuntimeError(
             "No BAM file loaded. Call load_bam() before accessing reference reads."
         )
 
-    if reference_name not in _squiggy_session.ref_mapping:
-        available_refs = list(_squiggy_session.ref_mapping.keys())
+    if reference_name not in squiggy_kernel._ref_mapping:
+        available_refs = list(squiggy_kernel._ref_mapping.keys())
         raise KeyError(
             f"Reference '{reference_name}' not found. "
             f"Available references: {available_refs[:5]}..."
         )
 
-    all_reads = _squiggy_session.ref_mapping[reference_name]
+    all_reads = squiggy_kernel._ref_mapping[reference_name]
 
     if limit is None:
         return all_reads[offset:]
@@ -1179,7 +1207,7 @@ def load_fasta(file_path: str) -> None:
     """
     Load a FASTA file into the global kernel session
 
-    This function mutates the global _squiggy_session object, making
+    This function mutates the global squiggy_kernel object, making
     FASTA reference sequences available for subsequent motif search and
     analysis calls.
 
@@ -1190,16 +1218,16 @@ def load_fasta(file_path: str) -> None:
         file_path: Path to FASTA file (index will be created if missing)
 
     Returns:
-        None (mutates global _squiggy_session)
+        None (mutates global squiggy_kernel)
 
     Examples:
         >>> from squiggy import load_fasta
-        >>> from squiggy.io import _squiggy_session
+        >>> from squiggy.io import squiggy_kernel
         >>> load_fasta('genome.fa')  # Creates .fai index if needed
-        >>> print(_squiggy_session.fasta_info['references'])
+        >>> print(squiggy_kernel._fasta_info['references'])
         >>> # Use with motif search
         >>> from squiggy.motif import search_motif
-        >>> matches = list(search_motif(_squiggy_session.fasta_path, "DRACH"))
+        >>> matches = list(search_motif(squiggy_kernel._fasta_path, "DRACH"))
     """
     # Convert to absolute path
     abs_path = os.path.abspath(file_path)
@@ -1238,8 +1266,8 @@ def load_fasta(file_path: str) -> None:
         fasta.close()
 
     # Store state in session (no global keyword needed - just mutating object!)
-    _squiggy_session.fasta_path = abs_path
-    _squiggy_session.fasta_info = fasta_info
+    squiggy_kernel._fasta_path = abs_path
+    squiggy_kernel._fasta_info = fasta_info
 
 
 def get_read_to_reference_mapping() -> dict[str, list[str]]:
@@ -1258,14 +1286,14 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
         >>> mapping = get_read_to_reference_mapping()
         >>> print(f"References: {list(mapping.keys())}")
     """
-    if _squiggy_session.bam_path is None:
+    if squiggy_kernel._bam_path is None:
         raise RuntimeError("No BAM file is currently loaded")
 
-    if not os.path.exists(_squiggy_session.bam_path):
-        raise FileNotFoundError(f"BAM file not found: {_squiggy_session.bam_path}")
+    if not os.path.exists(squiggy_kernel._bam_path):
+        raise FileNotFoundError(f"BAM file not found: {squiggy_kernel._bam_path}")
 
     # Open BAM file
-    bam = pysam.AlignmentFile(_squiggy_session.bam_path, "rb", check_sq=False)
+    bam = pysam.AlignmentFile(squiggy_kernel._bam_path, "rb", check_sq=False)
 
     # Map reference to read IDs
     ref_to_reads: dict[str, list[str]] = {}
@@ -1287,7 +1315,7 @@ def get_read_to_reference_mapping() -> dict[str, list[str]]:
         bam.close()
 
     # Store in session (no global keyword needed!)
-    _squiggy_session.ref_mapping = ref_to_reads
+    squiggy_kernel._ref_mapping = ref_to_reads
 
     return ref_to_reads
 
@@ -1300,8 +1328,8 @@ def get_current_files() -> dict[str, str | None]:
         Dict with pod5_path and bam_path (may be None)
     """
     return {
-        "pod5_path": _squiggy_session.pod5_path,
-        "bam_path": _squiggy_session.bam_path,
+        "pod5_path": squiggy_kernel._pod5_path,
+        "bam_path": squiggy_kernel._bam_path,
     }
 
 
@@ -1312,13 +1340,13 @@ def get_read_ids() -> list[str]:
     Returns:
         List of read ID strings (materialized from lazy list if needed)
     """
-    if not _squiggy_session.read_ids:
+    if not squiggy_kernel._read_ids:
         raise ValueError("No POD5 file is currently loaded")
 
     # Convert LazyReadList to list if needed
-    if isinstance(_squiggy_session.read_ids, LazyReadList):
-        return list(_squiggy_session.read_ids)
-    return _squiggy_session.read_ids
+    if isinstance(squiggy_kernel._read_ids, LazyReadList):
+        return list(squiggy_kernel._read_ids)
+    return squiggy_kernel._read_ids
 
 
 def close_pod5():
@@ -1334,7 +1362,7 @@ def close_pod5():
         >>> close_pod5()
     """
     # Clear session (no global keyword needed!)
-    _squiggy_session.close_pod5()
+    squiggy_kernel.close_pod5()
 
 
 def close_bam():
@@ -1352,7 +1380,7 @@ def close_bam():
         >>> close_bam()
     """
     # Clear session (no global keyword needed!)
-    _squiggy_session.close_bam()
+    squiggy_kernel.close_bam()
 
 
 def close_fasta():
@@ -1370,7 +1398,7 @@ def close_fasta():
         >>> close_fasta()
     """
     # Clear session (no global keyword needed!)
-    _squiggy_session.close_fasta()
+    squiggy_kernel.close_fasta()
 
 
 # Public API convenience function for multi-sample loading
@@ -1383,7 +1411,7 @@ def load_sample(
     """
     Load a POD5/BAM/FASTA sample set into the global session
 
-    Convenience function that loads a named sample into the global _squiggy_session.
+    Convenience function that loads a named sample into the global squiggy_kernel.
 
     Args:
         name: Unique identifier for this sample (e.g., 'model_v4.2')
@@ -1397,9 +1425,9 @@ def load_sample(
     Examples:
         >>> from squiggy import load_sample
         >>> sample = load_sample('v4.2', 'data_v4.2.pod5', 'align_v4.2.bam')
-        >>> print(f"Loaded {len(sample.read_ids)} reads")
+        >>> print(f"Loaded {len(sample._read_ids)} reads")
     """
-    return _squiggy_session.load_sample(name, pod5_path, bam_path, fasta_path)
+    return squiggy_kernel.load_sample(name, pod5_path, bam_path, fasta_path)
 
 
 def get_sample(name: str) -> Sample | None:
@@ -1416,7 +1444,7 @@ def get_sample(name: str) -> Sample | None:
         >>> from squiggy import get_sample
         >>> sample = get_sample('model_v4.2')
     """
-    return _squiggy_session.get_sample(name)
+    return squiggy_kernel.get_sample(name)
 
 
 def list_samples() -> list[str]:
@@ -1431,7 +1459,7 @@ def list_samples() -> list[str]:
         >>> names = list_samples()
         >>> print(f"Loaded samples: {names}")
     """
-    return _squiggy_session.list_samples()
+    return squiggy_kernel.list_samples()
 
 
 def remove_sample(name: str) -> None:
@@ -1445,7 +1473,7 @@ def remove_sample(name: str) -> None:
         >>> from squiggy import remove_sample
         >>> remove_sample('model_v4.2')
     """
-    _squiggy_session.remove_sample(name)
+    squiggy_kernel.remove_sample(name)
 
 
 def close_all_samples() -> None:
@@ -1456,7 +1484,7 @@ def close_all_samples() -> None:
         >>> from squiggy import close_all_samples
         >>> close_all_samples()
     """
-    _squiggy_session.close_all()
+    squiggy_kernel.close_all()
 
 
 # Phase 2: Comparison Functions
@@ -1486,19 +1514,19 @@ def get_common_reads(sample_names: list[str]) -> set[str]:
         return set()
 
     # Get first sample
-    first_sample = _squiggy_session.get_sample(sample_names[0])
+    first_sample = squiggy_kernel.get_sample(sample_names[0])
     if first_sample is None:
         raise ValueError(f"Sample '{sample_names[0]}' not found")
 
     # Start with reads from first sample
-    common = set(first_sample.read_ids)
+    common = set(first_sample._read_ids)
 
     # Intersect with remaining samples
     for name in sample_names[1:]:
-        sample = _squiggy_session.get_sample(name)
+        sample = squiggy_kernel.get_sample(name)
         if sample is None:
             raise ValueError(f"Sample '{name}' not found")
-        common &= set(sample.read_ids)
+        common &= set(sample._read_ids)
 
     return common
 
@@ -1526,25 +1554,25 @@ def get_unique_reads(
         >>> unique_a = get_unique_reads('model_v4.2')
         >>> unique_b = get_unique_reads('model_v5.0')
     """
-    sample = _squiggy_session.get_sample(sample_name)
+    sample = squiggy_kernel.get_sample(sample_name)
     if sample is None:
         raise ValueError(f"Sample '{sample_name}' not found")
 
-    sample_reads = set(sample.read_ids)
+    sample_reads = set(sample._read_ids)
 
     # Determine which samples to exclude
     if exclude_samples is None:
         # Exclude all other samples
         exclude_samples = [
-            name for name in _squiggy_session.list_samples() if name != sample_name
+            name for name in squiggy_kernel.list_samples() if name != sample_name
         ]
 
     # Remove reads that appear in any excluded sample
     for exclude_name in exclude_samples:
-        exclude_sample = _squiggy_session.get_sample(exclude_name)
+        exclude_sample = squiggy_kernel.get_sample(exclude_name)
         if exclude_sample is None:
             raise ValueError(f"Sample '{exclude_name}' not found")
-        sample_reads -= set(exclude_sample.read_ids)
+        sample_reads -= set(exclude_sample._read_ids)
 
     return sample_reads
 
@@ -1575,7 +1603,7 @@ def compare_samples(sample_names: list[str]) -> dict:
 
     # Validate samples exist
     for name in sample_names:
-        if _squiggy_session.get_sample(name) is None:
+        if squiggy_kernel.get_sample(name) is None:
             raise ValueError(f"Sample '{name}' not found")
 
     result = {
@@ -1586,22 +1614,22 @@ def compare_samples(sample_names: list[str]) -> dict:
 
     # Add basic info about each sample
     for name in sample_names:
-        sample = _squiggy_session.get_sample(name)
+        sample = squiggy_kernel.get_sample(name)
         result["sample_info"][name] = {
-            "num_reads": len(sample.read_ids),
-            "pod5_path": sample.pod5_path,
-            "bam_path": sample.bam_path,
+            "num_reads": len(sample._read_ids),
+            "pod5_path": sample._pod5_path,
+            "bam_path": sample._bam_path,
         }
 
     # Compare read sets for all pairs
     if len(sample_names) >= 2:
         for i, name_a in enumerate(sample_names):
             for name_b in sample_names[i + 1 :]:
-                sample_a = _squiggy_session.get_sample(name_a)
-                sample_b = _squiggy_session.get_sample(name_b)
+                sample_a = squiggy_kernel.get_sample(name_a)
+                sample_b = squiggy_kernel.get_sample(name_b)
                 pair_key = f"{name_a}_vs_{name_b}"
                 result["read_overlap"][pair_key] = compare_read_sets(
-                    sample_a.read_ids, sample_b.read_ids
+                    sample_a._read_ids, sample_b._read_ids
                 )
 
     # Validate references if BAM files are loaded
@@ -1609,11 +1637,11 @@ def compare_samples(sample_names: list[str]) -> dict:
         bam_pairs = []
         for i, name_a in enumerate(sample_names):
             for name_b in sample_names[i + 1 :]:
-                sample_a = _squiggy_session.get_sample(name_a)
-                sample_b = _squiggy_session.get_sample(name_b)
-                if sample_a.bam_path and sample_b.bam_path:
+                sample_a = squiggy_kernel.get_sample(name_a)
+                sample_b = squiggy_kernel.get_sample(name_b)
+                if sample_a._bam_path and sample_b._bam_path:
                     bam_pairs.append(
-                        (name_a, name_b, sample_a.bam_path, sample_b.bam_path)
+                        (name_a, name_b, sample_a._bam_path, sample_b._bam_path)
                     )
 
         if bam_pairs:

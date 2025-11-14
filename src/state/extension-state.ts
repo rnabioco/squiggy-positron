@@ -208,9 +208,9 @@ export class ExtensionState {
             try {
                 await this._positronClient.executeSilent(`
 import squiggy
-from squiggy.io import _squiggy_session
+from squiggy.io import squiggy_kernel
 # Close all resources via session
-_squiggy_session.close_all()
+squiggy_kernel.close_all()
 # Also call module-level cleanup functions
 squiggy.close_pod5()
 squiggy.close_bam()
@@ -1062,7 +1062,7 @@ squiggy.close_fasta()
             // Build reference count map by getting length for each reference
             for (const ref of references) {
                 const readCount = (await this._squiggyAPI.client.getVariable(
-                    `len(squiggy.io._squiggy_session.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                    `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                 )) as number;
                 referenceToReads[ref] = new Array(readCount); // Placeholder
             }
