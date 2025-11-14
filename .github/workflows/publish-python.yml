@@ -1,4 +1,4 @@
-name: Publish Python Package to TestPyPI
+name: Publish Python Package to PyPI
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-and-publish:
-    name: Build and publish Python package to TestPyPI
+    name: Build and publish Python package to PyPI
     runs-on: ubuntu-latest
 
     steps:
@@ -36,7 +36,5 @@ jobs:
           uv tool run twine check dist/*
           tar -tzf dist/*.tar.gz | head -20
 
-      - name: Publish to TestPyPI
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
