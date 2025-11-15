@@ -126,6 +126,13 @@
         "enablement": "squiggy.packageInstalled"
       },
       {
+        "command": "squiggy.importSamplesFromTSV",
+        "title": "Import Samples from TSV",
+        "category": "Squiggy",
+        "icon": "$(table)",
+        "enablement": "squiggy.packageInstalled"
+      },
+      {
         "command": "squiggy.loadTestMultiReadDataset",
         "title": "Load Test Multi-Read Dataset",
         "category": "Squiggy",
