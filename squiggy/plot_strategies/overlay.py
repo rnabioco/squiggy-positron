@@ -5,6 +5,8 @@ This module implements the Strategy Pattern for overlaying multiple nanopore rea
 on the same axes.
 """
 
+import logging
+
 import numpy as np
 from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
@@ -13,6 +15,9 @@ from bokeh.resources import CDN
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
 from ..rendering import ThemeManager
 from .base import PlotStrategy
+
+# Configure module logger
+logger = logging.getLogger(__name__)
 
 
 class OverlayPlotStrategy(PlotStrategy):
@@ -180,19 +185,18 @@ class OverlayPlotStrategy(PlotStrategy):
                 if not ref_positions:
                     # Skip unmapped/unaligned reads in sequence space mode
                     # This can happen if: read is unmapped, all bases are insertions, or soft-clipped
-                    print(
-                        f"Warning: Skipping read {read_id} - no genomic positions available"
+                    debug_info = (
+                        f"Skipping read {read_id} - no genomic positions available. "
                     )
-                    print(
-                        f"  Read has {len(aligned_read.bases)} bases, chromosome: {aligned_read.chromosome}"
-                    )
+                    debug_info += f"Read has {len(aligned_read.bases)} bases, chromosome: {aligned_read.chromosome}"
                     if aligned_read.bases:
                         first_bases_genomic = [
                             b.genomic_pos for b in aligned_read.bases[:5]
                         ]
-                        print(
-                            f"  First 5 bases genomic positions: {first_bases_genomic}"
+                        debug_info += (
+                            f". First 5 bases genomic positions: {first_bases_genomic}"
                         )
+                    logger.warning(debug_info)
                     skipped_reads.append(read_id)
                     continue
 

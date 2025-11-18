@@ -4,6 +4,7 @@ I/O functions for loading POD5 and BAM files
 These functions are called from the Positron extension via the Jupyter kernel.
 """
 
+import logging
 import os
 from collections import defaultdict
 from collections.abc import Iterator
@@ -11,6 +12,9 @@ from pathlib import Path
 
 import pod5
 import pysam
+
+# Configure module logger
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Performance Optimization Classes
@@ -876,7 +880,7 @@ def get_bam_event_alignment_status(file_path: str) -> bool:
         bam.close()
 
     except Exception as e:
-        print(f"Warning: Error checking BAM event alignment: {e}")
+        logger.warning(f"Error checking BAM event alignment: {e}")
         return False
 
     return False
@@ -944,7 +948,7 @@ def get_bam_modification_info(file_path: str) -> dict:
         bam.close()
 
     except Exception as e:
-        print(f"Warning: Error checking BAM modifications: {e}")
+        logger.warning(f"Error checking BAM modifications: {e}")
         return {
             "has_modifications": False,
             "modification_types": [],

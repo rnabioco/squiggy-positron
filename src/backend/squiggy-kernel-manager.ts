@@ -335,7 +335,6 @@ import os
 squiggy_path = ${JSON.stringify(squiggyPath)}
 if squiggy_path not in sys.path:
     sys.path.insert(0, squiggy_path)
-    print(f"Added {squiggy_path} to sys.path")
 `);
             logger.info(`Added ${squiggyPath} to PYTHONPATH in dedicated kernel`);
         } catch (error) {
