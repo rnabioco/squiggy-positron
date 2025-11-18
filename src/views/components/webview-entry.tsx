@@ -1,13 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 /**
  * Webview Entry Point
  *
- * Initializes the React app for webview panels.
+ * Initializes the React app for webview panels using React 18's createRoot() API.
  * Detects which panel to render based on document title.
  * This file is bundled separately by webpack for the browser environment.
+ *
+ * Pattern follows Positron's positronReactRenderer.tsx for proper React 18 usage.
  */
 
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
+import { ErrorBoundary } from './error-boundary';
 import { ReadsCore } from './squiggy-reads-core';
 import { FilesCore } from './squiggy-files-core';
 import { PlotOptionsCore } from './squiggy-plot-options-core';
@@ -15,51 +23,58 @@ import { ModificationsCore } from './squiggy-modifications-core';
 import { SamplesCore } from './squiggy-samples-core';
 import { SessionCore } from './squiggy-session-core';
 
-// Log to help with debugging
-console.log('Webview entry point loaded');
-console.log('Document title:', document.title);
-console.log('Root element:', document.getElementById('root'));
-
 // Initialize React app when DOM is ready
-const root = document.getElementById('root');
-if (root) {
+const rootElement = document.getElementById('root');
+if (rootElement) {
+    // Create React 18 root (following Positron's pattern)
+    const reactRoot = createRoot(rootElement);
+
     // Detect which panel to render based on document title
     const title = document.title;
-    console.log('Checking title:', title);
 
+    // Render the appropriate component wrapped in ErrorBoundary
     if (title.includes('Session Manager') || title.includes('Session')) {
-        console.log('✓ Rendering SessionCore component');
-        ReactDOM.render(<SessionCore />, root);
+        reactRoot.render(
+            <ErrorBoundary>
+                <SessionCore />
+            </ErrorBoundary>
+        );
     } else if (title.includes('File Explorer') || title.includes('Files')) {
-        console.log('✓ Rendering FilesCore component');
-        ReactDOM.render(<FilesCore />, root);
+        reactRoot.render(
+            <ErrorBoundary>
+                <FilesCore />
+            </ErrorBoundary>
+        );
     } else if (title.includes('Reads')) {
-        console.log('✓ Rendering ReadsCore component');
-        ReactDOM.render(<ReadsCore />, root);
+        reactRoot.render(
+            <ErrorBoundary>
+                <ReadsCore />
+            </ErrorBoundary>
+        );
     } else if (title.includes('Plotting')) {
-        console.log('✓ Rendering PlotOptionsCore component');
-        ReactDOM.render(<PlotOptionsCore />, root);
+        reactRoot.render(
+            <ErrorBoundary>
+                <PlotOptionsCore />
+            </ErrorBoundary>
+        );
     } else if (title.includes('Modifications')) {
-        console.log('✓ Rendering ModificationsCore component');
-        try {
-            ReactDOM.render(<ModificationsCore />, root);
-            console.log('✓ ModificationsCore rendered successfully');
-        } catch (error) {
-            console.error('✗ Error rendering ModificationsCore:', error);
-        }
+        reactRoot.render(
+            <ErrorBoundary>
+                <ModificationsCore />
+            </ErrorBoundary>
+        );
     } else if (title.includes('Sample')) {
-        console.log('✓ Rendering SamplesCore component');
-        try {
-            ReactDOM.render(<SamplesCore />, root);
-            console.log('✓ SamplesCore rendered successfully');
-        } catch (error) {
-            console.error('✗ Error rendering SamplesCore:', error);
-        }
+        reactRoot.render(
+            <ErrorBoundary>
+                <SamplesCore />
+            </ErrorBoundary>
+        );
     } else {
         // Default to reads panel for backward compatibility
-        console.log('⚠ No match found, rendering ReadsCore component (default)');
-        ReactDOM.render(<ReadsCore />, root);
+        reactRoot.render(
+            <ErrorBoundary>
+                <ReadsCore />
+            </ErrorBoundary>
+        );
     }
-} else {
-    console.error('✗ Root element not found!');
 }
