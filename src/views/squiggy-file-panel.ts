@@ -18,7 +18,6 @@ export class FilePanelProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyFilePanel';
 
     private _files: FileItem[] = [];
-    private _disposables: vscode.Disposable[] = [];
 
     /**
      * Constructor with optional ExtensionState for unified state subscription
@@ -280,11 +279,8 @@ export class FilePanelProvider extends BaseWebviewProvider {
      * Dispose method to clean up subscriptions
      * Called when the provider is no longer needed
      */
-    public dispose(): void {
-        // Clean up event subscriptions
-        for (const disposable of this._disposables) {
-            disposable.dispose();
-        }
-        this._disposables = [];
+    public override dispose(): void {
+        // Call base class dispose to clean up all disposables
+        super.dispose();
     }
 }
