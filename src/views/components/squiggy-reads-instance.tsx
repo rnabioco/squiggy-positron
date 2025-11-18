@@ -7,11 +7,7 @@
 
 import * as React from 'react';
 import { FixedSizeList as List } from 'react-window';
-import {
-    ReadsInstanceProps,
-    CONSTANTS,
-    ReferenceGroupItem,
-} from '../../types/squiggy-reads-types';
+import { ReadsInstanceProps, CONSTANTS, ReferenceGroupItem } from '../../types/squiggy-reads-types';
 import { ReadItemComponent } from './squiggy-read-item';
 import { ReferenceGroupComponent } from './squiggy-reference-group';
 import { ColumnResizer } from './column-resizer';
@@ -232,41 +228,39 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     }, [localFocusedIndex, items, onPlotRead, onToggleReference]);
 
     // Row renderer for react-window (memoized for performance)
-    const Row = React.memo(
-        ({ index, style }: { index: number; style: React.CSSProperties }) => {
-            const item = items[index];
-            const isFocused = index === localFocusedIndex;
+    const Row = React.memo(({ index, style }: { index: number; style: React.CSSProperties }) => {
+        const item = items[index];
+        const isFocused = index === localFocusedIndex;
 
-            if (item.type === 'reference') {
-                return (
-                    <div style={style}>
-                        <ReferenceGroupComponent
-                            item={item}
-                            isEvenRow={index % 2 === 0}
-                            nameColumnWidth={nameColumnWidth}
-                            detailsColumnWidth={detailsColumnWidth}
-                            onToggle={onToggleReference}
-                        />
-                    </div>
-                );
-            } else {
-                return (
-                    <div style={style}>
-                        <ReadItemComponent
-                            item={item}
-                            isSelected={selectedReadIds.has(item.readId)}
-                            isFocused={isFocused}
-                            isEvenRow={index % 2 === 0}
-                            nameColumnWidth={nameColumnWidth}
-                            detailsColumnWidth={detailsColumnWidth}
-                            onPlotRead={onPlotRead}
-                            onClick={onSelectRead}
-                        />
-                    </div>
-                );
-            }
+        if (item.type === 'reference') {
+            return (
+                <div style={style}>
+                    <ReferenceGroupComponent
+                        item={item}
+                        isEvenRow={index % 2 === 0}
+                        nameColumnWidth={nameColumnWidth}
+                        detailsColumnWidth={detailsColumnWidth}
+                        onToggle={onToggleReference}
+                    />
+                </div>
+            );
+        } else {
+            return (
+                <div style={style}>
+                    <ReadItemComponent
+                        item={item}
+                        isSelected={selectedReadIds.has(item.readId)}
+                        isFocused={isFocused}
+                        isEvenRow={index % 2 === 0}
+                        nameColumnWidth={nameColumnWidth}
+                        detailsColumnWidth={detailsColumnWidth}
+                        onPlotRead={onPlotRead}
+                        onClick={onSelectRead}
+                    />
+                </div>
+            );
         }
-    );
+    });
 
     return (
         <div className="reads-instance-container" ref={containerRef}>
