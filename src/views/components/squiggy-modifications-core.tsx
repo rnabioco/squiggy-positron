@@ -196,6 +196,11 @@ export const ModificationsCore: React.FC = () => {
                         step="0.05"
                         value={state.minProbability}
                         onChange={handleProbabilityChange}
+                        aria-label="Minimum basecaller probability threshold"
+                        aria-valuetext={`${state.minProbability.toFixed(2)} probability`}
+                        aria-valuenow={state.minProbability}
+                        aria-valuemin={0}
+                        aria-valuemax={1}
                         style={{ width: '100%', marginBottom: '4px' }}
                     />
                     <div
