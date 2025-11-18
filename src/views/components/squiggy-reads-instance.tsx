@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { FixedSizeList as List } from 'react-window';
-import { ReadsInstanceProps, CONSTANTS } from '../../types/squiggy-reads-types';
+import { ReadsInstanceProps, CONSTANTS, ReferenceGroupItem } from '../../types/squiggy-reads-types';
 import { ReadItemComponent } from './squiggy-read-item';
 import { ReferenceGroupComponent } from './squiggy-reference-group';
 import { ColumnResizer } from './column-resizer';
@@ -55,9 +55,12 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
 
         // Look backwards from the first visible item to find the owning reference
         for (let i = firstVisibleIndex; i >= 0; i--) {
-            if (items[i]?.type === 'reference') {
+            const item = items[i];
+            if (item?.type === 'reference') {
+                // Type guard: ensure it's a ReferenceGroupItem
+                const refItem = item as ReferenceGroupItem;
                 // Check if this reference is expanded
-                if ((items[i] as any).isExpanded) {
+                if (refItem.isExpanded) {
                     // Check if we're scrolled past this reference header
                     const referenceTop = i * CONSTANTS.ROW_HEIGHT;
                     if (scrollOffset > referenceTop) {
@@ -124,10 +127,16 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     // Items change triggers automatic re-render (no manual reset needed for FixedSizeList)
     // resetAfterIndex is only for VariableSizeList
 
-    // Handle column resizing
+    // Handle column resizing with MIN/MAX boundaries
     const handleColumnResize = (deltaX: number) => {
-        const newNameWidth = Math.max(CONSTANTS.MIN_COLUMN_WIDTH, nameColumnWidth + deltaX);
-        const newDetailsWidth = Math.max(CONSTANTS.MIN_COLUMN_WIDTH, detailsColumnWidth - deltaX);
+        const newNameWidth = Math.min(
+            CONSTANTS.MAX_COLUMN_WIDTH,
+            Math.max(CONSTANTS.MIN_COLUMN_WIDTH, nameColumnWidth + deltaX)
+        );
+        const newDetailsWidth = Math.min(
+            CONSTANTS.MAX_COLUMN_WIDTH,
+            Math.max(CONSTANTS.MIN_COLUMN_WIDTH, detailsColumnWidth - deltaX)
+        );
         onUpdateColumnWidths(newNameWidth, newDetailsWidth);
     };
 
@@ -218,8 +227,8 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [localFocusedIndex, items, onPlotRead, onToggleReference]);
 
-    // Row renderer for react-window
-    const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    // Row renderer for react-window (memoized for performance)
+    const Row = React.memo(({ index, style }: { index: number; style: React.CSSProperties }) => {
         const item = items[index];
         const isFocused = index === localFocusedIndex;
 
@@ -251,7 +260,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                 </div>
             );
         }
-    };
+    });
 
     return (
         <div className="reads-instance-container" ref={containerRef}>
@@ -298,7 +307,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                         items[stickyHeaderIndex]?.type === 'reference' && (
                             <div className="reference-group-sticky-overlay">
                                 <ReferenceGroupComponent
-                                    item={items[stickyHeaderIndex] as any}
+                                    item={items[stickyHeaderIndex] as ReferenceGroupItem}
                                     isEvenRow={stickyHeaderIndex % 2 === 0}
                                     nameColumnWidth={nameColumnWidth}
                                     detailsColumnWidth={detailsColumnWidth}

@@ -147,6 +147,7 @@ export const CONSTANTS = {
     DEFAULT_NAME_WIDTH: 300, // px
     DEFAULT_DETAILS_WIDTH: 200, // px
     MIN_COLUMN_WIDTH: 100, // px
+    MAX_COLUMN_WIDTH: 800, // px
     ACTIONS_COLUMN_WIDTH: 80, // px (fixed)
 
     // Lazy loading

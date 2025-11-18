@@ -32,8 +32,8 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _state: ExtensionState;
 
     private _plotType: PlotType = 'AGGREGATE';
-    private _plotMode: string = 'SINGLE';
-    private _normalization: string = 'ZNORM';
+    private _plotMode: 'SINGLE' | 'EVENTALIGN' = 'SINGLE';
+    private _normalization: 'ZNORM' | 'MAD' | 'MEDIAN' | 'NONE' = 'ZNORM';
     private _showDwellTime: boolean = false;
     private _showBaseAnnotations: boolean = true;
     private _scaleDwellTime: boolean = false;
@@ -250,6 +250,11 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         }
 
         if (message.type === 'generateSignalDelta') {
+            // Validate that exactly 2 samples are provided for signal delta
+            if (!Array.isArray(message.sampleNames) || message.sampleNames.length !== 2) {
+                logger.error('[PlotOptions] Signal delta requires exactly 2 samples');
+                return;
+            }
             this._onDidRequestSignalDelta.fire({
                 sampleNames: message.sampleNames as [string, string],
                 reference: message.reference,
@@ -312,8 +317,8 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             type: 'updatePlotOptions',
             options: {
                 plotType: this._plotType,
-                mode: this._plotMode as any,
-                normalization: this._normalization as any,
+                mode: this._plotMode,
+                normalization: this._normalization,
                 showDwellTime: this._showDwellTime,
                 showBaseAnnotations: this._showBaseAnnotations,
                 scaleDwellTime: this._scaleDwellTime,
