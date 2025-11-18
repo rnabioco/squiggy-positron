@@ -25,7 +25,6 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
     private _state: ExtensionState;
     private _samples: SampleItem[] = [];
-    private _disposables: vscode.Disposable[] = [];
 
     // Event emitter for sample unload requests
     private _onDidRequestUnload = new vscode.EventEmitter<string>();
@@ -95,12 +94,12 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     /**
      * Dispose method to clean up subscriptions
      */
-    public dispose(): void {
-        // Clean up event subscriptions
-        for (const disposable of this._disposables) {
-            disposable.dispose();
-        }
-        this._disposables = [];
+    public override dispose(): void {
+        // Dispose EventEmitter
+        this._onDidRequestUnload.dispose();
+
+        // Call base class dispose to clean up all other disposables
+        super.dispose();
     }
 
     protected getTitle(): string {

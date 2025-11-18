@@ -30,7 +30,6 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyPlotOptions';
 
     private _state: ExtensionState;
-    private _disposables: vscode.Disposable[] = [];
 
     private _plotType: PlotType = 'AGGREGATE';
     private _plotMode: string = 'SINGLE';
@@ -87,13 +86,20 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     }
 
     /**
-     * Dispose method to clean up subscriptions
+     * Dispose method to clean up subscriptions and event emitters
      */
-    public dispose(): void {
-        for (const disposable of this._disposables) {
-            disposable.dispose();
-        }
-        this._disposables = [];
+    public override dispose(): void {
+        // Dispose all EventEmitters
+        this._onDidChangeOptions.dispose();
+        this._onDidRequestAggregatePlot.dispose();
+        this._onDidRequestSignalOverlay.dispose();
+        this._onDidRequestSignalDelta.dispose();
+        this._onDidRequestAggregateComparison.dispose();
+        this._onDidRequestMultiReadOverlay.dispose();
+        this._onDidRequestMultiReadStacked.dispose();
+
+        // Call base class dispose to clean up all other disposables
+        super.dispose();
     }
 
     // Event emitter for when options change that should trigger refresh

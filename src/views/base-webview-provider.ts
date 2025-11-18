@@ -17,8 +17,9 @@ import { logger } from '../utils/logger';
  * Handles common setup: HTML generation, options, visibility, and message routing.
  * Subclasses implement abstract methods for message handling and view updates.
  */
-export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider {
+export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     protected _view?: vscode.WebviewView;
+    protected _disposables: vscode.Disposable[] = [];
 
     constructor(protected readonly extensionUri: vscode.Uri) {}
 
@@ -63,26 +64,32 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
         );
 
         // Handle visibility changes - restore state when view becomes visible
-        webviewView.onDidChangeVisibility(() => {
-            if (webviewView.visible) {
-                try {
-                    this.updateView();
-                } catch (error) {
-                    const err = error instanceof Error ? error : new Error(String(error));
-                    this.handleUpdateError(err);
+        // Store disposable for cleanup
+        this._disposables.push(
+            webviewView.onDidChangeVisibility(() => {
+                if (webviewView.visible) {
+                    try {
+                        this.updateView();
+                    } catch (error) {
+                        const err = error instanceof Error ? error : new Error(String(error));
+                        this.handleUpdateError(err);
+                    }
                 }
-            }
-        });
+            })
+        );
 
         // Handle messages from the webview
-        webviewView.webview.onDidReceiveMessage(async (message: IncomingWebviewMessage) => {
-            try {
-                await this.handleMessage(message);
-            } catch (error) {
-                const err = error instanceof Error ? error : new Error(String(error));
-                this.handleMessageError(err, message);
-            }
-        });
+        // Store disposable for cleanup
+        this._disposables.push(
+            webviewView.webview.onDidReceiveMessage(async (message: IncomingWebviewMessage) => {
+                try {
+                    await this.handleMessage(message);
+                } catch (error) {
+                    const err = error instanceof Error ? error : new Error(String(error));
+                    this.handleMessageError(err, message);
+                }
+            })
+        );
     }
 
     /**
@@ -188,5 +195,20 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider 
             this.sendErrorToWebview(err, errorContext);
             return undefined;
         }
+    }
+
+    /**
+     * Dispose of event listeners and resources
+     * Called when the provider is no longer needed
+     */
+    public dispose(): void {
+        // Dispose all event listeners
+        for (const disposable of this._disposables) {
+            disposable.dispose();
+        }
+        this._disposables = [];
+
+        // Clear view reference
+        this._view = undefined;
     }
 }
