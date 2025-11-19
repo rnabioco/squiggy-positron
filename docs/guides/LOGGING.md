@@ -153,5 +153,5 @@ try {
 
 ## See Also
 
-- [Developer Guide](DEVELOPER.md) - Extension architecture
-- [User Guide](USER_GUIDE.md) - Using Squiggy
+- [Developer Guide](../developer.md) - Extension architecture
+- [User Guide](../user_guide.md) - Using Squiggy

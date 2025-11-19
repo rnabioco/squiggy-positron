@@ -677,7 +677,7 @@ When reporting issues:
    - File sizes and types (POD5, BAM, FASTA)
    - Python version and OS
 
-For more details on the logging architecture, see the [Logging Guide](LOGGING.md).
+For more details on the logging architecture, see the [Logging Guide](guides/LOGGING.md).
 
 ## Getting Help
 
