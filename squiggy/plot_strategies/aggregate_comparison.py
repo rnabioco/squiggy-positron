@@ -560,6 +560,9 @@ class AggregateComparisonStrategy(PlotStrategy):
             toolbar_location="right",
         )
 
+        # Apply theme background to gridplot container
+        grid.styles = {"background-color": self.theme_manager.get_color("plot_bg")}
+
         # Generate HTML
         html = file_html(grid, CDN, title=f"Aggregate Comparison - {reference_name}")
 

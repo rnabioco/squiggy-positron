@@ -294,6 +294,9 @@ class AggregatePlotStrategy(PlotStrategy):
             toolbar_location="right",
         )
 
+        # Apply theme background to gridplot container
+        grid.styles = {"background-color": self.theme_manager.get_color("plot_bg")}
+
         # Generate HTML
         html_title = f"Squiggy Aggregate: {reference_name} ({num_reads} reads)"
         html = file_html(grid, CDN, title=html_title)
