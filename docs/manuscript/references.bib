@@ -1,0 +1,195 @@
+@ARTICLE{Samarakoon2024-ic,
+  title        = {Interactive visualization of nanopore sequencing signal data
+                  with Squigualiser},
+  author       = {Samarakoon, Hiruna and Liyanage, Kisaru and Ferguson, James M
+                  and Parameswaran, Sri and Gamaarachchi, Hasindu and Deveson,
+                  Ira W},
+  journaltitle = {Bioinformatics},
+  publisher    = {Oxford University Press (OUP)},
+  volume       = {40},
+  issue        = {8},
+  date         = {2024-08-02},
+  doi          = {10.1093/bioinformatics/btae501},
+  pmc          = {PMC11335371},
+  pmid         = {39137136},
+  issn         = {1367-4803,1367-4811},
+  abstract     = {MOTIVATION: Nanopore sequencing current signal data can be
+                  'basecalled' into sequence information or analysed directly,
+                  with the capacity to identify diverse molecular features, such
+                  as DNA/RNA base modifications and secondary structures.
+                  However, raw signal data is large and complex, and there is a
+                  need for improved visualization strategies to facilitate
+                  signal analysis, exploration and tool development. RESULTS:
+                  Squigualiser (Squiggle visualiser) is a toolkit for intuitive,
+                  interactive visualization of sequence-aligned signal data,
+                  which currently supports both DNA and RNA sequencing data from
+                  Oxford Nanopore Technologies instruments. Squigualiser is
+                  compatible with a wide range of alternative signal-alignment
+                  software packages and enables visualization of both
+                  signal-to-read and signal-to-reference aligned data at
+                  single-base resolution. Squigualiser generates an interactive
+                  signal browser view (HTML file), in which the user can
+                  navigate across a genome/transcriptome region and customize
+                  the display. Multiple independent reads are integrated into a
+                  'signal pileup' format and different datasets can be displayed
+                  as parallel tracks. Although other methods exist, Squigualiser
+                  provides the community with a software package purpose-built
+                  for raw signal data visualization, incorporating a range of
+                  new and existing features into a unified platform.
+                  AVAILABILITY AND IMPLEMENTATION: Squigualiser is an
+                  open-source package under an MIT licence:
+                  https://github.com/hiruna72/squigualiser. The software was
+                  developed using Python 3.8 and can be installed with pip or
+                  bioconda or executed directly using prebuilt binaries provided
+                  with each release.},
+  language     = {en}
+}
+
+@ARTICLE{Dietrich2024-uw,
+  title        = {{Pod5Viewer}: a {GUI} for inspecting raw nanopore sequencing
+                  data},
+  author       = {Dietrich, Vincent and Alagna, Nicolò and Helm, Mark and
+                  Gerber, Susanne and Butto, Tamer},
+  journaltitle = {Bioinformatics},
+  publisher    = {Oxford University Press (OUP)},
+  volume       = {40},
+  issue        = {12},
+  date         = {2024-11-28},
+  doi          = {10.1093/bioinformatics/btae665},
+  pmc          = {PMC11630908},
+  pmid         = {39657315},
+  issn         = {1367-4803,1367-4811},
+  abstract     = {MOTIVATION: Oxford Nanopore Technologies recently adopted the
+                  POD5 file format for storing raw nanopore sequencing data. The
+                  information stored in these files provides detailed insights
+                  into the sequencing features and enhances the understanding of
+                  raw nanopore data. However, the process of visualizing the
+                  data can be cumbersome, especially for users without
+                  programming skills. To address this issue, we developed the
+                  pod5Viewer, a GUI application for inspecting POD5 files.
+                  RESULTS: The pod5Viewer offers straightforward access to raw
+                  sequencing data and associated metadata in POD5 files. It
+                  includes functionalities for viewing, plotting, and exporting
+                  individual reads. Designed with user-friendliness in mind, the
+                  pod5Viewer is easy to install and use, making it suitable for
+                  users with all technical backgrounds. AVAILABILITY AND
+                  IMPLEMENTATION: The pod5Viewer is available as open source
+                  from the pod5Viewer Github repository
+                  (https://github.com/dietvin/pod5Viewer).},
+  language     = {en}
+}
+
+@MISC{ONT2023-pod5,
+  title        = {{POD5} File Format},
+  author       = {{Oxford Nanopore Technologies}},
+  year         = {2023},
+  howpublished = {\url{https://github.com/nanoporetech/pod5-file-format}},
+  note         = {Accessed: 2025-01-15}
+}
+
+@ARTICLE{Stoiber2016-tombo,
+  title        = {De novo identification of {DNA} modifications enabled by
+                  genome-guided nanopore signal processing},
+  author       = {Stoiber, Marcus and Quick, Joshua and Egan, Rob and Lee, Jin Eun
+                  and Celniker, Susan and Neely, Robert and Loman, Nick and
+                  Pennacchio, Len A and Brown, James},
+  journaltitle = {bioRxiv},
+  year         = {2016},
+  doi          = {10.1101/094672}
+}
+
+@ARTICLE{Li2018-minimap2,
+  title        = {Minimap2: pairwise alignment for nucleotide sequences},
+  author       = {Li, Heng},
+  journaltitle = {Bioinformatics},
+  volume       = {34},
+  issue        = {18},
+  pages        = {3094--3100},
+  year         = {2018},
+  doi          = {10.1093/bioinformatics/bty191}
+}
+
+@MISC{ONT2023-dorado,
+  title        = {Dorado: Oxford Nanopore's production basecaller},
+  author       = {{ONT Research Team}},
+  year         = {2023},
+  howpublished = {\url{https://github.com/nanoporetech/dorado}},
+  note         = {Accessed: 2025-01-15}
+}
+
+@ARTICLE{Simpson2017-methylation,
+  title        = {Detecting {DNA} cytosine methylation using nanopore sequencing},
+  author       = {Simpson, Jared T and Workman, Rachael E and Zuzarte, P C and
+                  David, Matei and Dursi, L J and Timp, Winston},
+  journaltitle = {Nature Methods},
+  volume       = {14},
+  issue        = {4},
+  pages        = {407--410},
+  year         = {2017},
+  doi          = {10.1038/nmeth.4184}
+}
+
+@MISC{Bokeh2024,
+  title        = {Bokeh: Python library for interactive visualization},
+  author       = {{Bokeh Development Team}},
+  year         = {2024},
+  howpublished = {\url{https://bokeh.org}},
+  note         = {Accessed: 2025-01-15}
+}
+
+@MISC{Positron2024,
+  title        = {Positron: A next-generation data science {IDE}},
+  author       = {{Posit Team}},
+  year         = {2024},
+  howpublished = {\url{https://github.com/posit-dev/positron}},
+  note         = {Accessed: 2025-01-15}
+}
+
+@ARTICLE{Watson2015-pore,
+  title        = {{poRe}: an {R} package for the visualization and analysis of
+                  nanopore sequencing data},
+  author       = {Watson, Mick and Thomson, Matt and Risse, Javier and Talbot,
+                  Richard and Santoyo-Lopez, Jaime and Gharbi, Karim and Blaxter,
+                  Mark},
+  journaltitle = {Bioinformatics},
+  volume       = {31},
+  issue        = {1},
+  pages        = {114--115},
+  year         = {2015},
+  doi          = {10.1093/bioinformatics/btu590}
+}
+
+@ARTICLE{Jain2016-minion,
+  title        = {The {Oxford} {Nanopore} {MinION}: delivery of nanopore
+                  sequencing to the genomics community},
+  author       = {Jain, Miten and Olsen, Hugh E and Paten, Benedict and Akeson,
+                  Mark},
+  journaltitle = {Genome Biology},
+  volume       = {17},
+  issue        = {1},
+  pages        = {239},
+  year         = {2016},
+  doi          = {10.1186/s13059-016-1103-0}
+}
+
+@ARTICLE{Rang2018-accuracy,
+  title        = {From squiggle to basepair: computational approaches for
+                  improving nanopore sequencing read accuracy},
+  author       = {Rang, Frits J and Kloosterman, Wigard P and de Ridder, Jeroen},
+  journaltitle = {Genome Biology},
+  volume       = {19},
+  issue        = {1},
+  pages        = {90},
+  year         = {2018},
+  doi          = {10.1186/s13059-018-1462-9}
+}
+
+@MISC{Remora2023,
+  title        = {Remora: Modified base calling for {Oxford} {Nanopore}
+                  sequencing},
+  author       = {{Nanopore Technologies Research Team}},
+  year         = {2023},
+  howpublished = {\url{https://github.com/nanoporetech/remora}},
+  note         = {Accessed: 2025-01-15}
+}
+
