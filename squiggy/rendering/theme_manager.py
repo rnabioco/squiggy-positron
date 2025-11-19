@@ -196,12 +196,10 @@ class ThemeManager:
         fig.xgrid.grid_line_color = None  # Keep vertical grid lines off
         fig.ygrid.grid_line_color = self.colors["grid_line"]
 
-        # Add x-only wheel zoom (if not already present)
-        has_wheel_zoom = any(isinstance(tool, WheelZoomTool) for tool in fig.tools)
-        if not has_wheel_zoom:
-            wheel_zoom = WheelZoomTool(dimensions="width")
-            fig.add_tools(wheel_zoom)
-            fig.toolbar.active_scroll = wheel_zoom
+        # Configure wheel zoom to only zoom x-axis (width)
+        for tool in fig.tools:
+            if isinstance(tool, WheelZoomTool):
+                tool.dimensions = "width"
 
     def configure_legend(self, fig) -> None:
         """
