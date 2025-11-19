@@ -1,34 +1,43 @@
-graph TB
-    subgraph "TypeScript Extension"
-        UI[User Interface Panels<br/>React 18 Components]
-        CMD[Command Handlers]
-        EXT[Extension API Integration]
-    end
-
-    subgraph "Positron IDE"
+%%{init: {'theme':'neutral'}}%%
+flowchart TD
+    subgraph IDE["Positron IDE"]
         RUNTIME[Runtime API<br/>executeCode / getVariable]
         KERNEL[Active Python Kernel]
+        RUNTIME <--> KERNEL
     end
 
-    subgraph "Python Backend"
-        IO[File I/O<br/>POD5 / BAM / FASTA]
-        PROCESS[Signal Processing<br/>Normalization / Alignment]
-        FACTORY[Plot Factory<br/>Strategy Pattern]
-        BOKEH[Bokeh Visualization<br/>HTML Generation]
+    IDE --> BRIDGE_PY & BRIDGE_TS
+
+    subgraph LOWER[" "]
+        direction LR
+
+        subgraph PY["Python Backend"]
+            BRIDGE_PY[" "]
+            IO[File I/O<br/>POD5 / BAM / FASTA]
+            PROCESS[Signal Processing<br/>Normalization / Alignment]
+            FACTORY[Plot Factory<br/>Strategy Pattern]
+            BOKEH[Bokeh Visualization<br/>HTML Generation]
+            BRIDGE_PY --> IO
+            IO --> PROCESS
+            PROCESS --> FACTORY
+            FACTORY --> BOKEH
+        end
+
+        subgraph TS["TypeScript Extension"]
+            BRIDGE_TS[" "]
+            EXT[Extension API Integration]
+            UI[User Interface Panels<br/>React 18 Components]
+            CMD[Command Handlers]
+            BRIDGE_TS --> EXT
+            UI --> CMD
+            CMD --> EXT
+        end
     end
 
-    UI --> CMD
-    CMD --> EXT
-    EXT --> RUNTIME
-    RUNTIME <--> KERNEL
-    KERNEL <--> IO
-    IO --> PROCESS
-    PROCESS --> FACTORY
-    FACTORY --> BOKEH
+    KERNEL -.-> IO
     BOKEH -.->|HTML| EXT
     EXT -.->|Display| UI
 
-    style UI fill:#e1f5ff
-    style KERNEL fill:#fff4e1
-    style BOKEH fill:#e8f5e9
-    style RUNTIME fill:#f3e5f5
+    style LOWER fill:none,stroke:none
+    style BRIDGE_PY fill:none,stroke:none
+    style BRIDGE_TS fill:none,stroke:none
