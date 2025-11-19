@@ -331,10 +331,11 @@ if '${tempVar}' in globals():
 import sys
 import os
 
-# Add extension path to sys.path if not already present
-squiggy_path = ${JSON.stringify(squiggyPath)}
-if squiggy_path not in sys.path:
-    sys.path.insert(0, squiggy_path)
+# Add extension path to sys.path if not already present (temporary variable)
+_squiggy_temp_path = ${JSON.stringify(squiggyPath)}
+if _squiggy_temp_path not in sys.path:
+    sys.path.insert(0, _squiggy_temp_path)
+del _squiggy_temp_path
 `);
             logger.info(`Added ${squiggyPath} to PYTHONPATH in dedicated kernel`);
         } catch (error) {
