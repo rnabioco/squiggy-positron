@@ -462,6 +462,8 @@ def plot_aggregate(
     theme: str = "LIGHT",
     show_modifications: bool = True,
     mod_filter: dict | None = None,
+    min_mod_frequency: float = 0.0,
+    min_modified_reads: int = 1,
     show_pileup: bool = True,
     show_dwell_time: bool = True,
     show_signal: bool = True,
@@ -488,6 +490,10 @@ def plot_aggregate(
         show_modifications: Show modifications heatmap panel (default True)
         mod_filter: Dictionary mapping modification codes to minimum probability thresholds
                    (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications shown.
+        min_mod_frequency: Minimum fraction of reads that must be modified at a position (0.0-1.0).
+                          Positions with lower modification frequency are excluded (default 0.0).
+        min_modified_reads: Minimum number of reads that must have the modification at a position.
+                           Positions with fewer modified reads are excluded (default 1).
         show_pileup: Show base pileup panel (default True)
         show_dwell_time: Show dwell time panel (default True)
         show_signal: Show signal panel (default True)
@@ -570,7 +576,10 @@ def plot_aggregate(
     )
     quality_stats = calculate_quality_by_position(reads_data)
     modification_stats = calculate_modification_statistics(
-        reads_data, mod_filter=mod_filter
+        reads_data,
+        mod_filter=mod_filter,
+        min_frequency=min_mod_frequency,
+        min_modified_reads=min_modified_reads,
     )
     dwell_stats = calculate_dwell_time_statistics(reads_data)
 
