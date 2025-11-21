@@ -8,6 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import { vscode } from './vscode-api';
 import { SampleItem } from '../../types/messages';
+import './squiggy-plot-options-core.css';
 
 type PlotType =
     | 'MULTI_READ_OVERLAY'
@@ -363,56 +364,27 @@ export const PlotOptionsCore: React.FC = () => {
     const buttonState = getButtonState();
 
     return (
-        <div
-            style={{
-                padding: '10px',
-                fontFamily: 'var(--vscode-font-family)',
-                fontSize: 'var(--vscode-font-size)',
-                color: 'var(--vscode-foreground)',
-            }}
-        >
+        <div className="plot-options-container">
             {/* Generate Plot Button - At Top for All Plot Types */}
             <button
                 onClick={buttonState.handler}
                 disabled={buttonState.disabled}
-                style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginBottom: '16px',
-                    background: 'var(--vscode-button-background)',
-                    color: 'var(--vscode-button-foreground)',
-                    border: 'none',
-                    cursor: buttonState.disabled ? 'not-allowed' : 'pointer',
-                    opacity: buttonState.disabled ? 0.5 : 1,
-                    fontSize: '1em',
-                    fontWeight: 'bold',
-                }}
+                className="plot-options-generate-button"
             >
                 {buttonState.text}
             </button>
 
             {/* Analysis Type Section */}
-            <div style={{ marginBottom: '12px' }}>
-                <div
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: '6px',
-                        color: 'var(--vscode-foreground)',
-                    }}
-                >
+            <div className="plot-options-section">
+                <div className="plot-options-section-header">
                     Analysis Type
                 </div>
                 <select
                     value={options.plotType}
                     onChange={handlePlotTypeChange}
                     disabled={!options.hasPod5}
+                    className="plot-options-select"
                     style={{
-                        width: '100%',
-                        padding: '4px',
-                        marginBottom: '6px',
-                        background: 'var(--vscode-input-background)',
-                        color: 'var(--vscode-input-foreground)',
-                        border: '1px solid var(--vscode-input-border)',
                         opacity: options.hasPod5 ? 1 : 0.5,
                         cursor: options.hasPod5 ? 'default' : 'not-allowed',
                     }}
@@ -438,13 +410,7 @@ export const PlotOptionsCore: React.FC = () => {
                             : ''}
                     </option>
                 </select>
-                <div
-                    style={{
-                        fontSize: '0.85em',
-                        color: 'var(--vscode-descriptionForeground)',
-                        fontStyle: 'italic',
-                    }}
-                >
+                <div className="plot-options-description">
                     {!options.hasPod5 && 'Load POD5 file to enable plotting'}
                     {options.hasPod5 &&
                         options.loadedSamples.length < 2 &&
@@ -502,27 +468,14 @@ export const PlotOptionsCore: React.FC = () => {
             */}
 
             {/* Normalization - Common to all types */}
-            <div style={{ marginBottom: '12px' }}>
-                <div
-                    style={{
-                        fontWeight: 'bold',
-                        marginBottom: '6px',
-                        color: 'var(--vscode-foreground)',
-                    }}
-                >
+            <div className="plot-options-section">
+                <div className="plot-options-section-header">
                     Normalization
                 </div>
                 <select
                     value={options.normalization}
                     onChange={handleNormalizationChange}
-                    style={{
-                        width: '100%',
-                        padding: '4px',
-                        marginBottom: '4px',
-                        background: 'var(--vscode-input-background)',
-                        color: 'var(--vscode-input-foreground)',
-                        border: '1px solid var(--vscode-input-border)',
-                    }}
+                    className="plot-options-select"
                 >
                     <option value="NONE">None (raw signal)</option>
                     <option value="ZNORM">Z-score</option>
@@ -536,20 +489,12 @@ export const PlotOptionsCore: React.FC = () => {
                 options.plotType === 'MULTI_READ_STACKED') && (
                 <div>
                     {/* View Style: Overlay vs Stacked */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-section-header">
                             View Style
                         </div>
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <label
-                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-                            >
+                        <div className="plot-options-radio-group" style={{ flexDirection: 'row', gap: '16px' }}>
+                            <label className="plot-options-radio-label">
                                 <input
                                     type="radio"
                                     name="perReadViewStyle"
@@ -560,13 +505,10 @@ export const PlotOptionsCore: React.FC = () => {
                                             plotType: 'MULTI_READ_OVERLAY',
                                         }))
                                     }
-                                    style={{ marginRight: '6px' }}
                                 />
                                 <span>Overlay (alpha-blended)</span>
                             </label>
-                            <label
-                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-                            >
+                            <label className="plot-options-radio-label">
                                 <input
                                     type="radio"
                                     name="perReadViewStyle"
@@ -577,7 +519,6 @@ export const PlotOptionsCore: React.FC = () => {
                                             plotType: 'MULTI_READ_STACKED',
                                         }))
                                     }
-                                    style={{ marginRight: '6px' }}
                                 />
                                 <span>Stacked (offset)</span>
                             </label>
@@ -585,25 +526,17 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Display Options */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-section-header">
                             Display Options
                         </div>
 
                         {/* Reference-anchored mode */}
                         <label
+                            className="plot-options-checkbox-label"
                             style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                cursor: options.hasBam ? 'pointer' : 'not-allowed',
-                                marginBottom: '8px',
                                 opacity: options.hasBam ? 1 : 0.5,
+                                pointerEvents: options.hasBam ? 'auto' : 'none',
                             }}
                         >
                             <input
@@ -616,18 +549,12 @@ export const PlotOptionsCore: React.FC = () => {
                                         showBaseAnnotations: e.target.checked,
                                     }))
                                 }
-                                style={{ marginRight: '8px' }}
                             />
                             <span>Reference-anchored</span>
                         </label>
                         <div
-                            style={{
-                                fontSize: '0.85em',
-                                color: 'var(--vscode-descriptionForeground)',
-                                fontStyle: 'italic',
-                                marginLeft: '24px',
-                                marginBottom: '8px',
-                            }}
+                            className="plot-options-helper-text"
+                            style={{ marginLeft: '24px', marginBottom: '8px' }}
                         >
                             {!options.hasBam
                                 ? 'Requires BAM file with alignment'
@@ -637,13 +564,11 @@ export const PlotOptionsCore: React.FC = () => {
                         {/* Show reference track - only when reference-anchored mode enabled and FASTA loaded */}
                         {options.showBaseAnnotations && (
                             <label
+                                className="plot-options-checkbox-label"
                                 style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    cursor: options.hasFasta ? 'pointer' : 'not-allowed',
-                                    marginBottom: '8px',
                                     marginLeft: '24px',
                                     opacity: options.hasFasta ? 1 : 0.5,
+                                    pointerEvents: options.hasFasta ? 'auto' : 'none',
                                 }}
                             >
                                 <input
@@ -651,20 +576,14 @@ export const PlotOptionsCore: React.FC = () => {
                                     checked={options.hasFasta}
                                     disabled={!options.hasFasta}
                                     readOnly
-                                    style={{ marginRight: '8px' }}
                                 />
                                 <span>Show reference track</span>
                             </label>
                         )}
                         {options.showBaseAnnotations && (
                             <div
-                                style={{
-                                    fontSize: '0.85em',
-                                    color: 'var(--vscode-descriptionForeground)',
-                                    fontStyle: 'italic',
-                                    marginLeft: '48px',
-                                    marginBottom: '8px',
-                                }}
+                                className="plot-options-helper-text"
+                                style={{ marginLeft: '48px', marginBottom: '8px' }}
                             >
                                 {!options.hasFasta
                                     ? 'Load FASTA file to show reference sequence'
@@ -674,24 +593,10 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Max Reads per Sample */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '4px',
-                                fontSize: '0.9em',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-slider-label">
                             <span>Max reads per sample:</span>
-                            <span
-                                style={{
-                                    fontWeight: 'bold',
-                                    color: 'var(--vscode-input-foreground)',
-                                }}
-                            >
-                                {options.maxReadsMulti}
-                            </span>
+                            <span>{options.maxReadsMulti}</span>
                         </div>
                         <input
                             type="range"
@@ -705,15 +610,9 @@ export const PlotOptionsCore: React.FC = () => {
                                     maxReadsMulti: parseInt(e.target.value),
                                 }))
                             }
-                            style={{ width: '100%', marginBottom: '4px' }}
+                            className="plot-options-range-slider"
                         />
-                        <div
-                            style={{
-                                fontSize: '0.85em',
-                                color: 'var(--vscode-descriptionForeground)',
-                                fontStyle: 'italic',
-                            }}
-                        >
+                        <div className="plot-options-helper-text">
                             Number of reads to extract from each sample
                         </div>
                     </div>
@@ -721,16 +620,7 @@ export const PlotOptionsCore: React.FC = () => {
                     {/* Warning for stacked plots with too many reads */}
                     {options.plotType === 'MULTI_READ_STACKED' &&
                         options.selectedSamples.length * options.maxReadsMulti > 20 && (
-                            <div
-                                style={{
-                                    fontSize: '0.85em',
-                                    color: 'var(--vscode-editorWarning-foreground)',
-                                    marginBottom: '10px',
-                                    padding: '6px',
-                                    border: '1px solid var(--vscode-editorWarning-foreground)',
-                                    borderRadius: '3px',
-                                }}
-                            >
+                            <div className="plot-options-warning">
                                 ⚠️ Stacked plots work best with ≤20 total reads (currently:{' '}
                                 {options.selectedSamples.length * options.maxReadsMulti})
                             </div>
@@ -741,14 +631,8 @@ export const PlotOptionsCore: React.FC = () => {
             {options.plotType === 'AGGREGATE' && (
                 <>
                     {/* Reference Selection */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-section-header">
                             Reference
                         </div>
                         <select
@@ -760,13 +644,8 @@ export const PlotOptionsCore: React.FC = () => {
                                 }))
                             }
                             disabled={!options.hasBam}
+                            className="plot-options-select"
                             style={{
-                                width: '100%',
-                                padding: '4px',
-                                marginBottom: '10px',
-                                background: 'var(--vscode-input-background)',
-                                color: 'var(--vscode-input-foreground)',
-                                border: '1px solid var(--vscode-input-border)',
                                 opacity: options.hasBam ? 1 : 0.5,
                             }}
                         >
@@ -784,14 +663,8 @@ export const PlotOptionsCore: React.FC = () => {
 
                     {/* View Style (for multi-sample) - only show if 2+ samples selected in Samples panel */}
                     {options.selectedSamples.length > 1 && (
-                        <div style={{ marginBottom: '20px' }}>
-                            <div
-                                style={{
-                                    fontWeight: 'bold',
-                                    marginBottom: '8px',
-                                    color: 'var(--vscode-foreground)',
-                                }}
-                            >
+                        <div className="plot-options-section-large">
+                            <div className="plot-options-section-header">
                                 View Style
                             </div>
                             <select
@@ -804,25 +677,12 @@ export const PlotOptionsCore: React.FC = () => {
                                             | 'multi-track',
                                     }))
                                 }
-                                style={{
-                                    width: '100%',
-                                    padding: '4px',
-                                    marginBottom: '10px',
-                                    background: 'var(--vscode-input-background)',
-                                    color: 'var(--vscode-input-foreground)',
-                                    border: '1px solid var(--vscode-input-border)',
-                                }}
+                                className="plot-options-select"
                             >
                                 <option value="overlay">Overlay (Mean Signals)</option>
                                 <option value="multi-track">Multi-Track (Detailed)</option>
                             </select>
-                            <div
-                                style={{
-                                    fontSize: '0.85em',
-                                    color: 'var(--vscode-descriptionForeground)',
-                                    marginTop: '4px',
-                                }}
-                            >
+                            <div className="plot-options-helper-text">
                                 {options.aggregateViewStyle === 'overlay'
                                     ? 'Overlays mean signals from all samples on one plot'
                                     : 'Shows detailed 5-track view for each sample'}
@@ -831,24 +691,10 @@ export const PlotOptionsCore: React.FC = () => {
                     )}
 
                     {/* Max Reads */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <div
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '4px',
-                                fontSize: '0.9em',
-                            }}
-                        >
+                    <div className="plot-options-section-large">
+                        <div className="plot-options-slider-label">
                             <span>Maximum reads:</span>
-                            <span
-                                style={{
-                                    fontWeight: 'bold',
-                                    color: 'var(--vscode-input-foreground)',
-                                }}
-                            >
-                                {options.aggregateMaxReads}
-                            </span>
+                            <span>{options.aggregateMaxReads}</span>
                         </div>
                         <input
                             type="range"
@@ -863,28 +709,18 @@ export const PlotOptionsCore: React.FC = () => {
                                 }))
                             }
                             disabled={!options.hasBam}
-                            style={{
-                                width: '100%',
-                                marginBottom: '4px',
-                                opacity: options.hasBam ? 1 : 0.5,
-                            }}
+                            className="plot-options-range-slider"
                         />
                     </div>
 
                     {/* Panel Visibility */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-section-header">
                             Visible Panels
                         </div>
 
                         {/* Modifications Panel */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="showModifications"
@@ -896,17 +732,14 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
-                            <label htmlFor="showModifications" style={{ fontSize: '0.9em' }}>
+                            <label htmlFor="showModifications" className="plot-options-checkbox-label">
                                 Base modifications
                             </label>
                         </div>
                         <div
+                            className="plot-options-helper-text"
                             style={{
-                                fontSize: '0.75em',
-                                color: 'var(--vscode-descriptionForeground)',
-                                fontStyle: 'italic',
                                 marginLeft: '22px',
                                 marginBottom: '12px',
                                 marginTop: '-4px',
@@ -916,7 +749,7 @@ export const PlotOptionsCore: React.FC = () => {
                         </div>
 
                         {/* Pileup Panel */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="showPileup"
@@ -928,15 +761,14 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
-                            <label htmlFor="showPileup" style={{ fontSize: '0.9em' }}>
+                            <label htmlFor="showPileup" className="plot-options-checkbox-label">
                                 Base pileup
                             </label>
                         </div>
 
                         {/* Dwell Time Panel */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="showDwellTimeAggregate"
@@ -948,15 +780,14 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
-                            <label htmlFor="showDwellTimeAggregate" style={{ fontSize: '0.9em' }}>
+                            <label htmlFor="showDwellTimeAggregate" className="plot-options-checkbox-label">
                                 Dwell time
                             </label>
                         </div>
 
                         {/* Signal Panel */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="showSignalAggregate"
@@ -968,15 +799,14 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
-                            <label htmlFor="showSignalAggregate" style={{ fontSize: '0.9em' }}>
+                            <label htmlFor="showSignalAggregate" className="plot-options-checkbox-label">
                                 Signal
                             </label>
                         </div>
 
                         {/* Quality Panel */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="showQualityAggregate"
@@ -988,9 +818,8 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
-                            <label htmlFor="showQualityAggregate" style={{ fontSize: '0.9em' }}>
+                            <label htmlFor="showQualityAggregate" className="plot-options-checkbox-label">
                                 Quality scores
                             </label>
                         </div>
@@ -998,24 +827,18 @@ export const PlotOptionsCore: React.FC = () => {
 
                     {/* X-Axis Options */}
                     <div
+                        className="plot-options-section-large"
                         style={{
-                            marginBottom: '20px',
                             opacity: options.hasBam ? 1 : 0.5,
                             pointerEvents: options.hasBam ? 'auto' : 'none',
                         }}
                     >
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                        <div className="plot-options-section-header">
                             X-Axis Display
                         </div>
 
                         {/* Clip to Consensus */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="clipXAxisToAlignmentAggregate"
@@ -1027,20 +850,17 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
                             <label
                                 htmlFor="clipXAxisToAlignmentAggregate"
-                                style={{ fontSize: '0.9em' }}
+                                className="plot-options-checkbox-label"
                             >
                                 Clip x-axis to consensus region
                             </label>
                         </div>
                         <div
+                            className="plot-options-description"
                             style={{
-                                fontSize: '0.85em',
-                                color: 'var(--vscode-descriptionForeground)',
-                                fontStyle: 'italic',
                                 marginTop: '-6px',
                                 marginBottom: '10px',
                             }}
@@ -1049,7 +869,7 @@ export const PlotOptionsCore: React.FC = () => {
                         </div>
 
                         {/* Transform Coordinates */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="transformCoordinatesAggregate"
@@ -1061,20 +881,17 @@ export const PlotOptionsCore: React.FC = () => {
                                     }))
                                 }
                                 disabled={!options.hasBam}
-                                style={{ marginRight: '6px' }}
                             />
                             <label
                                 htmlFor="transformCoordinatesAggregate"
-                                style={{ fontSize: '0.9em' }}
+                                className="plot-options-checkbox-label"
                             >
                                 Transform to relative coordinates
                             </label>
                         </div>
                         <div
+                            className="plot-options-description"
                             style={{
-                                fontSize: '0.85em',
-                                color: 'var(--vscode-descriptionForeground)',
-                                fontStyle: 'italic',
                                 marginTop: '-6px',
                                 marginBottom: '10px',
                             }}
@@ -1089,44 +906,18 @@ export const PlotOptionsCore: React.FC = () => {
             {options.plotType === 'COMPARE_SIGNAL_DELTA' && (
                 <>
                     {/* Sample Selection */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-section-header">
                             Samples to Compare
                         </div>
                         {options.loadedSamples.length === 0 ? (
-                            <div
-                                style={{
-                                    fontSize: '0.85em',
-                                    color: 'var(--vscode-descriptionForeground)',
-                                    fontStyle: 'italic',
-                                }}
-                            >
+                            <div className="plot-options-description">
                                 Load samples in Sample Manager to enable comparisons
                             </div>
                         ) : (
-                            <div
-                                style={{
-                                    maxHeight: '150px',
-                                    overflowY: 'auto',
-                                    border: '1px solid var(--vscode-input-border)',
-                                    padding: '4px',
-                                }}
-                            >
+                            <div className="plot-options-sample-list">
                                 {options.loadedSamples.map((sample) => (
-                                    <div
-                                        key={sample.name}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            marginBottom: '4px',
-                                        }}
-                                    >
+                                    <div key={sample.name} className="plot-options-sample-item">
                                         <input
                                             type="checkbox"
                                             id={`sample-${sample.name}`}
@@ -1142,11 +933,10 @@ export const PlotOptionsCore: React.FC = () => {
                                                 options.selectedSamples.length >= 2 &&
                                                 !options.selectedSamples.includes(sample.name)
                                             }
-                                            style={{ marginRight: '6px' }}
                                         />
                                         <label
                                             htmlFor={`sample-${sample.name}`}
-                                            style={{ fontSize: '0.9em' }}
+                                            className="plot-options-checkbox-label"
                                         >
                                             {sample.name} ({sample.readCount} reads)
                                         </label>
@@ -1155,28 +945,15 @@ export const PlotOptionsCore: React.FC = () => {
                             </div>
                         )}
                         {options.plotType === 'COMPARE_SIGNAL_DELTA' && (
-                            <div
-                                style={{
-                                    fontSize: '0.75em',
-                                    color: 'var(--vscode-descriptionForeground)',
-                                    fontStyle: 'italic',
-                                    marginTop: '4px',
-                                }}
-                            >
+                            <div className="plot-options-helper-text">
                                 Delta plots require exactly 2 samples
                             </div>
                         )}
                     </div>
 
                     {/* Reference Selection */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <div
-                            style={{
-                                fontWeight: 'bold',
-                                marginBottom: '8px',
-                                color: 'var(--vscode-foreground)',
-                            }}
-                        >
+                    <div className="plot-options-section">
+                        <div className="plot-options-section-header">
                             Reference
                         </div>
                         <select
@@ -1188,13 +965,8 @@ export const PlotOptionsCore: React.FC = () => {
                                 }))
                             }
                             disabled={!options.hasBam}
+                            className="plot-options-select"
                             style={{
-                                width: '100%',
-                                padding: '4px',
-                                marginBottom: '10px',
-                                background: 'var(--vscode-input-background)',
-                                color: 'var(--vscode-input-foreground)',
-                                border: '1px solid var(--vscode-input-border)',
                                 opacity: options.hasBam ? 1 : 0.5,
                             }}
                         >
@@ -1211,24 +983,10 @@ export const PlotOptionsCore: React.FC = () => {
                     </div>
 
                     {/* Max Reads */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <div
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '4px',
-                                fontSize: '0.9em',
-                            }}
-                        >
+                    <div className="plot-options-section-large">
+                        <div className="plot-options-slider-label">
                             <span>Maximum reads per sample:</span>
-                            <span
-                                style={{
-                                    fontWeight: 'bold',
-                                    color: 'var(--vscode-input-foreground)',
-                                }}
-                            >
-                                {options.comparisonMaxReads}
-                            </span>
+                            <span>{options.comparisonMaxReads}</span>
                         </div>
                         <input
                             type="range"
@@ -1242,7 +1000,7 @@ export const PlotOptionsCore: React.FC = () => {
                                     comparisonMaxReads: parseInt(e.target.value),
                                 }))
                             }
-                            style={{ width: '100%', marginBottom: '4px' }}
+                            className="plot-options-range-slider"
                         />
                     </div>
                 </>
