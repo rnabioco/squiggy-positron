@@ -1271,7 +1271,7 @@ def get_reference_range(reference_name: str, sample_name: str | None = None) -> 
             # Reference not found in BAM
             raise ValueError(
                 f"Reference '{reference_name}' not found in BAM file. Error: {e}"
-            )
+            ) from e
 
     # Handle case where no aligned reads were found
     if min_pos is None or max_pos is None:

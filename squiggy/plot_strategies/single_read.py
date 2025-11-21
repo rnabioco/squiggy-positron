@@ -118,6 +118,8 @@ class SingleReadPlotStrategy(PlotStrategy):
                 - min_mod_probability: float min mod probability (default: 0.5)
                 - enabled_mod_types: list[str] enabled mod types (default: None)
                 - coordinate_space: str ('signal' or 'sequence', default: 'signal')
+                - x_axis_min: int | None minimum position for windowing (default: None)
+                - x_axis_max: int | None maximum position for windowing (default: None)
 
         Returns:
             Tuple of (html_string, bokeh_figure_or_layout)
@@ -151,6 +153,8 @@ class SingleReadPlotStrategy(PlotStrategy):
         min_mod_probability = options.get("min_mod_probability", 0.5)
         enabled_mod_types = options.get("enabled_mod_types", None)
         coordinate_space = options.get("coordinate_space", "signal")
+        x_axis_min = options.get("x_axis_min")
+        x_axis_max = options.get("x_axis_max")
 
         # Process signal (normalize and downsample)
         signal, seq_to_sig_map = self._process_signal(
@@ -172,6 +176,19 @@ class SingleReadPlotStrategy(PlotStrategy):
                 sequence=sequence,
                 seq_to_sig_map=seq_to_sig_map,
                 scale_dwell_time=scale_dwell_time,
+            )
+
+        # Apply x-axis windowing if specified
+        if x_axis_min is not None or x_axis_max is not None:
+            time_ms, signal, sequence, seq_to_sig_map, modifications = self._apply_windowing(
+                time_ms=time_ms,
+                signal=signal,
+                sequence=sequence,
+                seq_to_sig_map=seq_to_sig_map,
+                modifications=modifications,
+                x_min=x_axis_min,
+                x_max=x_axis_max,
+                x_label=x_label,
             )
 
         # Create main figure
@@ -577,6 +594,93 @@ class SingleReadPlotStrategy(PlotStrategy):
         )
 
         return mod_fig
+
+    # =========================================================================
+    # Private Methods: Windowing
+    # =========================================================================
+
+    def _apply_windowing(
+        self,
+        time_ms: np.ndarray,
+        signal: np.ndarray,
+        sequence: str | None,
+        seq_to_sig_map: list[int] | None,
+        modifications: list | None,
+        x_min: int | None,
+        x_max: int | None,
+        x_label: str,
+    ) -> tuple[np.ndarray, np.ndarray, str | None, list[int] | None, list | None]:
+        """
+        Apply x-axis windowing to filter signal and related data
+
+        Args:
+            time_ms: X-axis values (time, position, or genomic coordinates)
+            signal: Signal values
+            sequence: DNA/RNA sequence
+            seq_to_sig_map: Mapping from sequence to signal indices
+            modifications: List of modifications
+            x_min: Minimum x value
+            x_max: Maximum x value
+            x_label: X-axis label for determining coordinate type
+
+        Returns:
+            Tuple of (filtered_time_ms, filtered_signal, filtered_sequence,
+                     filtered_seq_to_sig_map, filtered_modifications)
+        """
+        # Determine filter bounds
+        min_val = x_min if x_min is not None else time_ms.min()
+        max_val = x_max if x_max is not None else time_ms.max()
+
+        # Create mask for filtering
+        mask = (time_ms >= min_val) & (time_ms <= max_val)
+
+        # Filter time and signal
+        filtered_time_ms = time_ms[mask]
+        filtered_signal = signal[mask]
+
+        # Handle sequence and seq_to_sig_map if present
+        filtered_sequence = sequence
+        filtered_seq_to_sig_map = seq_to_sig_map
+
+        if sequence and seq_to_sig_map and "Base Position" in x_label:
+            # Windowing by base position - filter sequence
+            # Find which bases are in the window
+            base_indices = []
+            for i, sig_idx in enumerate(seq_to_sig_map):
+                if sig_idx < len(mask) and mask[sig_idx]:
+                    base_indices.append(i)
+
+            if base_indices:
+                start_base = base_indices[0]
+                end_base = base_indices[-1] + 1
+                filtered_sequence = sequence[start_base:end_base]
+
+                # Adjust seq_to_sig_map indices
+                first_sig_idx = np.where(mask)[0][0] if mask.any() else 0
+                filtered_seq_to_sig_map = [
+                    sig_idx - first_sig_idx
+                    for sig_idx in seq_to_sig_map[start_base:end_base]
+                    if sig_idx - first_sig_idx >= 0
+                ]
+
+        # Handle modifications if present
+        filtered_modifications = modifications
+        if modifications and sequence and seq_to_sig_map and "Base Position" in x_label:
+            # Filter modifications to those in the window
+            base_indices_set = set(base_indices) if sequence else set()
+            filtered_modifications = [
+                mod
+                for mod in modifications
+                if hasattr(mod, "seq_pos") and mod.seq_pos in base_indices_set
+            ]
+
+        return (
+            filtered_time_ms,
+            filtered_signal,
+            filtered_sequence,
+            filtered_seq_to_sig_map,
+            filtered_modifications,
+        )
 
     # =========================================================================
     # Private Methods: Utilities

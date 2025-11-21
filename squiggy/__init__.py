@@ -199,5 +199,6 @@ __all__ = [
     # Refactoring utilities (Phase 3 - NEW)
     "parse_plot_parameters",
     "open_bam_safe",
+    "get_reference_range",
     # Classes
 ]
