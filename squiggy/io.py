@@ -1207,6 +1207,80 @@ def get_reads_for_reference_paginated(
     return all_reads[offset : offset + limit]
 
 
+def get_reference_range(reference_name: str, sample_name: str | None = None) -> dict[str, int]:
+    """
+    Get the min and max aligned positions for a reference from the BAM file
+
+    Returns the minimum and maximum reference positions covered by aligned reads.
+    This is used to populate the x-axis windowing slider bounds in the UI.
+
+    Args:
+        reference_name: Name of reference sequence (e.g., 'chr1', 'contig_42')
+        sample_name: Optional sample name for multi-sample sessions
+
+    Returns:
+        Dictionary with 'min_pos' and 'max_pos' keys (int values)
+
+    Raises:
+        RuntimeError: If no BAM file is loaded in the session
+        FileNotFoundError: If BAM file path is invalid
+
+    Examples:
+        >>> from squiggy import load_bam
+        >>> from squiggy.io import get_reference_range
+        >>> load_bam('alignments.bam')
+        >>> range_info = get_reference_range('chr1')
+        >>> print(f"Reference range: {range_info['min_pos']} - {range_info['max_pos']}")
+        Reference range: 1000 - 50000
+    """
+    # Get BAM path from appropriate source
+    if sample_name:
+        sample = squiggy_kernel.get_sample(sample_name)
+        if not sample or not sample._bam_path:
+            raise RuntimeError(f"Sample '{sample_name}' not loaded or has no BAM file")
+        bam_path = sample._bam_path
+    else:
+        if squiggy_kernel._bam_path is None:
+            raise RuntimeError(
+                "No BAM file loaded. Call load_bam() before getting reference range."
+            )
+        bam_path = squiggy_kernel._bam_path
+
+    # Open BAM file and find min/max positions for this reference
+    with pysam.AlignmentFile(bam_path, "rb", check_sq=False) as bam:
+        min_pos = None
+        max_pos = None
+
+        # Iterate through all reads for this reference
+        try:
+            for read in bam.fetch(reference_name):
+                if read.is_unmapped:
+                    continue
+
+                # Get reference start and end positions
+                ref_start = read.reference_start
+                ref_end = read.reference_end
+
+                if ref_start is not None and ref_end is not None:
+                    if min_pos is None or ref_start < min_pos:
+                        min_pos = ref_start
+                    if max_pos is None or ref_end > max_pos:
+                        max_pos = ref_end
+
+        except ValueError as e:
+            # Reference not found in BAM
+            raise ValueError(
+                f"Reference '{reference_name}' not found in BAM file. Error: {e}"
+            )
+
+    # Handle case where no aligned reads were found
+    if min_pos is None or max_pos is None:
+        # Return default range
+        return {"min_pos": 0, "max_pos": 1000}
+
+    return {"min_pos": min_pos, "max_pos": max_pos}
+
+
 def load_fasta(file_path: str) -> None:
     """
     Load a FASTA file into the global kernel session

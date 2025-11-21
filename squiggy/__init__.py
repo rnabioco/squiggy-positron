@@ -57,6 +57,7 @@ from .io import (
     get_read_to_reference_mapping,
     get_reads_batch,
     get_reads_for_reference_paginated,
+    get_reference_range,
     get_sample,
     get_unique_reads,
     list_samples,

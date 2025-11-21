@@ -59,7 +59,8 @@ export function getReactWebviewHtml(
             margin: 0;
             padding: 0;
             width: 100%;
-            min-width: 280px;
+            height: 100%;
+            overflow: hidden; /* Prevent scrolling at body level */
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
@@ -67,9 +68,11 @@ export function getReactWebviewHtml(
         }
         #root {
             width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+            overflow-y: auto; /* Allow vertical scrolling */
         }
     </style>
 </head>
