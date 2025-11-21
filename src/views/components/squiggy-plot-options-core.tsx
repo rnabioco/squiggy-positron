@@ -6,8 +6,6 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import Slider from 'rc-slider';
-import 'rc-slider/assets/index.css';
 import { vscode } from './vscode-api';
 import { SampleItem } from '../../types/messages';
 import './squiggy-plot-options-core.css';
@@ -995,33 +993,55 @@ export const PlotOptionsCore: React.FC = () => {
                         {/* Dual-Handle Range Slider - Only shown when windowing enabled */}
                         {options.enableXAxisWindowing && (
                             <div className="plot-options-windowing-container">
-                                <div className="plot-options-slider-label">
-                                    <span>Position range:</span>
-                                    <span>
-                                        {options.xAxisMin ?? options.referenceMinPos} - {options.xAxisMax ?? options.referenceMaxPos}
-                                    </span>
-                                </div>
-                                <div style={{ padding: '10px 0' }}>
-                                    <Slider
-                                        range
-                                        min={options.referenceMinPos}
-                                        max={options.referenceMaxPos}
-                                        step={1}
-                                        value={[
-                                            options.xAxisMin ?? options.referenceMinPos,
-                                            options.xAxisMax ?? options.referenceMaxPos,
-                                        ]}
-                                        onChange={(value) => {
-                                            const [min, max] = value as number[];
-                                            setOptions((prev) => ({
-                                                ...prev,
-                                                xAxisMin: min,
-                                                xAxisMax: max,
-                                            }));
-                                        }}
-                                        allowCross={false}
-                                        className="plot-options-dual-slider"
-                                    />
+                                <div className="plot-options-windowing-inputs">
+                                    <div className="plot-options-windowing-input-group">
+                                        <label className="plot-options-windowing-label">
+                                            Min Position:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="plot-options-windowing-input"
+                                            min={options.referenceMinPos}
+                                            max={options.referenceMaxPos}
+                                            value={options.xAxisMin ?? options.referenceMinPos}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (!isNaN(val)) {
+                                                    setOptions((prev) => ({
+                                                        ...prev,
+                                                        xAxisMin: Math.max(
+                                                            options.referenceMinPos,
+                                                            Math.min(val, options.xAxisMax ?? options.referenceMaxPos)
+                                                        ),
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="plot-options-windowing-input-group">
+                                        <label className="plot-options-windowing-label">
+                                            Max Position:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="plot-options-windowing-input"
+                                            min={options.referenceMinPos}
+                                            max={options.referenceMaxPos}
+                                            value={options.xAxisMax ?? options.referenceMaxPos}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (!isNaN(val)) {
+                                                    setOptions((prev) => ({
+                                                        ...prev,
+                                                        xAxisMax: Math.min(
+                                                            options.referenceMaxPos,
+                                                            Math.max(val, options.xAxisMin ?? options.referenceMinPos)
+                                                        ),
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <button
