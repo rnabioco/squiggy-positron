@@ -181,6 +181,17 @@ export interface UpdateReferencesMessage extends BaseMessage {
     references: string[];
 }
 
+export interface RequestReferenceRangeMessage extends BaseMessage {
+    type: 'requestReferenceRange';
+    referenceName: string;
+}
+
+export interface UpdateReferenceRangeMessage extends BaseMessage {
+    type: 'updateReferenceRange';
+    minPos: number;
+    maxPos: number;
+}
+
 export interface GenerateAggregatePlotMessage extends BaseMessage {
     type: 'generateAggregatePlot';
     sampleNames: string[]; // Now supports 1+ samples
@@ -195,6 +206,10 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showQuality: boolean;
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
+    // X-axis windowing parameters
+    enableXAxisWindowing?: boolean;
+    xAxisMin?: number | null;
+    xAxisMax?: number | null;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
@@ -283,11 +298,17 @@ export interface PlotOptions {
     comparisonReference?: string; // Reference for aggregate comparison
     comparisonMetrics?: string[]; // Metrics for aggregate comparison
     comparisonMaxReads?: number;
+
+    // X-axis windowing options
+    enableXAxisWindowing?: boolean;
+    xAxisMin?: number | null;
+    xAxisMax?: number | null;
 }
 
 export type PlotOptionsIncomingMessage =
     | PlotOptionsChangedMessage
     | RequestReferencesMessage
+    | RequestReferenceRangeMessage
     | GenerateAggregatePlotMessage
     | GenerateMultiReadOverlayMessage
     | GenerateMultiReadStackedMessage
@@ -302,6 +323,7 @@ export type PlotOptionsOutgoingMessage =
     | UpdatePod5StatusMessage
     | UpdateFastaStatusMessage
     | UpdateReferencesMessage
+    | UpdateReferenceRangeMessage
     | UpdateLoadedSamplesMessage
     | UpdateSelectedSamplesMessage;
 
