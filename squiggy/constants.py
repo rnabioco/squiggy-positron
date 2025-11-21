@@ -8,6 +8,7 @@ from enum import Enum
 
 # Signal downsampling settings
 DEFAULT_DOWNSAMPLE = 5  # Default downsampling factor for all plot functions
+MAX_PLOT_POINTS = 50_000  # Target maximum points per plot for optimal performance
 
 # ==============================================================================
 # Base Annotation Settings

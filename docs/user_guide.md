@@ -198,10 +198,17 @@ Choose from Plot Options panel:
 
 ### Downsample Threshold
 
-For large signals (>100,000 samples by default):
-- Automatically downsamples using LTTB algorithm
-- Preserves visual fidelity while improving performance
-- Adjust threshold in Plot Options if needed
+Signal downsampling reduces data points for faster rendering while preserving visual quality:
+
+- **Adaptive mode** (default): Automatically calculates optimal downsampling
+  - Small signals: 5x downsampling (every 5th point)
+  - Large signals: Adaptive (targets ~50,000 points for smooth rendering)
+- **Manual override**: Set explicit downsample factor in Plot Options
+  - `downsample=1`: No downsampling (all points, may be slow for large signals)
+  - `downsample=10`: Every 10th point (more aggressive)
+- **Stride-based sampling**: Uses every Nth point (simple and fast)
+
+**Note**: Downsampling is for visualization only and may miss signal spikes between sampled points. For quantitative analysis, work with the original data via the Python API.
 
 ### Interactive Features
 
@@ -379,9 +386,29 @@ You can toggle individual panels on/off before generating the plot:
 
 ### Performance
 
-- **Large POD5 files**: Reads load incrementally
-- **High-coverage regions**: Use downsampling to improve render speed
+Squiggy is optimized for typical nanopore datasets with automatic performance tuning:
+
+**Adaptive Downsampling** (New in v0.3.3)
+- Automatically optimizes plot rendering for large signals
+- Targets ~50,000 data points per plot for smooth interactivity
+- Small signals (< 250K samples): uses default downsampling (5x)
+- Large signals (> 250K samples): increases downsampling automatically
+- You can always override with manual downsample setting
+
+**Plot Type Performance**
+- **Single read plots**: Efficiently handles signals with 1M+ samples
+- **Overlay plots**:
+  - Optimal: ≤ 20 reads
+  - Acceptable: up to 50 reads
+  - For more reads: use Aggregate plot mode instead
+- **Aggregate plots**: Efficiently handles 100s of reads via pre-aggregation
+
+**Performance Tips**
+- **Large POD5 files**: Reads load incrementally (lazy loading)
+- **High-coverage regions**: Increase downsample setting if plots feel sluggish
+- **Many reads**: Use Aggregate mode for population-level analysis instead of overlaying 50+ reads
 - **Many modifications**: Filter by probability to reduce visual clutter
+- **Export performance**: HTML export captures current zoom level for faster loading
 
 ### Workflow
 

@@ -426,6 +426,84 @@ class TestPrivateProcessSignal:
         expected = [0, 10, 20, 30]
         assert processed_mapping == expected
 
+    def test_process_signal_adaptive_small_signal(self):
+        """Test adaptive downsampling for small signal (uses DEFAULT_DOWNSAMPLE)"""
+        strategy = SingleReadPlotStrategy(Theme.LIGHT)
+
+        # Small signal: 100K points
+        # Expected: downsample=5 (DEFAULT_DOWNSAMPLE)
+        # Result: 100K / 5 = 20K points
+        signal = np.random.randn(100_000)
+        processed, _ = strategy._process_signal(
+            signal=signal,
+            normalization=NormalizationMethod.NONE,
+            downsample=None,  # Adaptive mode
+            seq_to_sig_map=None,
+        )
+
+        # Should use DEFAULT_DOWNSAMPLE (5)
+        expected_length = 100_000 // 5
+        assert len(processed) == expected_length
+
+    def test_process_signal_adaptive_large_signal(self):
+        """Test adaptive downsampling for large signal (>250K points)"""
+        strategy = SingleReadPlotStrategy(Theme.LIGHT)
+
+        # Large signal: 500K points
+        # Expected: downsample=10 (500K / 50K = 10)
+        # Result: 500K / 10 = 50K points
+        signal = np.random.randn(500_000)
+        processed, _ = strategy._process_signal(
+            signal=signal,
+            normalization=NormalizationMethod.NONE,
+            downsample=None,  # Adaptive mode
+            seq_to_sig_map=None,
+        )
+
+        # Should adaptively downsample to ~50K points
+        assert len(processed) <= 50_000
+        # Should be exactly 50K (500K / 10 = 50K)
+        assert len(processed) == 50_000
+
+    def test_process_signal_adaptive_very_large_signal(self):
+        """Test adaptive downsampling for very large signal (1M points)"""
+        strategy = SingleReadPlotStrategy(Theme.LIGHT)
+
+        # Very large signal: 1M points
+        # Expected: downsample=20 (1M / 50K = 20)
+        # Result: 1M / 20 = 50K points
+        signal = np.random.randn(1_000_000)
+        processed, _ = strategy._process_signal(
+            signal=signal,
+            normalization=NormalizationMethod.NONE,
+            downsample=None,  # Adaptive mode
+            seq_to_sig_map=None,
+        )
+
+        # Should adaptively downsample to ~50K points
+        assert len(processed) <= 50_000
+        # Should be exactly 50K (1M / 20 = 50K)
+        assert len(processed) == 50_000
+
+    def test_process_signal_user_override_respected(self):
+        """Test that explicit downsample overrides adaptive behavior"""
+        strategy = SingleReadPlotStrategy(Theme.LIGHT)
+
+        # Large signal that would normally trigger adaptive downsampling
+        signal = np.random.randn(1_000_000)
+        processed, _ = strategy._process_signal(
+            signal=signal,
+            normalization=NormalizationMethod.NONE,
+            downsample=2,  # User override (much less aggressive than adaptive=20)
+            seq_to_sig_map=None,
+        )
+
+        # Should respect user's choice
+        expected_length = 1_000_000 // 2
+        assert len(processed) == expected_length
+        # Verify it's NOT using adaptive downsampling
+        assert len(processed) > 50_000
+
 
 class TestPrivateCreateXAxis:
     """Tests for _create_x_axis private methods"""

@@ -162,10 +162,15 @@ class PlotStrategy(ABC):
         Applies normalization and downsampling to signal data. Optionally
         adjusts sequence-to-signal mapping indices when downsampling.
 
+        When downsample is None, an adaptive downsampling factor is calculated
+        to ensure the plot has at most MAX_PLOT_POINTS (50,000) points while
+        respecting the minimum DEFAULT_DOWNSAMPLE (5). This provides automatic
+        performance optimization for large signals without user intervention.
+
         Args:
             signal: Raw signal array
             normalization: Normalization method to apply
-            downsample: Downsampling factor (1 = no downsampling)
+            downsample: Downsampling factor (1 = no downsampling, None = adaptive)
             seq_to_sig_map: Optional sequence-to-signal index mapping
 
         Returns:
@@ -174,18 +179,30 @@ class PlotStrategy(ABC):
             - If seq_to_sig_map provided and downsample > 1, indices are adjusted
 
         Examples:
-            >>> signal = np.array([1, 2, 3, 4, 5, 6])
-            >>> processed, _ = self._process_signal(
-            ...     signal,
-            ...     normalization=NormalizationMethod.ZNORM,
-            ...     downsample=2
-            ... )
-            >>> # Returns z-normalized signal downsampled by factor of 2
+            >>> # Small signal: uses DEFAULT_DOWNSAMPLE (5)
+            >>> signal = np.array([1] * 100_000)  # 100K points
+            >>> processed, _ = self._process_signal(signal, downsample=None)
+            >>> len(processed)  # 100K / 5 = 20K points
+            20000
+
+            >>> # Large signal: adaptive downsampling
+            >>> signal = np.array([1] * 1_000_000)  # 1M points
+            >>> processed, _ = self._process_signal(signal, downsample=None)
+            >>> len(processed)  # 1M / 20 = 50K points (auto-adjusted)
+            50000
+
+            >>> # User override: explicit downsample
+            >>> processed, _ = self._process_signal(signal, downsample=2)
+            >>> len(processed)  # 1M / 2 = 500K (user choice preserved)
+            500000
         """
-        from ..constants import DEFAULT_DOWNSAMPLE
+        from ..constants import DEFAULT_DOWNSAMPLE, MAX_PLOT_POINTS
 
         if downsample is None:
-            downsample = DEFAULT_DOWNSAMPLE
+            # Adaptive downsampling: ensure we don't exceed MAX_PLOT_POINTS
+            # while respecting minimum DEFAULT_DOWNSAMPLE
+            adaptive_downsample = max(1, len(signal) // MAX_PLOT_POINTS)
+            downsample = max(DEFAULT_DOWNSAMPLE, adaptive_downsample)
 
         # Normalize
         if normalization != NormalizationMethod.NONE:
