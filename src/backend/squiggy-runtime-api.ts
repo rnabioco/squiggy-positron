@@ -504,7 +504,9 @@ if '_squiggy_plot_error' in globals():
         showQuality: boolean = true,
         clipXAxisToAlignment: boolean = true,
         transformCoordinates: boolean = true,
-        sampleName?: string
+        sampleName?: string,
+        minModFrequency: number = 0.2,
+        minModifiedReads: number = 5
     ): Promise<void> {
         try {
             // Validate inputs
@@ -521,6 +523,14 @@ if '_squiggy_plot_error' in globals():
 
             if (modificationThreshold < 0 || modificationThreshold > 1) {
                 throw new ValidationError('Must be between 0 and 1', 'modificationThreshold');
+            }
+
+            if (minModFrequency < 0 || minModFrequency > 1) {
+                throw new ValidationError('Must be between 0 and 1', 'minModFrequency');
+            }
+
+            if (minModifiedReads < 1) {
+                throw new ValidationError('Must be at least 1', 'minModifiedReads');
             }
 
             // Escape single quotes in reference name and sample name for Python strings
@@ -547,6 +557,8 @@ squiggy.plot_aggregate(
     theme='${theme}',
     show_modifications=${showModifications ? 'True' : 'False'},
     mod_filter=${modFilterDict},
+    min_mod_frequency=${minModFrequency},
+    min_modified_reads=${minModifiedReads},
     show_pileup=${showPileup ? 'True' : 'False'},
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},

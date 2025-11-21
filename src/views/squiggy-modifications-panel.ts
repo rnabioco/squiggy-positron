@@ -20,6 +20,8 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
     private _modificationTypes: string[] = [];
     private _hasProbabilities: boolean = false;
     private _minProbability: number = 0.5;
+    private _minFrequency: number = 0.2;
+    private _minModifiedReads: number = 5;
     private _enabledModTypes: Set<string> = new Set();
 
     // Event emitter for when filter options change
@@ -44,6 +46,8 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
 
         if (message.type === 'filtersChanged') {
             this._minProbability = message.minProbability;
+            this._minFrequency = message.minFrequency;
+            this._minModifiedReads = message.minModifiedReads;
             this._enabledModTypes = new Set(message.enabledModTypes);
             this._onDidChangeFilters.fire();
         }
@@ -107,6 +111,8 @@ export class ModificationsPanelProvider extends BaseWebviewProvider {
     public getFilters() {
         return {
             minProbability: this._minProbability,
+            minFrequency: this._minFrequency,
+            minModifiedReads: this._minModifiedReads,
             enabledModTypes: Array.from(this._enabledModTypes),
         };
     }

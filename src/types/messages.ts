@@ -321,11 +321,15 @@ export interface ClearModsMessage extends BaseMessage {
 export interface ModFiltersChangedMessage extends BaseMessage {
     type: 'filtersChanged';
     minProbability: number;
+    minFrequency: number;
+    minModifiedReads: number;
     enabledModTypes: string[];
 }
 
 export interface ModificationFilters {
     minProbability: number;
+    minFrequency: number;
+    minModifiedReads: number;
     enabledModTypes: string[];
 }
 

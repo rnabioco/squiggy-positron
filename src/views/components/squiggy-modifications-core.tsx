@@ -12,6 +12,8 @@ interface ModificationsState {
     modificationTypes: string[];
     hasProbabilities: boolean;
     minProbability: number;
+    minFrequency: number;
+    minModifiedReads: number;
     enabledModTypes: Set<string>;
 }
 
@@ -63,6 +65,8 @@ export const ModificationsCore: React.FC = () => {
         modificationTypes: [],
         hasProbabilities: false,
         minProbability: 0.5,
+        minFrequency: 0.2,
+        minModifiedReads: 5,
         enabledModTypes: new Set(),
     });
 
@@ -79,6 +83,8 @@ export const ModificationsCore: React.FC = () => {
                         modificationTypes: message.modificationTypes,
                         hasProbabilities: message.hasProbabilities,
                         minProbability: 0.5,
+                        minFrequency: 0.2,
+                        minModifiedReads: 5,
                         enabledModTypes: new Set(message.modificationTypes),
                     });
                     break;
@@ -89,6 +95,8 @@ export const ModificationsCore: React.FC = () => {
                         modificationTypes: [],
                         hasProbabilities: false,
                         minProbability: 0.5,
+                        minFrequency: 0.2,
+                        minModifiedReads: 5,
                         enabledModTypes: new Set(),
                     });
                     break;
@@ -111,6 +119,32 @@ export const ModificationsCore: React.FC = () => {
         vscode.postMessage({
             type: 'filtersChanged',
             minProbability: value,
+            minFrequency: state.minFrequency,
+            minModifiedReads: state.minModifiedReads,
+            enabledModTypes: Array.from(state.enabledModTypes),
+        });
+    };
+
+    const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.target.value) / 100; // Convert percentage to 0-1
+        setState((prev) => ({ ...prev, minFrequency: value }));
+        vscode.postMessage({
+            type: 'filtersChanged',
+            minProbability: state.minProbability,
+            minFrequency: value,
+            minModifiedReads: state.minModifiedReads,
+            enabledModTypes: Array.from(state.enabledModTypes),
+        });
+    };
+
+    const handleModifiedReadsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseInt(e.target.value) || 5;
+        setState((prev) => ({ ...prev, minModifiedReads: value }));
+        vscode.postMessage({
+            type: 'filtersChanged',
+            minProbability: state.minProbability,
+            minFrequency: state.minFrequency,
+            minModifiedReads: value,
             enabledModTypes: Array.from(state.enabledModTypes),
         });
     };
@@ -128,6 +162,8 @@ export const ModificationsCore: React.FC = () => {
             vscode.postMessage({
                 type: 'filtersChanged',
                 minProbability: prev.minProbability,
+                minFrequency: prev.minFrequency,
+                minModifiedReads: prev.minModifiedReads,
                 enabledModTypes: Array.from(newEnabled),
             });
 
@@ -212,6 +248,103 @@ export const ModificationsCore: React.FC = () => {
                         }}
                     >
                         ≥ {state.minProbability.toFixed(2)}
+                    </div>
+                </div>
+            )}
+
+            {/* Frequency Filter */}
+            {state.hasProbabilities && (
+                <div style={{ marginBottom: '20px' }}>
+                    <div
+                        style={{
+                            fontWeight: 'bold',
+                            marginBottom: '4px',
+                            color: 'var(--vscode-foreground)',
+                        }}
+                    >
+                        Minimum Modification Frequency
+                    </div>
+                    <div
+                        style={{
+                            fontSize: '0.85em',
+                            marginBottom: '8px',
+                            color: 'var(--vscode-descriptionForeground)',
+                        }}
+                    >
+                        Minimum % of reads modified at a position (aggregate plots only)
+                    </div>
+                    <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={state.minFrequency * 100}
+                        onChange={handleFrequencyChange}
+                        aria-label="Minimum modification frequency threshold"
+                        aria-valuetext={`${(state.minFrequency * 100).toFixed(0)}% frequency`}
+                        aria-valuenow={state.minFrequency * 100}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        style={{ width: '100%', marginBottom: '4px' }}
+                    />
+                    <div
+                        style={{
+                            textAlign: 'right',
+                            fontSize: '0.9em',
+                            fontWeight: 'bold',
+                            color: 'var(--vscode-input-foreground)',
+                        }}
+                    >
+                        ≥ {(state.minFrequency * 100).toFixed(0)}%
+                    </div>
+                </div>
+            )}
+
+            {/* Modified Reads Count Filter */}
+            {state.hasProbabilities && (
+                <div style={{ marginBottom: '20px' }}>
+                    <div
+                        style={{
+                            fontWeight: 'bold',
+                            marginBottom: '4px',
+                            color: 'var(--vscode-foreground)',
+                        }}
+                    >
+                        Minimum Modified Reads
+                    </div>
+                    <div
+                        style={{
+                            fontSize: '0.85em',
+                            marginBottom: '8px',
+                            color: 'var(--vscode-descriptionForeground)',
+                        }}
+                    >
+                        Minimum number of reads that must be modified (aggregate plots only)
+                    </div>
+                    <input
+                        type="number"
+                        min="1"
+                        value={state.minModifiedReads}
+                        onChange={handleModifiedReadsChange}
+                        aria-label="Minimum modified reads count"
+                        style={{
+                            width: '100%',
+                            padding: '4px',
+                            backgroundColor: 'var(--vscode-input-background)',
+                            color: 'var(--vscode-input-foreground)',
+                            border: '1px solid var(--vscode-input-border)',
+                            marginBottom: '4px',
+                        }}
+                    />
+                    <div
+                        style={{
+                            textAlign: 'right',
+                            fontSize: '0.9em',
+                            fontWeight: 'bold',
+                            color: 'var(--vscode-input-foreground)',
+                        }}
+                    >
+                        ≥ {state.minModifiedReads} reads
                     </div>
                 </div>
             )}

@@ -1296,3 +1296,208 @@ class TestCompareSignalDistributions:
         for field in required_fields:
             assert field in result
             assert isinstance(result[field], float)
+
+
+class TestModificationStatisticsFiltering:
+    """Tests for calculate_modification_statistics filtering logic"""
+
+    def test_frequency_filter_basic(self):
+        """Test that positions below frequency threshold are excluded"""
+        from squiggy.modifications import ModificationAnnotation
+        from squiggy.utils import calculate_modification_statistics
+
+        # Create mock reads data: 10 reads covering position 100
+        # Only 1 read has modification (frequency = 0.1 = 10%)
+        reads_data = []
+        for i in range(10):
+            read = {
+                "reference_start": 100,
+                "reference_end": 105,
+                "modifications": [],
+            }
+            # Only first read has modification
+            if i == 0:
+                read["modifications"] = [
+                    ModificationAnnotation(
+                        position=0,
+                        genomic_pos=100,
+                        mod_code="m",
+                        canonical_base="C",
+                        probability=0.9,
+                        signal_start=0,
+                        signal_end=10,
+                    )
+                ]
+            reads_data.append(read)
+
+        # Test with min_frequency=0.0 (should include position)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.0
+        )
+        assert "m" in result["mod_stats"]
+        assert 100 in result["mod_stats"]["m"]
+        assert result["mod_stats"]["m"][100]["frequency"] == pytest.approx(0.1)
+
+        # Test with min_frequency=0.2 (should exclude position, 10% < 20%)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.2
+        )
+        assert "m" not in result["mod_stats"] or 100 not in result["mod_stats"].get(
+            "m", {}
+        )
+
+    def test_modified_reads_filter_basic(self):
+        """Test that positions with too few modified reads are excluded"""
+        from squiggy.modifications import ModificationAnnotation
+        from squiggy.utils import calculate_modification_statistics
+
+        # Create mock reads data: 3 reads with modification at position 100
+        reads_data = []
+        for _ in range(3):
+            read = {
+                "reference_start": 100,
+                "reference_end": 105,
+                "modifications": [
+                    ModificationAnnotation(
+                        position=0,
+                        genomic_pos=100,
+                        mod_code="m",
+                        canonical_base="C",
+                        probability=0.9,
+                        signal_start=0,
+                        signal_end=10,
+                    )
+                ],
+            }
+            reads_data.append(read)
+
+        # Test with min_modified_reads=1 (should include position)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_modified_reads=1
+        )
+        assert "m" in result["mod_stats"]
+        assert 100 in result["mod_stats"]["m"]
+        assert result["mod_stats"]["m"][100]["count"] == 3
+
+        # Test with min_modified_reads=5 (should exclude position, 3 < 5)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_modified_reads=5
+        )
+        assert "m" not in result["mod_stats"] or 100 not in result["mod_stats"].get(
+            "m", {}
+        )
+
+    def test_combined_filters(self):
+        """Test that both frequency and count filters work together"""
+        from squiggy.modifications import ModificationAnnotation
+        from squiggy.utils import calculate_modification_statistics
+
+        # Create mock reads data: 20 reads covering position 100
+        # 4 reads have modification (frequency = 0.2 = 20%, count = 4)
+        reads_data = []
+        for i in range(20):
+            read = {
+                "reference_start": 100,
+                "reference_end": 105,
+                "modifications": [],
+            }
+            # First 4 reads have modification
+            if i < 4:
+                read["modifications"] = [
+                    ModificationAnnotation(
+                        position=0,
+                        genomic_pos=100,
+                        mod_code="m",
+                        canonical_base="C",
+                        probability=0.9,
+                        signal_start=0,
+                        signal_end=10,
+                    )
+                ]
+            reads_data.append(read)
+
+        # Pass both filters: min_frequency=0.2 (20% exactly), min_modified_reads=4 (4 exactly)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.2, min_modified_reads=4
+        )
+        assert "m" in result["mod_stats"]
+        assert 100 in result["mod_stats"]["m"]
+
+        # Fail frequency filter: min_frequency=0.3 (30% > 20%)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.3, min_modified_reads=4
+        )
+        assert "m" not in result["mod_stats"] or 100 not in result["mod_stats"].get(
+            "m", {}
+        )
+
+        # Fail count filter: min_modified_reads=5 (5 > 4)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.2, min_modified_reads=5
+        )
+        assert "m" not in result["mod_stats"] or 100 not in result["mod_stats"].get(
+            "m", {}
+        )
+
+    def test_filters_with_default_values(self):
+        """Test that default filter values don't exclude any modifications"""
+        from squiggy.modifications import ModificationAnnotation
+        from squiggy.utils import calculate_modification_statistics
+
+        # Create minimal mock read with modification
+        reads_data = [
+            {
+                "reference_start": 100,
+                "reference_end": 105,
+                "modifications": [
+                    ModificationAnnotation(
+                        position=0,
+                        genomic_pos=100,
+                        mod_code="m",
+                        canonical_base="C",
+                        probability=0.9,
+                        signal_start=0,
+                        signal_end=10,
+                    )
+                ],
+            }
+        ]
+
+        # Default values: min_frequency=0.0, min_modified_reads=1
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.0, min_modified_reads=1
+        )
+        assert "m" in result["mod_stats"]
+        assert 100 in result["mod_stats"]["m"]
+
+    def test_filters_exclude_low_confidence_edge_case(self):
+        """Test edge case: 1 of 1 reads modified (100% frequency, 1 count)"""
+        from squiggy.modifications import ModificationAnnotation
+        from squiggy.utils import calculate_modification_statistics
+
+        # The "1 of 1" problem: high frequency but low count
+        reads_data = [
+            {
+                "reference_start": 100,
+                "reference_end": 105,
+                "modifications": [
+                    ModificationAnnotation(
+                        position=0,
+                        genomic_pos=100,
+                        mod_code="m",
+                        canonical_base="C",
+                        probability=0.9,
+                        signal_start=0,
+                        signal_end=10,
+                    )
+                ],
+            }
+        ]
+
+        # Should pass frequency filter (100% >= 20%) but fail count filter (1 < 5)
+        result = calculate_modification_statistics(
+            reads_data, mod_filter={"m": 0.5}, min_frequency=0.2, min_modified_reads=5
+        )
+        assert "m" not in result["mod_stats"] or 100 not in result["mod_stats"].get(
+            "m", {}
+        )

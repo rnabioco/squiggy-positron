@@ -165,6 +165,8 @@ describe('ModificationsPanelProvider', () => {
             expect(filters).toEqual({
                 minProbability: 0.5, // default
                 enabledModTypes: [],
+                minFrequency: 0.2, // default
+                minModifiedReads: 5, // default
             });
         });
 
