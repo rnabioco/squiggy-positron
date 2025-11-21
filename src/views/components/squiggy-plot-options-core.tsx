@@ -376,9 +376,7 @@ export const PlotOptionsCore: React.FC = () => {
 
             {/* Analysis Type Section */}
             <div className="plot-options-section">
-                <div className="plot-options-section-header">
-                    Analysis Type
-                </div>
+                <div className="plot-options-section-header">Analysis Type</div>
                 <select
                     value={options.plotType}
                     onChange={handlePlotTypeChange}
@@ -469,9 +467,7 @@ export const PlotOptionsCore: React.FC = () => {
 
             {/* Normalization - Common to all types */}
             <div className="plot-options-section">
-                <div className="plot-options-section-header">
-                    Normalization
-                </div>
+                <div className="plot-options-section-header">Normalization</div>
                 <select
                     value={options.normalization}
                     onChange={handleNormalizationChange}
@@ -490,10 +486,11 @@ export const PlotOptionsCore: React.FC = () => {
                 <div>
                     {/* View Style: Overlay vs Stacked */}
                     <div className="plot-options-section">
-                        <div className="plot-options-section-header">
-                            View Style
-                        </div>
-                        <div className="plot-options-radio-group" style={{ flexDirection: 'row', gap: '16px' }}>
+                        <div className="plot-options-section-header">View Style</div>
+                        <div
+                            className="plot-options-radio-group"
+                            style={{ flexDirection: 'row', gap: '16px' }}
+                        >
                             <label className="plot-options-radio-label">
                                 <input
                                     type="radio"
@@ -527,9 +524,7 @@ export const PlotOptionsCore: React.FC = () => {
 
                     {/* Display Options */}
                     <div className="plot-options-section">
-                        <div className="plot-options-section-header">
-                            Display Options
-                        </div>
+                        <div className="plot-options-section-header">Display Options</div>
 
                         {/* Reference-anchored mode */}
                         <label
@@ -632,9 +627,7 @@ export const PlotOptionsCore: React.FC = () => {
                 <>
                     {/* Reference Selection */}
                     <div className="plot-options-section">
-                        <div className="plot-options-section-header">
-                            Reference
-                        </div>
+                        <div className="plot-options-section-header">Reference</div>
                         <select
                             value={options.aggregateReference}
                             onChange={(e) =>
@@ -664,9 +657,7 @@ export const PlotOptionsCore: React.FC = () => {
                     {/* View Style (for multi-sample) - only show if 2+ samples selected in Samples panel */}
                     {options.selectedSamples.length > 1 && (
                         <div className="plot-options-section-large">
-                            <div className="plot-options-section-header">
-                                View Style
-                            </div>
+                            <div className="plot-options-section-header">View Style</div>
                             <select
                                 value={options.aggregateViewStyle}
                                 onChange={(e) =>
@@ -715,9 +706,7 @@ export const PlotOptionsCore: React.FC = () => {
 
                     {/* Panel Visibility */}
                     <div className="plot-options-section">
-                        <div className="plot-options-section-header">
-                            Visible Panels
-                        </div>
+                        <div className="plot-options-section-header">Visible Panels</div>
 
                         {/* Modifications Panel */}
                         <div className="plot-options-checkbox-row">
@@ -733,7 +722,10 @@ export const PlotOptionsCore: React.FC = () => {
                                 }
                                 disabled={!options.hasBam}
                             />
-                            <label htmlFor="showModifications" className="plot-options-checkbox-label">
+                            <label
+                                htmlFor="showModifications"
+                                className="plot-options-checkbox-label"
+                            >
                                 Base modifications
                             </label>
                         </div>
@@ -781,7 +773,10 @@ export const PlotOptionsCore: React.FC = () => {
                                 }
                                 disabled={!options.hasBam}
                             />
-                            <label htmlFor="showDwellTimeAggregate" className="plot-options-checkbox-label">
+                            <label
+                                htmlFor="showDwellTimeAggregate"
+                                className="plot-options-checkbox-label"
+                            >
                                 Dwell time
                             </label>
                         </div>
@@ -800,7 +795,10 @@ export const PlotOptionsCore: React.FC = () => {
                                 }
                                 disabled={!options.hasBam}
                             />
-                            <label htmlFor="showSignalAggregate" className="plot-options-checkbox-label">
+                            <label
+                                htmlFor="showSignalAggregate"
+                                className="plot-options-checkbox-label"
+                            >
                                 Signal
                             </label>
                         </div>
@@ -819,7 +817,10 @@ export const PlotOptionsCore: React.FC = () => {
                                 }
                                 disabled={!options.hasBam}
                             />
-                            <label htmlFor="showQualityAggregate" className="plot-options-checkbox-label">
+                            <label
+                                htmlFor="showQualityAggregate"
+                                className="plot-options-checkbox-label"
+                            >
                                 Quality scores
                             </label>
                         </div>
@@ -833,9 +834,7 @@ export const PlotOptionsCore: React.FC = () => {
                             pointerEvents: options.hasBam ? 'auto' : 'none',
                         }}
                     >
-                        <div className="plot-options-section-header">
-                            X-Axis Display
-                        </div>
+                        <div className="plot-options-section-header">X-Axis Display</div>
 
                         {/* Clip to Consensus */}
                         <div className="plot-options-checkbox-row">
@@ -907,9 +906,7 @@ export const PlotOptionsCore: React.FC = () => {
                 <>
                     {/* Sample Selection */}
                     <div className="plot-options-section">
-                        <div className="plot-options-section-header">
-                            Samples to Compare
-                        </div>
+                        <div className="plot-options-section-header">Samples to Compare</div>
                         {options.loadedSamples.length === 0 ? (
                             <div className="plot-options-description">
                                 Load samples in Sample Manager to enable comparisons
@@ -953,9 +950,7 @@ export const PlotOptionsCore: React.FC = () => {
 
                     {/* Reference Selection */}
                     <div className="plot-options-section">
-                        <div className="plot-options-section-header">
-                            Reference
-                        </div>
+                        <div className="plot-options-section-header">Reference</div>
                         <select
                             value={options.comparisonReference}
                             onChange={(e) =>

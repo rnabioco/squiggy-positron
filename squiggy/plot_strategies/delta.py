@@ -193,7 +193,9 @@ class DeltaPlotStrategy(PlotStrategy):
         )
 
         # Apply theme background to gridplot container
-        layout_obj.styles = {"background-color": self.theme_manager.get_color("plot_bg")}
+        layout_obj.styles = {
+            "background-color": self.theme_manager.get_color("plot_bg")
+        }
 
         # Convert to HTML
         html = self._figure_to_html(layout_obj)
