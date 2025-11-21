@@ -428,21 +428,32 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
             if (state.usePositron) {
                 // Use dedicated kernel - plot appears in Plots pane automatically
                 const api = await state.ensureBackgroundKernel();
+
+                // Get modification filters from panel
+                const modFilters = state.modificationsProvider?.getFilters() || {
+                    minProbability: 0.5,
+                    minFrequency: 0.2,
+                    minModifiedReads: 5,
+                    enabledModTypes: [],
+                };
+
                 await api.generateAggregatePlot(
                     referenceName,
                     maxReads,
                     normalization,
                     theme,
                     true, // showModifications
-                    0.5, // modificationThreshold
-                    [], // enabledModTypes
+                    modFilters.minProbability,
+                    modFilters.enabledModTypes,
                     true, // showPileup
                     true, // showDwellTime
                     true, // showSignal
                     true, // showQuality
                     true, // clipXAxisToAlignment
                     true, // transformCoordinates
-                    state.selectedReadExplorerSample || undefined // Pass current sample for multi-sample mode
+                    state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
+                    modFilters.minFrequency,
+                    modFilters.minModifiedReads
                 );
             } else if (state.pythonBackend) {
                 // Subprocess backend not yet implemented for aggregate

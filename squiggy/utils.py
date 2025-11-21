@@ -1317,7 +1317,9 @@ def iter_aligned_bases(read: dict):
             seq_idx += 1
 
 
-def calculate_modification_statistics(reads_data, mod_filter=None):
+def calculate_modification_statistics(
+    reads_data, mod_filter=None, min_frequency=0.0, min_modified_reads=1
+):
     """Calculate aggregate modification statistics across multiple reads
 
     Args:
@@ -1330,6 +1332,10 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
                    - Only modifications with probability >= threshold are counted
                    - mean/median/std are calculated from filtered modifications only
                    - Positions are only output if they have at least one mod >= threshold
+        min_frequency: Minimum fraction of reads that must be modified (0.0-1.0, default 0.0).
+                      Positions with lower modification frequency are excluded.
+        min_modified_reads: Minimum number of reads that must have the modification (default 1).
+                           Positions with fewer modified reads are excluded.
 
     Returns:
         Dict with keys:
@@ -1432,6 +1438,10 @@ def calculate_modification_statistics(reads_data, mod_filter=None):
 
             # Calculate modification frequency (fraction of reads with high-confidence mod)
             frequency = mod_count / total_coverage if total_coverage > 0 else 0.0
+
+            # Apply frequency and count filters
+            if frequency < min_frequency or mod_count < min_modified_reads:
+                continue  # Skip this position - doesn't meet filtering criteria
 
             mod_stats[mod_code][pos] = {
                 "probabilities": probabilities_filtered,  # Store filtered for reference
