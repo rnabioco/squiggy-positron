@@ -1353,7 +1353,7 @@ class TestModificationStatisticsFiltering:
 
         # Create mock reads data: 3 reads with modification at position 100
         reads_data = []
-        for i in range(3):
+        for _ in range(3):
             read = {
                 "reference_start": 100,
                 "reference_end": 105,
