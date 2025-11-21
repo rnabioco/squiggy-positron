@@ -1,0 +1,75 @@
+/**
+ * Styles for SamplesCore component
+ */
+
+/* Root container - takes full height and sets up flex layout */
+.samples-core-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    padding: 6px;
+}
+
+/* Toolbar section at top */
+.samples-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+/* Session FASTA info section */
+.samples-fasta-info {
+    margin-bottom: 12px;
+    padding: 8px;
+    background-color: var(--vscode-textBlockQuote-background);
+    border-left: 3px solid var(--vscode-textLink-foreground);
+    border-radius: 3px;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* Loaded samples section - allows vertical growth with scrolling */
+.samples-list-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Header for loaded samples */
+.samples-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    flex-shrink: 0;
+}
+
+/* Container for sample items - scrollable */
+.samples-list-container {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+}
+
+/* Empty state message */
+.samples-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+    font-style: italic;
+}

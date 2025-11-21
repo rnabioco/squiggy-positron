@@ -59,6 +59,7 @@ export function getReactWebviewHtml(
             margin: 0;
             padding: 0;
             width: 100%;
+            min-width: 280px;
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
@@ -66,6 +67,9 @@ export function getReactWebviewHtml(
         }
         #root {
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
         }
     </style>
 </head>
