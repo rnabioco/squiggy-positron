@@ -1,0 +1,209 @@
+/**
+ * Styles for PlotOptionsCore component
+ */
+
+/* Root container */
+.plot-options-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    padding: 10px;
+}
+
+/* Section spacing */
+.plot-options-section {
+    margin-bottom: 12px;
+}
+
+.plot-options-section-large {
+    margin-bottom: 20px;
+}
+
+.plot-options-section-small {
+    margin-bottom: 8px;
+}
+
+/* Section headers */
+.plot-options-section-header {
+    font-weight: bold;
+    margin-bottom: 6px;
+    color: var(--vscode-foreground);
+}
+
+/* Generate plot button */
+.plot-options-generate-button {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 16px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.plot-options-generate-button:hover:not(:disabled) {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.plot-options-generate-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Select dropdowns */
+.plot-options-select {
+    width: 100%;
+    padding: 4px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 3px;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+}
+
+.plot-options-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Range sliders */
+.plot-options-range-slider {
+    width: 100%;
+    margin: 6px 0;
+}
+
+.plot-options-range-slider:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.plot-options-slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.plot-options-slider-label span:first-child {
+    font-size: 0.9em;
+    color: var(--vscode-descriptionForeground);
+}
+
+.plot-options-slider-label span:last-child {
+    font-weight: bold;
+    color: var(--vscode-input-foreground);
+}
+
+/* Checkbox layouts */
+.plot-options-checkbox-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.plot-options-checkbox-row input[type="checkbox"] {
+    margin-right: 6px;
+}
+
+.plot-options-checkbox-label {
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.plot-options-checkbox-label:has(input:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Radio button layouts */
+.plot-options-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.plot-options-radio-row {
+    display: flex;
+    align-items: center;
+}
+
+.plot-options-radio-row input[type="radio"] {
+    margin-right: 6px;
+}
+
+.plot-options-radio-label {
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.plot-options-radio-label:has(input:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Text styles */
+.plot-options-description {
+    font-size: 0.85em;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    margin-bottom: 6px;
+}
+
+.plot-options-helper-text {
+    font-size: 0.75em;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* Warning message */
+.plot-options-warning {
+    padding: 8px;
+    margin-top: 8px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    border-left: 3px solid var(--vscode-inputValidation-warningBorder);
+    border-radius: 3px;
+    font-size: 0.85em;
+    color: var(--vscode-inputValidation-warningForeground);
+}
+
+/* Sample selection list (for COMPARE modes) */
+.plot-options-sample-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.plot-options-sample-item {
+    display: flex;
+    align-items: center;
+}
+
+.plot-options-sample-item input[type="checkbox"] {
+    margin-right: 6px;
+}
+
+/* Value display for read-only values */
+.plot-options-value-display {
+    font-weight: bold;
+    color: var(--vscode-input-foreground);
+}
+
+/* Flex layouts */
+.plot-options-flex-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plot-options-flex-column {
+    display: flex;
+    flex-direction: column;
+}

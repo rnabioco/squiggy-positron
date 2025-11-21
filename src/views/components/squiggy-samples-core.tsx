@@ -7,6 +7,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { vscode } from './vscode-api';
 import { SampleItem } from '../../types/messages';
+import './squiggy-samples-core.css';
 
 // Okabe-Ito colorblind-friendly palette
 // Reference: https://jfly.uni-koeln.de/color/
@@ -375,16 +376,9 @@ export const SamplesCore: React.FC = () => {
     // };
 
     return (
-        <div
-            style={{
-                padding: '6px',
-                fontFamily: 'var(--vscode-font-family)',
-                fontSize: 'var(--vscode-font-size)',
-                color: 'var(--vscode-foreground)',
-            }}
-        >
+        <div className="samples-core-container">
             {/* Toolbar Buttons */}
-            <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+            <div className="samples-toolbar">
                 {/* "Load Sample" Button */}
                 <button
                     onClick={_handleLoadSamplesClick}
@@ -478,15 +472,8 @@ export const SamplesCore: React.FC = () => {
             )}
 
             {/* Samples List - Collapsible Rows */}
-            <div style={{ marginBottom: '12px' }}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '5px',
-                    }}
-                >
+            <div className="samples-list-section">
+                <div className="samples-list-header">
                     <div
                         style={{
                             fontWeight: 'bold',
@@ -567,7 +554,7 @@ export const SamplesCore: React.FC = () => {
                     )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="samples-list-container">
                     {state.samples.map((sample) => {
                         const isExpanded = state.expandedSamples.has(sample.name);
                         return (
