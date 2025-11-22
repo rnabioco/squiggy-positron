@@ -9,8 +9,8 @@ Examples:
     # Single POD5 file
     python filter_reads.py alignments.bam reads.pod5 --chromosome chrIII --output filtered_reads.pod5
 
-    # Directory of POD5 files
-    python filter_reads.py alignments.bam pod5_dir/ --chromosome chrIII --output filtered_reads.pod5
+    # Directory of POD5 files with BAM output
+    python filter_reads.py alignments.bam pod5_dir/ --chromosome chrIII --output filtered_reads.pod5 --output-bam filtered_reads.bam
 """
 
 import argparse
@@ -113,7 +113,7 @@ def extract_reads_from_pod5(
     pod5_path: Union[str, Path],
     read_ids: List[str],
     output_path: str,
-) -> int:
+) -> tuple[int, List[str]]:
     """
     Extract specific reads from POD5 file(s) and write to new POD5 file.
 
@@ -123,7 +123,7 @@ def extract_reads_from_pod5(
         output_path: Path to output POD5 file
 
     Returns:
-        Number of reads successfully extracted
+        Tuple of (number of reads extracted, list of successfully extracted read IDs)
     """
     extracted_count = 0
     pod5_path = Path(pod5_path)
@@ -143,6 +143,7 @@ def extract_reads_from_pod5(
 
     # Track which reads we still need to find
     remaining_read_ids = set(read_ids)
+    skipped_end_reason = {}  # Track reads skipped due to end_reason
 
     with pod5.Writer(output_path) as writer:
         # Search through all POD5 files
@@ -154,10 +155,18 @@ def extract_reads_from_pod5(
                 with pod5.Reader(pod5_file) as reader:
                     # Use selection parameter to efficiently get only the requested reads
                     for read_record in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
+                        read_id_str = str(read_record.read_id)
+
+                        # Check end_reason - only include signal_positive reads
+                        if read_record.end_reason.name != "signal_positive":
+                            skipped_end_reason[read_id_str] = read_record.end_reason.name
+                            remaining_read_ids.remove(read_id_str)
+                            continue
+
                         # Convert ReadRecord to Read object before adding to writer
                         writer.add_read(read_record.to_read())
                         # Convert UUID to string for comparison with BAM read IDs
-                        remaining_read_ids.remove(str(read_record.read_id))
+                        remaining_read_ids.remove(read_id_str)
                         extracted_count += 1
 
                 # Progress update for directory mode
@@ -172,8 +181,47 @@ def extract_reads_from_pod5(
                     # If it's a single file, re-raise the error
                     raise
 
+    if skipped_end_reason:
+        print(f"Warning: {len(skipped_end_reason)} reads skipped due to end_reason filter (not signal_positive):")
+        for read_id, end_reason in skipped_end_reason.items():
+            print(f"  {read_id}: {end_reason}")
+
     if remaining_read_ids:
         print(f"Warning: {len(remaining_read_ids)} reads not found in POD5 file(s)")
+
+    # Calculate which reads were successfully extracted (found and passed end_reason filter)
+    extracted_read_ids = [read_id for read_id in read_ids if read_id not in remaining_read_ids and read_id not in skipped_end_reason]
+
+    return extracted_count, extracted_read_ids
+
+
+def extract_reads_from_bam(
+    bam_path: str,
+    read_ids: List[str],
+    output_path: str,
+) -> int:
+    """
+    Extract specific reads from BAM file and write to new BAM file.
+
+    Args:
+        bam_path: Path to input BAM file
+        read_ids: List of read IDs to extract
+        output_path: Path to output BAM file
+
+    Returns:
+        Number of reads successfully extracted
+    """
+    extracted_count = 0
+    read_id_set = set(read_ids)
+
+    with pysam.AlignmentFile(bam_path, "rb") as bam_in:
+        # Create output BAM with same header
+        with pysam.AlignmentFile(output_path, "wb", header=bam_in.header) as bam_out:
+            # Iterate through all reads in the BAM
+            for read in bam_in.fetch(until_eof=True):
+                if read.query_name in read_id_set:
+                    bam_out.write(read)
+                    extracted_count += 1
 
     return extracted_count
 
@@ -223,6 +271,10 @@ def main():
         "--output",
         default="filtered_reads.pod5",
         help="Output POD5 file (default: filtered_reads.pod5)",
+    )
+    parser.add_argument(
+        "--output-bam",
+        help="Output BAM file (default: None - no BAM output)",
     )
     parser.add_argument(
         "--read-ids-file",
@@ -275,7 +327,7 @@ def main():
     print(f"Extracting reads from: {args.pod5_path}")
     read_ids = [r["read_id"] for r in filtered_reads]
 
-    extracted_count = extract_reads_from_pod5(
+    extracted_count, extracted_read_ids = extract_reads_from_pod5(
         pod5_path=args.pod5_path,
         read_ids=read_ids,
         output_path=args.output,
@@ -283,10 +335,25 @@ def main():
 
     print(f"Extracted {extracted_count}/{len(read_ids)} reads to: {args.output}")
 
+    # Step 3: Extract reads from BAM if requested
+    if args.output_bam:
+        print(f"\nExtracting {len(extracted_read_ids)} reads from BAM: {args.bam_file}")
+        bam_extracted_count = extract_reads_from_bam(
+            bam_path=args.bam_file,
+            read_ids=extracted_read_ids,
+            output_path=args.output_bam,
+        )
+        print(f"Extracted {bam_extracted_count}/{len(extracted_read_ids)} reads to: {args.output_bam}")
+
+        # Index the output BAM file
+        print(f"Indexing {args.output_bam}...")
+        pysam.index(args.output_bam)
+        print(f"Created index: {args.output_bam}.bai")
+
     # Write read IDs to file if requested
     if args.read_ids_file:
         with open(args.read_ids_file, "w") as f:
-            for read_id in read_ids:
+            for read_id in extracted_read_ids:
                 f.write(f"{read_id}\n")
         print(f"Read IDs written to: {args.read_ids_file}")
 
