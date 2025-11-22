@@ -94,6 +94,8 @@ class OverlayPlotStrategy(PlotStrategy):
                 - downsample: int downsampling factor (default: 1)
                 - show_signal_points: bool show individual points (default: False)
                 - coordinate_space: str ('signal' or 'sequence', default: 'signal')
+                - x_axis_min: int | None minimum position for windowing (default: None)
+                - x_axis_max: int | None maximum position for windowing (default: None)
 
         Returns:
             Tuple of (html_string, bokeh_figure)
@@ -116,6 +118,8 @@ class OverlayPlotStrategy(PlotStrategy):
         show_signal_points = options.get("show_signal_points", False)
         read_colors = options.get("read_colors", None)  # Optional: per-read colors
         coordinate_space = options.get("coordinate_space", "signal")
+        x_axis_min = options.get("x_axis_min")
+        x_axis_max = options.get("x_axis_max")
 
         # Calculate alpha blending with a floor to prevent over-transparency
         # Use tiered approach to keep between 0.3 and 0.8 for better visibility
@@ -298,6 +302,15 @@ class OverlayPlotStrategy(PlotStrategy):
             mode="mouse",
         )
         fig.add_tools(hover)
+
+        # Apply x-axis windowing if specified
+        if x_axis_min is not None or x_axis_max is not None:
+            from bokeh.models import Range1d
+
+            # Determine range bounds
+            start_pos = x_axis_min if x_axis_min is not None else fig.x_range.start
+            end_pos = x_axis_max if x_axis_max is not None else fig.x_range.end
+            fig.x_range = Range1d(start=start_pos, end=end_pos)
 
         # Configure legend
         self.theme_manager.configure_legend(fig)

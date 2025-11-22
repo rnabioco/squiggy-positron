@@ -471,6 +471,8 @@ def plot_aggregate(
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
     sample_name: str | None = None,
+    x_axis_min: int | None = None,
+    x_axis_max: int | None = None,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -504,6 +506,10 @@ def plot_aggregate(
                                reference base (default True). If False, use raw genomic coordinates.
         sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        x_axis_min: Minimum x-axis position for windowing (None = no limit). Units depend on
+                    coordinate space (bases or samples).
+        x_axis_max: Maximum x-axis position for windowing (None = no limit). Units depend on
+                    coordinate space (bases or samples).
 
     Returns:
         Bokeh HTML string with synchronized tracks
@@ -696,6 +702,8 @@ def plot_aggregate(
         "show_signal": show_signal,
         "show_quality": show_quality,
         "clip_x_to_alignment": clip_x_to_alignment,
+        "x_axis_min": x_axis_min,
+        "x_axis_max": x_axis_max,
     }
 
     # Create strategy and generate plot

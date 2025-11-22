@@ -207,6 +207,24 @@ squiggy.get_read_to_reference_mapping()
     }
 
     /**
+     * Get the min and max aligned positions for a reference
+     * Used to populate x-axis windowing slider bounds in the UI
+     */
+    async getReferenceRange(referenceName: string): Promise<{ minPos: number; maxPos: number }> {
+        const escapedRef = referenceName.replace(/'/g, "\\'");
+
+        // Call the new Python function to get reference range
+        const rangeInfo = await this._client.getVariable(
+            `squiggy.get_reference_range('${escapedRef}')`
+        );
+
+        return {
+            minPos: (rangeInfo as any).min_pos,
+            maxPos: (rangeInfo as any).max_pos,
+        };
+    }
+
+    /**
      * Get read IDs mapping to a specific reference
      * @deprecated Use getReadsForReferencePaginated instead for better performance
      */
@@ -487,6 +505,9 @@ if '_squiggy_plot_error' in globals():
      * @param showDwellTime - Show dwell time track panel (default true)
      * @param showSignal - Show signal track panel (default true)
      * @param showQuality - Show quality track panel (default true)
+     * @param enableXAxisWindowing - Enable x-axis windowing (default false)
+     * @param xAxisMin - Minimum x-axis position (null = no limit)
+     * @param xAxisMax - Maximum x-axis position (null = no limit)
      * @throws PlottingError if plot generation fails
      * @throws ValidationError if inputs are invalid
      */
@@ -506,7 +527,10 @@ if '_squiggy_plot_error' in globals():
         transformCoordinates: boolean = true,
         sampleName?: string,
         minModFrequency: number = 0.2,
-        minModifiedReads: number = 5
+        minModifiedReads: number = 5,
+        enableXAxisWindowing: boolean = false,
+        xAxisMin: number | null = null,
+        xAxisMax: number | null = null
     ): Promise<void> {
         try {
             // Validate inputs
@@ -533,6 +557,16 @@ if '_squiggy_plot_error' in globals():
                 throw new ValidationError('Must be at least 1', 'minModifiedReads');
             }
 
+            // Validate windowing parameters
+            if (enableXAxisWindowing) {
+                if (xAxisMin !== null && xAxisMax !== null && xAxisMin >= xAxisMax) {
+                    throw new ValidationError(
+                        'X-axis minimum must be less than maximum',
+                        'xAxisWindowing'
+                    );
+                }
+            }
+
             // Escape single quotes in reference name and sample name for Python strings
             const escapedRefName = referenceName.replace(/'/g, "\\'");
             const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
@@ -545,6 +579,14 @@ if '_squiggy_plot_error' in globals():
 
             // Build sample name parameter if in multi-sample mode
             const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+
+            // Build windowing parameters if enabled
+            const windowingParams =
+                enableXAxisWindowing && (xAxisMin !== null || xAxisMax !== null)
+                    ? `,
+    x_axis_min=${xAxisMin !== null ? xAxisMin : 'None'},
+    x_axis_max=${xAxisMax !== null ? xAxisMax : 'None'}`
+                    : '';
 
             const code = `
 import squiggy
@@ -564,7 +606,7 @@ squiggy.plot_aggregate(
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
-    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}${windowingParams}
 )
 `;
 
