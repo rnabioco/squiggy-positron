@@ -104,8 +104,10 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # If no positions in range, return empty stats
         if not np.any(mask):
-            return {key: [] if isinstance(val, (list, np.ndarray)) else val
-                    for key, val in stats.items()}
+            return {
+                key: [] if isinstance(val, (list, np.ndarray)) else val
+                for key, val in stats.items()
+            }
 
         # Filter all array-like values by mask
         filtered = {}
@@ -124,9 +126,10 @@ class AggregatePlotStrategy(PlotStrategy):
                         int(first_key)  # Test conversion
                         # If successful, filter by position keys
                         filtered[key] = {
-                            int(p): v for p, v in val.items()
-                            if (x_min is None or int(p) >= x_min) and
-                               (x_max is None or int(p) <= x_max)
+                            int(p): v
+                            for p, v in val.items()
+                            if (x_min is None or int(p) >= x_min)
+                            and (x_max is None or int(p) <= x_max)
                         }
                     else:
                         # Empty dict
@@ -172,7 +175,9 @@ class AggregatePlotStrategy(PlotStrategy):
         for pos, mods in mod_stats["mod_stats"].items():
             try:
                 pos_int = int(pos)
-                if (x_min is None or pos_int >= x_min) and (x_max is None or pos_int <= x_max):
+                if (x_min is None or pos_int >= x_min) and (
+                    x_max is None or pos_int <= x_max
+                ):
                     filtered_mods[pos_int] = mods
             except (ValueError, TypeError):
                 # Skip non-numeric keys (shouldn't happen in mod_stats, but be safe)
@@ -286,7 +291,9 @@ class AggregatePlotStrategy(PlotStrategy):
 
         # Apply x-axis windowing if specified
         if x_axis_min is not None or x_axis_max is not None:
-            aggregate_stats = self._apply_windowing(aggregate_stats, x_axis_min, x_axis_max)
+            aggregate_stats = self._apply_windowing(
+                aggregate_stats, x_axis_min, x_axis_max
+            )
             pileup_stats = self._apply_windowing(pileup_stats, x_axis_min, x_axis_max)
             quality_stats = self._apply_windowing(quality_stats, x_axis_min, x_axis_max)
             if modification_stats:
@@ -361,8 +368,12 @@ class AggregatePlotStrategy(PlotStrategy):
                 all_positions = aggregate_stats.get("positions", [])
                 if len(all_positions) > 0:
                     # Use windowing values if specified, otherwise use data bounds
-                    actual_min = x_axis_min if x_axis_min is not None else all_positions[0]
-                    actual_max = x_axis_max if x_axis_max is not None else all_positions[-1]
+                    actual_min = (
+                        x_axis_min if x_axis_min is not None else all_positions[0]
+                    )
+                    actual_max = (
+                        x_axis_max if x_axis_max is not None else all_positions[-1]
+                    )
 
                     # Add 0.5 padding to prevent bars from being cut off
                     base_x_range = Range1d(start=actual_min - 0.5, end=actual_max + 0.5)

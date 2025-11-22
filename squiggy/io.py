@@ -1207,7 +1207,9 @@ def get_reads_for_reference_paginated(
     return all_reads[offset : offset + limit]
 
 
-def get_reference_range(reference_name: str, sample_name: str | None = None) -> dict[str, int]:
+def get_reference_range(
+    reference_name: str, sample_name: str | None = None
+) -> dict[str, int]:
     """
     Get the min and max aligned positions for a reference from the BAM file
 
