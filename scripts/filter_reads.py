@@ -152,9 +152,10 @@ def extract_reads_from_pod5(
 
             with pod5.Reader(pod5_file) as reader:
                 # Use selection parameter to efficiently get only the requested reads
-                for read in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
-                    writer.add_read(read)
-                    remaining_read_ids.remove(read.read_id)
+                for read_record in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
+                    # Convert ReadRecord to Read object before adding to writer
+                    writer.add_read(read_record.to_read())
+                    remaining_read_ids.remove(read_record.read_id)
                     extracted_count += 1
 
             # Progress update for directory mode
