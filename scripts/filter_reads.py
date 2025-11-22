@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 """
-Filter reads from BAM file and extract matching reads from POD5 file(s).
+Filter reads from BAM file by identifying high-coverage regions.
+
+Strategy:
+1. Scan chromosome in ~1000 bp bins
+2. Identify regions with >50 high-quality reads (MAPQ > 30)
+3. Sample ~50 reads from the best regions
+4. Extract matching reads from POD5 file(s)
 
 Usage:
     python filter_reads.py <bam_file> <pod5_path> [options]
 
 Examples:
-    # Single POD5 file
+    # Find high-coverage regions with default parameters
     python filter_reads.py alignments.bam reads.pod5 --chromosome chrIII --output filtered_reads.pod5
 
-    # Directory of POD5 files with BAM output
-    python filter_reads.py alignments.bam pod5_dir/ --chromosome chrIII --output filtered_reads.pod5 --output-bam filtered_reads.bam
+    # Custom coverage threshold and region size
+    python filter_reads.py alignments.bam pod5_dir/ --chromosome chrIII \
+        --region-size 2000 --min-coverage 100 --max-reads 100 \
+        --output filtered_reads.pod5 --output-bam filtered_reads.bam
+
+    # More stringent quality filtering
+    python filter_reads.py alignments.bam reads.pod5 --min-mapq 40 --min-coverage 75
 """
 
 import argparse
@@ -26,11 +37,17 @@ def filter_reads_from_bam(
     min_mapq: int = 30,
     target_length: int = 1000,
     length_tolerance: int = 100,
-    region_size: int = 10000,
-    max_reads: int = 100,
+    region_size: int = 1000,
+    min_coverage: int = 50,
+    max_reads: int = 50,
 ) -> List[Dict[str, Any]]:
     """
-    Filter reads from BAM file based on quality and genomic criteria.
+    Filter reads from BAM file by identifying high-coverage regions.
+
+    Strategy:
+    1. Scan chromosome in ~1000 bp bins
+    2. Identify regions with >50 high-quality reads (MAPQ > 30)
+    3. Sample ~50 reads from the best regions
 
     Args:
         bam_path: Path to indexed BAM file
@@ -38,20 +55,17 @@ def filter_reads_from_bam(
         min_mapq: Minimum mapping quality (default: 30)
         target_length: Target read length in bp (default: 1000)
         length_tolerance: Allowed deviation from target length (default: 100)
-        region_size: Size of genomic window in bp (default: 10000)
-        max_reads: Maximum number of reads to return (default: 100)
+        region_size: Size of genomic bins in bp (default: 1000)
+        min_coverage: Minimum reads per region (default: 50)
+        max_reads: Maximum number of reads to return (default: 50)
 
     Returns:
         List of dictionaries containing read information
     """
-    min_length = target_length - length_tolerance
-    max_length = target_length + length_tolerance
-
-    reads = []
-    positions = []
+    # Collect all high-quality reads
+    all_reads = []
 
     with pysam.AlignmentFile(bam_path, "rb") as bam:
-        # First pass: collect candidate reads
         for read in bam.fetch(chromosome):
             # Skip unmapped, secondary, and supplementary alignments
             if read.is_unmapped or read.is_secondary or read.is_supplementary:
@@ -61,52 +75,76 @@ def filter_reads_from_bam(
             if read.mapping_quality < min_mapq:
                 continue
 
-            # Filter by read length
-            read_length = read.query_length
-            if read_length < min_length or read_length > max_length:
-                continue
-
-            # Store read info
-            positions.append(read.reference_start)
-            reads.append(
+            # Store read info (no length filtering yet)
+            all_reads.append(
                 {
                     "read_id": read.query_name,
                     "position": read.reference_start,
-                    "length": read_length,
+                    "length": read.query_length,
                     "mapq": read.mapping_quality,
                     "strand": "-" if read.is_reverse else "+",
                 }
             )
 
-    if not reads:
+    if not all_reads:
         print(f"No reads found matching criteria on {chromosome}")
         return []
 
-    # Find a 10kb window with maximum read density
-    positions.sort()
-    best_window_start = positions[0]
-    max_count = 0
+    # Find chromosome length
+    positions = [r["position"] for r in all_reads]
+    chr_start = min(positions)
+    chr_end = max(positions)
 
-    for start_pos in positions:
-        end_pos = start_pos + region_size
-        count = sum(1 for pos in positions if start_pos <= pos < end_pos)
+    # Bin reads by genomic position
+    from collections import defaultdict
+    bins = defaultdict(list)
 
-        if count > max_count:
-            max_count = count
-            best_window_start = start_pos
+    for read in all_reads:
+        bin_id = read["position"] // region_size
+        bins[bin_id].append(read)
 
-    # Filter reads to those within the best window
-    best_window_end = best_window_start + region_size
-    filtered_reads = [
-        r
-        for r in reads
-        if best_window_start <= r["position"] < best_window_end
-    ]
+    # Find bins with sufficient coverage
+    high_coverage_bins = []
+    for bin_id, bin_reads in bins.items():
+        if len(bin_reads) >= min_coverage:
+            high_coverage_bins.append(
+                {
+                    "bin_id": bin_id,
+                    "start": bin_id * region_size,
+                    "end": (bin_id + 1) * region_size,
+                    "coverage": len(bin_reads),
+                    "reads": bin_reads,
+                }
+            )
 
-    # Limit to max_reads
-    filtered_reads = filtered_reads[:max_reads]
+    if not high_coverage_bins:
+        print(f"No regions found with >= {min_coverage} reads")
+        print(f"Best coverage: {max(len(reads) for reads in bins.values())} reads")
+        # Return reads from best bin anyway
+        best_bin = max(bins.items(), key=lambda x: len(x[1]))
+        selected_reads = best_bin[1][:max_reads]
+        return selected_reads
 
-    return filtered_reads
+    # Sort bins by coverage (descending)
+    high_coverage_bins.sort(key=lambda x: x["coverage"], reverse=True)
+
+    # Print top regions
+    print(f"Found {len(high_coverage_bins)} regions with >= {min_coverage} reads")
+    print("\nTop regions by coverage:")
+    print("Region\t\tCoverage")
+    for i, bin_info in enumerate(high_coverage_bins[:5]):
+        print(
+            f"{chromosome}:{bin_info['start']:,}-{bin_info['end']:,}\t{bin_info['coverage']}"
+        )
+        if i >= 4:
+            break
+    print()
+
+    # Sample reads from the best region
+    best_region = high_coverage_bins[0]
+    selected_reads = best_region["reads"][:max_reads]
+
+    return selected_reads
 
 
 def extract_reads_from_pod5(
@@ -258,14 +296,20 @@ def main():
     parser.add_argument(
         "--region-size",
         type=int,
-        default=10000,
-        help="Genomic window size in bp (default: 10000)",
+        default=1000,
+        help="Genomic bin size in bp for coverage analysis (default: 1000)",
+    )
+    parser.add_argument(
+        "--min-coverage",
+        type=int,
+        default=50,
+        help="Minimum reads per region (default: 50)",
     )
     parser.add_argument(
         "--max-reads",
         type=int,
-        default=100,
-        help="Maximum reads to extract (default: 100)",
+        default=50,
+        help="Maximum reads to extract (default: 50)",
     )
     parser.add_argument(
         "--output",
@@ -286,10 +330,9 @@ def main():
     print(f"Filtering reads from: {args.bam_file}")
     print(f"Chromosome: {args.chromosome}")
     print(f"Min MAPQ: {args.min_mapq}")
-    print(
-        f"Length range: {args.length - args.tolerance}-{args.length + args.tolerance} bp"
-    )
     print(f"Region size: {args.region_size} bp")
+    print(f"Min coverage: {args.min_coverage} reads per region")
+    print(f"Target reads: {args.max_reads}")
     print()
 
     # Step 1: Filter reads from BAM
@@ -300,6 +343,7 @@ def main():
         target_length=args.length,
         length_tolerance=args.tolerance,
         region_size=args.region_size,
+        min_coverage=args.min_coverage,
         max_reads=args.max_reads,
     )
 
@@ -307,11 +351,11 @@ def main():
         return
 
     # Print summary
-    print(f"Found {len(filtered_reads)} reads in optimal {args.region_size}bp window")
-    window_start = min(r["position"] for r in filtered_reads)
-    window_end = max(r["position"] for r in filtered_reads)
+    print(f"Selected {len(filtered_reads)} reads from high-coverage region")
+    region_start = min(r["position"] for r in filtered_reads)
+    region_end = max(r["position"] for r in filtered_reads)
     print(
-        f"Window: {args.chromosome}:{window_start:,}-{window_end + args.region_size:,}"
+        f"Region: {args.chromosome}:{region_start:,}-{region_end:,}"
     )
     print()
 
