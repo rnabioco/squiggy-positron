@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """
-Filter reads from BAM file and extract matching reads from POD5 file.
+Filter reads from BAM file and extract matching reads from POD5 file(s).
 
 Usage:
-    python filter_reads.py <bam_file> <pod5_file> [options]
+    python filter_reads.py <bam_file> <pod5_path> [options]
 
-Example:
+Examples:
+    # Single POD5 file
     python filter_reads.py alignments.bam reads.pod5 --chromosome chrIII --output filtered_reads.pod5
+
+    # Directory of POD5 files
+    python filter_reads.py alignments.bam pod5_dir/ --chromosome chrIII --output filtered_reads.pod5
 """
 
 import argparse
 import pysam
 import pod5
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import List, Dict, Any, Union
 
 
 def filter_reads_from_bam(
@@ -105,15 +110,15 @@ def filter_reads_from_bam(
 
 
 def extract_reads_from_pod5(
-    pod5_path: str,
+    pod5_path: Union[str, Path],
     read_ids: List[str],
     output_path: str,
 ) -> int:
     """
-    Extract specific reads from POD5 file and write to new POD5 file.
+    Extract specific reads from POD5 file(s) and write to new POD5 file.
 
     Args:
-        pod5_path: Path to input POD5 file
+        pod5_path: Path to input POD5 file or directory containing POD5 files
         read_ids: List of read IDs to extract
         output_path: Path to output POD5 file
 
@@ -121,23 +126,53 @@ def extract_reads_from_pod5(
         Number of reads successfully extracted
     """
     extracted_count = 0
+    pod5_path = Path(pod5_path)
 
-    with pod5.Reader(pod5_path) as reader:
-        with pod5.Writer(output_path) as writer:
-            # Use selection parameter to efficiently get only the requested reads
-            for read in reader.reads(selection=read_ids, missing_ok=True):
-                writer.add_read(read)
-                extracted_count += 1
+    # Collect all POD5 files to search
+    if pod5_path.is_file():
+        pod5_files = [pod5_path]
+    elif pod5_path.is_dir():
+        # Find all .pod5 files in the directory
+        pod5_files = sorted(pod5_path.glob("*.pod5"))
+        if not pod5_files:
+            print(f"Warning: No POD5 files found in directory: {pod5_path}")
+            return 0
+        print(f"Found {len(pod5_files)} POD5 files in directory")
+    else:
+        raise FileNotFoundError(f"POD5 path does not exist: {pod5_path}")
+
+    # Track which reads we still need to find
+    remaining_read_ids = set(read_ids)
+
+    with pod5.Writer(output_path) as writer:
+        # Search through all POD5 files
+        for pod5_file in pod5_files:
+            if not remaining_read_ids:
+                break  # All reads found
+
+            with pod5.Reader(pod5_file) as reader:
+                # Use selection parameter to efficiently get only the requested reads
+                for read in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
+                    writer.add_read(read)
+                    remaining_read_ids.remove(read.read_id)
+                    extracted_count += 1
+
+            # Progress update for directory mode
+            if len(pod5_files) > 1:
+                print(f"  Processed {pod5_file.name}: {extracted_count}/{len(read_ids)} reads found")
+
+    if remaining_read_ids:
+        print(f"Warning: {len(remaining_read_ids)} reads not found in POD5 file(s)")
 
     return extracted_count
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Filter reads from BAM and extract from POD5"
+        description="Filter reads from BAM and extract from POD5 file(s)"
     )
     parser.add_argument("bam_file", help="Path to indexed BAM file")
-    parser.add_argument("pod5_file", help="Path to input POD5 file")
+    parser.add_argument("pod5_path", help="Path to input POD5 file or directory containing POD5 files")
     parser.add_argument(
         "--chromosome",
         default="chrIII",
@@ -226,11 +261,11 @@ def main():
     print()
 
     # Step 2: Extract reads from POD5
-    print(f"Extracting reads from: {args.pod5_file}")
+    print(f"Extracting reads from: {args.pod5_path}")
     read_ids = [r["read_id"] for r in filtered_reads]
 
     extracted_count = extract_reads_from_pod5(
-        pod5_path=args.pod5_file,
+        pod5_path=args.pod5_path,
         read_ids=read_ids,
         output_path=args.output,
     )
