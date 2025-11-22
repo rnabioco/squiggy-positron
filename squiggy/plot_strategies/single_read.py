@@ -180,15 +180,17 @@ class SingleReadPlotStrategy(PlotStrategy):
 
         # Apply x-axis windowing if specified
         if x_axis_min is not None or x_axis_max is not None:
-            time_ms, signal, sequence, seq_to_sig_map, modifications = self._apply_windowing(
-                time_ms=time_ms,
-                signal=signal,
-                sequence=sequence,
-                seq_to_sig_map=seq_to_sig_map,
-                modifications=modifications,
-                x_min=x_axis_min,
-                x_max=x_axis_max,
-                x_label=x_label,
+            time_ms, signal, sequence, seq_to_sig_map, modifications = (
+                self._apply_windowing(
+                    time_ms=time_ms,
+                    signal=signal,
+                    sequence=sequence,
+                    seq_to_sig_map=seq_to_sig_map,
+                    modifications=modifications,
+                    x_min=x_axis_min,
+                    x_max=x_axis_max,
+                    x_label=x_label,
+                )
             )
 
         # Create main figure

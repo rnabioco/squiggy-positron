@@ -1011,7 +1011,11 @@ export const PlotOptionsCore: React.FC = () => {
                                                         ...prev,
                                                         xAxisMin: Math.max(
                                                             options.referenceMinPos,
-                                                            Math.min(val, options.xAxisMax ?? options.referenceMaxPos)
+                                                            Math.min(
+                                                                val,
+                                                                options.xAxisMax ??
+                                                                    options.referenceMaxPos
+                                                            )
                                                         ),
                                                     }));
                                                 }
@@ -1035,7 +1039,11 @@ export const PlotOptionsCore: React.FC = () => {
                                                         ...prev,
                                                         xAxisMax: Math.min(
                                                             options.referenceMaxPos,
-                                                            Math.max(val, options.xAxisMin ?? options.referenceMinPos)
+                                                            Math.max(
+                                                                val,
+                                                                options.xAxisMin ??
+                                                                    options.referenceMinPos
+                                                            )
                                                         ),
                                                     }));
                                                 }
@@ -1056,8 +1064,13 @@ export const PlotOptionsCore: React.FC = () => {
                                 >
                                     Reset to Full Range
                                 </button>
-                                <div className="plot-options-helper-text" style={{ marginTop: '8px' }}>
-                                    Reference range: {options.referenceMinPos} - {options.referenceMaxPos} (from {options.aggregateReference || 'selected reference'})
+                                <div
+                                    className="plot-options-helper-text"
+                                    style={{ marginTop: '8px' }}
+                                >
+                                    Reference range: {options.referenceMinPos} -{' '}
+                                    {options.referenceMaxPos} (from{' '}
+                                    {options.aggregateReference || 'selected reference'})
                                 </div>
                             </div>
                         )}

@@ -209,6 +209,12 @@ describe('PlotOptionsViewProvider', () => {
                 showSignal: true,
                 showQuality: true,
                 clipXAxisToAlignment: true,
+                enableXAxisWindowing: false,
+                xAxisMin: null,
+                xAxisMax: null,
+                sampleNames: undefined,
+                transformCoordinates: undefined,
+                viewStyle: undefined,
             });
         });
     });

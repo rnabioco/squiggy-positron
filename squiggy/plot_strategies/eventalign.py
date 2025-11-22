@@ -225,7 +225,9 @@ class EventAlignPlotStrategy(PlotStrategy):
         fig.add_tools(hover)
 
         # Apply x-axis windowing or clipping
-        if (x_axis_min is not None or x_axis_max is not None) and len(first_aligned.bases) > 0:
+        if (x_axis_min is not None or x_axis_max is not None) and len(
+            first_aligned.bases
+        ) > 0:
             from bokeh.models import Range1d
 
             # X-axis windowing takes precedence over clip_x_to_alignment
