@@ -155,7 +155,8 @@ def extract_reads_from_pod5(
                 for read_record in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
                     # Convert ReadRecord to Read object before adding to writer
                     writer.add_read(read_record.to_read())
-                    remaining_read_ids.remove(read_record.read_id)
+                    # Convert UUID to string for comparison with BAM read IDs
+                    remaining_read_ids.remove(str(read_record.read_id))
                     extracted_count += 1
 
             # Progress update for directory mode
