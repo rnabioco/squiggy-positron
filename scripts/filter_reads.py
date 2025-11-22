@@ -150,18 +150,27 @@ def extract_reads_from_pod5(
             if not remaining_read_ids:
                 break  # All reads found
 
-            with pod5.Reader(pod5_file) as reader:
-                # Use selection parameter to efficiently get only the requested reads
-                for read_record in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
-                    # Convert ReadRecord to Read object before adding to writer
-                    writer.add_read(read_record.to_read())
-                    # Convert UUID to string for comparison with BAM read IDs
-                    remaining_read_ids.remove(str(read_record.read_id))
-                    extracted_count += 1
+            try:
+                with pod5.Reader(pod5_file) as reader:
+                    # Use selection parameter to efficiently get only the requested reads
+                    for read_record in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
+                        # Convert ReadRecord to Read object before adding to writer
+                        writer.add_read(read_record.to_read())
+                        # Convert UUID to string for comparison with BAM read IDs
+                        remaining_read_ids.remove(str(read_record.read_id))
+                        extracted_count += 1
 
-            # Progress update for directory mode
-            if len(pod5_files) > 1:
-                print(f"  Processed {pod5_file.name}: {extracted_count}/{len(read_ids)} reads found")
+                # Progress update for directory mode
+                if len(pod5_files) > 1:
+                    print(f"  Processed {pod5_file.name}: {extracted_count}/{len(read_ids)} reads found")
+
+            except Exception as e:
+                # Skip problematic files and continue
+                if len(pod5_files) > 1:
+                    print(f"  Warning: Skipped {pod5_file.name}: {type(e).__name__}: {str(e)[:100]}")
+                else:
+                    # If it's a single file, re-raise the error
+                    raise
 
     if remaining_read_ids:
         print(f"Warning: {len(remaining_read_ids)} reads not found in POD5 file(s)")
