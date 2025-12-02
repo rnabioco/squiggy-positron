@@ -1,5 +1,38 @@
 # Squiggy Release Notes
 
+## v0.1.17-alpha (2025-12-02)
+
+Bug fixes, UX improvements, and new data filtering features for POD5/BAM workflows.
+
+### Features
+
+- **Adaptive Downsampling**: Extreme-scale optimization for visualizing large signal datasets (#159)
+- **POD5/BAM Filtering Script**: New `filter_reads.py` script supporting POD5 directory input, BAM output, and end_reason filtering
+- **Modification Heatmap Filters**: Added frequency and count filters for modification heatmap visualization (#157)
+
+### Improvements
+
+- **React 18 Migration**: Critical UX fixes including error boundaries and memory leak prevention (#151)
+- **Type Safety**: Comprehensive type safety and performance improvements across the codebase (#153)
+- **Accessibility**: Accessibility improvements for React panels following WCAG guidelines (#152)
+- **CSS Refactoring**: Extracted inline CSS to dedicated stylesheets for Samples and Plot Options panels (#158)
+- **Aggregate Plot Zoom**: Fixed zoom behavior in aggregate plots for better navigation
+- **Documentation**: Reorganized documentation files following CLAUDE.md conventions
+
+### Fixes
+
+- **Demo Session Loading**: Fixed read count population when loading demo/session samples (#162)
+- **Sample Unloading**: Resolved "sample not found" error after unloading demo data (#161)
+- **Modal Dialogs**: Removed duplicate Cancel buttons from modal dialogs
+- **POD5 Error Handling**: Added error handling to skip corrupted POD5 files gracefully
+- **UUID Conversion**: Fixed UUID to string conversion for POD5 read IDs
+- **Console Pollution**: Cleaned up print statements polluting console output
+
+### Internal
+
+- Coverage-based region identification refactoring in filter_reads.py
+- Updated npm dependencies and security audit
+
 ## v0.1.16-alpha (2025-11-14)
 
 Comprehensive release with improved UI organization, reference display standardization, and background kernel architecture for cleaner Variables pane.
