@@ -188,8 +188,8 @@
         "icon": "$(output)"
       },
       {
-        "command": "squiggy.checkInstallation",
-        "title": "Check Python Package Installation",
+        "command": "squiggy.resetVenv",
+        "title": "Reset Python Environment",
         "category": "Squiggy",
         "icon": "$(refresh)"
       },
@@ -212,48 +212,36 @@
     "views": {
       "squiggy-sidebar": [
         {
-          "id": "squiggySetupPanel",
-          "name": "Setup",
-          "type": "webview",
-          "when": "squiggy.setupMode"
-        },
-        {
           "id": "squiggyComparisonSamples",
           "name": "Samples",
-          "type": "webview",
-          "when": "!squiggy.setupMode"
+          "type": "webview"
         },
         {
           "id": "squiggySessionPanel",
           "name": "Session Manager",
-          "type": "webview",
-          "when": "!squiggy.setupMode"
+          "type": "webview"
         },
         {
           "id": "squiggyReadList",
           "name": "Read Explorer",
           "type": "webview",
-          "visibility": "collapsed",
-          "when": "!squiggy.setupMode"
+          "visibility": "collapsed"
         },
         {
           "id": "squiggyPlotOptions",
           "name": "Plotting",
-          "type": "webview",
-          "when": "!squiggy.setupMode"
+          "type": "webview"
         },
         {
           "id": "squiggyModificationsPanel",
           "name": "Modifications Explorer",
-          "type": "webview",
-          "when": "!squiggy.setupMode"
+          "type": "webview"
         },
         {
           "id": "squiggyMotifSearch",
           "name": "Motif Explorer",
           "type": "webview",
-          "visibility": "collapsed",
-          "when": "!squiggy.setupMode"
+          "visibility": "collapsed"
         }
       ]
     },
