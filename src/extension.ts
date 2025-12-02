@@ -335,6 +335,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 // Update extension state
                 state.removeSample(sampleName);
                 state.removeLoadedItem(`sample:${sampleName}`);
+                state.removeSampleFromVisualization(sampleName);
 
                 // If this was the selected sample in Read Explorer, clear selection and reset view
                 if (state.selectedReadExplorerSample === sampleName) {
