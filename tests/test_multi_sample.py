@@ -11,10 +11,10 @@ class TestSample:
         sample = Sample("model_v4.2")
 
         assert sample.name == "model_v4.2"
-        assert sample._pod5_path is None
+        assert sample.pod5_path is None
         assert sample._pod5_reader is None
         assert sample._read_ids == []
-        assert sample._bam_path is None
+        assert sample.bam_path is None
         assert sample._bam_info is None
 
     def test_sample_repr_empty(self):

@@ -416,6 +416,21 @@ class Sample:
         self._fasta_path = None
         self._fasta_info = None
 
+    @property
+    def pod5_path(self) -> str | None:
+        """Path to loaded POD5 file"""
+        return self._pod5_path
+
+    @property
+    def bam_path(self) -> str | None:
+        """Path to loaded BAM file"""
+        return self._bam_path
+
+    @property
+    def fasta_path(self) -> str | None:
+        """Path to loaded FASTA file"""
+        return self._fasta_path
+
 
 class SquiggyKernel:
     """
