@@ -1184,18 +1184,20 @@ squiggy.close_fasta()
         // Add to loaded samples if multi-sample mode
         if (resolvedPod5Paths.length > 0) {
             // CRITICAL: Load sample into Python registry so TypeScript queries work
+            let numReads = 0;
             try {
                 logger.debug(
                     `[restoreSample] Loading sample '${sampleName}' into Python registry...`
                 );
-                await api.loadSample(
+                const sampleResult = await api.loadSample(
                     sampleName,
                     resolvedPod5Paths[0],
                     resolvedBamPath,
                     resolvedFastaPath
                 );
+                numReads = sampleResult.numReads;
                 logger.debug(
-                    `[restoreSample] Sample '${sampleName}' successfully loaded into Python registry`
+                    `[restoreSample] Sample '${sampleName}' successfully loaded into Python registry with ${numReads} reads`
                 );
             } catch (error) {
                 logger.error(`[restoreSample] Failed to load sample into Python registry`, error);
@@ -1211,7 +1213,7 @@ squiggy.close_fasta()
                 bamPath: resolvedBamPath,
                 fastaPath: resolvedFastaPath,
                 // File metadata
-                readCount: 0, // Will be populated by loadPOD5
+                readCount: numReads,
                 hasBam: !!resolvedBamPath,
                 hasFasta: !!resolvedFastaPath,
                 // Kernel state
@@ -1223,6 +1225,13 @@ squiggy.close_fasta()
                 },
             };
             this._loadedSamples.set(sampleName, sampleInfo);
+
+            // Also update the unified LoadedItem with the read count
+            const itemId = `sample:${sampleName}`;
+            const existingItem = this._loadedItems.get(itemId);
+            if (existingItem) {
+                existingItem.readCount = numReads;
+            }
         }
     }
 
