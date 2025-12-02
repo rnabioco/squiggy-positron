@@ -179,8 +179,7 @@ describe('Session Commands', () => {
             expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
                 expect.stringContaining('unsaved changes'),
                 expect.any(Object),
-                'Restore',
-                'Cancel'
+                'Restore'
             );
         });
 
@@ -188,7 +187,8 @@ describe('Session Commands', () => {
             const savedSession = { samples: { sample1: {} } };
             (SessionStateManager.loadSession as any).mockResolvedValue(savedSession);
             (SessionStateManager.hasUnsavedChanges as any).mockResolvedValue(true);
-            (vscode.window.showWarningMessage as any).mockResolvedValue('Cancel');
+            // Modal cancel button returns undefined
+            (vscode.window.showWarningMessage as any).mockResolvedValue(undefined);
 
             await restoreSessionCommand(mockState, mockContext);
 
@@ -343,14 +343,14 @@ describe('Session Commands', () => {
             expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
                 'Loading demo session will replace current data. Continue?',
                 { modal: true },
-                'Load Demo',
-                'Cancel'
+                'Load Demo'
             );
             expect(mockState.loadDemoSession).toHaveBeenCalledWith(mockContext);
         });
 
         it('should not load when user cancels', async () => {
-            (vscode.window.showWarningMessage as any).mockResolvedValue('Cancel');
+            // Modal cancel button returns undefined
+            (vscode.window.showWarningMessage as any).mockResolvedValue(undefined);
 
             await loadDemoSessionCommand(mockState, mockContext);
 
