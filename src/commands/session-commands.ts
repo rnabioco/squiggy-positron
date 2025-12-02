@@ -103,11 +103,11 @@ export async function restoreSessionCommand(
         );
 
         if (hasUnsavedChanges && Object.keys(currentState.samples).length > 0) {
+            // Note: modal dialogs automatically have a Cancel button, so we only need 'Restore'
             const response = await vscode.window.showWarningMessage(
                 'Current session has unsaved changes. Continue restoring?',
                 { modal: true },
-                'Restore',
-                'Cancel'
+                'Restore'
             );
 
             if (response !== 'Restore') {
@@ -268,11 +268,11 @@ export async function loadDemoSessionCommand(
         const hasData = Object.keys(currentState.samples).length > 0;
 
         if (hasData) {
+            // Note: modal dialogs automatically have a Cancel button, so we only need 'Load Demo'
             const response = await vscode.window.showWarningMessage(
                 'Loading demo session will replace current data. Continue?',
                 { modal: true },
-                'Load Demo',
-                'Cancel'
+                'Load Demo'
             );
 
             if (response !== 'Load Demo') {

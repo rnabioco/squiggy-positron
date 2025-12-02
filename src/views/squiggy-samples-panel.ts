@@ -214,11 +214,11 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
 
             case 'unloadSample': {
                 // Ask for confirmation
+                // Note: modal dialogs automatically have a Cancel button, so we only need 'Yes'
                 const confirm = await vscode.window.showWarningMessage(
                     `Unload sample "${message.sampleName}"?`,
                     { modal: true },
-                    'Yes',
-                    'Cancel'
+                    'Yes'
                 );
 
                 if (confirm === 'Yes') {
