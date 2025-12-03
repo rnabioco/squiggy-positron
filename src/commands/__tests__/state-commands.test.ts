@@ -42,7 +42,6 @@ describe('State Commands', () => {
 
         // Mock state with minimal required properties
         mockState = {
-            usePositron: true,
             squiggyAPI: mockAPI,
             ensureBackgroundKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
             readsViewPane: {
@@ -101,19 +100,6 @@ describe('State Commands', () => {
     });
 
     describe('squiggy.refreshReads', () => {
-        it('should show warning when Positron runtime is not available', async () => {
-            mockState.usePositron = false;
-
-            registerCommands();
-            const handler = commandHandlers.get('squiggy.refreshReads');
-
-            await handler!();
-
-            expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-                'Refresh requires Positron runtime with active Python kernel'
-            );
-        });
-
         it('should show warning when squiggyAPI is not available', async () => {
             mockState.squiggyAPI = null;
 
@@ -123,7 +109,7 @@ describe('State Commands', () => {
             await handler!();
 
             expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-                'Refresh requires Positron runtime with active Python kernel'
+                'Squiggy API not initialized'
             );
         });
 

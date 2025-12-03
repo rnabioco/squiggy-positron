@@ -11,75 +11,45 @@ A Positron IDE extension for visualizing Oxford Nanopore sequencing data from PO
 
 ## Overview
 
-Squiggy is a Positron extension that integrates nanopore signal visualization into your data science workflow. Work with POD5 and BAM files directly in Positron, leveraging the active Python kernel for seamless data exploration.
+Squiggy is a Positron extension that integrates nanopore signal visualization into your data science workflow. Work with POD5 and BAM files directly in Positron, leveraging interactive Bokeh plots for data exploration.
 
 ![Squiggy in action](resources/screenshot.png)
 
 **Key Features:**
-- **Positron Integration**: Works with your active Python kernel - no separate environment needed
+- **One-Step Installation**: Just install the extension - Python environment is set up automatically
 - **Interactive Visualization**: Bokeh-powered plots with zoom, pan, and hover tooltips
 - **Base Annotations**: Overlay base calls and modifications on signal data when using BAM files
 - **Read Filtering**: Search by read ID, reference region, or sequence motif
 - **Modification Analysis**: Filter and visualize base modifications (5mC, 6mA, etc.) with probability thresholds
 - **Aggregate Plots**: Multi-read visualizations with modification heatmaps, dwell time, and quality tracks
 
-## Project-Based Workflow
-
-> [!IMPORTANT]
-> **Squiggy follows a strict project-based workflow**. You must:
-> 1. Open a specific project directory in Positron (not the home directory)
-> 2. Have a project-specific virtual environment with `squiggy-positron` installed
-> 3. Work with data files within or relative to that project
->
-> This follows [tidyverse workflow principles](https://tidyverse.org/blog/2017/12/workflow-vs-script/) - your analysis should be reproducible and self-contained within a project directory.
-
 ## Installation
 
-> [!IMPORTANT]
-> Squiggy requires the `squiggy-positron` Python package to be installed **before** using the extension. Follow these steps in order:
+### Prerequisites
 
-### 1. Create a Project Directory
+- **Positron IDE** (version 2025.6.0+)
+- **Python 3.12+** available on your system
+- **uv** - Fast Python package manager ([install uv](https://docs.astral.sh/uv/getting-started/installation/))
 
-```bash
-# Create a project directory for your analysis
-mkdir my-nanopore-analysis
-cd my-nanopore-analysis
-
-# Open this directory in Positron
-# File → Open Folder → Select my-nanopore-analysis
-```
-
-### 2. Install Python Package
-
-Install the `squiggy-positron` Python package in a **project-specific** virtual environment:
-
-```bash
-# Create project-specific virtual environment
-uv venv
-
-# Activate it
-source .venv/bin/activate  # macOS/Linux
-# OR
-.venv\Scripts\activate     # Windows
-
-# Install squiggy-positron from PyPI
-uv pip install squiggy-positron
-```
-
-> **Note**: While the PyPI package is named `squiggy-positron`, you import it as `import squiggy`.
-
-### 3. Install Positron Extension
-
-Then install the Squiggy extension in Positron:
+### Install the Extension
 
 1. Download the latest `.vsix` file from [Releases](https://github.com/rnabioco/squiggy-positron/releases)
 2. In Positron: `Extensions` → `...` → `Install from VSIX...`
 3. Select the downloaded `.vsix` file
 
-Or install from the Open VSX Registry (when available):
+Or install from the Open VSX Registry:
 - Search for "Squiggy" in Positron's Extensions panel
 
-> For development installation, see the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-guide/).
+### Automatic Python Setup
+
+When you first use Squiggy, it automatically:
+1. Creates a dedicated virtual environment at `~/.venvs/squiggy`
+2. Installs the bundled `squiggy` Python package using `uv`
+3. Configures a background kernel for extension operations
+
+**No manual Python package installation required!** The extension handles everything.
+
+> **Note**: The automatic setup requires `uv` to be installed. If `uv` is not found, you'll be prompted to install it.
 
 ## Quick Start
 
@@ -157,6 +127,13 @@ If your BAM file contains base modifications:
 
 Squiggy provides an object-oriented Python API for use in Jupyter notebooks and Python scripts. See [`examples/notebook_api_demo.ipynb`](examples/notebook_api_demo.ipynb) for a complete tutorial.
 
+To use the API in your own environment, activate the Squiggy venv:
+
+```bash
+source ~/.venvs/squiggy/bin/activate
+python -c "import squiggy; print(squiggy.__version__)"
+```
+
 ## Architecture
 
 Squiggy uses the **Strategy Pattern** to make adding new plot types easy and maintainable:
@@ -173,35 +150,39 @@ See the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-
 ## Requirements
 
 - **Positron IDE** (version 2025.6.0+)
-- **Python 3.12+** with a virtual environment
-- **uv** for Python package management
-- **squiggy-positron Python package** (installed via `uv pip install squiggy-positron`)
-
-### Python Environment Setup
-
-Use `uv` for fast, reliable Python environment management:
-
-```bash
-# Install uv (if not already installed)
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Create virtual environment and install squiggy-positron
-uv venv
-source .venv/bin/activate  # macOS/Linux
-# OR
-.venv\Scripts\activate     # Windows
-
-uv pip install squiggy-positron  # Includes: pod5, bokeh, numpy, pysam
-```
-
-> **Important**: Always use a project-based virtual environment. The extension will check for the `squiggy-positron` package when you first try to load data, and will provide installation instructions if it's not found.
+- **Python 3.12+** available on your system
+- **uv** for automatic Python environment setup
 
 ### Optional Requirements
 
 - **BAM file** with basecalls for advanced features (event-aligned plots, modifications)
+
+## Troubleshooting
+
+### Reset the Squiggy Environment
+
+If you encounter issues with the Python environment, you can reset it:
+
+1. Open Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`)
+2. Run: `Squiggy: Reset Virtual Environment`
+
+This will delete `~/.venvs/squiggy` and recreate it on next use.
+
+### Manual Environment Setup
+
+If automatic setup fails, you can manually create the environment:
+
+```bash
+# Install uv if needed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create venv with Python 3.12
+uv venv ~/.venvs/squiggy --python 3.12
+
+# Activate and install squiggy from the extension
+source ~/.venvs/squiggy/bin/activate
+# The extension will install the package on first use
+```
 
 ## Documentation
 

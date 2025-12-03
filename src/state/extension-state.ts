@@ -9,8 +9,6 @@
 import * as vscode from 'vscode';
 import { PositronRuntimeClient } from '../backend/positron-runtime-client';
 import { SquiggyRuntimeAPI } from '../backend/squiggy-runtime-api';
-import { PackageManager } from '../backend/package-manager';
-import { PythonBackend } from '../backend/squiggy-python-backend';
 import { SquiggyKernelManager, SquiggyKernelState } from '../backend/squiggy-kernel-manager';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
 import { PlotOptionsViewProvider } from '../views/squiggy-plot-options-view';
@@ -85,10 +83,7 @@ export class ExtensionState {
     private _positronClient?: PositronRuntimeClient;
     private _squiggyAPI?: SquiggyRuntimeAPI; // For notebook/console (foreground kernel)
     private _backgroundSquiggyAPI?: SquiggyRuntimeAPI; // For extension UI (background kernel)
-    private _packageManager?: PackageManager;
-    private _pythonBackend?: PythonBackend | null;
     private _kernelManager?: SquiggyKernelManager;
-    private _usePositron: boolean = false;
 
     // UI panel providers
     private _readsViewPane?: ReadsViewPane;
@@ -137,45 +132,29 @@ export class ExtensionState {
     private _extensionContext?: vscode.ExtensionContext;
 
     /**
-     * Initialize backends (Positron or subprocess fallback)
+     * Initialize backends (Positron only)
      */
     async initializeBackends(context: vscode.ExtensionContext): Promise<void> {
         this._extensionContext = context;
 
-        // Try Positron runtime first
+        // Initialize Positron runtime
         this._positronClient = new PositronRuntimeClient();
-        this._usePositron = this._positronClient.isAvailable();
 
-        if (this._usePositron) {
-            // Use Positron runtime
-            this._squiggyAPI = new SquiggyRuntimeAPI(this._positronClient);
-            this._packageManager = new PackageManager(this._positronClient);
-
-            // Initialize background kernel manager for extension UI
-            this._kernelManager = new SquiggyKernelManager(context.extensionPath);
-            context.subscriptions.push(this._kernelManager);
-
-            logger.info('Background kernel manager initialized (will start on demand)');
-        } else {
-            // Fallback to subprocess JSON-RPC
-            const pythonPath = this.getPythonPath();
-            const serverPath = context.asAbsolutePath('src/python/server.py');
-            this._pythonBackend = new PythonBackend(pythonPath, serverPath);
-
-            try {
-                await this._pythonBackend.start();
-
-                // Register cleanup on deactivation
-                context.subscriptions.push({
-                    dispose: () => this._pythonBackend?.stop(),
-                });
-            } catch (error) {
-                vscode.window.showErrorMessage(
-                    `Failed to start Python backend: ${error}. ` +
-                        `Please ensure Python is installed and the squiggy package is available.`
-                );
-            }
+        if (!this._positronClient.isAvailable()) {
+            throw new Error(
+                'Squiggy requires Positron IDE. The Positron runtime API is not available.'
+            );
         }
+
+        // Use Positron runtime
+        this._squiggyAPI = new SquiggyRuntimeAPI(this._positronClient);
+
+        // Initialize background kernel manager for extension UI
+        // Uses getPreferredRuntime() which returns the squiggy venv (Positron auto-discovers it)
+        this._kernelManager = new SquiggyKernelManager(context.extensionPath);
+        context.subscriptions.push(this._kernelManager);
+
+        logger.info('Background kernel manager initialized (will start on demand)');
     }
 
     /**
@@ -185,7 +164,7 @@ export class ExtensionState {
      * FALLBACK: If dedicated kernel fails to start, falls back to foreground API
      */
     async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
-        if (!this._usePositron || !this._kernelManager) {
+        if (!this._kernelManager) {
             logger.warning('Dedicated kernel not available, using foreground API');
             if (!this._squiggyAPI) {
                 throw new Error('No API available (neither dedicated nor foreground)');
@@ -266,10 +245,11 @@ export class ExtensionState {
         this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
-        // Clear Python kernel state if using Positron
-        if (this._usePositron && this._positronClient) {
+        // Clear Python kernel state in the dedicated background kernel
+        if (this._kernelManager) {
             try {
-                await this._positronClient.executeSilent(`
+                const api = await this.ensureBackgroundKernel();
+                await api.client.executeSilent(`
 import squiggy
 from squiggy.io import squiggy_kernel
 # Close all resources via session
@@ -283,15 +263,6 @@ squiggy.close_fasta()
                 // Ignore errors if kernel is not running
             }
         }
-    }
-
-    /**
-     * Get Python interpreter path from VSCode settings
-     */
-    private getPythonPath(): string {
-        const config = vscode.workspace.getConfiguration('python');
-        const pythonPath = config.get<string>('defaultInterpreterPath');
-        return pythonPath || 'python3';
     }
 
     // ========== Getters ==========
@@ -308,20 +279,8 @@ squiggy.close_fasta()
         return this._backgroundSquiggyAPI;
     }
 
-    get packageManager(): PackageManager | undefined {
-        return this._packageManager;
-    }
-
-    get pythonBackend(): PythonBackend | null | undefined {
-        return this._pythonBackend;
-    }
-
     get kernelManager(): SquiggyKernelManager | undefined {
         return this._kernelManager;
-    }
-
-    get usePositron(): boolean {
-        return this._usePositron;
     }
 
     get readsViewPane(): ReadsViewPane | undefined {
@@ -1004,6 +963,10 @@ squiggy.close_fasta()
         isDemo: boolean,
         extensionUri: vscode.Uri
     ): Promise<void> {
+        // Get background API client first for path resolution (to avoid polluting foreground console)
+        const api = await this.ensureBackgroundKernel();
+        const pathResolverClient = api.client;
+
         // Resolve POD5 paths
         const resolvedPod5Paths: string[] = [];
         for (const pod5Path of sampleData.pod5Paths) {
@@ -1013,7 +976,7 @@ squiggy.close_fasta()
             if (pod5Path.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     pod5Path,
-                    this._positronClient
+                    pathResolverClient
                 );
             }
             // Otherwise, resolve extension-relative paths
@@ -1045,7 +1008,7 @@ squiggy.close_fasta()
             if (sampleData.bamPath.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     sampleData.bamPath,
-                    this._positronClient
+                    pathResolverClient
                 );
             }
             // Otherwise, resolve extension-relative paths
@@ -1077,7 +1040,7 @@ squiggy.close_fasta()
             if (sampleData.fastaPath.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     sampleData.fastaPath,
-                    this._positronClient
+                    pathResolverClient
                 );
             }
             // Otherwise, resolve extension-relative paths
@@ -1100,14 +1063,8 @@ squiggy.close_fasta()
             }
         }
 
-        // Load files via API
-        if (!this._squiggyAPI) {
-            throw new Error('Squiggy API not initialized');
-        }
-
-        // Get background API (starts dedicated kernel if needed)
-        const api = await this.ensureBackgroundKernel();
-        logger.debug('[restoreSample] Background API ready, loading files...');
+        // Load files via API (api was already obtained at start for path resolution)
+        logger.debug('[restoreSample] Loading files via background API...');
 
         // Load POD5 (assuming single POD5 for now)
         if (resolvedPod5Paths.length > 0) {

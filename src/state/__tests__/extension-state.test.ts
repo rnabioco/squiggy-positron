@@ -16,7 +16,6 @@ describe('ExtensionState', () => {
         it('should initialize with default values', () => {
             expect(state.currentPod5File).toBeUndefined();
             expect(state.currentBamFile).toBeUndefined();
-            expect(state.usePositron).toBe(false);
             expect(state.squiggyInstallChecked).toBe(false);
             expect(state.squiggyInstallDeclined).toBe(false);
         });
@@ -24,8 +23,6 @@ describe('ExtensionState', () => {
         it('should have undefined backend references initially', () => {
             expect(state.positronClient).toBeUndefined();
             expect(state.squiggyAPI).toBeUndefined();
-            expect(state.packageManager).toBeUndefined();
-            expect(state.pythonBackend).toBeUndefined();
         });
 
         it('should have undefined panel references initially', () => {
@@ -116,14 +113,6 @@ describe('ExtensionState', () => {
     });
 
     describe('getter properties', () => {
-        it('should expose usePositron as readonly', () => {
-            // Initially false
-            expect(state.usePositron).toBe(false);
-
-            // Cannot set directly - it's readonly
-            // (set internally by initializeBackends)
-        });
-
         it('should expose extensionContext as readonly', () => {
             expect(state.extensionContext).toBeUndefined();
             // Set internally by initializeBackends
@@ -133,8 +122,6 @@ describe('ExtensionState', () => {
             // All backend instances start as undefined
             expect(state.positronClient).toBeUndefined();
             expect(state.squiggyAPI).toBeUndefined();
-            expect(state.packageManager).toBeUndefined();
-            expect(state.pythonBackend).toBeUndefined();
         });
 
         it('should provide getter access to panel providers', () => {

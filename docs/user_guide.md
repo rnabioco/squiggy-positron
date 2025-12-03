@@ -24,22 +24,20 @@ Or visit the [OpenVSX marketplace page](https://open-vsx.org/extension/rnabioco/
 
 ### First Time Setup
 
-When you first activate Squiggy, if the Python package is not installed, you'll see a **Setup** panel in the sidebar with step-by-step instructions:
+When you first use Squiggy (e.g., loading a POD5 file), it automatically:
 
-1. **Create a virtual environment** - The panel provides commands you can copy to create a `.venv` folder in your workspace
-2. **Install the Python package** - Copy the provided `uv pip install` command to install `squiggy-positron`
-3. **Select Python interpreter** - Click the "Select Python Interpreter" button and choose your new virtual environment
-4. **Verify** - Click "Check Again" to confirm the setup is complete
+1. **Creates a dedicated virtual environment** at `~/.venvs/squiggy`
+2. **Installs the bundled Python package** using `uv`
+3. **Configures a background kernel** for extension operations
 
-The setup panel will automatically disappear once Squiggy detects the Python package in your active environment.
+This happens automatically - no manual Python installation required! The setup takes about 30 seconds on first use.
 
-> **Why a virtual environment?** Squiggy requires the `squiggy-positron` Python package along with dependencies like `pod5`, `pysam`, and `bokeh`. Virtual environments keep these isolated from your system Python, following Python best practices.
+> **Prerequisites**: You need `uv` installed on your system. If it's not found, Squiggy will prompt you to install it. See [uv installation](https://docs.astral.sh/uv/getting-started/installation/).
 
 ### Opening the Extension
 
 Once setup is complete, click the **Squiggy icon** in the Activity Bar (left sidebar) to reveal:
 
-- **Setup** - Installation instructions (only visible when package not installed)
 - **Files** - POD5/BAM/FASTA file information
 - **Search** - Filter reads by ID or reference
 - **Reads** - Hierarchical read list with Plot buttons
@@ -624,15 +622,15 @@ samtools index your_file.bam
 - Ensure you have the latest version of the pod5 Python package
 - Check that the file was completely downloaded (not truncated)
 
-### "Python package not installed"
+### "Python package not installed" or "uv not found"
 
-**Problem**: The `squiggy` Python package is not available in the active Python kernel
+**Problem**: The automatic Python environment setup failed
 
 **Solution**:
-- Ensure you're using a virtual environment (not system Python)
-- Install the package: `pip install squiggy-positron`
-- Restart the Python console in Positron
-- Check the selected Python interpreter in Positron matches your virtual environment
+- Ensure `uv` is installed: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- Try resetting the environment: Command Palette → `Squiggy: Reset Virtual Environment`
+- Check the Output panel (Squiggy) for detailed error messages
+- Manual fallback: `uv venv ~/.venvs/squiggy --python 3.12`
 
 ### "Plots not rendering" or "Blank plot panel"
 

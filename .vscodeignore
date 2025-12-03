@@ -15,6 +15,7 @@ coverage_html/**
 coverage.json
 .mypy_cache/**
 [A-Z]*_[A-Z]*.md
+task.md
 
 # Tests (exclude all test code and data)
 tests/**
@@ -22,9 +23,8 @@ tests/**
 # images
 resources/screenshot.png
 
-# Python package (now distributed via PyPI separately)
-squiggy/**
-pyproject.toml
+# Python package - bundled for automatic venv installation
+# (Keep squiggy/ and pyproject.toml in VSIX)
 
 # Python development files (exclude test code but include test data)
 tests/*.py
