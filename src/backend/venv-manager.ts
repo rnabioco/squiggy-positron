@@ -2,7 +2,7 @@
  * Virtual Environment Manager
  *
  * Manages the Squiggy extension's isolated Python virtual environment.
- * Creates a venv at ~/.local/squiggy/venv (or $SQUIGGY_VENV) and installs
+ * Creates a venv at ~/.venvs/squiggy (or $SQUIGGY_VENV) and installs
  * the bundled squiggy-positron package using uv.
  */
 
