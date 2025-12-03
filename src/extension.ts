@@ -38,6 +38,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize centralized logger (creates Output Channel)
     logger.initialize(context);
 
+    // Log version info for debugging
+    logger.info(`Positron/VSCode version: ${vscode.version}`);
+    logger.info(`Squiggy extension version: ${context.extension.packageJSON.version}`);
+
     // Initialize venv manager
     venvManager = new VenvManager();
 
@@ -61,7 +65,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Set interpreter
                 progress.report({ message: 'Configuring Python interpreter...' });
                 await venvManager.setAsInterpreter();
-                return { success: true, pythonPath: venvManager.getVenvPython() };
+                return {
+                    success: true,
+                    pythonPath: venvManager.getVenvPython(),
+                    venvCreated: false,
+                };
             }
 
             // Need to set up venv
@@ -112,7 +120,7 @@ export async function activate(context: vscode.ExtensionContext) {
             progress.report({ message: 'Configuring Python interpreter...' });
             await venvManager.setAsInterpreter();
 
-            return { success: true, pythonPath: venvManager.getVenvPython() };
+            return { success: true, pythonPath: venvManager.getVenvPython(), venvCreated: true };
         }
     );
 
@@ -126,6 +134,19 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     logger.info(`Squiggy venv ready at ${venvResult.pythonPath}`);
+
+    // If we just created the venv, prompt user to restart Positron
+    // Positron only discovers new venvs in ~/.venvs/ at startup
+    if (venvResult.venvCreated) {
+        const restart = await vscode.window.showInformationMessage(
+            'Squiggy environment created. Please restart Positron to complete setup.',
+            'Restart Now',
+            'Later'
+        );
+        if (restart === 'Restart Now') {
+            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        }
+    }
 
     // Initialize backends (Positron or subprocess fallback)
     await state.initializeBackends(context);
