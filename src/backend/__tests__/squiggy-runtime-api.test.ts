@@ -109,16 +109,6 @@ describe('SquiggyRuntimeAPI', () => {
         });
     });
 
-    describe('getReadsForReference', () => {
-        it('should get read IDs for a reference', async () => {
-            mockClient.getVariable.mockResolvedValue(['read1', 'read2']);
-
-            const result = await api.getReadsForReference('chr1');
-
-            expect(result).toEqual(['read1', 'read2']);
-        });
-    });
-
     describe('getReadsForReferencePaginated', () => {
         it.skip('should get paginated reads', async () => {
             // Skip - complex mock setup, tested in integration

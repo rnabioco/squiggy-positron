@@ -5,10 +5,10 @@ Short, actionable guidance to help an AI coding agent be productive in this repo
 1) Big picture (where to look first)
   - Frontend (Positron extension): `src/` — entry: `src/extension.ts`. UI panels live in `src/views/` and `src/webview/`.
   - Backend (Python package): `squiggy/` — core I/O, plotting and normalization. Key files: `squiggy/io.py`, `squiggy/plot_factory.py`, `squiggy/plot_strategies/`, `squiggy/rendering/`, `squiggy/normalization.py`.
-  - Kernel comms: `src/backend/squiggy-positron-runtime.ts` (Positron runtime) and `src/backend/squiggy-python-backend.ts` (subprocess fallback).
+  - Kernel comms: `src/backend/positron-runtime-client.ts` (Positron runtime), `src/backend/squiggy-runtime-api.ts` (high-level API), and `src/backend/squiggy-python-backend.ts` (subprocess fallback).
 
 2) Critical integration patterns (do exactly this)
-  - NEVER use `print()` in Python to pass data to TypeScript. Use the Positron variable-access pattern implemented in `src/backend/squiggy-positron-runtime.ts`.
+  - NEVER use `print()` in Python to pass data to TypeScript. Use the Positron variable-access pattern implemented in `src/backend/positron-runtime-client.ts`.
     Example: execute code silently to set a Python variable, then call `positron.runtime.getSessionVariables(sessionId, [[varname]])` to retrieve JSON.
   - When generating plot HTML, Python returns a Bokeh HTML string (see `squiggy.plot_read()` in `squiggy/__init__.py`). TypeScript displays it directly in a webview.
 
@@ -41,7 +41,8 @@ Short, actionable guidance to help an AI coding agent be productive in this repo
 
 7) Files to inspect for further context (quick checklist)
   - `src/extension.ts` — activation and command registration
-  - `src/backend/squiggy-positron-runtime.ts` — how the runtime fetches Python variables
+  - `src/backend/positron-runtime-client.ts` — how the runtime fetches Python variables
+  - `src/backend/squiggy-runtime-api.ts` — high-level API for squiggy operations
   - `squiggy/io.py` — global kernel state and load functions
   - `squiggy/plot_factory.py` — Strategy Pattern factory for plot generation
   - `squiggy/plot_strategies/` — Individual plot strategy implementations (5 strategies: SINGLE, OVERLAY, STACKED, EVENTALIGN, AGGREGATE)

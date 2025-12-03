@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { MotifMatch } from '../types/motif-types';
+import { ExtensionState } from '../state/extension-state';
 
 export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'squiggyMotifSearch';
@@ -17,7 +18,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
     constructor(
         private readonly extensionUri: vscode.Uri,
-        private readonly state: any // ExtensionState
+        private readonly state: ExtensionState
     ) {}
 
     public resolveWebviewView(

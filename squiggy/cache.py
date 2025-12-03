@@ -277,7 +277,7 @@ class SquiggyCache:
 
     def load_bam_metadata(self, file_path: Path) -> dict | None:
         """
-        Load complete BAM metadata from cache (Phase 2 optimization)
+        Load complete BAM metadata from cache
 
         Caches all metadata collected by _collect_bam_metadata_single_pass():
         - references (list of dicts with name/length/read_count)
@@ -323,7 +323,7 @@ class SquiggyCache:
 
     def save_bam_metadata(self, file_path: Path, metadata: dict) -> None:
         """
-        Save complete BAM metadata to cache (Phase 2 optimization)
+        Save complete BAM metadata to cache
 
         Caches the full metadata dict from _collect_bam_metadata_single_pass().
         This replaces the need for separate caching of individual components.

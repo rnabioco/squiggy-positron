@@ -2,12 +2,12 @@
  * Tests for Plot Options View Provider
  *
  * Tests the PlotOptionsViewProvider webview implementation.
- * Target: >80% coverage of squiggy-plot-options-view.ts
+ * Target: >80% coverage of squiggy-plot-options-panel.ts
  */
 
 import { describe, it, expect, beforeEach, jest, afterEach } from '@jest/globals';
 import * as vscode from 'vscode';
-import { PlotOptionsViewProvider } from '../squiggy-plot-options-view';
+import { PlotOptionsViewProvider } from '../squiggy-plot-options-panel';
 
 describe('PlotOptionsViewProvider', () => {
     let provider: PlotOptionsViewProvider;
