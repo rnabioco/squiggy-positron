@@ -1,5 +1,13 @@
 # Squiggy Release Notes
 
+## v0.1.19-alpha (2025-12-02)
+
+Critical fix for Python interpreter selection when installed from OpenVSX.
+
+### Fixes
+
+- **Python Interpreter Selection**: Fixed issue where extension would use system Python instead of the squiggy venv when installed from OpenVSX. The extension now explicitly finds and selects the squiggy venv runtime rather than relying on Positron's auto-discovery preference.
+
 ## v0.1.18-alpha (2025-12-02)
 
 Major simplification of installation: Squiggy now bundles its Python package and automatically creates a virtual environment on first use. No external Python package installation required.
