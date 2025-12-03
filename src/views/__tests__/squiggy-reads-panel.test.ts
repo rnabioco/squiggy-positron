@@ -2,12 +2,12 @@
  * Tests for Reads View Pane Provider
  *
  * Tests the ReadsViewPane webview implementation.
- * Target: >80% coverage of squiggy-reads-view-pane.ts
+ * Target: >80% coverage of squiggy-reads-panel.ts
  */
 
 import { describe, it, expect, beforeEach, jest, afterEach } from '@jest/globals';
 import * as vscode from 'vscode';
-import { ReadsViewPane } from '../squiggy-reads-view-pane';
+import { ReadsViewPane } from '../squiggy-reads-panel';
 import { ExtensionState } from '../../state/extension-state';
 
 describe('ReadsViewPane', () => {
