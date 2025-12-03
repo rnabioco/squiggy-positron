@@ -188,7 +188,7 @@ paths = {
         })
     );
 
-    // Load sample (for multi-sample comparison) - Phase 4
+    // Load sample for multi-sample comparison
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.loadSample', async () => {
             await loadSampleForComparison(context, state);
@@ -871,7 +871,6 @@ squiggy.close_fasta()
 
 /**
  * Load a sample (POD5 + optional BAM/FASTA) for multi-sample comparison
- * Phase 4 - Multi-sample comparison feature
  */
 async function loadSampleForComparison(
     context: vscode.ExtensionContext,

@@ -31,7 +31,7 @@ export function registerKernelListeners(
         // Helper function to clear extension state and re-check installation
         const clearExtensionState = async (reason: string) => {
             await state.clearAll();
-            logger.debug(`Squiggy: ${reason}, state cleared`);
+            logger.debug(`[KernelListeners] ${reason}, state cleared`);
 
             // Re-check installation after session change if callback provided
             if (onSessionChange) {
@@ -51,7 +51,7 @@ export function registerKernelListeners(
                     const dedicatedSessionId = state.kernelManager.getSessionId();
                     if (dedicatedSessionId && sessionId === dedicatedSessionId) {
                         logger.debug(
-                            `Squiggy: Foreground session changed to dedicated kernel (${sessionId}), NOT clearing state`
+                            `[KernelListeners] Foreground session changed to dedicated kernel (${sessionId}), NOT clearing state`
                         );
                         return;
                     }
@@ -68,7 +68,7 @@ export function registerKernelListeners(
             try {
                 const session = await positron.runtime.getForegroundSession();
                 logger.debug(
-                    'Squiggy: Setting up session listeners, session:',
+                    '[KernelListeners] Setting up session listeners, session:',
                     session?.metadata.sessionId
                 );
 
@@ -77,7 +77,10 @@ export function registerKernelListeners(
                         session.onDidChangeRuntimeState((runtimeState: string) => {
                             // Only log important state changes (not idle/busy cycles)
                             if (runtimeState === 'restarting' || runtimeState === 'exited') {
-                                logger.debug('Squiggy: Kernel state changed to:', runtimeState);
+                                logger.debug(
+                                    '[KernelListeners] Kernel state changed to:',
+                                    runtimeState
+                                );
                                 clearExtensionState(`Kernel ${runtimeState}`);
                             } else if (runtimeState === 'ready' && onSessionChange) {
                                 // Kernel restarted and is now ready - re-check installation
@@ -91,14 +94,14 @@ export function registerKernelListeners(
                             }
                         })
                     );
-                    logger.debug('Squiggy: Successfully attached runtime state listener');
+                    logger.debug('[KernelListeners] Successfully attached runtime state listener');
                 } else {
                     logger.debug(
-                        'Squiggy: No session or no onDidChangeRuntimeState event available'
+                        '[KernelListeners] No session or no onDidChangeRuntimeState event available'
                     );
                 }
             } catch (error) {
-                logger.error('Squiggy: Error setting up session listeners:', error);
+                logger.error('[KernelListeners] Error setting up session listeners:', error);
             }
         };
         setupSessionListeners();

@@ -139,8 +139,8 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider,
         message: IncomingWebviewMessage,
         showUserNotification: boolean = true
     ): void {
-        // Get command from message (if available)
-        const command = (message as any).command || 'unknown';
+        // Get message type (all IncomingWebviewMessage types have a 'type' property)
+        const command = message.type || 'unknown';
 
         // Log the error with context
         logger.error(`[${this.getTitle()}] Error handling message '${command}':`, error);

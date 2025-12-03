@@ -86,7 +86,9 @@ export class SquiggyKernelManager implements RuntimeClient {
             if (!runtime) {
                 logger.warning(
                     'Squiggy venv not found in registered runtimes, using preferred. Available: ' +
-                        pythonRuntimes.map((r: positron.LanguageRuntimeMetadata) => r.runtimePath).join(', ')
+                        pythonRuntimes
+                            .map((r: positron.LanguageRuntimeMetadata) => r.runtimePath)
+                            .join(', ')
                 );
                 runtime = await positron.runtime.getPreferredRuntime('python');
             }

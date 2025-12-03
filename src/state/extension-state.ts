@@ -24,11 +24,10 @@ import { logger } from '../utils/logger';
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
  *
- * Phase 3 refactor: Designed to support future TSV import and sample management.
  * - `sampleId`: Unique identifier (can be UUID or file-based)
  * - `displayName`: User-facing name (editable), separate from POD5 filename
- * - `pod5Path`: Single POD5 file (Phase 3), extensible to array for multi-POD5 future
- * - `isLoaded`: Tracks kernel state (prepares for lazy loading in #79 TSV import)
+ * - `pod5Path`: Single POD5 file, extensible to array for multi-POD5 future
+ * - `isLoaded`: Tracks kernel state (prepares for lazy loading)
  * - `metadata`: Extensible object for future attributes without interface changes
  */
 export interface ReferenceInfo {
@@ -43,7 +42,7 @@ export interface SampleInfo {
     displayName: string; // User-facing name (editable in Sample Manager)
 
     // File associations
-    pod5Path: string; // Single POD5 per sample (Phase 3)
+    pod5Path: string;
     bamPath?: string;
     fastaPath?: string;
 
@@ -104,7 +103,7 @@ export class ExtensionState {
         totalReads: number;
     };
 
-    // Multi-sample state (Phase 4)
+    // Multi-sample state
     private _loadedSamples: Map<string, SampleInfo> = new Map();
     private _selectedSamplesForComparison: string[] = [];
     private _samplesForVisualization: Set<string> = new Set(); // Samples selected for plotting
@@ -587,7 +586,7 @@ squiggy.close_fasta()
         this._onVisualizationSelectionChanged.fire(selected);
     }
 
-    // ========== Multi-Sample Management (Phase 4) ==========
+    // ========== Multi-Sample Management ==========
 
     get loadedSamples(): Map<string, SampleInfo> {
         return this._loadedSamples;
