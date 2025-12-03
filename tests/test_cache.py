@@ -15,7 +15,7 @@ class TestSquiggyCacheInitialization:
         cache = SquiggyCache()
 
         assert cache.enabled is True
-        assert cache.cache_dir == Path.home() / ".local" / "squiggy" / "cache"
+        assert cache.cache_dir == Path.home() / ".cache" / "squiggy"
         assert cache.cache_dir.exists()
 
     def test_init_custom_cache_dir(self, tmp_path):
