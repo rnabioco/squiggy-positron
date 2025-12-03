@@ -1,0 +1,80 @@
+[2025-12-03 08:19:57] [INFO] Squiggy extension activated
+[2025-12-03 08:19:58] [INFO] Creating venv at /Users/jayhesselberth/.venvs/squiggy
+[2025-12-03 08:19:58] [INFO] Installing squiggy package from /Users/jayhesselberth/.positron/extensions/rnabioco.squiggy-positron-0.1.19-alpha/squiggy
+[2025-12-03 08:19:59] [INFO] Looking for squiggy venv runtime at /Users/jayhesselberth/.venvs/squiggy/bin/python
+[2025-12-03 08:19:59] [WARNING] Squiggy venv not found in registered runtimes. Available: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/R, /opt/homebrew/bin/python3, /usr/bin/python3, ~/miniforge3/bin/python, ~/miniforge3/envs/aatrnaseqpipe/bin/python, ~/.local/share/mamba/envs/aa-tRNA-seq-notebook/bin/python, ~/miniforge3/envs/nmdexons/bin/python
+[2025-12-03 08:19:59] [INFO] Squiggy venv ready at /Users/jayhesselberth/.venvs/squiggy/bin/python
+[2025-12-03 08:19:59] [INFO] Background kernel manager initialized (will start on demand)
+[2025-12-03 08:19:59] [INFO] Updating kernel status bar: uninitialized
+[2025-12-03 08:19:59] [INFO] Kernel status bar initialized
+[2025-12-03 08:19:59] [INFO] Registering UI panels and commands...
+[2025-12-03 08:19:59] [INFO] All panels and commands registered
+[2025-12-03 08:19:59] [DEBUG] [KernelListeners] Setting up session listeners, session:
+  ["r-7cbdc806"]
+[2025-12-03 08:19:59] [DEBUG] [KernelListeners] Successfully attached runtime state listener
+[2025-12-03 08:20:04] [DEBUG] [Samples] resolveWebviewView called
+[2025-12-03 08:20:04] [DEBUG] [Samples] Setting HTML with title: "Samples"
+[2025-12-03 08:20:04] [DEBUG] [Squiggy Session Manager] resolveWebviewView called
+[2025-12-03 08:20:04] [DEBUG] [Squiggy Session Manager] Setting HTML with title: "Squiggy Session Manager"
+[2025-12-03 08:20:04] [DEBUG] [Plotting] resolveWebviewView called
+[2025-12-03 08:20:04] [DEBUG] [Plotting] Setting HTML with title: "Plotting"
+[2025-12-03 08:20:04] [DEBUG] [Squiggy Modifications] resolveWebviewView called
+[2025-12-03 08:20:04] [DEBUG] [Squiggy Modifications] Setting HTML with title: "Squiggy Modifications"
+[2025-12-03 08:20:04] [DEBUG] [ModificationsPanel] Received message:
+  [{"type":"ready"}]
+[2025-12-03 08:20:04] [DEBUG] [ModificationsPanel] Webview ready, hasModifications:
+  [false]
+[2025-12-03 08:20:04] [DEBUG] [ModificationsPanel] Sending clearMods message
+[2025-12-03 08:20:04] [DEBUG] [SamplesPanelProvider] updateView called
+[2025-12-03 08:20:04] [DEBUG] [SamplesPanelProvider] _view exists:
+  [true]
+[2025-12-03 08:20:04] [DEBUG] [SamplesPanelProvider] Sample names from state:
+  [[]]
+[2025-12-03 08:20:04] [DEBUG] [SamplesPanelProvider] Built samples array:
+  [[]]
+[2025-12-03 08:20:04] [DEBUG] [SamplesPanelProvider] Sending clearSamples message
+[2025-12-03 08:20:04] [DEBUG] [PlotOptions] Sending BAM status on init:
+  [false]
+[2025-12-03 08:20:15] [INFO] Updating kernel status bar: starting
+[2025-12-03 08:20:15] [INFO] Starting Squiggy dedicated kernel...
+[2025-12-03 08:20:15] [WARNING] Squiggy venv not found in registered runtimes, using preferred. Available: /opt/homebrew/bin/python3, /usr/bin/python3, ~/miniforge3/bin/python, ~/miniforge3/envs/aatrnaseqpipe/bin/python, ~/.local/share/mamba/envs/aa-tRNA-seq-notebook/bin/python, ~/miniforge3/envs/nmdexons/bin/python
+[2025-12-03 08:20:15] [INFO] Using Python runtime: Python 3.14.0 (System) (2025.99.0-dev)
+[2025-12-03 08:20:18] [INFO] Dedicated session created: python-ad98f070
+[2025-12-03 08:20:18] [INFO] Waiting for dedicated kernel to be ready...
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Waiting for ready: current state = busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [INFO] Updating kernel status bar: ready
+[2025-12-03 08:20:18] [DEBUG] Waiting for ready: current state = idle
+[2025-12-03 08:20:18] [DEBUG] Kernel ready after 6ms
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [INFO] Dedicated kernel is ready, setting up environment...
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [INFO] Added /Users/jayhesselberth/.positron/extensions/rnabioco.squiggy-positron-0.1.19-alpha to PYTHONPATH in dedicated kernel
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:18] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:19] [DEBUG] [KernelListeners] Foreground session changed to dedicated kernel (python-ad98f070), NOT clearing state
+[2025-12-03 08:20:19] [DEBUG] [KernelListeners] Setting up session listeners, session:
+  ["python-ad98f070"]
+[2025-12-03 08:20:19] [DEBUG] [KernelListeners] Successfully attached runtime state listener
+[2025-12-03 08:20:19] [ERROR] Dedicated kernel execution failed: [object Object]
+[2025-12-03 08:20:19] [INFO] Updating kernel status bar: error
+[2025-12-03 08:20:19] [ERROR] Failed to start dedicated kernel: Error: Squiggy package not available in dedicated kernel: [object Object]
+[2025-12-03 08:20:19] [ERROR] Dedicated kernel restart failed: Squiggy package not available in dedicated kernel: [object Object]
+[2025-12-03 08:20:19] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:19] [INFO] Updating kernel status bar: ready
+[2025-12-03 08:20:19] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:19] [DEBUG] Dedicated kernel state changed: idle
+[2025-12-03 08:20:19] [DEBUG] Dedicated kernel state changed: busy
+[2025-12-03 08:20:19] [DEBUG] Dedicated kernel state changed: idle

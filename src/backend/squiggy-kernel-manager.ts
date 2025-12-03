@@ -70,26 +70,45 @@ export class SquiggyKernelManager implements RuntimeClient {
         logger.info('Starting Squiggy dedicated kernel...');
 
         try {
-            // Find the squiggy venv runtime specifically
-            // We can't rely on getPreferredRuntime() because Positron may prefer system Python
-            const runtimes = await positron.runtime.getRegisteredRuntimes();
-            const pythonRuntimes = runtimes.filter(
-                (r: positron.LanguageRuntimeMetadata) => r.languageId === 'python'
-            );
+            // Poll for squiggy venv to appear in registered runtimes
+            // Positron may not have discovered it yet after creation
+            let runtime: positron.LanguageRuntimeMetadata | undefined;
+            const maxAttempts = 10;
+            const pollIntervalMs = 500;
 
-            // Look for squiggy venv first
-            let runtime = pythonRuntimes.find((r: positron.LanguageRuntimeMetadata) =>
-                r.runtimePath.includes('.venvs/squiggy')
-            );
-
-            // Fall back to preferred runtime if squiggy venv not found
-            if (!runtime) {
-                logger.warning(
-                    'Squiggy venv not found in registered runtimes, using preferred. Available: ' +
-                        pythonRuntimes
-                            .map((r: positron.LanguageRuntimeMetadata) => r.runtimePath)
-                            .join(', ')
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const allRuntimes = await positron.runtime.getRegisteredRuntimes();
+                const pythonRuntimes = allRuntimes.filter(
+                    (r: positron.LanguageRuntimeMetadata) => r.languageId === 'python'
                 );
+
+                if (attempt === 1) {
+                    logger.info(
+                        `Available Python runtimes: ${pythonRuntimes.map((r: positron.LanguageRuntimeMetadata) => `${r.runtimeName} @ ${r.runtimePath}`).join(', ')}`
+                    );
+                }
+
+                // Look for squiggy venv
+                runtime = pythonRuntimes.find((r: positron.LanguageRuntimeMetadata) =>
+                    r.runtimePath.includes('.venvs/squiggy')
+                );
+
+                if (runtime) {
+                    logger.info(`Found squiggy venv on attempt ${attempt}`);
+                    break;
+                }
+
+                if (attempt < maxAttempts) {
+                    logger.debug(
+                        `Squiggy venv not found, polling... (attempt ${attempt}/${maxAttempts})`
+                    );
+                    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+                }
+            }
+
+            // Fall back to preferred runtime if squiggy venv not found after polling
+            if (!runtime) {
+                logger.warning('Squiggy venv not found after polling, using preferred runtime');
                 runtime = await positron.runtime.getPreferredRuntime('python');
             }
 
@@ -100,7 +119,7 @@ export class SquiggyKernelManager implements RuntimeClient {
             const runtimeId = runtime.runtimeId;
             const runtimeName = `${runtime.runtimeName} (${runtime.runtimeVersion})`;
 
-            logger.info(`Using Python runtime: ${runtimeName}`);
+            logger.info(`Using Python runtime: ${runtimeName} @ ${runtime.runtimePath}`);
 
             // Start a dedicated console session for Squiggy
             // NOTE: positron.runtime.startLanguageRuntime() only supports Console and Notebook modes
