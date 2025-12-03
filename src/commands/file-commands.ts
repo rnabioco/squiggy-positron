@@ -502,43 +502,21 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
 
 /**
  * Ensure squiggy package is available (check if installed, show guidance if not)
+ *
+ * With the automatic venv setup at ~/.venvs/squiggy, squiggy is always installed.
+ * This function now just returns true for Positron mode since the venv guarantees
+ * squiggy availability. This avoids importing squiggy in the foreground kernel
+ * which would pollute the user's Variables pane with squiggy_kernel.
  */
 async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
-    if (!state.usePositron) {
-        // Non-Positron mode - assume squiggy is available via subprocess backend
+    // In Positron mode, squiggy is guaranteed to be installed in the venv
+    // The venv is set up automatically at extension activation
+    if (state.usePositron) {
         return true;
     }
 
-    const packageManager = state.packageManager;
-    if (!packageManager) {
-        return false;
-    }
-
-    // Don't prompt repeatedly in the same session
-    if (state.squiggyInstallChecked && state.squiggyInstallDeclined) {
-        return false;
-    }
-
-    try {
-        // Check if package is installed and compatible
-        const available = await packageManager.verifyPackage();
-
-        if (available) {
-            state.squiggyInstallChecked = true;
-            state.squiggyInstallDeclined = false;
-            return true;
-        } else {
-            // verifyPackage() already showed appropriate error message
-            state.squiggyInstallChecked = true;
-            state.squiggyInstallDeclined = true;
-            return false;
-        }
-    } catch (_error) {
-        // Error during check - mark as unavailable
-        state.squiggyInstallChecked = true;
-        state.squiggyInstallDeclined = true;
-        return false;
-    }
+    // Non-Positron mode - assume squiggy is available via subprocess backend
+    return true;
 }
 
 /**

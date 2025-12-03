@@ -9,7 +9,6 @@
 import * as vscode from 'vscode';
 import { PositronRuntimeClient } from '../backend/positron-runtime-client';
 import { SquiggyRuntimeAPI } from '../backend/squiggy-runtime-api';
-import { PackageManager } from '../backend/package-manager';
 import { PythonBackend } from '../backend/squiggy-python-backend';
 import { SquiggyKernelManager, SquiggyKernelState } from '../backend/squiggy-kernel-manager';
 import { ReadsViewPane } from '../views/squiggy-reads-view-pane';
@@ -85,7 +84,6 @@ export class ExtensionState {
     private _positronClient?: PositronRuntimeClient;
     private _squiggyAPI?: SquiggyRuntimeAPI; // For notebook/console (foreground kernel)
     private _backgroundSquiggyAPI?: SquiggyRuntimeAPI; // For extension UI (background kernel)
-    private _packageManager?: PackageManager;
     private _pythonBackend?: PythonBackend | null;
     private _kernelManager?: SquiggyKernelManager;
     private _usePositron: boolean = false;
@@ -149,7 +147,6 @@ export class ExtensionState {
         if (this._usePositron) {
             // Use Positron runtime
             this._squiggyAPI = new SquiggyRuntimeAPI(this._positronClient);
-            this._packageManager = new PackageManager(this._positronClient);
 
             // Initialize background kernel manager for extension UI
             // Uses getPreferredRuntime() which returns the squiggy venv (Positron auto-discovers it)
@@ -308,10 +305,6 @@ squiggy.close_fasta()
 
     get backgroundSquiggyAPI(): SquiggyRuntimeAPI | undefined {
         return this._backgroundSquiggyAPI;
-    }
-
-    get packageManager(): PackageManager | undefined {
-        return this._packageManager;
     }
 
     get pythonBackend(): PythonBackend | null | undefined {

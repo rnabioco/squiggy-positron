@@ -24,7 +24,6 @@ describe('ExtensionState', () => {
         it('should have undefined backend references initially', () => {
             expect(state.positronClient).toBeUndefined();
             expect(state.squiggyAPI).toBeUndefined();
-            expect(state.packageManager).toBeUndefined();
             expect(state.pythonBackend).toBeUndefined();
         });
 
@@ -133,7 +132,6 @@ describe('ExtensionState', () => {
             // All backend instances start as undefined
             expect(state.positronClient).toBeUndefined();
             expect(state.squiggyAPI).toBeUndefined();
-            expect(state.packageManager).toBeUndefined();
             expect(state.pythonBackend).toBeUndefined();
         });
 
