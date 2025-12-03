@@ -49,7 +49,8 @@ When you first use Squiggy, it automatically:
 
 **No manual Python package installation required!** The extension handles everything.
 
-> **Note**: The automatic setup requires `uv` to be installed. If `uv` is not found, you'll be prompted to install it.
+> [!NOTE]  
+> The automatic setup requires `uv` to be installed. If `uv` is not found, you'll be prompted to install it.
 
 ## Quick Start
 
@@ -107,7 +108,8 @@ Compare signal differences between exactly two samples:
 - **Normalization**: None, Z-score, Median, or MAD
 - **Sample Manager Integration**: Use eye icons in Sample Manager to select which samples to visualize
 
-> **Tip**: For multi-sample workflows, enable the samples you want to visualize using the eye icons in the Sample Manager panel, then choose your analysis type in the Plotting panel.
+> [!TIP]
+> For multi-sample workflows, enable the samples you want to visualize using the eye icons in the Sample Manager panel, then choose your analysis type in the Plotting panel.
 
 ### 4. Explore Modifications (BAM with MM/ML tags)
 
