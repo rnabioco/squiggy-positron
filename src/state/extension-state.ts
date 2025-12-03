@@ -787,7 +787,9 @@ squiggy.close_fasta()
 
         // Debug logging if provider is missing
         if (!providerOptions) {
-            logger.warning('[ExtensionState] plotOptionsProvider returned undefined, using defaults');
+            logger.warning(
+                '[ExtensionState] plotOptionsProvider returned undefined, using defaults'
+            );
         }
 
         const plotOptions = providerOptions
