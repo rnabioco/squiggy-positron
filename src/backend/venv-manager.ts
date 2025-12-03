@@ -36,8 +36,7 @@ export class VenvManager {
         // Default: ~/.venvs/squiggy, overridable via SQUIGGY_VENV env var
         // Using ~/.venvs/ because Positron automatically discovers venvs in this location
         // (see positron-python globalVirtualEnvironmentLocator.ts)
-        this.venvPath =
-            process.env.SQUIGGY_VENV || path.join(os.homedir(), '.venvs', 'squiggy');
+        this.venvPath = process.env.SQUIGGY_VENV || path.join(os.homedir(), '.venvs', 'squiggy');
     }
 
     /**

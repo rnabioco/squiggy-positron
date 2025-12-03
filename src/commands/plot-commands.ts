@@ -518,12 +518,7 @@ async function plotSignalOverlayComparison(
 
             // Generate signal overlay plot
             const api = await state.ensureBackgroundKernel();
-            await api.generateSignalOverlayComparison(
-                sampleNames,
-                normalization,
-                theme,
-                maxReads
-            );
+            await api.generateSignalOverlayComparison(sampleNames, normalization, theme, maxReads);
         },
         ErrorContext.PLOT_GENERATE,
         `Comparing samples: ${sampleNames.join(', ')}...`
