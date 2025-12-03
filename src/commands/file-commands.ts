@@ -315,7 +315,7 @@ paths = {
  * Load more reads for POD5 pagination
  */
 async function loadMoreReads(state: ExtensionState): Promise<void> {
-    if (!state.usePositron || !state.squiggyAPI || !state.currentPod5File) {
+    if (!state.squiggyAPI || !state.currentPod5File) {
         return;
     }
 
@@ -366,10 +366,6 @@ async function expandReference(
     limit: number,
     state: ExtensionState
 ): Promise<void> {
-    if (!state.usePositron) {
-        return;
-    }
-
     try {
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
@@ -415,7 +411,7 @@ async function expandReference(
  * Load reads for a specific sample from the multi-sample registry
  */
 async function loadReadsForSample(sampleName: string, state: ExtensionState): Promise<void> {
-    if (!state.usePositron || !state.squiggyAPI) {
+    if (!state.squiggyAPI) {
         return;
     }
 
@@ -508,14 +504,9 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
  * squiggy availability. This avoids importing squiggy in the foreground kernel
  * which would pollute the user's Variables pane with squiggy_kernel.
  */
-async function ensureSquiggyAvailable(state: ExtensionState): Promise<boolean> {
-    // In Positron mode, squiggy is guaranteed to be installed in the venv
+async function ensureSquiggyAvailable(_state: ExtensionState): Promise<boolean> {
+    // Squiggy is guaranteed to be installed in the venv
     // The venv is set up automatically at extension activation
-    if (state.usePositron) {
-        return true;
-    }
-
-    // Non-Positron mode - assume squiggy is available via subprocess backend
     return true;
 }
 
@@ -570,7 +561,7 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
             state.currentPod5File = filePath;
 
             // Get and display read IDs from dedicated kernel
-            if (state.usePositron && state.squiggyAPI) {
+            if (state.squiggyAPI) {
                 const api = await state.ensureBackgroundKernel();
                 const readIds = await api.getReadIds(0, 1000);
                 if (readIds.length > 0) {
@@ -643,7 +634,7 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 
             // Get references for lazy loading from dedicated kernel
             let referenceToReads: Record<string, string[]> = {};
-            if (state.usePositron && state.squiggyAPI) {
+            if (state.squiggyAPI) {
                 const api = await state.ensureBackgroundKernel();
                 const references = await api.getReferences();
                 for (const ref of references) {
@@ -710,7 +701,7 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
 async function closePOD5File(state: ExtensionState): Promise<void> {
     try {
         // Clear Python state in the background kernel
-        if (state.usePositron && state.kernelManager) {
+        if (state.kernelManager) {
             const api = await state.ensureBackgroundKernel();
             await api.client.executeSilent(`
 import squiggy
@@ -743,7 +734,7 @@ squiggy.close_pod5()
 async function closeBAMFile(state: ExtensionState): Promise<void> {
     try {
         // Clear Python state in the background kernel
-        if (state.usePositron && state.kernelManager) {
+        if (state.kernelManager) {
             const api = await state.ensureBackgroundKernel();
             await api.client.executeSilent(`
 import squiggy
@@ -777,7 +768,7 @@ squiggy.close_bam()
         vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
         // If POD5 is still loaded, revert to flat read list
-        if (state.currentPod5File && state.usePositron) {
+        if (state.currentPod5File) {
             const api = await state.ensureBackgroundKernel();
             const readIds = await api.getReadIds(0, 1000);
             state.readsViewPane?.setReads(readIds);
@@ -852,7 +843,7 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
 async function closeFASTAFile(state: ExtensionState): Promise<void> {
     try {
         // Clear Python state in the background kernel
-        if (state.usePositron && state.kernelManager) {
+        if (state.kernelManager) {
             const api = await state.ensureBackgroundKernel();
             await api.client.executeSilent(`
 import squiggy
@@ -960,7 +951,7 @@ async function loadSampleForComparison(
 
             // Get complete sample info including references (if BAM was loaded)
             let references = undefined;
-            if (bamPath && state.usePositron) {
+            if (bamPath) {
                 try {
                     const api = await state.ensureBackgroundKernel();
                     const sampleInfo = await api.getSampleInfo(sampleName);
@@ -1127,7 +1118,7 @@ paths = {
 
                     // Get complete sample info including references (if BAM was loaded)
                     let references = undefined;
-                    if (sample.bamPath && state.usePositron) {
+                    if (sample.bamPath) {
                         try {
                             const api = await state.ensureBackgroundKernel();
                             const sampleInfo = await api.getSampleInfo(sample.name);

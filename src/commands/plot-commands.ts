@@ -369,34 +369,24 @@ async function plotReads(
             const colorThemeKind = vscode.window.activeColorTheme.kind;
             const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
-            if (state.usePositron) {
-                // Use dedicated kernel - plot appears in Plots pane automatically
-                const api = await state.ensureBackgroundKernel();
-                await api.generatePlot(
-                    readIds,
-                    mode,
-                    normalization,
-                    theme,
-                    options.showDwellTime,
-                    options.showBaseAnnotations,
-                    options.scaleDwellTime,
-                    modFilters.minProbability,
-                    modFilters.enabledModTypes,
-                    options.downsample,
-                    options.showSignalPoints,
-                    state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
-                    coordinateSpace
-                );
-                logger.info('Plot generated successfully (dedicated kernel)');
-            } else if (state.pythonBackend) {
-                // Use subprocess backend - still need webview fallback
-                // TODO: subprocess backend doesn't have Plots pane integration
-                vscode.window.showWarningMessage(
-                    'Plot display in Plots pane requires Positron runtime. Subprocess backend not yet supported.'
-                );
-            } else {
-                throw new Error('No backend available');
-            }
+            // Use dedicated kernel - plot appears in Plots pane automatically
+            const api = await state.ensureBackgroundKernel();
+            await api.generatePlot(
+                readIds,
+                mode,
+                normalization,
+                theme,
+                options.showDwellTime,
+                options.showBaseAnnotations,
+                options.scaleDwellTime,
+                modFilters.minProbability,
+                modFilters.enabledModTypes,
+                options.downsample,
+                options.showSignalPoints,
+                state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
+                coordinateSpace
+            );
+            logger.info('Plot generated successfully (dedicated kernel)');
         },
         ErrorContext.PLOT_GENERATE,
         `Generating plot for ${readIds.length} read(s)...`
@@ -425,44 +415,35 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
             const config = vscode.workspace.getConfiguration('squiggy');
             const maxReads = config.get<number>('aggregateSampleSize', 100);
 
-            if (state.usePositron) {
-                // Use dedicated kernel - plot appears in Plots pane automatically
-                const api = await state.ensureBackgroundKernel();
+            // Use dedicated kernel - plot appears in Plots pane automatically
+            const api = await state.ensureBackgroundKernel();
 
-                // Get modification filters from panel
-                const modFilters = state.modificationsProvider?.getFilters() || {
-                    minProbability: 0.5,
-                    minFrequency: 0.2,
-                    minModifiedReads: 5,
-                    enabledModTypes: [],
-                };
+            // Get modification filters from panel
+            const modFilters = state.modificationsProvider?.getFilters() || {
+                minProbability: 0.5,
+                minFrequency: 0.2,
+                minModifiedReads: 5,
+                enabledModTypes: [],
+            };
 
-                await api.generateAggregatePlot(
-                    referenceName,
-                    maxReads,
-                    normalization,
-                    theme,
-                    true, // showModifications
-                    modFilters.minProbability,
-                    modFilters.enabledModTypes,
-                    true, // showPileup
-                    true, // showDwellTime
-                    true, // showSignal
-                    true, // showQuality
-                    true, // clipXAxisToAlignment
-                    true, // transformCoordinates
-                    state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
-                    modFilters.minFrequency,
-                    modFilters.minModifiedReads
-                );
-            } else if (state.pythonBackend) {
-                // Subprocess backend not yet implemented for aggregate
-                throw new Error(
-                    'Aggregate plots are only available with Positron runtime. Please use Positron IDE.'
-                );
-            } else {
-                throw new Error('No backend available');
-            }
+            await api.generateAggregatePlot(
+                referenceName,
+                maxReads,
+                normalization,
+                theme,
+                true, // showModifications
+                modFilters.minProbability,
+                modFilters.enabledModTypes,
+                true, // showPileup
+                true, // showDwellTime
+                true, // showSignal
+                true, // showQuality
+                true, // clipXAxisToAlignment
+                true, // transformCoordinates
+                state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
+                modFilters.minFrequency,
+                modFilters.minModifiedReads
+            );
         },
         ErrorContext.PLOT_GENERATE,
         `Generating aggregate plot for ${referenceName}...`
@@ -499,26 +480,17 @@ async function plotMotifAggregateAll(
             const config = vscode.workspace.getConfiguration('squiggy');
             const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
 
-            if (state.usePositron) {
-                // Use dedicated kernel - plot appears in Plots pane automatically
-                const api = await state.ensureBackgroundKernel();
-                await api.generateMotifAggregateAllPlot(
-                    params.fastaFile,
-                    params.motif,
-                    params.upstream,
-                    params.downstream,
-                    maxReadsPerMotif,
-                    normalization,
-                    theme
-                );
-            } else if (state.pythonBackend) {
-                // Subprocess backend not yet implemented for motif aggregate all
-                throw new Error(
-                    'Motif aggregate plots are only available with Positron runtime. Please use Positron IDE.'
-                );
-            } else {
-                throw new Error('No backend available');
-            }
+            // Use dedicated kernel - plot appears in Plots pane automatically
+            const api = await state.ensureBackgroundKernel();
+            await api.generateMotifAggregateAllPlot(
+                params.fastaFile,
+                params.motif,
+                params.upstream,
+                params.downstream,
+                maxReadsPerMotif,
+                normalization,
+                theme
+            );
         },
         ErrorContext.MOTIF_PLOT,
         `Generating aggregate plot for all ${params.motif} matches (-${params.upstream}bp to +${params.downstream}bp)...`
@@ -545,22 +517,13 @@ async function plotSignalOverlayComparison(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate signal overlay plot
-            if (state.usePositron && state.positronClient) {
-                const api = await state.ensureBackgroundKernel();
-                await api.generateSignalOverlayComparison(
-                    sampleNames,
-                    normalization,
-                    theme,
-                    maxReads
-                );
-            } else if (state.pythonBackend) {
-                // Subprocess backend not yet implemented for overlay plots
-                throw new Error(
-                    'Signal overlay comparison plots are only available with Positron runtime. Please use Positron IDE.'
-                );
-            } else {
-                throw new Error('No backend available');
-            }
+            const api = await state.ensureBackgroundKernel();
+            await api.generateSignalOverlayComparison(
+                sampleNames,
+                normalization,
+                theme,
+                maxReads
+            );
         },
         ErrorContext.PLOT_GENERATE,
         `Comparing samples: ${sampleNames.join(', ')}...`
@@ -588,7 +551,7 @@ async function plotDeltaComparison(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate delta plot
-            if (state.usePositron && state.positronClient) {
+            if (state.positronClient) {
                 const api = await state.ensureBackgroundKernel();
                 await api.generateDeltaPlot(
                     sampleNames,
@@ -596,11 +559,6 @@ async function plotDeltaComparison(
                     normalization,
                     theme,
                     maxReads
-                );
-            } else if (state.pythonBackend) {
-                // Subprocess backend not yet implemented for delta plots
-                throw new Error(
-                    'Delta comparison plots are only available with Positron runtime. Please use Positron IDE.'
                 );
             } else {
                 throw new Error('No backend available');
@@ -641,7 +599,7 @@ async function checkSampleReferenceCompatibility(
 
         // If reference info is missing, try to fetch it on-demand
         if (!sample.references || sample.references.length === 0) {
-            if (sample.hasBam && state.usePositron) {
+            if (sample.hasBam) {
                 logger.info(
                     `[Reference Check] Sample '${sampleName}' has no cached references - fetching on-demand from Python...`
                 );
@@ -667,7 +625,7 @@ async function checkSampleReferenceCompatibility(
                 }
             } else {
                 logger.debug(
-                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam}, usePositron=${state.usePositron} - cannot fetch references`
+                    `[Reference Check] Sample '${sampleName}': hasBam=${sample.hasBam} - cannot fetch references`
                 );
             }
         }
@@ -825,25 +783,16 @@ async function plotAggregateComparison(
             }
 
             // Generate aggregate comparison plot
-            if (state.usePositron && state.positronClient) {
-                const api = await state.ensureBackgroundKernel();
-                await api.generateAggregateComparison(
-                    params.sampleNames,
-                    params.reference,
-                    params.metrics,
-                    params.maxReads || null,
-                    normalization,
-                    theme,
-                    Object.keys(sampleColors).length > 0 ? sampleColors : undefined
-                );
-            } else if (state.pythonBackend) {
-                // Subprocess backend not yet implemented for aggregate comparison
-                throw new Error(
-                    'Aggregate comparison plots are only available with Positron runtime. Please use Positron IDE.'
-                );
-            } else {
-                throw new Error('No backend available');
-            }
+            const api = await state.ensureBackgroundKernel();
+            await api.generateAggregateComparison(
+                params.sampleNames,
+                params.reference,
+                params.metrics,
+                params.maxReads || null,
+                normalization,
+                theme,
+                Object.keys(sampleColors).length > 0 ? sampleColors : undefined
+            );
         },
         ErrorContext.PLOT_GENERATE,
         `Comparing aggregate statistics for samples: ${params.sampleNames.join(', ')}...`

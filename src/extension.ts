@@ -130,8 +130,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize backends (Positron or subprocess fallback)
     await state.initializeBackends(context);
 
-    // Initialize dedicated kernel status bar (Positron only)
-    if (state.usePositron && state.kernelManager) {
+    // Initialize dedicated kernel status bar
+    if (state.kernelManager) {
         initializeKernelStatusBar(context);
     }
 
@@ -366,11 +366,6 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     // Listen for sample unload requests
     context.subscriptions.push(
         samplesProvider.onDidRequestUnload(async (sampleName) => {
-            if (!state.usePositron) {
-                vscode.window.showErrorMessage('API not available');
-                return;
-            }
-
             try {
                 // Get background API
                 const api = await state.ensureBackgroundKernel();
@@ -404,11 +399,6 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     context.subscriptions.push(
         plotOptionsProvider.onDidRequestAggregatePlot(async (options) => {
             logger.debug('[Extension] Aggregate plot requested with samples:', options.sampleNames);
-
-            if (!state.usePositron) {
-                vscode.window.showErrorMessage('API not available');
-                return;
-            }
 
             try {
                 // Get background API
@@ -718,10 +708,6 @@ function updateKernelStatusBar(kernelState: SquiggyKernelState): void {
  * Extension deactivation
  */
 export function deactivate() {
-    if (state.pythonBackend) {
-        state.pythonBackend.stop();
-    }
-
     if (kernelStatusBarItem) {
         kernelStatusBarItem.dispose();
     }

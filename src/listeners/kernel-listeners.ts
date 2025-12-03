@@ -24,11 +24,6 @@ export function registerKernelListeners(
     state: ExtensionState,
     onSessionChange?: () => Promise<void>
 ): void {
-    if (!state.usePositron) {
-        // Only register listeners when using Positron runtime
-        return;
-    }
-
     try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const positron = require('positron');
