@@ -1,5 +1,19 @@
 # Squiggy Release Notes
 
+## v0.1.20-alpha (2025-12-03)
+
+Pre-release polish with Python codebase modularization and improved reliability.
+
+### Improvements
+
+- **Python Codebase Refactoring**: Major modularization of Python codebase with dead code removal for better maintainability (#164)
+- **Logging Improvements**: Enhanced logging throughout the extension for better debugging and diagnostics (#165)
+
+### Fixes
+
+- **Virtual Environment Discovery**: Fixed issue where squiggy venv was not being discovered correctly in some configurations (#165)
+- **Documentation Cleanup**: Removed outdated manual install requirement from extension description
+
 ## v0.1.19-alpha (2025-12-02)
 
 Critical fix for Python interpreter selection when installed from OpenVSX.
