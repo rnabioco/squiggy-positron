@@ -151,13 +151,13 @@ paths = {
                 bamPath = paths.bam;
                 fastaPath = paths.fasta;
 
-                console.log('[loadTestData] Got test data paths from Python package:', paths);
+                logger.debug('[loadTestData] Got test data paths from Python package:', paths);
             } catch (error) {
                 vscode.window.showErrorMessage(
                     'Failed to get test data paths from squiggy package. ' +
                         'Make sure squiggy-positron is installed: uv pip install squiggy-positron'
                 );
-                console.error('[loadTestData] Error getting test data paths:', error);
+                logger.error('[loadTestData] Error getting test data paths:', error);
                 return;
             }
 
@@ -958,7 +958,7 @@ async function loadSampleForComparison(
                         references = sampleInfo.references;
                     }
                 } catch (error) {
-                    console.warn(
+                    logger.warning(
                         `Failed to fetch reference info for sample '${sampleName}':`,
                         error
                     );
@@ -1070,13 +1070,13 @@ paths = {
         bamPath = paths.bam;
         fastaPath = paths.fasta;
 
-        console.log('[loadTestMultiReadDataset] Got test data paths from Python package:', paths);
+        logger.debug('[loadTestMultiReadDataset] Got test data paths from Python package:', paths);
     } catch (error) {
         vscode.window.showErrorMessage(
             'Failed to get test data paths from squiggy package. ' +
                 'Make sure squiggy-positron is installed: uv pip install squiggy-positron'
         );
-        console.error('[loadTestMultiReadDataset] Error getting test data paths:', error);
+        logger.error('[loadTestMultiReadDataset] Error getting test data paths:', error);
         return;
     }
 
@@ -1125,7 +1125,7 @@ paths = {
                                 references = sampleInfo.references;
                             }
                         } catch (error) {
-                            console.warn(
+                            logger.warning(
                                 `Failed to fetch reference info for sample '${sample.name}':`,
                                 error
                             );
