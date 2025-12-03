@@ -1006,6 +1006,10 @@ squiggy.close_fasta()
         isDemo: boolean,
         extensionUri: vscode.Uri
     ): Promise<void> {
+        // Get background API client first for path resolution (to avoid polluting foreground console)
+        const api = await this.ensureBackgroundKernel();
+        const pathResolverClient = api.client;
+
         // Resolve POD5 paths
         const resolvedPod5Paths: string[] = [];
         for (const pod5Path of sampleData.pod5Paths) {
@@ -1015,7 +1019,7 @@ squiggy.close_fasta()
             if (pod5Path.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     pod5Path,
-                    this._positronClient
+                    pathResolverClient
                 );
             }
             // Otherwise, resolve extension-relative paths
@@ -1047,7 +1051,7 @@ squiggy.close_fasta()
             if (sampleData.bamPath.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     sampleData.bamPath,
-                    this._positronClient
+                    pathResolverClient
                 );
             }
             // Otherwise, resolve extension-relative paths
@@ -1079,7 +1083,7 @@ squiggy.close_fasta()
             if (sampleData.fastaPath.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     sampleData.fastaPath,
-                    this._positronClient
+                    pathResolverClient
                 );
             }
             // Otherwise, resolve extension-relative paths
@@ -1102,14 +1106,8 @@ squiggy.close_fasta()
             }
         }
 
-        // Load files via API
-        if (!this._squiggyAPI) {
-            throw new Error('Squiggy API not initialized');
-        }
-
-        // Get background API (starts dedicated kernel if needed)
-        const api = await this.ensureBackgroundKernel();
-        logger.debug('[restoreSample] Background API ready, loading files...');
+        // Load files via API (api was already obtained at start for path resolution)
+        logger.debug('[restoreSample] Loading files via background API...');
 
         // Load POD5 (assuming single POD5 for now)
         if (resolvedPod5Paths.length > 0) {
