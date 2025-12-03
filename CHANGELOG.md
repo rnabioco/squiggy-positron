@@ -1,5 +1,18 @@
 # Squiggy Release Notes
 
+## v0.1.18-alpha (2025-12-02)
+
+Major simplification of installation: Squiggy now bundles its Python package and automatically creates a virtual environment on first use. No external Python package installation required.
+
+### Features
+
+- **Bundled Python Package**: The squiggy Python library is now bundled directly with the extension, eliminating the need for manual `pip install squiggy-positron` or PyPI installation
+- **Automatic Virtual Environment Setup**: Extension automatically creates and configures a dedicated virtual environment on first activation, ensuring isolated and reproducible environments (#163)
+
+### Fixes
+
+- **README Formatting**: Fixed markdown formatting issues in README documentation
+
 ## v0.1.17-alpha (2025-12-02)
 
 Bug fixes, UX improvements, and new data filtering features for POD5/BAM workflows.
