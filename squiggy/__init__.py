@@ -37,6 +37,15 @@ from .constants import (
     Theme,
 )
 
+# Export functions
+from .export import (
+    export_current_plot,
+    export_plot_to_png,
+    export_plot_to_svg,
+    get_current_plot,
+    set_current_plot,
+)
+
 # I/O functions
 from .io import (
     LazyReadList,
@@ -201,5 +210,11 @@ __all__ = [
     # Utility functions
     "parse_plot_parameters",
     "open_bam_safe",
+    # Export functions (Issue #132)
+    "export_current_plot",
+    "export_plot_to_png",
+    "export_plot_to_svg",
+    "get_current_plot",
+    "set_current_plot",
     # Classes
 ]
