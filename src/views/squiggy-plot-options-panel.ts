@@ -496,7 +496,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     /**
      * Update workspace configuration
      */
-    private _updateConfig(key: string, value: any): void {
+    private _updateConfig(key: string, value: string | boolean | number): void {
         const config = vscode.workspace.getConfiguration('squiggy');
         config.update(key, value, vscode.ConfigurationTarget.Workspace);
     }

@@ -16,6 +16,7 @@ import {
     ValidationError,
 } from '../utils/error-handler';
 import { logger } from '../utils/logger';
+import { MotifMatch } from '../types/motif-types';
 
 /**
  * Result from loading a POD5 file
@@ -134,8 +135,8 @@ squiggy.load_pod5('${escapedPath}')
     /**
      * Load a BAM file
      *
-     * Does NOT preload reference mapping - use getReferences() and getReadsForReference()
-     * to fetch data on-demand.
+     * Does NOT preload reference mapping - use getReferences() and
+     * getReadsForReferencePaginated() to fetch data on-demand.
      * @throws BAMError if loading fails
      */
     async loadBAM(filePath: string): Promise<BAMLoadResult> {
@@ -204,21 +205,6 @@ squiggy.get_read_to_reference_mapping()
             'list(squiggy_kernel._ref_mapping.keys()) if squiggy_kernel._ref_mapping else []'
         );
         return references as string[];
-    }
-
-    /**
-     * Get read IDs mapping to a specific reference
-     * @deprecated Use getReadsForReferencePaginated instead for better performance
-     */
-    async getReadsForReference(referenceName: string): Promise<string[]> {
-        const escapedRef = referenceName.replace(/'/g, "\\'");
-
-        // Read directly from session object (no print needed)
-        const readIds = await this._client.getVariable(
-            `squiggy_kernel._ref_mapping.get('${escapedRef}', []) if squiggy_kernel._ref_mapping else []`
-        );
-
-        return readIds as string[];
     }
 
     /**
@@ -622,7 +608,7 @@ squiggy.load_fasta('${escapedPath}')
         motif: string,
         region?: string,
         strand: string = 'both'
-    ): Promise<any[]> {
+    ): Promise<MotifMatch[]> {
         const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
         const escapedMotif = motif.replace(/'/g, "\\'");
         const escapedRegion = region ? region.replace(/'/g, "\\'") : null;
@@ -660,7 +646,7 @@ if '_squiggy_motif_matches_json' in globals():
                 )
                 .catch(() => {});
 
-            return (matches as any[]) || [];
+            return (matches as MotifMatch[]) || [];
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to search motif: ${errorMessage}`);

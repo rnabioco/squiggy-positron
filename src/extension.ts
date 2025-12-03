@@ -7,8 +7,8 @@
 
 import * as vscode from 'vscode';
 import { ExtensionState } from './state/extension-state';
-import { ReadsViewPane } from './views/squiggy-reads-view-pane';
-import { PlotOptionsViewProvider } from './views/squiggy-plot-options-view';
+import { ReadsViewPane } from './views/squiggy-reads-panel';
+import { PlotOptionsViewProvider } from './views/squiggy-plot-options-panel';
 import { ModificationsPanelProvider } from './views/squiggy-modifications-panel';
 import { MotifSearchPanelProvider } from './views/squiggy-motif-panel';
 import { SamplesPanelProvider } from './views/squiggy-samples-panel';

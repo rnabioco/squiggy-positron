@@ -33,6 +33,12 @@ jobs:
             - name: Install dependencies
               run: pixi install
 
+            - name: Setup Node.js with npm cache
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+
             - name: Install npm dependencies
               run: npm ci
 

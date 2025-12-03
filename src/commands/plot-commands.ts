@@ -146,7 +146,7 @@ export function registerPlotCommands(
         )
     );
 
-    // Plot signal overlay comparison - Phase 1 (Default multi-sample comparison)
+    // Plot signal overlay comparison for multi-sample comparison
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotSignalOverlayComparison',
@@ -179,7 +179,7 @@ export function registerPlotCommands(
         )
     );
 
-    // Plot delta comparison - Phase 4 (Optional, 2-sample only)
+    // Plot delta comparison (2-sample only)
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotDeltaComparison',
@@ -499,7 +499,6 @@ async function plotMotifAggregateAll(
 
 /**
  * Plot signal overlay comparison between multiple samples
- * Phase 1 - Default multi-sample comparison visualization
  */
 async function plotSignalOverlayComparison(
     sampleNames: string[],
@@ -526,8 +525,7 @@ async function plotSignalOverlayComparison(
 }
 
 /**
- * Plot delta comparison between two or more samples
- * Phase 4 - Multi-sample comparison feature (optional, 2-sample only)
+ * Plot delta comparison between two samples
  */
 async function plotDeltaComparison(
     sampleNames: string[],

@@ -98,7 +98,7 @@ squiggy-positron-extension/
 ├── src/                               # TypeScript extension (frontend)
 │   ├── extension.ts                   # Entry point, command registration
 │   ├── backend/
-│   │   ├── squiggy-positron-runtime.ts # Positron kernel communication
+│   │   ├── positron-runtime-client.ts  # Positron kernel communication
 │   │   ├── squiggy-python-backend.ts   # JSON-RPC subprocess fallback
 │   │   ├── squiggy-kernel-manager.ts   # Background kernel manager (experimental)
 │   │   ├── runtime-client-interface.ts # RuntimeClient interface
@@ -172,10 +172,14 @@ Activates when Positron loads:
 
 ### Python Communication
 
-**PositronRuntime** (`src/backend/squiggy-positron-runtime.ts`):
+**PositronRuntimeClient** (`src/backend/positron-runtime-client.ts`):
 - Executes Python code in active Positron kernel
 - Primary communication method when running in Positron
 - Access to kernel state and variables
+
+**SquiggyRuntimeAPI** (`src/backend/squiggy-runtime-api.ts`):
+- High-level API for squiggy operations (loading files, generating plots)
+- Built on top of PositronRuntimeClient
 
 **PythonBackend** (`src/backend/squiggy-python-backend.ts`):
 - JSON-RPC subprocess communication

@@ -91,6 +91,9 @@ from .plotting import (
 # Utility functions and data classes
 from .utils import (
     ModelProvenance,
+    calculate_delta_stats,
+    compare_read_sets,
+    compare_signal_distributions,
     downsample_signal,
     extract_model_provenance,
     get_bam_references,
@@ -132,9 +135,9 @@ __all__ = [
     "plot_reads",
     "plot_aggregate",
     "plot_motif_aggregate_all",
-    "plot_delta_comparison",  # Phase 3 - NEW
-    "plot_signal_overlay_comparison",  # Phase 1 - NEW multi-sample comparison
-    "plot_aggregate_comparison",  # Multi-sample aggregate statistics comparison
+    "plot_delta_comparison",
+    "plot_signal_overlay_comparison",
+    "plot_aggregate_comparison",
     "get_current_files",
     "get_read_ids",
     "get_bam_modification_info",
@@ -143,13 +146,13 @@ __all__ = [
     "close_pod5",
     "close_bam",
     "close_fasta",
-    # Multi-sample API (Phase 1 - NEW)
+    # Multi-sample API
     "load_sample",
     "get_sample",
     "list_samples",
     "remove_sample",
     "close_all_samples",
-    # Comparison API (Phase 2 - NEW)
+    # Comparison API
     "get_common_reads",
     "get_unique_reads",
     "compare_samples",
@@ -191,11 +194,11 @@ __all__ = [
     "count_motifs",
     "extract_model_provenance",
     "validate_sq_headers",
-    # Comparison utilities (Phase 2 - NEW)
+    # Comparison utilities
     "compare_read_sets",
     "calculate_delta_stats",
     "compare_signal_distributions",
-    # Refactoring utilities (Phase 3 - NEW)
+    # Utility functions
     "parse_plot_parameters",
     "open_bam_safe",
     # Classes

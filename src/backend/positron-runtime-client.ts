@@ -61,7 +61,7 @@ export class PositronRuntimeClient implements RuntimeClient {
         }
 
         // Check if session has onDidChangeRuntimeState event (may not exist in all Positron versions)
-        const hasStateEvent = typeof (session as any).onDidChangeRuntimeState === 'function';
+        const hasStateEvent = session && typeof session.onDidChangeRuntimeState === 'function';
 
         if (hasStateEvent) {
             return this.ensureKernelReadyViaEvents(session);
@@ -73,7 +73,9 @@ export class PositronRuntimeClient implements RuntimeClient {
     /**
      * Ensure kernel ready using event-based approach (Positron API with onDidChangeRuntimeState)
      */
-    private async ensureKernelReadyViaEvents(session: any): Promise<void> {
+    private async ensureKernelReadyViaEvents(
+        session: positron.LanguageRuntimeSession
+    ): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
                 this.kernelReadyCache = { ready: false, timestamp: Date.now() };
@@ -82,7 +84,7 @@ export class PositronRuntimeClient implements RuntimeClient {
 
             // Function to check if current state is ready
             const checkState = (state: string) => {
-                logger.debug(`Squiggy: Kernel state is ${state}`);
+                logger.debug(`[PositronRuntimeClient] Kernel state is ${state}`);
 
                 // Ready states - can execute code
                 if (state === 'ready' || state === 'idle' || state === 'busy') {
@@ -155,7 +157,7 @@ export class PositronRuntimeClient implements RuntimeClient {
                     positron.RuntimeCodeExecutionMode.Silent
                 );
                 // Success - kernel is ready
-                logger.debug('Squiggy: Kernel is ready (polling check)');
+                logger.debug('[PositronRuntimeClient] Kernel is ready (polling check)');
                 this.kernelReadyCache = { ready: true, timestamp: Date.now() };
                 return;
             } catch (_error) {
