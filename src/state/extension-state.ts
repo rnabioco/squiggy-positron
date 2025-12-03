@@ -267,10 +267,11 @@ export class ExtensionState {
         this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
-        // Clear Python kernel state if using Positron
-        if (this._usePositron && this._positronClient) {
+        // Clear Python kernel state in the dedicated background kernel
+        if (this._usePositron && this._kernelManager) {
             try {
-                await this._positronClient.executeSilent(`
+                const api = await this.ensureBackgroundKernel();
+                await api.client.executeSilent(`
 import squiggy
 from squiggy.io import squiggy_kernel
 # Close all resources via session

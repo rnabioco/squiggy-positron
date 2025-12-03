@@ -129,7 +129,7 @@ export function registerFileCommands(
             let fastaPath: string;
 
             try {
-                // Execute Python code to get test data paths
+                // Execute Python code to get test data paths using the background kernel
                 const getPathsCode = `
 import squiggy
 paths = {
@@ -139,9 +139,10 @@ paths = {
 }
                 `.trim();
 
-                // Use the client directly to execute and get variable
-                await state.positronClient?.executeSilent(getPathsCode);
-                const paths = (await state.positronClient?.getVariable('paths')) as {
+                // Use the background kernel to avoid polluting foreground console
+                const api = await state.ensureBackgroundKernel();
+                await api.client.executeSilent(getPathsCode);
+                const paths = (await api.client.getVariable('paths')) as {
                     pod5: string;
                     bam: string;
                     fasta: string;
@@ -730,9 +731,10 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
  */
 async function closePOD5File(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state
-        if (state.usePositron && state.positronClient) {
-            await state.positronClient.executeSilent(`
+        // Clear Python state in the background kernel
+        if (state.usePositron && state.kernelManager) {
+            const api = await state.ensureBackgroundKernel();
+            await api.client.executeSilent(`
 import squiggy
 squiggy.close_pod5()
 `);
@@ -762,9 +764,10 @@ squiggy.close_pod5()
  */
 async function closeBAMFile(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state using squiggy.close_bam()
-        if (state.usePositron && state.positronClient) {
-            await state.positronClient.executeSilent(`
+        // Clear Python state in the background kernel
+        if (state.usePositron && state.kernelManager) {
+            const api = await state.ensureBackgroundKernel();
+            await api.client.executeSilent(`
 import squiggy
 squiggy.close_bam()
 `);
@@ -870,9 +873,10 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
  */
 async function closeFASTAFile(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state using squiggy.close_fasta()
-        if (state.usePositron && state.positronClient) {
-            await state.positronClient.executeSilent(`
+        // Clear Python state in the background kernel
+        if (state.usePositron && state.kernelManager) {
+            const api = await state.ensureBackgroundKernel();
+            await api.client.executeSilent(`
 import squiggy
 squiggy.close_fasta()
 `);
@@ -1076,7 +1080,7 @@ async function loadTestMultiReadDataset(
     let fastaPath: string;
 
     try {
-        // Execute Python code to get test data paths
+        // Execute Python code to get test data paths using the background kernel
         const getPathsCode = `
 import squiggy
 paths = {
@@ -1086,9 +1090,10 @@ paths = {
 }
         `.trim();
 
-        // Use the client directly to execute and get variable
-        await state.positronClient?.executeSilent(getPathsCode);
-        const paths = (await state.positronClient?.getVariable('paths')) as {
+        // Use the background kernel to avoid polluting foreground console
+        const api = await state.ensureBackgroundKernel();
+        await api.client.executeSilent(getPathsCode);
+        const paths = (await api.client.getVariable('paths')) as {
             pod5: string;
             bam: string;
             fasta: string;
