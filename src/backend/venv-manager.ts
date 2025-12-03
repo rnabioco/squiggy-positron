@@ -33,9 +33,11 @@ export class VenvManager {
     private readonly venvPath: string;
 
     constructor() {
-        // Default: ~/.local/squiggy/venv, overridable via SQUIGGY_VENV env var
+        // Default: ~/.venvs/squiggy, overridable via SQUIGGY_VENV env var
+        // Using ~/.venvs/ because Positron automatically discovers venvs in this location
+        // (see positron-python globalVirtualEnvironmentLocator.ts)
         this.venvPath =
-            process.env.SQUIGGY_VENV || path.join(os.homedir(), '.local', 'squiggy', 'venv');
+            process.env.SQUIGGY_VENV || path.join(os.homedir(), '.venvs', 'squiggy');
     }
 
     /**
@@ -184,25 +186,20 @@ export class VenvManager {
 
     /**
      * Set venv as Positron's Python interpreter
+     *
+     * NOTE: This is a no-op. Positron automatically discovers venvs in
+     * ~/.venvs/ and sets the discovered venv as the preferred runtime.
+     * The dedicated kernel uses getPreferredRuntime() which returns the
+     * squiggy venv (Python 3.12) after Positron discovers it.
+     *
+     * We don't programmatically select the interpreter because that can
+     * trigger UI dialogs that hang.
      */
     async setAsInterpreter(): Promise<void> {
         const pythonPath = this.getVenvPython();
-
-        // Try VS Code Python extension API first
-        try {
-            await vscode.commands.executeCommand('python.setInterpreter', pythonPath);
-            logger.info(`Set Python interpreter to ${pythonPath}`);
-        } catch (error) {
-            // Fallback: Set via workspace configuration
-            logger.warning(`python.setInterpreter failed, trying workspace config: ${error}`);
-            const config = vscode.workspace.getConfiguration('python');
-            await config.update(
-                'defaultInterpreterPath',
-                pythonPath,
-                vscode.ConfigurationTarget.Global
-            );
-            logger.info(`Set defaultInterpreterPath to ${pythonPath}`);
-        }
+        logger.info(`Squiggy venv ready at ${pythonPath}`);
+        // No-op: Positron discovers venvs in ~/.venvs/ automatically
+        // and sets them as the preferred runtime
     }
 
     /**

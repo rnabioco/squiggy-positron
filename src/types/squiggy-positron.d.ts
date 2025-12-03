@@ -97,6 +97,17 @@ declare module 'positron' {
         ): Thenable<LanguageRuntimeMetadata | undefined>;
 
         /**
+         * Get all registered runtimes
+         */
+        export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
+
+        /**
+         * Select a language runtime by its ID
+         * This will start a new session with the specified runtime
+         */
+        export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
+
+        /**
          * Start a new language runtime session
          */
         export function startLanguageRuntime(

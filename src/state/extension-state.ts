@@ -152,6 +152,7 @@ export class ExtensionState {
             this._packageManager = new PackageManager(this._positronClient);
 
             // Initialize background kernel manager for extension UI
+            // Uses getPreferredRuntime() which returns the squiggy venv (Positron auto-discovers it)
             this._kernelManager = new SquiggyKernelManager(context.extensionPath);
             context.subscriptions.push(this._kernelManager);
 
