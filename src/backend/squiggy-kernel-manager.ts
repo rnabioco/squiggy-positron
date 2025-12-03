@@ -70,14 +70,18 @@ export class SquiggyKernelManager implements RuntimeClient {
         logger.info('Starting Squiggy dedicated kernel...');
 
         try {
-            // Get preferred Python runtime
+            // Get the preferred Python runtime
+            // Positron auto-discovers venvs in ~/.venvs/ and sets the squiggy venv as preferred
             const runtime = await positron.runtime.getPreferredRuntime('python');
 
             if (!runtime) {
                 throw new Error('No Python runtime available');
             }
 
-            logger.info(`Using Python runtime: ${runtime.runtimeName} (${runtime.runtimeVersion})`);
+            const runtimeId = runtime.runtimeId;
+            const runtimeName = `${runtime.runtimeName} (${runtime.runtimeVersion})`;
+
+            logger.info(`Using Python runtime: ${runtimeName}`);
 
             // Start a dedicated console session for Squiggy
             // NOTE: positron.runtime.startLanguageRuntime() only supports Console and Notebook modes
@@ -85,7 +89,7 @@ export class SquiggyKernelManager implements RuntimeClient {
             // This creates a Console session which is separate from the foreground session
             const sessionName = 'Squiggy Dedicated Kernel';
             this.session = await positron.runtime.startLanguageRuntime(
-                runtime.runtimeId,
+                runtimeId,
                 sessionName,
                 undefined // notebookUri - undefined means Console mode
             );

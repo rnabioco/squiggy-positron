@@ -46,10 +46,8 @@ export function registerStateCommands(
  * Re-fetches data from squiggy_kernel instead of using cached data
  */
 async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
-    if (!state.usePositron || !state.squiggyAPI) {
-        vscode.window.showWarningMessage(
-            'Refresh requires Positron runtime with active Python kernel'
-        );
+    if (!state.squiggyAPI) {
+        vscode.window.showWarningMessage('Squiggy API not initialized');
         return;
     }
 
@@ -143,13 +141,6 @@ async function refreshWithBAM(state: ExtensionState): Promise<void> {
  * Debug modifications panel - check Python state and sync context variable
  */
 async function debugModificationsPanel(state: ExtensionState): Promise<void> {
-    if (!state.usePositron) {
-        vscode.window.showWarningMessage(
-            'Debug requires Positron runtime with active Python kernel'
-        );
-        return;
-    }
-
     try {
         // Get background API
         const api = await state.ensureBackgroundKernel();

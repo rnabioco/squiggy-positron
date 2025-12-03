@@ -341,21 +341,14 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         this.updateView();
 
         try {
-            if (this.state.usePositron) {
-                const api = await this.state.ensureBackgroundKernel();
-                const matches = await api.searchMotif(
-                    this.state.currentFastaFile,
-                    motif,
-                    undefined, // region
-                    strand
-                );
-                this._matches = matches;
-            } else {
-                vscode.window.showErrorMessage(
-                    'Motif search requires Positron runtime. Please use Positron IDE.'
-                );
-                this._matches = [];
-            }
+            const api = await this.state.ensureBackgroundKernel();
+            const matches = await api.searchMotif(
+                this.state.currentFastaFile,
+                motif,
+                undefined, // region
+                strand
+            );
+            this._matches = matches;
         } catch (error) {
             vscode.window.showErrorMessage(
                 `Failed to search motif: ${error instanceof Error ? error.message : String(error)}`

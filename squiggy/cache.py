@@ -19,7 +19,7 @@ class SquiggyCache:
     reference mappings. Uses file hashing for cache invalidation.
 
     Attributes:
-        cache_dir: Directory to store cache files (default: ~/.squiggy/cache)
+        cache_dir: Directory to store cache files (default: ~/.cache/squiggy)
         enabled: Whether caching is enabled
 
     Examples:
@@ -37,10 +37,10 @@ class SquiggyCache:
         Initialize cache manager
 
         Args:
-            cache_dir: Directory for cache files (default: ~/.squiggy/cache)
+            cache_dir: Directory for cache files (default: ~/.cache/squiggy)
             enabled: Whether caching is enabled
         """
-        self.cache_dir = cache_dir or Path.home() / ".squiggy" / "cache"
+        self.cache_dir = cache_dir or Path.home() / ".cache" / "squiggy"
         self.enabled = enabled
 
         if self.enabled:

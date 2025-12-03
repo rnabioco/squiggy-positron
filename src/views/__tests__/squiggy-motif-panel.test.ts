@@ -20,7 +20,6 @@ describe('MotifSearchPanelProvider', () => {
 
         mockState = {
             currentFastaFile: null,
-            usePositron: false,
             squiggyAPI: null,
             ensureBackgroundKernel: jest.fn(),
         } as any;
@@ -87,22 +86,8 @@ describe('MotifSearchPanelProvider', () => {
             );
         });
 
-        it('should show error when Positron runtime not available', async () => {
+        it('should search motif successfully', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
-            mockState.usePositron = false;
-
-            const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
-
-            await messageHandler({ type: 'searchMotif', motif: 'DRACH', strand: 'both' });
-
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                'Motif search requires Positron runtime. Please use Positron IDE.'
-            );
-        });
-
-        it('should search motif successfully with Positron runtime', async () => {
-            mockState.currentFastaFile = '/path/to/reference.fasta';
-            mockState.usePositron = true;
 
             const mockSearchMotif = (jest.fn() as any).mockResolvedValue([
                 { chrom: 'chr1', position: 100, sequence: 'GGACA', strand: '+' },
@@ -140,7 +125,6 @@ describe('MotifSearchPanelProvider', () => {
 
         it('should handle default strand parameter', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
-            mockState.usePositron = true;
 
             const mockSearchMotif = (jest.fn() as any).mockResolvedValue([]);
 
@@ -163,7 +147,6 @@ describe('MotifSearchPanelProvider', () => {
 
         it('should handle errors during motif search', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
-            mockState.usePositron = true;
 
             const mockSearchMotif = (jest.fn() as any).mockRejectedValue(
                 new Error('Search failed')
@@ -193,7 +176,6 @@ describe('MotifSearchPanelProvider', () => {
 
         it('should handle non-Error exceptions during search', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
-            mockState.usePositron = true;
 
             const mockSearchMotif = (jest.fn() as any).mockRejectedValue('String error');
 
@@ -212,7 +194,6 @@ describe('MotifSearchPanelProvider', () => {
 
         it('should set searching state before and after search', async () => {
             mockState.currentFastaFile = '/path/to/reference.fasta';
-            mockState.usePositron = true;
 
             const mockSearchMotif = (jest.fn() as any).mockImplementation(
                 () => new Promise((resolve) => setTimeout(() => resolve([]), 10))
