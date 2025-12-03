@@ -186,38 +186,19 @@ export class VenvManager {
     /**
      * Set venv as Positron's Python interpreter
      *
-     * Explicitly finds and selects the squiggy venv runtime.
-     * We can't rely on getPreferredRuntime() because Positron may
-     * prefer the system Python even after discovering our venv.
+     * NOTE: This is a no-op. Positron automatically discovers venvs in
+     * ~/.venvs/ and sets the discovered venv as the preferred runtime.
+     * The dedicated kernel uses getPreferredRuntime() which returns the
+     * squiggy venv (Python 3.12) after Positron discovers it.
+     *
+     * We don't programmatically select the interpreter because that can
+     * trigger UI dialogs that hang.
      */
     async setAsInterpreter(): Promise<void> {
         const pythonPath = this.getVenvPython();
-        logger.info(`Looking for squiggy venv runtime at ${pythonPath}`);
-
-        try {
-            // Dynamic import since positron module only exists in Positron
-            const positron = await import('positron');
-            const runtimes = await positron.runtime.getRegisteredRuntimes();
-
-            // Find runtime matching our venv path
-            const squiggyRuntime = runtimes.find(
-                (rt: { runtimePath: string }) =>
-                    rt.runtimePath === pythonPath || rt.runtimePath.includes('.venvs/squiggy')
-            );
-
-            if (squiggyRuntime) {
-                logger.info(`Selecting squiggy runtime: ${squiggyRuntime.runtimeId}`);
-                await positron.runtime.selectLanguageRuntime(squiggyRuntime.runtimeId);
-                logger.info(`Squiggy venv selected as interpreter`);
-            } else {
-                logger.warning(
-                    `Squiggy venv not found in registered runtimes. Available: ${runtimes.map((r: { runtimePath: string }) => r.runtimePath).join(', ')}`
-                );
-            }
-        } catch (_error) {
-            // Positron API not available (running in VSCode) or other error
-            logger.info(`Squiggy venv ready at ${pythonPath} (manual selection may be required)`);
-        }
+        logger.info(`Squiggy venv ready at ${pythonPath}`);
+        // No-op: Positron discovers venvs in ~/.venvs/ automatically
+        // and sets them as the preferred runtime
     }
 
     /**
