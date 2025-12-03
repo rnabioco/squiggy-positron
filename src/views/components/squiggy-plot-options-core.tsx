@@ -58,6 +58,14 @@ interface PlotOptionsState {
     comparisonReference: string;
     comparisonMetrics: string[]; // ['signal', 'dwell_time', 'quality']
     comparisonMaxReads: number;
+
+    // X-axis windowing options
+    enableXAxisWindowing: boolean;
+    xAxisMin: number | null;
+    xAxisMax: number | null;
+    // Reference range for slider bounds (populated from selected reference)
+    referenceMinPos: number;
+    referenceMaxPos: number;
 }
 
 export const PlotOptionsCore: React.FC = () => {
@@ -94,6 +102,12 @@ export const PlotOptionsCore: React.FC = () => {
         comparisonReference: '',
         comparisonMetrics: ['signal', 'dwell_time', 'quality'],
         comparisonMaxReads: 100,
+        // X-axis windowing (disabled by default)
+        enableXAxisWindowing: false,
+        xAxisMin: null,
+        xAxisMax: null,
+        referenceMinPos: 0,
+        referenceMaxPos: 1000, // Default until reference range is loaded
     });
 
     // Send ready message on mount
@@ -167,6 +181,29 @@ export const PlotOptionsCore: React.FC = () => {
                         availableReferences: message.references,
                         aggregateReference: message.references[0] || '',
                         comparisonReference: message.references[0] || '',
+                    }));
+                    // Request range for the first reference
+                    if (message.references.length > 0) {
+                        vscode.postMessage({
+                            type: 'requestReferenceRange',
+                            referenceName: message.references[0],
+                        });
+                    }
+                    break;
+                case 'updateReferenceRange':
+                    console.log(
+                        '[PlotOptions React] Updating reference range:',
+                        message.minPos,
+                        '-',
+                        message.maxPos
+                    );
+                    setOptions((prev) => ({
+                        ...prev,
+                        referenceMinPos: message.minPos,
+                        referenceMaxPos: message.maxPos,
+                        // Reset windowing values to null when range updates
+                        xAxisMin: null,
+                        xAxisMax: null,
                     }));
                     break;
                 case 'updateLoadedSamples':
@@ -277,6 +314,10 @@ export const PlotOptionsCore: React.FC = () => {
             showQuality: options.showQuality,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
             transformCoordinates: options.transformCoordinates,
+            // X-axis windowing parameters
+            enableXAxisWindowing: options.enableXAxisWindowing,
+            xAxisMin: options.xAxisMin,
+            xAxisMax: options.xAxisMax,
         });
     };
 
@@ -630,12 +671,20 @@ export const PlotOptionsCore: React.FC = () => {
                         <div className="plot-options-section-header">Reference</div>
                         <select
                             value={options.aggregateReference}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                                const newRef = e.target.value;
                                 setOptions((prev) => ({
                                     ...prev,
-                                    aggregateReference: e.target.value,
-                                }))
-                            }
+                                    aggregateReference: newRef,
+                                }));
+                                // Request range for the new reference
+                                if (newRef) {
+                                    vscode.postMessage({
+                                        type: 'requestReferenceRange',
+                                        referenceName: newRef,
+                                    });
+                                }
+                            }}
                             disabled={!options.hasBam}
                             className="plot-options-select"
                             style={{
@@ -898,6 +947,133 @@ export const PlotOptionsCore: React.FC = () => {
                             Anchor position 1 to first reference base (uncheck to use genomic
                             coordinates)
                         </div>
+                    </div>
+
+                    {/* X-Axis Windowing Section */}
+                    <div
+                        className="plot-options-section-large"
+                        style={{
+                            opacity: options.hasBam ? 1 : 0.5,
+                            pointerEvents: options.hasBam ? 'auto' : 'none',
+                        }}
+                    >
+                        <div className="plot-options-section-header">X-Axis Windowing</div>
+
+                        {/* Enable Windowing Checkbox */}
+                        <div className="plot-options-checkbox-row">
+                            <input
+                                type="checkbox"
+                                id="enableXAxisWindowing"
+                                checked={options.enableXAxisWindowing}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        enableXAxisWindowing: e.target.checked,
+                                    }))
+                                }
+                                disabled={!options.hasBam}
+                            />
+                            <label
+                                htmlFor="enableXAxisWindowing"
+                                className="plot-options-checkbox-label"
+                            >
+                                Enable x-axis windowing
+                            </label>
+                        </div>
+                        <div
+                            className="plot-options-description"
+                            style={{
+                                marginTop: '-6px',
+                                marginBottom: '12px',
+                            }}
+                        >
+                            Limit plot to a specific range (useful for long reads 1000+ nt)
+                        </div>
+
+                        {/* Dual-Handle Range Slider - Only shown when windowing enabled */}
+                        {options.enableXAxisWindowing && (
+                            <div className="plot-options-windowing-container">
+                                <div className="plot-options-windowing-inputs">
+                                    <div className="plot-options-windowing-input-group">
+                                        <label className="plot-options-windowing-label">
+                                            Min Position:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="plot-options-windowing-input"
+                                            min={options.referenceMinPos}
+                                            max={options.referenceMaxPos}
+                                            value={options.xAxisMin ?? options.referenceMinPos}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (!isNaN(val)) {
+                                                    setOptions((prev) => ({
+                                                        ...prev,
+                                                        xAxisMin: Math.max(
+                                                            options.referenceMinPos,
+                                                            Math.min(
+                                                                val,
+                                                                options.xAxisMax ??
+                                                                    options.referenceMaxPos
+                                                            )
+                                                        ),
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="plot-options-windowing-input-group">
+                                        <label className="plot-options-windowing-label">
+                                            Max Position:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="plot-options-windowing-input"
+                                            min={options.referenceMinPos}
+                                            max={options.referenceMaxPos}
+                                            value={options.xAxisMax ?? options.referenceMaxPos}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (!isNaN(val)) {
+                                                    setOptions((prev) => ({
+                                                        ...prev,
+                                                        xAxisMax: Math.min(
+                                                            options.referenceMaxPos,
+                                                            Math.max(
+                                                                val,
+                                                                options.xAxisMin ??
+                                                                    options.referenceMinPos
+                                                            )
+                                                        ),
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            xAxisMin: null,
+                                            xAxisMax: null,
+                                        }))
+                                    }
+                                    className="plot-options-reset-button"
+                                >
+                                    Reset to Full Range
+                                </button>
+                                <div
+                                    className="plot-options-helper-text"
+                                    style={{ marginTop: '8px' }}
+                                >
+                                    Reference range: {options.referenceMinPos} -{' '}
+                                    {options.referenceMaxPos} (from{' '}
+                                    {options.aggregateReference || 'selected reference'})
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </>
             )}

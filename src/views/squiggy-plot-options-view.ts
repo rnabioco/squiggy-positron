@@ -13,6 +13,7 @@ import {
     UpdatePod5StatusMessage,
     UpdateFastaStatusMessage,
     UpdateReferencesMessage,
+    UpdateReferenceRangeMessage,
     UpdateLoadedSamplesMessage,
     SampleItem,
 } from '../types/messages';
@@ -56,6 +57,11 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     // Multi-sample state
     private _loadedSamples: SampleItem[] = [];
 
+    // X-axis windowing state
+    private _enableXAxisWindowing: boolean = false;
+    private _xAxisMin: number | null = null;
+    private _xAxisMax: number | null = null;
+
     constructor(extensionUri: vscode.Uri, state: ExtensionState) {
         super(extensionUri);
         this._state = state;
@@ -97,6 +103,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         this._onDidRequestAggregateComparison.dispose();
         this._onDidRequestMultiReadOverlay.dispose();
         this._onDidRequestMultiReadStacked.dispose();
+        this._onDidRequestReferenceRange.dispose();
 
         // Call base class dispose to clean up all other disposables
         super.dispose();
@@ -120,6 +127,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         showQuality: boolean;
         clipXAxisToAlignment: boolean;
         transformCoordinates: boolean;
+        // X-axis windowing parameters
+        enableXAxisWindowing: boolean;
+        xAxisMin: number | null;
+        xAxisMax: number | null;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -164,6 +175,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         coordinateSpace: 'signal' | 'sequence';
     }>();
     public readonly onDidRequestMultiReadStacked = this._onDidRequestMultiReadStacked.event;
+
+    // Event emitter for reference range requests
+    private _onDidRequestReferenceRange = new vscode.EventEmitter<string>();
+    public readonly onDidRequestReferenceRange = this._onDidRequestReferenceRange.event;
 
     protected getTitle(): string {
         return 'Plotting';
@@ -214,6 +229,17 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 this._showQuality = message.options.showQuality;
             }
 
+            // Update windowing options if present
+            if (message.options.enableXAxisWindowing !== undefined) {
+                this._enableXAxisWindowing = message.options.enableXAxisWindowing;
+            }
+            if (message.options.xAxisMin !== undefined) {
+                this._xAxisMin = message.options.xAxisMin;
+            }
+            if (message.options.xAxisMax !== undefined) {
+                this._xAxisMax = message.options.xAxisMax;
+            }
+
             // Fire change event
             this._onDidChangeOptions.fire();
         }
@@ -223,7 +249,23 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._onDidChangeOptions.fire();
         }
 
+        if (message.type === 'requestReferenceRange') {
+            // Fire event for extension.ts to handle
+            this._onDidRequestReferenceRange.fire(message.referenceName);
+        }
+
         if (message.type === 'generateAggregatePlot') {
+            // Update internal state for windowing options
+            if (message.enableXAxisWindowing !== undefined) {
+                this._enableXAxisWindowing = message.enableXAxisWindowing;
+            }
+            if (message.xAxisMin !== undefined) {
+                this._xAxisMin = message.xAxisMin;
+            }
+            if (message.xAxisMax !== undefined) {
+                this._xAxisMax = message.xAxisMax;
+            }
+
             // Fire event for extension.ts to handle
             this._onDidRequestAggregatePlot.fire({
                 sampleNames: message.sampleNames,
@@ -238,6 +280,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showQuality: message.showQuality,
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
                 transformCoordinates: message.transformCoordinates,
+                // X-axis windowing parameters
+                enableXAxisWindowing: message.enableXAxisWindowing ?? this._enableXAxisWindowing,
+                xAxisMin: message.xAxisMin ?? this._xAxisMin,
+                xAxisMax: message.xAxisMax ?? this._xAxisMax,
             });
         }
 
@@ -332,6 +378,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showPileup: this._showPileup,
                 showSignal: this._showSignal,
                 showQuality: this._showQuality,
+                // X-axis windowing options
+                enableXAxisWindowing: this._enableXAxisWindowing,
+                xAxisMin: this._xAxisMin,
+                xAxisMax: this._xAxisMax,
             },
         };
         this.postMessage(updateMessage);
@@ -395,6 +445,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             showPileup: this._showPileup,
             showSignal: this._showSignal,
             showQuality: this._showQuality,
+            // X-axis windowing options
+            enableXAxisWindowing: this._enableXAxisWindowing,
+            xAxisMin: this._xAxisMin,
+            xAxisMax: this._xAxisMax,
         };
     }
 
@@ -473,6 +527,18 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         const message: UpdateReferencesMessage = {
             type: 'updateReferences',
             references: this._availableReferences,
+        };
+        this.postMessage(message);
+    }
+
+    /**
+     * Update reference range for x-axis windowing slider
+     */
+    public updateReferenceRange(minPos: number, maxPos: number) {
+        const message: UpdateReferenceRangeMessage = {
+            type: 'updateReferenceRange',
+            minPos: minPos,
+            maxPos: maxPos,
         };
         this.postMessage(message);
     }

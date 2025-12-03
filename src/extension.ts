@@ -248,6 +248,24 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         })
     );
 
+    // Listen for reference range requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestReferenceRange(async (referenceName) => {
+            try {
+                const api = await state.ensureBackgroundKernel();
+                const range = await api.getReferenceRange(referenceName);
+                plotOptionsProvider.updateReferenceRange(range.minPos, range.maxPos);
+            } catch (error) {
+                logger.error(
+                    `[Extension] Failed to get reference range for ${referenceName}:`,
+                    error
+                );
+                // Send default range on error
+                plotOptionsProvider.updateReferenceRange(0, 1000);
+            }
+        })
+    );
+
     // Listen for modification filter changes and refresh current plot
     context.subscriptions.push(
         modificationsProvider.onDidChangeFilters(() => {
@@ -429,7 +447,12 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.showQuality,
                         options.clipXAxisToAlignment,
                         options.transformCoordinates,
-                        options.sampleNames[0]
+                        options.sampleNames[0],
+                        modFilters.minFrequency,
+                        modFilters.minModifiedReads,
+                        options.enableXAxisWindowing ?? false,
+                        options.xAxisMin ?? null,
+                        options.xAxisMax ?? null
                     );
 
                     vscode.window.showInformationMessage(

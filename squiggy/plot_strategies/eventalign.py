@@ -122,6 +122,8 @@ class EventAlignPlotStrategy(PlotStrategy):
                 - show_labels: bool show base labels (default: True)
                 - show_signal_points: bool show individual points (default: False)
                 - position_label_interval: int label interval (default: 50)
+                - x_axis_min: int | None minimum position for windowing (default: None)
+                - x_axis_max: int | None maximum position for windowing (default: None)
 
         Returns:
             Tuple of (html_string, bokeh_figure)
@@ -149,6 +151,8 @@ class EventAlignPlotStrategy(PlotStrategy):
             "position_label_interval", DEFAULT_POSITION_LABEL_INTERVAL
         )
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
+        x_axis_min = options.get("x_axis_min")
+        x_axis_max = options.get("x_axis_max")
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)
@@ -220,8 +224,18 @@ class EventAlignPlotStrategy(PlotStrategy):
         )
         fig.add_tools(hover)
 
-        # Apply x-axis clipping if requested
-        if clip_x_to_alignment and len(first_aligned.bases) > 0:
+        # Apply x-axis windowing or clipping
+        if (x_axis_min is not None or x_axis_max is not None) and len(
+            first_aligned.bases
+        ) > 0:
+            from bokeh.models import Range1d
+
+            # X-axis windowing takes precedence over clip_x_to_alignment
+            start_pos = x_axis_min if x_axis_min is not None else 0
+            end_pos = x_axis_max if x_axis_max is not None else len(first_aligned.bases)
+            fig.x_range = Range1d(start=start_pos - 0.5, end=end_pos + 0.5)
+
+        elif clip_x_to_alignment and len(first_aligned.bases) > 0:
             from bokeh.models import Range1d
 
             # X-axis is in base position units (0, 1, 2, ...) or time units

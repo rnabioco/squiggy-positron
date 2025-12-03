@@ -74,6 +74,117 @@ class AggregatePlotStrategy(PlotStrategy):
         super().__init__(theme)
         self.theme_manager = ThemeManager(theme)
 
+    def _apply_windowing(
+        self, stats: dict, x_min: int | None, x_max: int | None
+    ) -> dict:
+        """
+        Apply x-axis windowing to filter statistics to specified range
+
+        Args:
+            stats: Statistics dictionary with 'positions' array and associated data
+            x_min: Minimum x position (None = no lower limit)
+            x_max: Maximum x position (None = no upper limit)
+
+        Returns:
+            Filtered statistics dictionary with only positions in range [x_min, x_max]
+        """
+        if "positions" not in stats or len(stats["positions"]) == 0:
+            return stats  # No positions to filter
+
+        import numpy as np
+
+        positions = np.array(stats["positions"])
+
+        # Create boolean mask for positions in range
+        mask = np.ones(len(positions), dtype=bool)
+        if x_min is not None:
+            mask &= positions >= x_min
+        if x_max is not None:
+            mask &= positions <= x_max
+
+        # If no positions in range, return empty stats
+        if not np.any(mask):
+            return {
+                key: [] if isinstance(val, (list, np.ndarray)) else val
+                for key, val in stats.items()
+            }
+
+        # Filter all array-like values by mask
+        filtered = {}
+        for key, val in stats.items():
+            if isinstance(val, (list, np.ndarray)) and len(val) == len(positions):
+                # Filter arrays that match positions length
+                filtered[key] = np.array(val)[mask]
+            elif isinstance(val, dict):
+                # Handle nested dicts (like pileup counts, reference_bases)
+                # Only filter dicts that have numeric position keys
+                # Check if all keys can be converted to int
+                try:
+                    # Try converting first key to int to check if this is a position-keyed dict
+                    first_key = next(iter(val.keys()), None)
+                    if first_key is not None:
+                        int(first_key)  # Test conversion
+                        # If successful, filter by position keys
+                        filtered[key] = {
+                            int(p): v
+                            for p, v in val.items()
+                            if (x_min is None or int(p) >= x_min)
+                            and (x_max is None or int(p) <= x_max)
+                        }
+                    else:
+                        # Empty dict
+                        filtered[key] = val
+                except (ValueError, TypeError):
+                    # Not a position-keyed dict (e.g., has string keys like 'a', 'm')
+                    # Keep it unchanged
+                    filtered[key] = val
+            else:
+                # Keep scalar values unchanged
+                filtered[key] = val
+
+        return filtered
+
+    def _apply_windowing_to_modifications(
+        self, mod_stats: dict, x_min: int | None, x_max: int | None
+    ) -> dict:
+        """
+        Apply x-axis windowing to modification statistics
+
+        Modification stats have a nested structure:
+        {
+            "mod_stats": {
+                position: {mod_type: probability, ...},
+                ...
+            }
+        }
+
+        Args:
+            mod_stats: Modification statistics dictionary
+            x_min: Minimum x position (None = no lower limit)
+            x_max: Maximum x position (None = no upper limit)
+
+        Returns:
+            Filtered modification statistics
+        """
+        if "mod_stats" not in mod_stats:
+            return mod_stats
+
+        # Filter modification dictionary by position keys
+        # Only filter entries where the key is a numeric position
+        filtered_mods = {}
+        for pos, mods in mod_stats["mod_stats"].items():
+            try:
+                pos_int = int(pos)
+                if (x_min is None or pos_int >= x_min) and (
+                    x_max is None or pos_int <= x_max
+                ):
+                    filtered_mods[pos_int] = mods
+            except (ValueError, TypeError):
+                # Skip non-numeric keys (shouldn't happen in mod_stats, but be safe)
+                continue
+
+        return {"mod_stats": filtered_mods}
+
     def validate_data(self, data: dict) -> None:
         """
         Validate that required data is present
@@ -175,6 +286,22 @@ class AggregatePlotStrategy(PlotStrategy):
         show_quality = options.get("show_quality", True)
         motif_positions = options.get("motif_positions", None)
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
+        x_axis_min = options.get("x_axis_min", None)
+        x_axis_max = options.get("x_axis_max", None)
+
+        # Apply x-axis windowing if specified
+        if x_axis_min is not None or x_axis_max is not None:
+            aggregate_stats = self._apply_windowing(
+                aggregate_stats, x_axis_min, x_axis_max
+            )
+            pileup_stats = self._apply_windowing(pileup_stats, x_axis_min, x_axis_max)
+            quality_stats = self._apply_windowing(quality_stats, x_axis_min, x_axis_max)
+            if modification_stats:
+                modification_stats = self._apply_windowing_to_modifications(
+                    modification_stats, x_axis_min, x_axis_max
+                )
+            if dwell_stats:
+                dwell_stats = self._apply_windowing(dwell_stats, x_axis_min, x_axis_max)
 
         # Build panel list dynamically based on available data and visibility options
         # Panel order: modifications (optional), pileup, signal, quality, dwell time (optional)
@@ -233,8 +360,28 @@ class AggregatePlotStrategy(PlotStrategy):
         # Link x-axes for synchronized zoom/pan
         # Use first figure as base for x_range
         if all_figs:
-            # Apply x-axis clipping if requested
-            if clip_x_to_alignment:
+            # Apply x-axis windowing if specified (takes precedence over clip_x_to_alignment)
+            if x_axis_min is not None or x_axis_max is not None:
+                from bokeh.models import Range1d
+
+                # Determine actual range from the filtered data
+                all_positions = aggregate_stats.get("positions", [])
+                if len(all_positions) > 0:
+                    # Use windowing values if specified, otherwise use data bounds
+                    actual_min = (
+                        x_axis_min if x_axis_min is not None else all_positions[0]
+                    )
+                    actual_max = (
+                        x_axis_max if x_axis_max is not None else all_positions[-1]
+                    )
+
+                    # Add 0.5 padding to prevent bars from being cut off
+                    base_x_range = Range1d(start=actual_min - 0.5, end=actual_max + 0.5)
+                else:
+                    # Fallback if no positions
+                    base_x_range = all_figs[0].x_range
+            # Apply x-axis clipping if requested (and windowing not enabled)
+            elif clip_x_to_alignment:
                 # Clip to consensus alignment region (where most reads agree)
                 # Use pileup coverage to determine the high-coverage region
                 all_positions = aggregate_stats.get("positions", [])
