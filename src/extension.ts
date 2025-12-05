@@ -346,7 +346,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
             }
 
             // If we have BAM files, fetch and aggregate references from all samples
-            if (hasBam && state.squiggyAPI && plotOptionsProvider) {
+            if (hasBam && state.kernelManager && plotOptionsProvider) {
                 // Get all samples with BAM files
                 const samplesWithBam = samples.filter((s) => s.hasBam);
                 if (samplesWithBam.length > 0) {
@@ -357,30 +357,37 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         samplesWithBam.map((s) => s.name).join(', ')
                     );
 
-                    // Fetch references from all samples in parallel
-                    Promise.all(
-                        samplesWithBam.map((sample) =>
-                            state.squiggyAPI!.getReferencesForSample(sample.name)
-                        )
-                    ).then((allRefs) => {
-                        // Aggregate unique references from all samples
-                        const uniqueRefs = Array.from(
-                            new Set(
-                                allRefs.flat().filter((ref) => ref !== null && ref !== undefined)
-                            )
-                        );
+                    // Fetch references from all samples in parallel via Squiggy kernel
+                    state
+                        .ensureKernel()
+                        .then((api) => {
+                            return Promise.all(
+                                samplesWithBam.map((sample) =>
+                                    api.getReferencesForSample(sample.name)
+                                )
+                            );
+                        })
+                        .then((allRefs) => {
+                            // Aggregate unique references from all samples
+                            const uniqueRefs = Array.from(
+                                new Set(
+                                    allRefs
+                                        .flat()
+                                        .filter((ref) => ref !== null && ref !== undefined)
+                                )
+                            );
 
-                        logger.debug(
-                            '[extension.ts] Aggregated',
-                            uniqueRefs.length,
-                            'unique references from all samples:',
-                            uniqueRefs
-                        );
+                            logger.debug(
+                                '[extension.ts] Aggregated',
+                                uniqueRefs.length,
+                                'unique references from all samples:',
+                                uniqueRefs
+                            );
 
-                        if (plotOptionsProvider) {
-                            plotOptionsProvider.updateReferences(uniqueRefs);
-                        }
-                    });
+                            if (plotOptionsProvider) {
+                                plotOptionsProvider.updateReferences(uniqueRefs);
+                            }
+                        });
                 }
             }
 
@@ -397,7 +404,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         samplesProvider.onDidRequestUnload(async (sampleName) => {
             try {
                 // Get background API
-                const api = await state.ensureBackgroundKernel();
+                const api = await state.ensureKernel();
 
                 // Call Python to remove sample
                 await api.removeSample(sampleName);
@@ -431,7 +438,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
 
             try {
                 // Get background API
-                const api = await state.ensureBackgroundKernel();
+                const api = await state.ensureKernel();
 
                 // Get current theme
                 const isDarkTheme =

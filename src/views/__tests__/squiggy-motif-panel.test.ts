@@ -21,7 +21,7 @@ describe('MotifSearchPanelProvider', () => {
         mockState = {
             currentFastaFile: null,
             squiggyAPI: null,
-            ensureBackgroundKernel: jest.fn(),
+            ensureKernel: jest.fn(),
         } as any;
 
         // Mock webview view
@@ -94,7 +94,7 @@ describe('MotifSearchPanelProvider', () => {
                 { chrom: 'chr1', position: 500, sequence: 'AGACT', strand: '+' },
             ]);
 
-            mockState.ensureBackgroundKernel.mockResolvedValue({
+            mockState.ensureKernel.mockResolvedValue({
                 searchMotif: mockSearchMotif,
             });
 
@@ -128,7 +128,7 @@ describe('MotifSearchPanelProvider', () => {
 
             const mockSearchMotif = (jest.fn() as any).mockResolvedValue([]);
 
-            mockState.ensureBackgroundKernel.mockResolvedValue({
+            mockState.ensureKernel.mockResolvedValue({
                 searchMotif: mockSearchMotif,
             });
 
@@ -152,7 +152,7 @@ describe('MotifSearchPanelProvider', () => {
                 new Error('Search failed')
             );
 
-            mockState.ensureBackgroundKernel.mockResolvedValue({
+            mockState.ensureKernel.mockResolvedValue({
                 searchMotif: mockSearchMotif,
             });
 
@@ -179,7 +179,7 @@ describe('MotifSearchPanelProvider', () => {
 
             const mockSearchMotif = (jest.fn() as any).mockRejectedValue('String error');
 
-            mockState.ensureBackgroundKernel.mockResolvedValue({
+            mockState.ensureKernel.mockResolvedValue({
                 searchMotif: mockSearchMotif,
             });
 
@@ -199,7 +199,7 @@ describe('MotifSearchPanelProvider', () => {
                 () => new Promise((resolve) => setTimeout(() => resolve([]), 10))
             );
 
-            mockState.ensureBackgroundKernel.mockResolvedValue({
+            mockState.ensureKernel.mockResolvedValue({
                 searchMotif: mockSearchMotif,
             });
 
