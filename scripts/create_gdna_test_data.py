@@ -314,8 +314,8 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads):
     with pod5.DatasetReader(pod5_paths) as reader:
         with pod5.Writer(str(output_path)) as writer:
             # Use selection parameter to fetch only the reads we want
-            # missing_ok=True skips IDs not found instead of raising error
-            for read in reader.reads(selection=selected_reads, missing_ok=True):
+            # DatasetReader silently skips missing reads (no missing_ok needed)
+            for read in reader.reads(selection=selected_reads):
                 writer.add_read(read.to_read())
                 reads_written += 1
                 print(f"    Extracted read {str(read.read_id)[:8]}... ({reads_written}/{len(selected_reads)})")
