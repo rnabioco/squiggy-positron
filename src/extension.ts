@@ -32,6 +32,9 @@ let venvManager: VenvManager;
 // Status bar item for dedicated kernel
 let kernelStatusBarItem: vscode.StatusBarItem;
 
+// Extension version (set during activation)
+let extensionVersion: string;
+
 /**
  * Extension activation
  */
@@ -49,9 +52,10 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Log version info for debugging
+    // Store and log version info
+    extensionVersion = context.extension.packageJSON.version;
     logger.info(`Positron/VSCode version: ${vscode.version}`);
-    logger.info(`Squiggy extension version: ${context.extension.packageJSON.version}`);
+    logger.info(`Squiggy extension version: ${extensionVersion}`);
 
     // Initialize venv manager
     venvManager = new VenvManager();
@@ -704,28 +708,28 @@ function updateKernelStatusBar(kernelState: SquiggyKernelState): void {
 
     switch (kernelState) {
         case SquiggyKernelState.Uninitialized:
-            kernelStatusBarItem.text = '$(circle-outline) Squiggy Kernel';
-            kernelStatusBarItem.tooltip = 'Squiggy dedicated kernel not started (click to start)';
+            kernelStatusBarItem.text = `$(circle-outline) Squiggy v${extensionVersion}`;
+            kernelStatusBarItem.tooltip = 'Squiggy kernel not started (click to start)';
             kernelStatusBarItem.backgroundColor = undefined;
             break;
         case SquiggyKernelState.Starting:
-            kernelStatusBarItem.text = '$(sync~spin) Squiggy Kernel';
-            kernelStatusBarItem.tooltip = 'Starting Squiggy dedicated kernel...';
+            kernelStatusBarItem.text = `$(sync~spin) Squiggy v${extensionVersion}`;
+            kernelStatusBarItem.tooltip = 'Starting Squiggy kernel...';
             kernelStatusBarItem.backgroundColor = undefined;
             break;
         case SquiggyKernelState.Ready:
-            kernelStatusBarItem.text = '$(check) Squiggy Kernel';
-            kernelStatusBarItem.tooltip = 'Squiggy dedicated kernel ready (click to restart)';
+            kernelStatusBarItem.text = `$(check) Squiggy v${extensionVersion}`;
+            kernelStatusBarItem.tooltip = 'Squiggy kernel ready (click to restart)';
             kernelStatusBarItem.backgroundColor = undefined;
             break;
         case SquiggyKernelState.Restarting:
-            kernelStatusBarItem.text = '$(sync~spin) Squiggy Kernel';
-            kernelStatusBarItem.tooltip = 'Restarting Squiggy dedicated kernel...';
+            kernelStatusBarItem.text = `$(sync~spin) Squiggy v${extensionVersion}`;
+            kernelStatusBarItem.tooltip = 'Restarting Squiggy kernel...';
             kernelStatusBarItem.backgroundColor = undefined;
             break;
         case SquiggyKernelState.Error:
-            kernelStatusBarItem.text = '$(error) Squiggy Kernel';
-            kernelStatusBarItem.tooltip = 'Squiggy dedicated kernel error (click to restart)';
+            kernelStatusBarItem.text = `$(error) Squiggy v${extensionVersion}`;
+            kernelStatusBarItem.tooltip = 'Squiggy kernel error (click to restart)';
             kernelStatusBarItem.backgroundColor = new vscode.ThemeColor(
                 'statusBarItem.errorBackground'
             );

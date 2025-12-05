@@ -204,7 +204,7 @@
       "activitybar": [
         {
           "id": "squiggy-sidebar",
-          "title": "Squiggy v0.1.21-alpha",
+          "title": "Squiggy",
           "icon": "resources/icon-sidebar.svg"
         }
       ]
