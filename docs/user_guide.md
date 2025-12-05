@@ -386,7 +386,7 @@ You can toggle individual panels on/off before generating the plot:
 
 Squiggy is optimized for typical nanopore datasets with automatic performance tuning:
 
-**Adaptive Downsampling** (New in v0.3.3)
+**Adaptive Downsampling**
 - Automatically optimizes plot rendering for large signals
 - Targets ~50,000 data points per plot for smooth interactivity
 - Small signals (< 250K samples): uses default downsampling (5x)
