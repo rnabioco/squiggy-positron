@@ -15,6 +15,7 @@ import { FileLoadingService } from '../services/file-loading-service';
 import { LoadedItem } from '../types/loaded-item';
 import { POD5LoadResult, BAMLoadResult } from '../types/file-loading-types';
 import { logger } from '../utils/logger';
+import { statusBarMessenger } from '../utils/status-bar-messenger';
 
 /**
  * Register file-related commands
@@ -167,9 +168,7 @@ paths = {
             const fastaAlreadyLoaded = state.currentFastaFile === fastaPath;
 
             if (pod5AlreadyLoaded && bamAlreadyLoaded && fastaAlreadyLoaded) {
-                vscode.window.showInformationMessage(
-                    'Test data is already loaded. Use "Refresh Read List" to update the view.'
-                );
+                statusBarMessenger.show('Test data loaded', 'check');
                 return;
             }
 
@@ -184,7 +183,7 @@ paths = {
                 await openFASTAFile(fastaPath, state);
             }
 
-            vscode.window.showInformationMessage('Test data loaded successfully!');
+            statusBarMessenger.show('Test loaded', 'check');
         })
     );
 
@@ -220,7 +219,7 @@ paths = {
                     state.samplesProvider.updateSessionFasta(fastaPath);
                 }
 
-                vscode.window.showInformationMessage(`FASTA set: ${path.basename(fastaPath)}`);
+                statusBarMessenger.show('FASTA set', 'file');
             }
         })
     );
@@ -722,7 +721,7 @@ squiggy.close_pod5()
         state.readsViewPane?.setReads([]);
         state.plotOptionsProvider?.updatePod5Status(false);
 
-        vscode.window.showInformationMessage('POD5 file closed');
+        statusBarMessenger.show('POD5 closed', 'close');
     } catch (error) {
         handleError(error, ErrorContext.POD5_CLOSE);
     }
@@ -774,7 +773,7 @@ squiggy.close_bam()
             state.readsViewPane?.setReads(readIds);
         }
 
-        vscode.window.showInformationMessage('BAM file closed');
+        statusBarMessenger.show('BAM closed', 'close');
     } catch (error) {
         handleError(error, ErrorContext.BAM_CLOSE);
     }
@@ -830,7 +829,7 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
             state.plotOptionsProvider?.updateFastaStatus(true);
 
             logger.debug(`[openFASTAFile] Successfully loaded: ${path.basename(filePath)}`);
-            vscode.window.showInformationMessage(`FASTA file loaded: ${path.basename(filePath)}`);
+            statusBarMessenger.show('FASTA loaded', 'file');
         },
         ErrorContext.FASTA_LOAD,
         'Opening FASTA file...'
@@ -863,7 +862,7 @@ squiggy.close_fasta()
         // Update plot options to disable reference track
         state.plotOptionsProvider?.updateFastaStatus(false);
 
-        vscode.window.showInformationMessage('FASTA file closed');
+        statusBarMessenger.show('FASTA closed', 'close');
     } catch (error) {
         handleError(error, ErrorContext.FASTA_CLOSE);
     }
@@ -1014,9 +1013,7 @@ async function loadSampleForComparison(
             await vscode.commands.executeCommand('squiggyComparisonSamples.focus');
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            vscode.window.showInformationMessage(
-                `Sample '${sampleName}' loaded with ${readCount} reads`
-            );
+            statusBarMessenger.show(`${readCount} reads`, 'list-ordered');
         },
         ErrorContext.POD5_LOAD,
         `Loading sample '${sampleName}'`
@@ -1200,10 +1197,7 @@ paths = {
         // Brief delay for webview to initialize
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        vscode.window.showInformationMessage(
-            `Test multi-read datasets loaded: ${samples.map((s) => s.name).join(', ')}. ` +
-                `Please ensure the "Sample Comparison Manager" panel is expanded in the Squiggy sidebar.`
-        );
+        statusBarMessenger.show('Test samples loaded', 'check');
     } catch (error) {
         logger.error('[loadTestMultiReadDataset] Error:', error);
         handleError(error, ErrorContext.POD5_LOAD);
@@ -1371,18 +1365,14 @@ async function loadSamplesFromDropped(
     }
 
     // Show summary
-    let message = `Loaded ${results.successful} sample(s)`;
-    if (results.failed > 0) {
-        message += `, ${results.failed} failed`;
-    }
-    if (results.skipped > 0) {
-        message += `, ${results.skipped} skipped`;
-    }
-
     if (results.successful > 0) {
-        vscode.window.showInformationMessage(message);
-    } else {
-        vscode.window.showErrorMessage(`Failed to load samples: ${message}`);
+        statusBarMessenger.show(
+            `${results.successful} sample${results.successful !== 1 ? 's' : ''} loaded`,
+            'check'
+        );
+    }
+    if (results.failed > 0) {
+        vscode.window.showErrorMessage(`Failed to load ${results.failed} sample(s)`);
     }
 }
 
@@ -1507,7 +1497,7 @@ async function updateSampleFiles(
             files.fastaPath || sample.fastaPath
         );
 
-        vscode.window.showInformationMessage(`Updated files for sample "${sampleName}"`);
+        statusBarMessenger.show('Updated', 'pencil');
 
         logger.debug(`[updateSampleFiles] Successfully updated files for '${sampleName}'`);
     } catch (error) {

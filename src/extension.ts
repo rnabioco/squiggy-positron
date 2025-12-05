@@ -19,6 +19,7 @@ import { registerStateCommands } from './commands/state-commands';
 import { registerSessionCommands } from './commands/session-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 import { logger } from './utils/logger';
+import { statusBarMessenger } from './utils/status-bar-messenger';
 import { SquiggyKernelState } from './backend/squiggy-kernel-manager';
 import { VenvManager, showVenvSetupError } from './backend/venv-manager';
 
@@ -38,6 +39,16 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize centralized logger (creates Output Channel)
     logger.initialize(context);
 
+    // Initialize status bar messenger for transient notifications
+    context.subscriptions.push(statusBarMessenger.initialize());
+
+    // Register command to clear status bar errors (click to dismiss)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.clearStatusBarError', () => {
+            statusBarMessenger.clear();
+        })
+    );
+
     // Log version info for debugging
     logger.info(`Positron/VSCode version: ${vscode.version}`);
     logger.info(`Squiggy extension version: ${context.extension.packageJSON.version}`);
@@ -45,12 +56,11 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize venv manager
     venvManager = new VenvManager();
 
-    // Set up Python environment with progress notification
+    // Set up Python environment with progress in status bar (less intrusive)
     const venvResult = await vscode.window.withProgress(
         {
-            location: vscode.ProgressLocation.Notification,
-            title: 'Setting up Squiggy...',
-            cancellable: false,
+            location: vscode.ProgressLocation.Window,
+            title: 'Squiggy',
         },
         async (progress) => {
             progress.report({ message: 'Checking Python environment...' });
@@ -193,9 +203,7 @@ function registerResetVenvCommand(context: vscode.ExtensionContext): void {
                     const result = await venvManager.ensureVenv(context.extensionPath);
 
                     if (result.success) {
-                        vscode.window.showInformationMessage(
-                            'Squiggy environment reset successfully. Please reload the window.'
-                        );
+                        statusBarMessenger.show('Venv reset', 'check');
                         // Prompt to reload
                         const reload = await vscode.window.showInformationMessage(
                             'Reload window to complete setup?',
@@ -409,9 +417,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 samplesProvider.refresh();
                 readsViewPane?.refresh();
 
-                vscode.window.showInformationMessage(`Sample '${sampleName}' unloaded`);
+                statusBarMessenger.show('Unloaded', 'trash');
             } catch (error) {
-                vscode.window.showErrorMessage(`Failed to unload sample: ${error}`);
+                statusBarMessenger.showError(`Unload failed: ${error}`);
             }
         })
     );
@@ -453,9 +461,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.sampleNames[0]
                     );
 
-                    vscode.window.showInformationMessage(
-                        `Generated aggregate plot for ${options.reference}`
-                    );
+                    statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');
                 } else if (options.sampleNames.length > 1) {
                     // Multi-sample aggregate plot
                     if (options.viewStyle === 'overlay') {
@@ -479,8 +485,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                             maxReads: options.maxReads,
                         });
 
-                        vscode.window.showInformationMessage(
-                            `Generated aggregate comparison for ${options.sampleNames.length} samples`
+                        statusBarMessenger.show(
+                            `Comparison: ${options.sampleNames.length} samples`,
+                            'graph'
                         );
                     } else {
                         // Multi-track mode (separate detailed tracks per sample)
@@ -489,13 +496,11 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         );
                     }
                 } else {
-                    vscode.window.showErrorMessage('No samples selected for aggregate plot');
+                    statusBarMessenger.showError('No samples selected');
                 }
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(
-                    `Failed to generate aggregate plot: ${errorMessage}`
-                );
+                statusBarMessenger.showError(`Aggregate plot failed: ${errorMessage}`);
             }
         })
     );
@@ -595,34 +600,32 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                     // Start for the first time
                     await vscode.window.withProgress(
                         {
-                            location: vscode.ProgressLocation.Notification,
-                            title: 'Starting Squiggy dedicated kernel...',
-                            cancellable: false,
+                            location: vscode.ProgressLocation.Window,
+                            title: 'Squiggy',
                         },
-                        async () => {
+                        async (progress) => {
+                            progress.report({ message: 'Starting kernel...' });
                             await state.kernelManager!.start();
                         }
                     );
-                    vscode.window.showInformationMessage('Squiggy dedicated kernel started');
+                    statusBarMessenger.show('Kernel started', 'check');
                 } else {
                     // Restart existing kernel
                     await vscode.window.withProgress(
                         {
-                            location: vscode.ProgressLocation.Notification,
-                            title: 'Restarting Squiggy dedicated kernel...',
-                            cancellable: false,
+                            location: vscode.ProgressLocation.Window,
+                            title: 'Squiggy',
                         },
-                        async () => {
+                        async (progress) => {
+                            progress.report({ message: 'Restarting kernel...' });
                             await state.kernelManager!.restart();
                         }
                     );
-                    vscode.window.showInformationMessage('Squiggy dedicated kernel restarted');
+                    statusBarMessenger.show('Kernel restarted', 'check');
                 }
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(
-                    `Failed to restart dedicated kernel: ${errorMessage}`
-                );
+                statusBarMessenger.showError(`Kernel restart failed: ${errorMessage}`);
                 logger.error(`Dedicated kernel restart failed: ${errorMessage}`);
             }
         })
@@ -645,9 +648,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 // Update both the logger and VS Code settings
                 const config = vscode.workspace.getConfiguration('squiggy');
                 await config.update('logLevel', selected, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage(
-                    `Log level set to ${selected}. Logs will show ${selected} and above.`
-                );
+                statusBarMessenger.show(`Log: ${selected}`, 'settings-gear');
             }
         })
     );

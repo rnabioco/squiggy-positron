@@ -112,9 +112,8 @@ describe('Session Commands', () => {
             await saveSessionCommand(mockState, mockContext);
 
             expect(SessionStateManager.saveSession).toHaveBeenCalled();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                expect.stringContaining('saved to TestWorkspace workspace state')
-            );
+            // Success now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
 
         it('should save session with name when user provides it', async () => {
@@ -142,9 +141,8 @@ describe('Session Commands', () => {
 
             await saveSessionCommand(mockState, mockContext);
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to save session')
-            );
+            // Errors now shown via status bar, not pop-up
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
         });
     });
 
@@ -200,9 +198,8 @@ describe('Session Commands', () => {
 
             await restoreSessionCommand(mockState, mockContext);
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to restore session')
-            );
+            // Errors now shown via status bar, not pop-up
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
         });
     });
 
@@ -280,9 +277,8 @@ describe('Session Commands', () => {
 
             await importSessionCommand(mockState, mockContext);
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to import session')
-            );
+            // Errors now shown via status bar, not pop-up
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
         });
 
         it('should not import when user cancels file dialog', async () => {
@@ -301,9 +297,8 @@ describe('Session Commands', () => {
             await clearSessionCommand(mockContext);
 
             expect(SessionStateManager.clearSession).toHaveBeenCalledWith(mockContext);
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Saved session cleared')
-            );
+            // Success now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
 
         it('should not clear when user cancels', async () => {
@@ -320,9 +315,8 @@ describe('Session Commands', () => {
 
             await clearSessionCommand(mockContext);
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to clear session')
-            );
+            // Errors now shown via status bar, not pop-up
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
         });
     });
 
@@ -363,9 +357,8 @@ describe('Session Commands', () => {
 
             await loadDemoSessionCommand(mockState, mockContext);
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to load demo session')
-            );
+            // Errors now shown via status bar, not pop-up
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
         });
     });
 });

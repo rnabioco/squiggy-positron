@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
+import { statusBarMessenger } from '../utils/status-bar-messenger';
 
 /**
  * Register state management commands
@@ -27,9 +28,7 @@ export function registerStateCommands(
         vscode.commands.registerCommand('squiggy.clearState', async () => {
             await state.clearAll();
 
-            vscode.window.showInformationMessage(
-                'Squiggy state cleared. Load new files to continue.'
-            );
+            statusBarMessenger.show('State cleared', 'trash');
         })
     );
 
@@ -62,7 +61,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
         const hasPod5 = await api.client.getVariable('squiggy_kernel._reader is not None');
 
         if (!hasPod5) {
-            vscode.window.showInformationMessage('No POD5 file loaded in Python session');
+            statusBarMessenger.show('No POD5', 'warning');
             state.readsViewPane?.setLoading(false);
             return;
         }
@@ -78,9 +77,9 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
             await refreshPOD5Only(state);
         }
 
-        vscode.window.showInformationMessage('Read list refreshed successfully');
+        statusBarMessenger.show('Refreshed', 'refresh');
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to refresh reads: ${error}`);
+        statusBarMessenger.showError(`Refresh failed: ${error}`);
     } finally {
         state.readsViewPane?.setLoading(false);
     }
@@ -149,9 +148,7 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
         const hasBAM = await api.client.getVariable('squiggy_kernel._bam_path is not None');
 
         if (!hasBAM) {
-            vscode.window.showInformationMessage(
-                'No BAM file loaded. Panel will not appear without modifications.'
-            );
+            statusBarMessenger.show('No BAM loaded', 'warning');
             await vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
             return;
         }
@@ -169,11 +166,11 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
         const hasProbabilities = (bamInfo as any).has_probabilities || false;
 
         // Show diagnostic info
-        const message = hasModifications
-            ? `Modifications detected! Types: ${JSON.stringify(modificationTypes)}, Probabilities: ${hasProbabilities}`
-            : 'BAM loaded but no modifications found';
-
-        vscode.window.showInformationMessage(message);
+        if (hasModifications) {
+            statusBarMessenger.show('Mods detected', 'beaker');
+        } else {
+            statusBarMessenger.show('No mods found', 'info');
+        }
 
         // Sync context with Python state
         await vscode.commands.executeCommand(
@@ -189,9 +186,9 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
                 modificationTypes,
                 hasProbabilities
             );
-            vscode.window.showInformationMessage('Modifications panel should now be visible!');
+            statusBarMessenger.show('Mods panel visible', 'check');
         }
     } catch (error) {
-        vscode.window.showErrorMessage(`Debug failed: ${error}`);
+        statusBarMessenger.showError(`Debug failed: ${error}`);
     }
 }

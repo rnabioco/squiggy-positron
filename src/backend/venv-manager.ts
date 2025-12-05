@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { logger } from '../utils/logger';
+import { statusBarMessenger } from '../utils/status-bar-messenger';
 
 const execAsync = promisify(exec);
 
@@ -283,7 +284,7 @@ export async function showVenvSetupError(result: VenvSetupResult): Promise<void>
                 await vscode.env.clipboard.writeText(
                     'curl -LsSf https://astral.sh/uv/install.sh | sh'
                 );
-                vscode.window.showInformationMessage('Install command copied to clipboard');
+                statusBarMessenger.show('Copied', 'clippy');
             } else if (choice === 'View Documentation') {
                 vscode.env.openExternal(vscode.Uri.parse('https://docs.astral.sh/uv/'));
             }

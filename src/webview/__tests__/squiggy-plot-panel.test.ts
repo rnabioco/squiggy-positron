@@ -220,9 +220,8 @@ describe('SquigglePlotPanel', () => {
                 '<div>Test Bokeh HTML</div>',
                 'utf-8'
             );
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                'Plot exported to /path/to/output.html'
-            );
+            // Success now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
 
         it('should show error for PNG export', async () => {

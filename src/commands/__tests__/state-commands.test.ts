@@ -113,7 +113,7 @@ describe('State Commands', () => {
             );
         });
 
-        it('should show info message when no POD5 file is loaded', async () => {
+        it('should show status bar message when no POD5 file is loaded', async () => {
             mockState.squiggyAPI.client.getVariable.mockResolvedValue(false);
 
             registerCommands();
@@ -121,9 +121,8 @@ describe('State Commands', () => {
 
             await handler!();
 
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                'No POD5 file loaded in Python session'
-            );
+            // Now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
 
         it('should refresh POD5-only mode (flat list)', async () => {
@@ -151,10 +150,8 @@ describe('State Commands', () => {
                 totalReads: 2000,
             });
 
-            // Should show success message
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                'Read list refreshed successfully'
-            );
+            // Success now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
 
         it('should refresh BAM mode (grouped by reference)', async () => {
@@ -179,10 +176,8 @@ describe('State Commands', () => {
                 { referenceName: 'ref2', readCount: 150 },
             ]);
 
-            // Should show success message
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                'Read list refreshed successfully'
-            );
+            // Success now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
 
         it('should set loading state during refresh', async () => {
@@ -215,10 +210,8 @@ describe('State Commands', () => {
 
             await handler!();
 
-            // Should show error message
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to refresh reads')
-            );
+            // Errors now shown via status bar, not pop-up
+            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
 
             // Should still clear loading state
             expect(mockState.readsViewPane.setLoading).toHaveBeenCalledWith(false);
@@ -233,17 +226,8 @@ describe('State Commands', () => {
             await handler!();
 
             expect(mockState.clearAll).toHaveBeenCalled();
-        });
-
-        it('should show success message after clearing', async () => {
-            registerCommands();
-            const handler = commandHandlers.get('squiggy.clearState');
-
-            await handler!();
-
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                'Squiggy state cleared. Load new files to continue.'
-            );
+            // Success now shown via status bar, not pop-up
+            expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
         });
     });
 });
