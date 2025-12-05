@@ -1,5 +1,18 @@
 # Squiggy Release Notes
 
+## v0.1.21-alpha (2025-12-05)
+
+UX improvements with simplified kernel architecture and cleaner status notifications.
+
+### Features
+
+- **Status Bar Notifications**: Replaced notification pop-ups with non-intrusive status bar messages for a cleaner user experience (#167)
+
+### Improvements
+
+- **Simplified Kernel Architecture**: Streamlined to single dedicated kernel, eliminating complexity and improving reliability (#168)
+- **Documentation**: Synced API reference documentation and updated example notebook (#169)
+
 ## v0.1.20-alpha (2025-12-03)
 
 Pre-release polish with Python codebase modularization and improved reliability.
