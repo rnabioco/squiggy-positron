@@ -53,6 +53,7 @@ interface PlotOptionsState {
     showSignal: boolean;
     showQuality: boolean;
     showCoverage: boolean;
+    rnaMode: boolean;
     availableReferences: string[];
 
     // Comparison options
@@ -93,6 +94,7 @@ export const PlotOptionsCore: React.FC = () => {
         showSignal: true,
         showQuality: true,
         showCoverage: false, // Off by default
+        rnaMode: false,
         availableReferences: [],
         // Comparison
         loadedSamples: [],
@@ -139,6 +141,7 @@ export const PlotOptionsCore: React.FC = () => {
                         showSignal: message.options.showSignal ?? prev.showSignal,
                         showQuality: message.options.showQuality ?? prev.showQuality,
                         showCoverage: message.options.showCoverage ?? prev.showCoverage,
+                        rnaMode: message.options.rnaMode ?? prev.rnaMode,
                     }));
                     break;
                 case 'updatePod5Status':
@@ -315,6 +318,7 @@ export const PlotOptionsCore: React.FC = () => {
             showCoverage: options.showCoverage,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
             transformCoordinates: options.transformCoordinates,
+            rnaMode: options.rnaMode,
         });
     };
 
@@ -796,6 +800,30 @@ export const PlotOptionsCore: React.FC = () => {
                                 Base pileup
                             </label>
                         </div>
+
+                        {/* RNA Mode - show U instead of T in pileup */}
+                        {options.showPileup && (
+                            <div
+                                className="plot-options-checkbox-row"
+                                style={{ marginLeft: '22px' }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="rnaMode"
+                                    checked={options.rnaMode}
+                                    onChange={(e) =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            rnaMode: e.target.checked,
+                                        }))
+                                    }
+                                    disabled={!options.hasBam}
+                                />
+                                <label htmlFor="rnaMode" className="plot-options-checkbox-label">
+                                    Show as RNA (U instead of T)
+                                </label>
+                            </div>
+                        )}
 
                         {/* Dwell Time Panel */}
                         <div className="plot-options-checkbox-row">

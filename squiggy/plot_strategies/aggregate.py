@@ -178,6 +178,7 @@ class AggregatePlotStrategy(PlotStrategy):
         show_coverage = options.get("show_coverage", True)
         motif_positions = options.get("motif_positions", None)
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
+        rna_mode = options.get("rna_mode", False)
 
         # Build panel list dynamically based on available data and visibility options
         # Panel order: header, modifications (optional), pileup, signal, quality, dwell time (optional)
@@ -211,6 +212,7 @@ class AggregatePlotStrategy(PlotStrategy):
                 pileup_stats=pileup_stats,
                 motif_positions=motif_positions,
                 transformation_info=transformation_info,
+                rna_mode=rna_mode,
             )
             panels.append([p_pileup])
             all_figs.append(p_pileup)
@@ -564,6 +566,7 @@ class AggregatePlotStrategy(PlotStrategy):
         pileup_stats: dict,
         motif_positions: set = None,
         transformation_info: str = "",
+        rna_mode: bool = False,
     ):
         """
         Create base call pileup track with optional motif highlighting
@@ -572,10 +575,17 @@ class AggregatePlotStrategy(PlotStrategy):
             pileup_stats: Dictionary containing pileup statistics
             motif_positions: Optional set of genomic positions to highlight as motif matches
             transformation_info: Diagnostic info about coordinate transformation
+            rna_mode: If True, display U instead of T for RNA sequences
         """
         positions = pileup_stats["positions"]
         counts = pileup_stats["counts"]
         reference_bases = pileup_stats.get("reference_bases", {})
+
+        # Define base set based on RNA mode
+        # Data always uses T (from sequencing), but display as U for RNA
+        bases = ["A", "C", "G", "U"] if rna_mode else ["A", "C", "G", "T"]
+        # Map from data key (always T) to display key (T or U)
+        base_display_map = {"T": "U"} if rna_mode else {}
 
         # Build diagnostic title
         title = "Base Call Pileup"
@@ -589,24 +599,17 @@ class AggregatePlotStrategy(PlotStrategy):
             height=300,
         )
 
-        # Prepare data for stacked bars
+        # Prepare data for stacked bars (use display bases - T or U depending on mode)
         pileup_data = {
             "x": [],
-            "A": [],
-            "C": [],
-            "G": [],
-            "T": [],
             "total": [],
-            "A_bottom": [],
-            "A_top": [],
-            "C_bottom": [],
-            "C_top": [],
-            "G_bottom": [],
-            "G_top": [],
-            "T_bottom": [],
-            "T_top": [],
             "ref_base": [],
         }
+        # Add keys for each display base
+        for display_base in bases:
+            pileup_data[display_base] = []
+            pileup_data[f"{display_base}_bottom"] = []
+            pileup_data[f"{display_base}_top"] = []
 
         for pos in positions:
             # Ensure position is Python int for dictionary lookup
@@ -619,51 +622,61 @@ class AggregatePlotStrategy(PlotStrategy):
             if total > 0:
                 pileup_data["x"].append(pos_key)
                 pileup_data["total"].append(total)
-                pileup_data["ref_base"].append(reference_bases.get(pos_key, ""))
+                # Map reference base T->U for RNA mode display
+                ref_base = reference_bases.get(pos_key, "")
+                if rna_mode and ref_base == "T":
+                    ref_base = "U"
+                pileup_data["ref_base"].append(ref_base)
 
-                # Calculate proportions
+                # Calculate proportions (data uses T, display uses U in RNA mode)
                 proportions = {}
-                for base in ["A", "C", "G", "T"]:
-                    proportions[base] = pos_counts.get(base, 0) / total
-                    pileup_data[base].append(proportions[base])
+                for display_base in bases:
+                    # Map display base back to data base (U -> T for lookup)
+                    data_base = "T" if display_base == "U" else display_base
+                    proportions[display_base] = pos_counts.get(data_base, 0) / total
+                    pileup_data[display_base].append(proportions[display_base])
 
                 # Calculate cumulative positions for stacking
                 cumulative = 0.0
-                for base in ["A", "C", "G", "T"]:
-                    pileup_data[f"{base}_bottom"].append(cumulative)
-                    cumulative += proportions[base]
-                    pileup_data[f"{base}_top"].append(cumulative)
+                for display_base in bases:
+                    pileup_data[f"{display_base}_bottom"].append(cumulative)
+                    cumulative += proportions[display_base]
+                    pileup_data[f"{display_base}_top"].append(cumulative)
 
         # Create source
         source = ColumnDataSource(data=pileup_data)
 
-        # Add stacked bars
+        # Add stacked bars (use display bases)
         base_colors = self.theme_manager.get_base_colors()
         renderers = []
-        for base in ["A", "C", "G", "T"]:
+        for display_base in bases:
             r = fig.vbar(
                 x="x",
-                bottom=f"{base}_bottom",
-                top=f"{base}_top",
+                bottom=f"{display_base}_bottom",
+                top=f"{display_base}_top",
                 width=0.8,
                 source=source,
-                color=base_colors[base],
-                legend_label=base,
+                color=base_colors[display_base],
+                legend_label=display_base,
             )
             renderers.append(r)
 
-        # Add hover tool to show position and base counts
+        # Add hover tool to show position and base counts (dynamic based on RNA mode)
+        tooltips = [
+            ("Position", "@x"),
+            ("Reference", "@ref_base"),
+        ]
+        # First base shows total reads, others just percentage
+        for i, display_base in enumerate(bases):
+            if i == 0:
+                tooltips.append((display_base, f"@{display_base}{{0.0%}} (@{{total}} reads)"))
+            else:
+                tooltips.append((display_base, f"@{display_base}{{0.0%}}"))
+        tooltips.append(("Total", "@total reads"))
+
         hover = HoverTool(
             renderers=renderers,
-            tooltips=[
-                ("Position", "@x"),
-                ("Reference", "@ref_base"),
-                ("A", "@A{0.0%} (@{total} reads)"),
-                ("C", "@C{0.0%}"),
-                ("G", "@G{0.0%}"),
-                ("T", "@T{0.0%}"),
-                ("Total", "@total reads"),
-            ],
+            tooltips=tooltips,
             mode="mouse",
         )
         fig.add_tools(hover)

@@ -476,6 +476,7 @@ def plot_aggregate(
     show_coverage: bool = True,
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
+    rna_mode: bool = False,
     sample_name: str | None = None,
 ) -> str:
     """
@@ -706,6 +707,7 @@ def plot_aggregate(
         "show_quality": show_quality,
         "show_coverage": show_coverage,
         "clip_x_to_alignment": clip_x_to_alignment,
+        "rna_mode": rna_mode,
     }
 
     # Create strategy and generate plot
@@ -731,6 +733,7 @@ def plot_pileup(
     show_coverage: bool = True,
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
+    rna_mode: bool = False,
     sample_name: str | None = None,
 ) -> str:
     """
@@ -952,6 +955,7 @@ def plot_pileup(
         "show_quality": show_quality,
         "show_coverage": show_coverage,
         "clip_x_to_alignment": clip_x_to_alignment,
+        "rna_mode": rna_mode,
     }
 
     # Create strategy and generate plot (reuse AggregatePlotStrategy)

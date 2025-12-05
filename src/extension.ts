@@ -472,7 +472,10 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.showCoverage,
                         options.clipXAxisToAlignment,
                         options.transformCoordinates,
-                        options.sampleNames[0]
+                        options.sampleNames[0],
+                        modFilters.minFrequency,
+                        modFilters.minModifiedReads,
+                        options.rnaMode
                     );
 
                     statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');

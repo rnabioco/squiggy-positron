@@ -196,6 +196,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showCoverage: boolean;
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
+    rnaMode: boolean;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
@@ -279,6 +280,7 @@ export interface PlotOptions {
     showSignal?: boolean;
     showQuality?: boolean;
     showCoverage?: boolean;
+    rnaMode?: boolean;
 
     // Comparison options
     selectedSamples?: string[]; // For multi-sample comparisons

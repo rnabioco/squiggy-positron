@@ -5,7 +5,7 @@ This module centralizes all theme-related functionality, providing consistent
 styling across all plot types.
 """
 
-from bokeh.models import WheelZoomTool
+from bokeh.models import NumeralTickFormatter, WheelZoomTool
 from bokeh.plotting import figure
 
 from ..constants import (
@@ -200,6 +200,9 @@ class ThemeManager:
         for tool in fig.tools:
             if isinstance(tool, WheelZoomTool):
                 tool.dimensions = "width"
+
+        # Format x-axis with comma separators for large genomic coordinates
+        fig.xaxis.formatter = NumeralTickFormatter(format="0,0")
 
     def configure_legend(self, fig) -> None:
         """

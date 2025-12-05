@@ -493,7 +493,8 @@ if '_squiggy_plot_error' in globals():
         transformCoordinates: boolean = true,
         sampleName?: string,
         minModFrequency: number = 0.2,
-        minModifiedReads: number = 5
+        minModifiedReads: number = 5,
+        rnaMode: boolean = false
     ): Promise<void> {
         try {
             // Validate inputs
@@ -554,7 +555,8 @@ squiggy.plot_pileup(
     show_quality=${showQuality ? 'True' : 'False'},
     show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
-    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'},
+    rna_mode=${rnaMode ? 'True' : 'False'}${sampleNameParam}
 )
 `
                 : `
@@ -576,7 +578,8 @@ squiggy.plot_aggregate(
     show_quality=${showQuality ? 'True' : 'False'},
     show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
-    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'},
+    rna_mode=${rnaMode ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 
