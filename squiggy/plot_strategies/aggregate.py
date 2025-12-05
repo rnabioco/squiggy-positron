@@ -7,7 +7,7 @@ with synchronized tracks showing signal statistics, base pileup, and quality.
 
 from bokeh.embed import file_html
 from bokeh.layouts import gridplot
-from bokeh.models import Band, ColumnDataSource, FactorRange, HoverTool, Range1d
+from bokeh.models import Band, ColumnDataSource, Div, FactorRange, HoverTool, Range1d
 from bokeh.resources import CDN
 
 from ..constants import (
@@ -177,9 +177,17 @@ class AggregatePlotStrategy(PlotStrategy):
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
 
         # Build panel list dynamically based on available data and visibility options
-        # Panel order: modifications (optional), pileup, signal, quality, dwell time (optional)
+        # Panel order: header, modifications (optional), pileup, signal, quality, dwell time (optional)
         panels = []
         all_figs = []  # Keep track of all figures for x-range linking
+
+        # Create header panel first (always shown)
+        header = self._create_header_panel(
+            reference_name=reference_name,
+            num_reads=num_reads,
+        )
+        panels.append([header])
+        # Note: Don't add to all_figs - Div doesn't have x_range
 
         # Create modification heatmap if data exists and panel is enabled
         if (
@@ -305,6 +313,29 @@ class AggregatePlotStrategy(PlotStrategy):
     # =========================================================================
     # Private Methods: Track Creation
     # =========================================================================
+
+    def _create_header_panel(
+        self,
+        reference_name: str,
+        num_reads: int,
+    ):
+        """Create a compact header displaying reference information"""
+        text_color = self.theme_manager.get_color("title_text")
+        bg_color = self.theme_manager.get_color("plot_bg")
+
+        header = Div(
+            text=f"<b>{reference_name}</b> ({num_reads:,} reads)",
+            styles={
+                "font-size": "14px",
+                "color": text_color,
+                "background-color": bg_color,
+                "padding": "8px 12px",
+                "text-align": "center",
+                "width": "100%",
+            },
+            sizing_mode="stretch_width",
+        )
+        return header
 
     def _create_modification_heatmap(self, modification_stats: dict):
         """Create modification probability heatmap track
@@ -443,7 +474,7 @@ class AggregatePlotStrategy(PlotStrategy):
     ):
         """Create signal aggregate track with confidence bands"""
         fig = self.theme_manager.create_figure(
-            title=f"Aggregate Signal - {reference_name} ({num_reads} reads)",
+            title="Aggregate Signal",
             x_label="Reference Position",
             y_label=f"Signal ({normalization.value})",
             height=200,
