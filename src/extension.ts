@@ -67,7 +67,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
             // Check if venv is already valid
             if (await venvManager.isVenvValid()) {
-                progress.report({ message: 'Checking for updates...' });
+                progress.report({ message: 'Syncing Python package...' });
                 const upgraded = await venvManager.upgradeIfNeeded(context.extensionPath);
                 if (upgraded) {
                     progress.report({ message: 'Updated squiggy package' });
