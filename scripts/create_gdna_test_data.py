@@ -285,10 +285,9 @@ def find_pod5_files(pod5_dir):
 
 def extract_pod5_subset(pod5_dir, output_path, selected_reads):
     """
-    Extract subset of reads from POD5 files in directory using batch API.
+    Extract subset of reads from POD5 files in directory.
 
-    Uses pod5's selection parameter to efficiently fetch only requested reads
-    without iterating through all reads in the files.
+    Iterates through POD5 files individually to handle corrupted files gracefully.
 
     Args:
         pod5_dir: Directory containing POD5 files
@@ -303,22 +302,38 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads):
         print("  ERROR: No POD5 files found!")
         return 0
 
-    # Convert paths to strings for pod5.DatasetReader
-    pod5_paths = [str(f) for f in pod5_files]
-
     print(f"  Searching for {len(selected_reads)} reads across {len(pod5_files)} files...")
 
+    # Convert to set for O(1) lookup
+    remaining_reads = set(selected_reads)
     reads_written = 0
+    corrupted_files = []
 
-    # Open all POD5 files at once using DatasetReader for multi-file support
-    with pod5.DatasetReader(pod5_paths) as reader:
-        with pod5.Writer(str(output_path)) as writer:
-            # Use selection parameter to fetch only the reads we want
-            # DatasetReader silently skips missing reads (no missing_ok needed)
-            for read in reader.reads(selection=selected_reads):
-                writer.add_read(read.to_read())
-                reads_written += 1
-                print(f"    Extracted read {str(read.read_id)[:8]}... ({reads_written}/{len(selected_reads)})")
+    with pod5.Writer(str(output_path)) as writer:
+        for pod5_file in pod5_files:
+            if not remaining_reads:
+                break  # Found all reads
+
+            try:
+                with pod5.Reader(str(pod5_file)) as reader:
+                    for read in reader.reads(selection=remaining_reads, missing_ok=True):
+                        read_id = str(read.read_id)
+                        if read_id in remaining_reads:
+                            writer.add_read(read.to_read())
+                            remaining_reads.discard(read_id)
+                            reads_written += 1
+                            print(
+                                f"    Extracted read {read_id[:8]}... "
+                                f"({reads_written}/{len(selected_reads)})"
+                            )
+            except RuntimeError as e:
+                if "Invalid signature" in str(e) or "IOError" in str(e):
+                    corrupted_files.append(pod5_file.name)
+                else:
+                    raise
+
+    if corrupted_files:
+        print(f"  WARNING: Skipped {len(corrupted_files)} corrupted POD5 files")
 
     print(f"  Completed: Extracted {reads_written} reads")
 
