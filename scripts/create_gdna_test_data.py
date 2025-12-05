@@ -450,26 +450,39 @@ def extract_bam_subset(input_path, output_path, selected_reads, region):
     """
     Extract subset of BAM file containing only selected reads.
 
+    Only writes primary alignments to ensure 1:1 correspondence with POD5 reads.
+
     Args:
         input_path: Input BAM file
         output_path: Output BAM file
         selected_reads: Set of read names to extract
         region: Tuple of (chrom, start, end) for the region
+
+    Returns:
+        Set of read names that were written to BAM
     """
     print(f"\nExtracting BAM subset to: {output_path}")
 
     chrom, start, end = region
-    reads_written = 0
+    reads_written = set()
 
     with pysam.AlignmentFile(str(input_path), "rb") as bam_in:
         # Create output BAM with same header
         with pysam.AlignmentFile(str(output_path), "wb", header=bam_in.header) as bam_out:
             for read in bam_in.fetch(chrom, start, end):
-                if read.query_name in selected_reads:
-                    bam_out.write(read)
-                    reads_written += 1
+                if read.query_name not in selected_reads:
+                    continue
+                # Skip secondary and supplementary alignments
+                if read.is_secondary or read.is_supplementary:
+                    continue
+                # Skip if we already wrote this read
+                if read.query_name in reads_written:
+                    continue
 
-    print(f"  Extracted {reads_written} alignments")
+                bam_out.write(read)
+                reads_written.add(read.query_name)
+
+    print(f"  Extracted {len(reads_written)} alignments (primary only)")
 
     # Index the output BAM
     print("  Indexing BAM file...")
@@ -667,9 +680,21 @@ def main():
         sys.exit(1)
 
     # Step 5: Extract BAM subset (only for reads we actually got from POD5)
-    extract_bam_subset(args.input_bam, output_bam, extracted_reads, region)
+    bam_reads = extract_bam_subset(args.input_bam, output_bam, extracted_reads, region)
 
-    # Step 6: Generate and print statistics
+    # Step 6: Verify POD5 and BAM contain the same reads
+    if extracted_reads != bam_reads:
+        pod5_only = extracted_reads - bam_reads
+        bam_only = bam_reads - extracted_reads
+        print("\nWARNING: POD5 and BAM read sets don't match!")
+        if pod5_only:
+            print(f"  Reads in POD5 only: {len(pod5_only)}")
+        if bam_only:
+            print(f"  Reads in BAM only: {len(bam_only)}")
+    else:
+        print(f"\nVerified: POD5 and BAM contain the same {len(extracted_reads)} reads")
+
+    # Step 7: Generate and print statistics
     stats = generate_statistics(output_bam, output_pod5, region, target_position)
     print_summary(stats, output_pod5, output_bam)
 
