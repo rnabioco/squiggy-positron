@@ -26,6 +26,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import pod5
 import pysam
 
@@ -94,6 +95,13 @@ def parse_args():
         help="Window size for coverage scanning in bp (default: 100000)",
     )
     parser.add_argument(
+        "-d",
+        "--min-depth",
+        type=int,
+        default=10,
+        help="Minimum per-base coverage depth required (default: 10)",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -118,27 +126,30 @@ def parse_region(region_str):
         return None
 
 
-def find_high_coverage_region(bam_path, min_mapq, min_length, window_size):
+def find_high_coverage_position(bam_path, min_mapq, min_length, window_size, min_depth=10):
     """
-    Scan BAM to find a region with good coverage of long reads.
+    Scan BAM to find a position with high per-base coverage.
+
+    Uses count_coverage() to find actual per-base depth, then identifies
+    positions where coverage meets the minimum depth requirement.
 
     Args:
         bam_path: Path to indexed BAM file
         min_mapq: Minimum mapping quality
         min_length: Minimum read length
-        window_size: Size of windows to scan
+        window_size: Size of windows to scan for candidates
+        min_depth: Minimum per-base coverage depth required
 
     Returns:
-        Tuple of (chrom, start, end) for best region
+        Tuple of (chrom, position, depth) for best position, or None
     """
-    print(f"Scanning BAM for high-coverage regions (window size: {window_size:,} bp)...")
+    print(f"Scanning BAM for positions with >= {min_depth}x per-base coverage...")
 
-    # Track coverage per window
+    # First, find candidate windows with enough reads to potentially have high coverage
     window_counts = defaultdict(lambda: defaultdict(int))
 
     with pysam.AlignmentFile(str(bam_path), "rb") as bam:
-        # Get reference lengths
-        ref_lengths = dict(zip(bam.references, bam.lengths))
+        ref_lengths = dict(zip(bam.references, bam.lengths, strict=False))
 
         for read in bam.fetch():
             if read.is_unmapped:
@@ -148,44 +159,113 @@ def find_high_coverage_region(bam_path, min_mapq, min_length, window_size):
             if read.query_length < min_length:
                 continue
 
-            # Determine which window this read falls into
             chrom = read.reference_name
-            window_idx = read.reference_start // window_size
-            window_counts[chrom][window_idx] += 1
+            # Count reads in overlapping windows (not just start position)
+            start_window = read.reference_start // window_size
+            end_window = read.reference_end // window_size
+            for w in range(start_window, end_window + 1):
+                window_counts[chrom][w] += 1
 
-    # Find the window with most long reads
-    best_chrom = None
-    best_window = None
-    best_count = 0
-
+    # Sort windows by read count (most reads first)
+    candidate_windows = []
     for chrom, windows in window_counts.items():
         for window_idx, count in windows.items():
-            if count > best_count:
-                best_count = count
-                best_chrom = chrom
-                best_window = window_idx
+            if count >= min_depth:  # Must have at least min_depth reads to have that coverage
+                candidate_windows.append((chrom, window_idx, count, ref_lengths.get(chrom, 0)))
 
-    if best_chrom is None:
+    candidate_windows.sort(key=lambda x: x[2], reverse=True)
+
+    if not candidate_windows:
+        print(f"  No windows found with >= {min_depth} overlapping reads")
         return None
 
-    # Convert window index back to coordinates
-    start = best_window * window_size
-    end = min(start + window_size, ref_lengths.get(best_chrom, start + window_size))
+    print(f"  Found {len(candidate_windows)} candidate windows, checking per-base coverage...")
 
-    print(f"  Best region: {best_chrom}:{start:,}-{end:,} ({best_count} long reads)")
+    # Check actual per-base coverage in top candidate windows
+    best_result = None
 
-    return (best_chrom, start, end)
+    with pysam.AlignmentFile(str(bam_path), "rb") as bam:
+        for chrom, window_idx, _read_count, ref_len in candidate_windows[:20]:  # Check top 20
+            start = window_idx * window_size
+            end = min(start + window_size, ref_len)
+
+            # Get per-base coverage (returns tuple of 4 arrays: A, C, G, T)
+            try:
+                coverage = bam.count_coverage(
+                    chrom, start, end, quality_threshold=min_mapq, read_callback="nofilter"
+                )
+            except ValueError:
+                continue
+
+            # Sum all bases to get total depth per position
+            total_depth = np.array(coverage[0]) + np.array(coverage[1]) + \
+                         np.array(coverage[2]) + np.array(coverage[3])
+
+            # Find positions meeting minimum depth
+            high_cov_positions = np.where(total_depth >= min_depth)[0]
+
+            if len(high_cov_positions) > 0:
+                # Find the position with maximum coverage
+                max_idx = np.argmax(total_depth)
+                max_depth = total_depth[max_idx]
+                max_pos = start + max_idx
+
+                if best_result is None or max_depth > best_result[2]:
+                    best_result = (chrom, max_pos, int(max_depth))
+                    print(f"    {chrom}:{max_pos:,} has {max_depth}x coverage")
+
+                    # If we found a great position, stop searching
+                    if max_depth >= min_depth * 2:
+                        break
+
+    if best_result:
+        print(f"  Best position: {best_result[0]}:{best_result[1]:,} ({best_result[2]}x coverage)")
+
+    return best_result
 
 
-def collect_candidate_reads(bam_path, region, min_mapq, min_length):
+def find_high_coverage_region(bam_path, min_mapq, min_length, window_size, min_depth=10):
+    """
+    Find a region centered on a high-coverage position.
+
+    Args:
+        bam_path: Path to indexed BAM file
+        min_mapq: Minimum mapping quality
+        min_length: Minimum read length
+        window_size: Size of region to return around high-coverage position
+        min_depth: Minimum per-base coverage depth required
+
+    Returns:
+        Tuple of (chrom, start, end) for region, or None
+    """
+    result = find_high_coverage_position(bam_path, min_mapq, min_length, window_size, min_depth)
+
+    if result is None:
+        return None
+
+    chrom, position, depth = result
+
+    # Create a region centered on the high-coverage position
+    half_window = window_size // 2
+    start = max(0, position - half_window)
+    end = position + half_window
+
+    return (chrom, start, end)
+
+
+def collect_candidate_reads(bam_path, region, min_mapq, min_length, target_position=None):
     """
     Collect candidate reads from specified region.
+
+    If target_position is provided, only collects reads that overlap that position.
+    This ensures all selected reads share a common overlapping point.
 
     Args:
         bam_path: Path to BAM file
         region: Tuple of (chrom, start, end)
         min_mapq: Minimum mapping quality
         min_length: Minimum read length
+        target_position: Optional position that all reads must overlap
 
     Returns:
         List of tuples: (read_name, read_length, start_pos, end_pos)
@@ -193,7 +273,10 @@ def collect_candidate_reads(bam_path, region, min_mapq, min_length):
     chrom, start, end = region
     candidates = []
 
-    print(f"Collecting candidate reads from {chrom}:{start:,}-{end:,}")
+    if target_position is not None:
+        print(f"Collecting reads overlapping position {chrom}:{target_position:,}")
+    else:
+        print(f"Collecting candidate reads from {chrom}:{start:,}-{end:,}")
 
     with pysam.AlignmentFile(str(bam_path), "rb") as bam:
         for read in bam.fetch(chrom, start, end):
@@ -203,6 +286,11 @@ def collect_candidate_reads(bam_path, region, min_mapq, min_length):
                 continue
             if read.query_length < min_length:
                 continue
+
+            # If target position specified, only include reads that overlap it
+            if target_position is not None:
+                if not (read.reference_start <= target_position < read.reference_end):
+                    continue
 
             candidates.append(
                 (
@@ -353,7 +441,6 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads, target_count=None
     print(f"  Completed: Extracted {len(extracted_reads)} reads")
 
     if len(extracted_reads) < target_count:
-        missing_count = target_count - len(extracted_reads)
         print(f"  WARNING: Only found {len(extracted_reads)} of {target_count} target reads")
 
     return extracted_reads
@@ -392,7 +479,7 @@ def extract_bam_subset(input_path, output_path, selected_reads, region):
     return reads_written
 
 
-def generate_statistics(bam_path, pod5_path, region):
+def generate_statistics(bam_path, pod5_path, region, target_position=None):
     """
     Generate statistics about the extracted dataset.
 
@@ -400,6 +487,7 @@ def generate_statistics(bam_path, pod5_path, region):
         bam_path: Path to output BAM file
         pod5_path: Path to output POD5 file
         region: Tuple of (chrom, start, end)
+        target_position: Optional target position that all reads overlap
 
     Returns:
         Dict with statistics
@@ -408,6 +496,7 @@ def generate_statistics(bam_path, pod5_path, region):
 
     stats = {
         "region": f"{chrom}:{reg_start:,}-{reg_end:,}",
+        "target_position": target_position,
         "total_reads": 0,
         "lengths": [],
         "positions": [],
@@ -420,6 +509,17 @@ def generate_statistics(bam_path, pod5_path, region):
             stats["lengths"].append(read.query_length)
             if read.is_mapped:
                 stats["positions"].append((read.reference_start, read.reference_end))
+
+        # Calculate actual coverage at target position
+        if target_position is not None:
+            try:
+                coverage = bam.count_coverage(
+                    chrom, target_position, target_position + 1
+                )
+                depth = sum(c[0] for c in coverage)
+                stats["target_depth"] = depth
+            except (ValueError, IndexError):
+                stats["target_depth"] = stats["total_reads"]
 
     if stats["lengths"]:
         stats["min_length"] = min(stats["lengths"])
@@ -447,23 +547,27 @@ def print_summary(stats, output_pod5, output_bam):
     print("EXTRACTION COMPLETE")
     print("=" * 70)
 
-    print(f"\nOutput files:")
+    print("\nOutput files:")
     print(f"  POD5: {output_pod5} ({stats['pod5_size_mb']:.2f} MB)")
     print(f"  BAM:  {output_bam} ({stats['bam_size_kb']:.1f} KB)")
 
-    print(f"\nDataset summary:")
+    print("\nDataset summary:")
     print(f"  Region:        {stats['region']}")
+    if stats.get("target_position") is not None:
+        print(f"  Target pos:    {stats['target_position']:,}")
+        if stats.get("target_depth") is not None:
+            print(f"  Depth @ pos:   {stats['target_depth']}x")
     print(f"  Total reads:   {stats['total_reads']}")
     print(f"  Total bases:   {stats.get('total_bases', 0):,} bp")
 
     if stats["lengths"]:
-        print(f"\nRead lengths:")
+        print("\nRead lengths:")
         print(f"  Min:    {stats['min_length']:,} bp")
         print(f"  Median: {stats['median_length']:,} bp")
         print(f"  Max:    {stats['max_length']:,} bp")
 
     if stats.get("coverage_span"):
-        print(f"\nCoverage:")
+        print("\nCoverage:")
         print(f"  Span: {stats['coverage_start']:,} - {stats['coverage_end']:,}")
         print(f"  Width: {stats['coverage_span']:,} bp")
 
@@ -507,12 +611,14 @@ def main():
     print(f"Target reads:     {args.num_reads}")
     print(f"Min MAPQ:         {args.min_mapq}")
     print(f"Min length:       {args.min_length:,} bp")
+    print(f"Min depth:        {args.min_depth}x per-base coverage")
     print(f"Random seed:      {args.seed}")
     print(f"Output POD5:      {output_pod5}")
     print(f"Output BAM:       {output_bam}")
     print("=" * 70)
 
-    # Step 1: Determine region
+    # Step 1: Determine region and target position
+    target_position = None
     if args.region:
         region = parse_region(args.region)
         if region is None:
@@ -521,17 +627,25 @@ def main():
             sys.exit(1)
         print(f"\nUsing specified region: {args.region}")
     else:
-        print("\nAuto-detecting high-coverage region...")
-        region = find_high_coverage_region(
-            args.input_bam, args.min_mapq, args.min_length, args.window_size
+        print("\nAuto-detecting high-coverage position...")
+        position_result = find_high_coverage_position(
+            args.input_bam, args.min_mapq, args.min_length, args.window_size, args.min_depth
         )
-        if region is None:
-            print("Error: Could not find any region with qualifying reads")
+        if position_result is None:
+            print(f"Error: Could not find any position with >= {args.min_depth}x coverage")
             sys.exit(1)
 
-    # Step 2: Collect candidate reads from region
+        chrom, target_position, depth = position_result
+
+        # Create region centered on the high-coverage position
+        half_window = args.window_size // 2
+        start = max(0, target_position - half_window)
+        end = target_position + half_window
+        region = (chrom, start, end)
+
+    # Step 2: Collect candidate reads that overlap the target position
     candidates = collect_candidate_reads(
-        args.input_bam, region, args.min_mapq, args.min_length
+        args.input_bam, region, args.min_mapq, args.min_length, target_position
     )
 
     if not candidates:
@@ -556,7 +670,7 @@ def main():
     extract_bam_subset(args.input_bam, output_bam, extracted_reads, region)
 
     # Step 6: Generate and print statistics
-    stats = generate_statistics(output_bam, output_pod5, region)
+    stats = generate_statistics(output_bam, output_pod5, region, target_position)
     print_summary(stats, output_pod5, output_bam)
 
     print("\n" + "=" * 70)
