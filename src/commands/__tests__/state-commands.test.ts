@@ -43,7 +43,8 @@ describe('State Commands', () => {
         // Mock state with minimal required properties
         mockState = {
             squiggyAPI: mockAPI,
-            ensureBackgroundKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
+            kernelManager: {}, // Non-null to pass initialization check
+            ensureKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
             readsViewPane: {
                 setLoading: jest.fn(),
                 setReads: jest.fn(),
@@ -100,8 +101,8 @@ describe('State Commands', () => {
     });
 
     describe('squiggy.refreshReads', () => {
-        it('should show warning when squiggyAPI is not available', async () => {
-            mockState.squiggyAPI = null;
+        it('should show warning when kernel manager is not available', async () => {
+            mockState.kernelManager = null;
 
             registerCommands();
             const handler = commandHandlers.get('squiggy.refreshReads');
@@ -109,7 +110,7 @@ describe('State Commands', () => {
             await handler!();
 
             expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-                'Squiggy API not initialized'
+                'Squiggy kernel not initialized'
             );
         });
 

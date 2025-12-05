@@ -41,7 +41,7 @@ describe('Plot Commands', () => {
         mockState = {
             usePositron: true,
             squiggyAPI: mockAPI,
-            ensureBackgroundKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
+            ensureKernel: (jest.fn() as any).mockResolvedValue(mockAPI),
             currentPod5File: null,
             currentBamFile: null,
             currentFastaFile: null,
@@ -88,12 +88,12 @@ describe('Plot Commands', () => {
         // Reset all vscode mocks
         jest.clearAllMocks();
 
-        // Re-setup ensureBackgroundKernel after clearAllMocks
+        // Re-setup ensureKernel after clearAllMocks
         mockAPI = {
             generatePlot: (jest.fn() as any).mockResolvedValue(undefined),
             generateAggregatePlot: (jest.fn() as any).mockResolvedValue(undefined),
         };
-        mockState.ensureBackgroundKernel = (jest.fn() as any).mockResolvedValue(mockAPI);
+        mockState.ensureKernel = (jest.fn() as any).mockResolvedValue(mockAPI);
         mockState.squiggyAPI = mockAPI;
     });
 

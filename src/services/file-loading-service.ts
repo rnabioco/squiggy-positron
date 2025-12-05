@@ -118,9 +118,9 @@ export class FileLoadingService {
             `[loadSampleIntoRegistry] Starting - sample: '${sampleName}', pod5: ${pod5Path}, bam: ${bamPath || 'none'}`
         );
 
-        //Get background API (starts kernel if needed)
-        const api = await this.state.ensureBackgroundKernel();
-        logger.debug(`[loadSampleIntoRegistry] Background API ready, calling loadSample()...`);
+        // Get Squiggy kernel API (starts kernel if needed)
+        const api = await this.state.ensureKernel();
+        logger.debug(`[loadSampleIntoRegistry] Squiggy kernel API ready, calling loadSample()...`);
 
         try {
             // Load sample into registry (using dedicated kernel)
@@ -157,7 +157,7 @@ export class FileLoadingService {
     private async loadPOD5(filePath: string): Promise<POD5LoadResult> {
         try {
             // Get background API (starts kernel if needed)
-            const api = await this.state.ensureBackgroundKernel();
+            const api = await this.state.ensureKernel();
 
             // Load via background API (isolated from user's kernel)
             const result = await api.loadPOD5(filePath);
@@ -198,7 +198,7 @@ export class FileLoadingService {
     private async loadBAM(filePath: string): Promise<BAMLoadResult> {
         try {
             // Get background API (starts kernel if needed)
-            const api = await this.state.ensureBackgroundKernel();
+            const api = await this.state.ensureKernel();
 
             // Load via background API (isolated from user's kernel)
             const result = await api.loadBAM(filePath);
@@ -249,7 +249,7 @@ export class FileLoadingService {
     private async loadFASTA(filePath: string): Promise<FASTALoadResult> {
         try {
             // Get background API (starts kernel if needed)
-            const api = await this.state.ensureBackgroundKernel();
+            const api = await this.state.ensureKernel();
 
             // Load via background API (isolated from user's kernel)
             await api.loadFASTA(filePath);

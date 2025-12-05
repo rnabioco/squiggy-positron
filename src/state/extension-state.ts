@@ -7,7 +7,6 @@
  */
 
 import * as vscode from 'vscode';
-import { PositronRuntimeClient } from '../backend/positron-runtime-client';
 import { SquiggyRuntimeAPI } from '../backend/squiggy-runtime-api';
 import { SquiggyKernelManager, SquiggyKernelState } from '../backend/squiggy-kernel-manager';
 import { ReadsViewPane } from '../views/squiggy-reads-panel';
@@ -79,10 +78,8 @@ export interface SampleInfo {
  * Centralized state manager for the extension
  */
 export class ExtensionState {
-    // Backend instances
-    private _positronClient?: PositronRuntimeClient;
-    private _squiggyAPI?: SquiggyRuntimeAPI; // For notebook/console (foreground kernel)
-    private _backgroundSquiggyAPI?: SquiggyRuntimeAPI; // For extension UI (background kernel)
+    // Backend instances - uses dedicated "Squiggy Kernel" only (no foreground fallback)
+    private _squiggyAPI?: SquiggyRuntimeAPI;
     private _kernelManager?: SquiggyKernelManager;
 
     // UI panel providers
@@ -133,82 +130,52 @@ export class ExtensionState {
 
     /**
      * Initialize backends (Positron only)
+     * Uses a dedicated "Squiggy Kernel" session - no foreground kernel fallback
      */
     async initializeBackends(context: vscode.ExtensionContext): Promise<void> {
         this._extensionContext = context;
 
-        // Initialize Positron runtime
-        this._positronClient = new PositronRuntimeClient();
-
-        if (!this._positronClient.isAvailable()) {
-            throw new Error(
-                'Squiggy requires Positron IDE. The Positron runtime API is not available.'
-            );
-        }
-
-        // Use Positron runtime
-        this._squiggyAPI = new SquiggyRuntimeAPI(this._positronClient);
-
-        // Initialize background kernel manager for extension UI
+        // Initialize dedicated kernel manager for all extension operations
         // Uses getPreferredRuntime() which returns the squiggy venv (Positron auto-discovers it)
-        this._kernelManager = new SquiggyKernelManager(context.extensionPath);
+        this._kernelManager = new SquiggyKernelManager(context.extensionPath, context);
         context.subscriptions.push(this._kernelManager);
 
-        logger.info('Background kernel manager initialized (will start on demand)');
+        logger.info('Squiggy kernel manager initialized, starting kernel...');
+
+        // Auto-start the kernel (don't await - let it start in background)
+        this._kernelManager.start().catch((error) => {
+            logger.error(`Failed to auto-start kernel: ${error}`);
+        });
     }
 
     /**
-     * Ensure dedicated kernel is started and return the dedicated API
+     * Ensure the Squiggy kernel is started and return the API
      * Lazily starts the kernel on first call
      *
-     * FALLBACK: If dedicated kernel fails to start, falls back to foreground API
+     * NO FALLBACK: If kernel fails to start, throws error (no foreground fallback)
      */
-    async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
+    async ensureKernel(): Promise<SquiggyRuntimeAPI> {
         if (!this._kernelManager) {
-            logger.warning('Dedicated kernel not available, using foreground API');
-            if (!this._squiggyAPI) {
-                throw new Error('No API available (neither dedicated nor foreground)');
-            }
-            return this._squiggyAPI;
+            throw new Error('Squiggy kernel manager not initialized. Is Positron available?');
         }
 
         // Start kernel if not already started
         const currentState = this._kernelManager.getState();
         if (currentState === SquiggyKernelState.Uninitialized) {
-            logger.info('Starting dedicated kernel (first use)...');
-            try {
-                await this._kernelManager.start();
-            } catch (error) {
-                logger.error(`Failed to start dedicated kernel: ${error}`);
-                logger.warning('Falling back to foreground kernel API');
-                // Fall back to foreground API
-                if (!this._squiggyAPI) {
-                    throw error;
-                }
-                return this._squiggyAPI;
-            }
+            logger.info('Starting Squiggy kernel (first use)...');
+            await this._kernelManager.start();
         } else if (currentState === SquiggyKernelState.Error) {
-            logger.info('Restarting dedicated kernel (was in error state)...');
-            try {
-                await this._kernelManager.restart();
-            } catch (error) {
-                logger.error(`Failed to restart dedicated kernel: ${error}`);
-                logger.warning('Falling back to foreground kernel API');
-                // Fall back to foreground API
-                if (!this._squiggyAPI) {
-                    throw error;
-                }
-                return this._squiggyAPI;
-            }
+            logger.info('Restarting Squiggy kernel (was in error state)...');
+            await this._kernelManager.restart();
         }
 
-        // Create dedicated kernel API if not already created
-        if (!this._backgroundSquiggyAPI) {
-            this._backgroundSquiggyAPI = new SquiggyRuntimeAPI(this._kernelManager);
-            logger.info('Dedicated kernel Squiggy API created');
+        // Create kernel API if not already created
+        if (!this._squiggyAPI) {
+            this._squiggyAPI = new SquiggyRuntimeAPI(this._kernelManager);
+            logger.info('Squiggy kernel API created');
         }
 
-        return this._backgroundSquiggyAPI;
+        return this._squiggyAPI;
     }
 
     /**
@@ -245,10 +212,10 @@ export class ExtensionState {
         this._plotOptionsProvider?.updatePod5Status(false);
         this._plotOptionsProvider?.updateBamStatus(false);
 
-        // Clear Python kernel state in the dedicated background kernel
+        // Clear Python kernel state in the dedicated Squiggy kernel
         if (this._kernelManager) {
             try {
-                const api = await this.ensureBackgroundKernel();
+                const api = await this.ensureKernel();
                 await api.client.executeSilent(`
 import squiggy
 from squiggy.io import squiggy_kernel
@@ -267,20 +234,12 @@ squiggy.close_fasta()
 
     // ========== Getters ==========
 
-    get positronClient(): PositronRuntimeClient | undefined {
-        return this._positronClient;
+    get kernelManager(): SquiggyKernelManager | undefined {
+        return this._kernelManager;
     }
 
     get squiggyAPI(): SquiggyRuntimeAPI | undefined {
         return this._squiggyAPI;
-    }
-
-    get backgroundSquiggyAPI(): SquiggyRuntimeAPI | undefined {
-        return this._backgroundSquiggyAPI;
-    }
-
-    get kernelManager(): SquiggyKernelManager | undefined {
-        return this._kernelManager;
     }
 
     get readsViewPane(): ReadsViewPane | undefined {
@@ -965,8 +924,8 @@ squiggy.close_fasta()
         isDemo: boolean,
         extensionUri: vscode.Uri
     ): Promise<void> {
-        // Get background API client first for path resolution (to avoid polluting foreground console)
-        const api = await this.ensureBackgroundKernel();
+        // Get API client for path resolution
+        const api = await this.ensureKernel();
         const pathResolverClient = api.client;
 
         // Resolve POD5 paths
