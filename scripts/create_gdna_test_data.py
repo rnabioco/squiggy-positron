@@ -36,12 +36,14 @@ def parse_args():
         description="Extract subset of genomic DNA POD5/BAM data for testing"
     )
     parser.add_argument(
+        "-i",
         "--input-pod5-dir",
         required=True,
         type=Path,
         help="Directory containing POD5 files (handles unmerged data)",
     )
     parser.add_argument(
+        "-b",
         "--input-bam",
         required=True,
         type=Path,
@@ -61,10 +63,11 @@ def parse_args():
         help="Target number of reads to extract (default: 10)",
     )
     parser.add_argument(
+        "-o",
         "--output-dir",
         type=Path,
-        default=Path("squiggy/data"),
-        help="Output directory for test files (default: squiggy/data/)",
+        default=Path("."),
+        help="Output directory for test files (default: current directory)",
     )
     parser.add_argument(
         "--output-prefix",
