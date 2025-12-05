@@ -283,7 +283,7 @@ def find_pod5_files(pod5_dir):
     return pod5_files
 
 
-def extract_pod5_subset(pod5_dir, output_path, selected_reads):
+def extract_pod5_subset(pod5_dir, output_path, selected_reads, target_count=None):
     """
     Extract subset of reads from POD5 files in directory.
 
@@ -292,7 +292,11 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads):
     Args:
         pod5_dir: Directory containing POD5 files
         output_path: Output POD5 file
-        selected_reads: Set of read IDs to extract
+        selected_reads: Set of read IDs to extract (candidates)
+        target_count: Stop after extracting this many reads (default: all)
+
+    Returns:
+        Set of read IDs that were actually extracted
     """
     print(f"\nExtracting POD5 subset to: {output_path}")
 
@@ -300,32 +304,40 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads):
 
     if not pod5_files:
         print("  ERROR: No POD5 files found!")
-        return 0
+        return set()
 
-    print(f"  Searching for {len(selected_reads)} reads across {len(pod5_files)} files...")
+    if target_count is None:
+        target_count = len(selected_reads)
+
+    print(
+        f"  Searching for up to {target_count} reads "
+        f"(from {len(selected_reads)} candidates) across {len(pod5_files)} files..."
+    )
 
     # Convert to set for O(1) lookup
-    remaining_reads = set(selected_reads)
-    reads_written = 0
+    candidate_reads = set(selected_reads)
+    extracted_reads = set()
     corrupted_files = []
 
     with pod5.Writer(str(output_path)) as writer:
         for pod5_file in pod5_files:
-            if not remaining_reads:
-                break  # Found all reads
+            if len(extracted_reads) >= target_count:
+                break  # Reached target
 
             try:
                 with pod5.Reader(str(pod5_file)) as reader:
-                    for read in reader.reads(selection=remaining_reads, missing_ok=True):
+                    for read in reader.reads(selection=candidate_reads, missing_ok=True):
                         read_id = str(read.read_id)
-                        if read_id in remaining_reads:
+                        if read_id in candidate_reads and read_id not in extracted_reads:
                             writer.add_read(read.to_read())
-                            remaining_reads.discard(read_id)
-                            reads_written += 1
+                            extracted_reads.add(read_id)
+                            candidate_reads.discard(read_id)
                             print(
                                 f"    Extracted read {read_id[:8]}... "
-                                f"({reads_written}/{len(selected_reads)})"
+                                f"({len(extracted_reads)}/{target_count})"
                             )
+                            if len(extracted_reads) >= target_count:
+                                break
             except RuntimeError as e:
                 if "Invalid signature" in str(e) or "IOError" in str(e):
                     corrupted_files.append(pod5_file.name)
@@ -335,13 +347,13 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads):
     if corrupted_files:
         print(f"  WARNING: Skipped {len(corrupted_files)} corrupted POD5 files")
 
-    print(f"  Completed: Extracted {reads_written} reads")
+    print(f"  Completed: Extracted {len(extracted_reads)} reads")
 
-    if reads_written < len(selected_reads):
-        missing_count = len(selected_reads) - reads_written
-        print(f"  WARNING: {missing_count} reads not found in POD5 files")
+    if len(extracted_reads) < target_count:
+        missing_count = target_count - len(extracted_reads)
+        print(f"  WARNING: Only found {len(extracted_reads)} of {target_count} target reads")
 
-    return reads_written
+    return extracted_reads
 
 
 def extract_bam_subset(input_path, output_path, selected_reads, region):
@@ -523,18 +535,22 @@ def main():
         print("\nError: No candidate reads found in region")
         sys.exit(1)
 
-    # Step 3: Select reads
-    selected_reads = select_reads(candidates, args.num_reads, args.seed)
+    # Step 3: Select 3x target reads (to account for reads missing from POD5)
+    oversample_factor = 3
+    candidate_count = min(len(candidates), args.num_reads * oversample_factor)
+    selected_reads = select_reads(candidates, candidate_count, args.seed)
 
-    # Step 4: Extract BAM subset
-    extract_bam_subset(args.input_bam, output_bam, selected_reads, region)
+    # Step 4: Extract POD5 subset first (stop when we hit target)
+    extracted_reads = extract_pod5_subset(
+        args.input_pod5_dir, output_pod5, selected_reads, target_count=args.num_reads
+    )
 
-    # Step 5: Extract POD5 subset from directory
-    reads_extracted = extract_pod5_subset(args.input_pod5_dir, output_pod5, selected_reads)
-
-    if reads_extracted == 0:
+    if not extracted_reads:
         print("\nError: No reads were extracted from POD5 files")
         sys.exit(1)
+
+    # Step 5: Extract BAM subset (only for reads we actually got from POD5)
+    extract_bam_subset(args.input_bam, output_bam, extracted_reads, region)
 
     # Step 6: Generate and print statistics
     stats = generate_statistics(output_bam, output_pod5, region)
