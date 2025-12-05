@@ -193,6 +193,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showDwellTime: boolean;
     showSignal: boolean;
     showQuality: boolean;
+    showCoverage: boolean;
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
 }
@@ -277,6 +278,7 @@ export interface PlotOptions {
     showPileup?: boolean;
     showSignal?: boolean;
     showQuality?: boolean;
+    showCoverage?: boolean;
 
     // Comparison options
     selectedSamples?: string[]; // For multi-sample comparisons

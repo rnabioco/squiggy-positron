@@ -52,6 +52,7 @@ interface PlotOptionsState {
     showPileup: boolean;
     showSignal: boolean;
     showQuality: boolean;
+    showCoverage: boolean;
     availableReferences: string[];
 
     // Comparison options
@@ -91,6 +92,7 @@ export const PlotOptionsCore: React.FC = () => {
         showPileup: true,
         showSignal: true,
         showQuality: true,
+        showCoverage: false, // Off by default
         availableReferences: [],
         // Comparison
         loadedSamples: [],
@@ -136,6 +138,7 @@ export const PlotOptionsCore: React.FC = () => {
                         showPileup: message.options.showPileup ?? prev.showPileup,
                         showSignal: message.options.showSignal ?? prev.showSignal,
                         showQuality: message.options.showQuality ?? prev.showQuality,
+                        showCoverage: message.options.showCoverage ?? prev.showCoverage,
                     }));
                     break;
                 case 'updatePod5Status':
@@ -309,6 +312,7 @@ export const PlotOptionsCore: React.FC = () => {
             showDwellTime: effectiveShowDwellTime,
             showSignal: effectiveShowSignal,
             showQuality: options.showQuality,
+            showCoverage: options.showCoverage,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
             transformCoordinates: options.transformCoordinates,
         });
@@ -868,6 +872,28 @@ export const PlotOptionsCore: React.FC = () => {
                                 className="plot-options-checkbox-label"
                             >
                                 Quality scores
+                            </label>
+                        </div>
+
+                        {/* Coverage Panel */}
+                        <div className="plot-options-checkbox-row">
+                            <input
+                                type="checkbox"
+                                id="showCoverageAggregate"
+                                checked={options.showCoverage}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showCoverage: e.target.checked,
+                                    }))
+                                }
+                                disabled={!options.hasBam}
+                            />
+                            <label
+                                htmlFor="showCoverageAggregate"
+                                className="plot-options-checkbox-label"
+                            >
+                                Coverage depth
                             </label>
                         </div>
                     </div>

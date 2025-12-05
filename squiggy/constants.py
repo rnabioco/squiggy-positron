@@ -138,6 +138,7 @@ LIGHT_THEME = {
     # Aggregate plot band colors
     "signal_band": "#56B4E9",  # Light blue for signal confidence bands
     "quality_band": "#FFA500",  # Orange for quality bands
+    "coverage": "#009E73",  # Teal/green for coverage depth
 }
 
 DARK_THEME = {
@@ -161,6 +162,7 @@ DARK_THEME = {
     # Aggregate plot band colors
     "signal_band": "#0072B2",  # Darker blue for signal confidence bands
     "quality_band": "#FF8C00",  # Dark orange for quality bands
+    "coverage": "#00B386",  # Brighter teal/green for coverage depth (dark theme)
 }
 
 # ==============================================================================

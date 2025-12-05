@@ -488,6 +488,7 @@ if '_squiggy_plot_error' in globals():
         showDwellTime: boolean = true,
         showSignal: boolean = true,
         showQuality: boolean = true,
+        showCoverage: boolean = true,
         clipXAxisToAlignment: boolean = true,
         transformCoordinates: boolean = true,
         sampleName?: string,
@@ -551,6 +552,7 @@ squiggy.plot_pileup(
     min_modified_reads=${minModifiedReads},
     show_pileup=${showPileup ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
+    show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
 )
@@ -572,6 +574,7 @@ squiggy.plot_aggregate(
     show_dwell_time=${showDwellTime ? 'True' : 'False'},
     show_signal=${showSignal ? 'True' : 'False'},
     show_quality=${showQuality ? 'True' : 'False'},
+    show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
 )

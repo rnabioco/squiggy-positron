@@ -469,6 +469,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.showDwellTime,
                         options.showSignal,
                         options.showQuality,
+                        options.showCoverage,
                         options.clipXAxisToAlignment,
                         options.transformCoordinates,
                         options.sampleNames[0]

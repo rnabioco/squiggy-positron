@@ -144,6 +144,7 @@ class AggregatePlotStrategy(PlotStrategy):
                 - show_dwell_time: bool to show dwell time panel (default: True)
                 - show_signal: bool to show signal panel (default: True)
                 - show_quality: bool to show quality panel (default: True)
+                - show_coverage: bool to show coverage panel (default: True)
                 - motif_positions: Optional set of genomic positions to highlight
                   as motif matches (displayed in bold, larger font)
 
@@ -174,6 +175,7 @@ class AggregatePlotStrategy(PlotStrategy):
         show_dwell_time = options.get("show_dwell_time", True)
         show_signal = options.get("show_signal", True)
         show_quality = options.get("show_quality", True)
+        show_coverage = options.get("show_coverage", True)
         motif_positions = options.get("motif_positions", None)
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
 
@@ -229,6 +231,12 @@ class AggregatePlotStrategy(PlotStrategy):
             p_quality = self._create_quality_track(quality_stats=quality_stats)
             panels.append([p_quality])
             all_figs.append(p_quality)
+
+        # Create coverage track if enabled
+        if show_coverage:
+            p_coverage = self._create_coverage_track(aggregate_stats=aggregate_stats)
+            panels.append([p_coverage])
+            all_figs.append(p_coverage)
 
         # Create dwell time track if data exists and panel is enabled
         if (
@@ -791,6 +799,59 @@ class AggregatePlotStrategy(PlotStrategy):
                 ("Position", "@x"),
                 ("Mean Quality", "@mean{0.1f}"),
                 ("Std Dev", "@std{0.1f}"),
+            ],
+            mode="mouse",
+        )
+        fig.add_tools(hover)
+
+        return fig
+
+    def _create_coverage_track(self, aggregate_stats: dict):
+        """Create coverage depth track showing reads per position"""
+        fig = self.theme_manager.create_figure(
+            title="Coverage Depth",
+            x_label="Reference Position",
+            y_label="Read Count",
+            height=150,
+        )
+
+        positions = aggregate_stats["positions"]
+        coverage = aggregate_stats["coverage"]
+
+        # Data source
+        source = ColumnDataSource(
+            data={
+                "x": positions,
+                "coverage": coverage,
+            }
+        )
+
+        # Add area fill
+        coverage_color = self.theme_manager.get_coverage_color()
+        fig.varea(
+            x="x",
+            y1=0,
+            y2="coverage",
+            source=source,
+            fill_alpha=0.3,
+            fill_color=coverage_color,
+        )
+
+        # Add line on top
+        coverage_line = fig.line(
+            "x",
+            "coverage",
+            source=source,
+            line_width=1.5,
+            color=coverage_color,
+        )
+
+        # Add hover tool
+        hover = HoverTool(
+            renderers=[coverage_line],
+            tooltips=[
+                ("Position", "@x"),
+                ("Coverage", "@coverage"),
             ],
             mode="mouse",
         )

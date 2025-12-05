@@ -118,6 +118,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         showDwellTime: boolean;
         showSignal: boolean;
         showQuality: boolean;
+        showCoverage: boolean;
         clipXAxisToAlignment: boolean;
         transformCoordinates: boolean;
     }>();
@@ -236,6 +237,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showDwellTime: message.showDwellTime,
                 showSignal: message.showSignal,
                 showQuality: message.showQuality,
+                showCoverage: message.showCoverage,
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
                 transformCoordinates: message.transformCoordinates,
             });

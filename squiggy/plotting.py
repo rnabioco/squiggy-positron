@@ -473,6 +473,7 @@ def plot_aggregate(
     show_dwell_time: bool = True,
     show_signal: bool = True,
     show_quality: bool = True,
+    show_coverage: bool = True,
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
     sample_name: str | None = None,
@@ -480,12 +481,13 @@ def plot_aggregate(
     """
     Generate aggregate multi-read visualization for a reference sequence
 
-    Creates up to five synchronized tracks:
+    Creates up to six synchronized tracks:
     1. Modifications heatmap (optional, if BAM has MM/ML tags)
     2. Base pileup (IGV-style stacked bar chart)
-    3. Dwell time per base (mean ± std dev)
-    4. Aggregate signal (mean ± std dev across reads)
-    5. Quality scores by position
+    3. Aggregate signal (mean ± std dev across reads)
+    4. Quality scores by position
+    5. Coverage depth (reads per position)
+    6. Dwell time per base (mean ± std dev)
 
     Args:
         reference_name: Name of reference sequence from BAM file
@@ -503,6 +505,7 @@ def plot_aggregate(
         show_dwell_time: Show dwell time panel (default True)
         show_signal: Show signal panel (default True)
         show_quality: Show quality panel (default True)
+        show_coverage: Show coverage depth panel (default True)
         clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
                              If False, x-axis extends to include soft-clipped regions.
         transform_coordinates: If True, transform to 1-based coordinates anchored to first
@@ -701,6 +704,7 @@ def plot_aggregate(
         "show_dwell_time": show_dwell_time,
         "show_signal": show_signal,
         "show_quality": show_quality,
+        "show_coverage": show_coverage,
         "clip_x_to_alignment": clip_x_to_alignment,
     }
 
@@ -724,6 +728,7 @@ def plot_pileup(
     min_modified_reads: int = 1,
     show_pileup: bool = True,
     show_quality: bool = True,
+    show_coverage: bool = True,
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
     sample_name: str | None = None,
@@ -754,6 +759,7 @@ def plot_pileup(
                            Positions with fewer modified reads are excluded (default 1).
         show_pileup: Show base pileup panel (default True)
         show_quality: Show quality panel (default True)
+        show_coverage: Show coverage depth panel (default True)
         clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
                              If False, x-axis extends to include soft-clipped regions.
         transform_coordinates: If True, transform to 1-based coordinates anchored to first
@@ -944,6 +950,7 @@ def plot_pileup(
         "show_dwell_time": False,  # No dwell time without move tables
         "show_signal": False,  # No signal without POD5
         "show_quality": show_quality,
+        "show_coverage": show_coverage,
         "clip_x_to_alignment": clip_x_to_alignment,
     }
 

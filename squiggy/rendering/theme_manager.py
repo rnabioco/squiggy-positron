@@ -136,8 +136,8 @@ class ThemeManager:
         }
 
         # Only set active tools if they're in the tools string
-        if "xbox_zoom" in tools:
-            fig_kwargs["active_drag"] = "xbox_zoom"
+        if "xpan" in tools:
+            fig_kwargs["active_drag"] = "xpan"
         if "wheel_zoom" in tools:
             fig_kwargs["active_scroll"] = "wheel_zoom"
 
@@ -285,3 +285,20 @@ class ThemeManager:
             '#FF8C00'  # Dark orange for dark theme
         """
         return self.colors["quality_band"]
+
+    def get_coverage_color(self) -> str:
+        """
+        Get coverage color for current theme
+
+        Returns theme-appropriate color for coverage depth track
+        in aggregate plots.
+
+        Returns:
+            Hex color string
+
+        Examples:
+            >>> manager = ThemeManager(Theme.DARK)
+            >>> manager.get_coverage_color()
+            '#00B386'  # Teal/green for dark theme
+        """
+        return self.colors["coverage"]
