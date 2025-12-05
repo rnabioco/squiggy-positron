@@ -6,8 +6,10 @@
  * Syncs version number from package.json (source of truth) to:
  * - squiggy/__init__.py (__version__)
  * - pyproject.toml (version)
- * - package.json viewsContainers title
  * - package-lock.json (version)
+ *
+ * Note: Version is displayed in the status bar (see extension.ts),
+ * not in the sidebar title.
  *
  * Run automatically before builds to keep versions in sync.
  */
@@ -59,17 +61,6 @@ if (pyproject !== pyprojectUpdated) {
     console.log(`  ✓ Updated pyproject.toml`);
 } else {
     console.log(`  ✓ pyproject.toml already up to date`);
-}
-
-// Update package.json viewsContainers title
-const titleUpdated = packageJson.contributes.viewsContainers.activitybar[0].title !== `Squiggy v${version}`;
-
-if (titleUpdated) {
-    packageJson.contributes.viewsContainers.activitybar[0].title = `Squiggy v${version}`;
-    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
-    console.log(`  ✓ Updated package.json sidebar title`);
-} else {
-    console.log(`  ✓ package.json sidebar title already up to date`);
 }
 
 // Update package-lock.json
