@@ -41,6 +41,8 @@ html = plot_read(read_ids[0])
 
 ::: squiggy.get_read_to_reference_mapping
 
+::: squiggy.get_read_ids
+
 ## Plotting Functions
 
 ### Single File Plotting
