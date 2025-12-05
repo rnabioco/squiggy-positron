@@ -381,6 +381,23 @@ class TestAggregateTracks:
         assert "chr1:1000-1020" in header.text
         assert "15" in header.text  # num_reads
 
+    def test_header_panel_with_sample_name(self, sample_data):
+        """Test that header panel displays sample name when provided"""
+        from bokeh.models import Div
+
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        # Add sample_name to data
+        sample_data["sample_name"] = "Sample_A"
+        _, grid = strategy.create_plot(sample_data, {})
+
+        # Header should contain sample name
+        header, _, _ = grid.children[0]
+        assert isinstance(header, Div)
+        assert "Sample_A" in header.text
+        assert "chr1:1000-1020" in header.text
+        assert "15" in header.text
+
     def test_signal_track_has_title(self, sample_data):
         """Test that signal track has appropriate title"""
         strategy = AggregatePlotStrategy(Theme.LIGHT)

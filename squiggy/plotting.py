@@ -686,6 +686,7 @@ def plot_aggregate(
         "reference_name": reference_name,
         "num_reads": num_reads,
         "transformation_info": transformation_info,  # Diagnostic info
+        "sample_name": sample_name,  # Optional sample name for multi-sample mode
     }
 
     options = {

@@ -165,6 +165,7 @@ class AggregatePlotStrategy(PlotStrategy):
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
         transformation_info = data.get("transformation_info", "")
+        sample_name = data.get("sample_name")
 
         # Extract options (transformation now happens in plot_aggregate() before this)
         normalization = options.get("normalization", NormalizationMethod.NONE)
@@ -185,6 +186,7 @@ class AggregatePlotStrategy(PlotStrategy):
         header = self._create_header_panel(
             reference_name=reference_name,
             num_reads=num_reads,
+            sample_name=sample_name,
         )
         panels.append([header])
         # Note: Don't add to all_figs - Div doesn't have x_range
@@ -318,19 +320,28 @@ class AggregatePlotStrategy(PlotStrategy):
         self,
         reference_name: str,
         num_reads: int,
+        sample_name: str | None = None,
     ):
-        """Create a compact header displaying reference information"""
+        """Create a compact header displaying sample and reference information"""
         text_color = self.theme_manager.get_color("title_text")
         bg_color = self.theme_manager.get_color("plot_bg")
 
+        # Build header text with optional sample name
+        if sample_name:
+            header_text = (
+                f"<b>{sample_name}</b> · {reference_name} ({num_reads:,} reads)"
+            )
+        else:
+            header_text = f"<b>{reference_name}</b> ({num_reads:,} reads)"
+
         header = Div(
-            text=f"<b>{reference_name}</b> ({num_reads:,} reads)",
+            text=header_text,
             styles={
                 "font-size": "14px",
                 "color": text_color,
                 "background-color": bg_color,
                 "padding": "8px 12px",
-                "text-align": "center",
+                "text-align": "left",
                 "width": "100%",
             },
             sizing_mode="stretch_width",
