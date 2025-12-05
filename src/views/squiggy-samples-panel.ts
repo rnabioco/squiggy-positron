@@ -18,7 +18,6 @@ import {
 import { ExtensionState } from '../state/extension-state';
 import { LoadedItem } from '../types/loaded-item';
 import { logger } from '../utils/logger';
-// SampleInfo and formatFileSize unused - reserved for future features
 
 export class SamplesPanelProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyComparisonSamples';
