@@ -346,24 +346,57 @@ class TestAggregateTracks:
             "num_reads": 15,
         }
 
-    def test_gridplot_has_three_rows(self, sample_data):
-        """Test that gridplot has three rows (signal, pileup, quality)"""
+    def test_gridplot_has_four_rows(self, sample_data):
+        """Test that gridplot has four rows (header, pileup, signal, quality)"""
         strategy = AggregatePlotStrategy(Theme.LIGHT)
 
         _, grid = strategy.create_plot(sample_data, {})
 
         # GridPlot children are tuples of (figure, row, col)
-        assert len(grid.children) == 3
+        assert len(grid.children) == 4
 
-    def test_all_tracks_are_plots(self, sample_data):
-        """Test that all three tracks are Plot objects"""
+    def test_all_data_tracks_are_plots(self, sample_data):
+        """Test that all data tracks (after header) are Plot objects"""
         strategy = AggregatePlotStrategy(Theme.LIGHT)
 
         _, grid = strategy.create_plot(sample_data, {})
 
         # GridPlot children are tuples of (figure, row, col)
-        for fig, _row, _col in grid.children:
+        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        # Skip the header (index 0) which is a Div
+        for fig, _row, _col in grid.children[1:]:
             assert isinstance(fig, Plot)
+
+    def test_header_panel_contains_reference_info(self, sample_data):
+        """Test that header panel displays reference name and read count"""
+        from bokeh.models import Div
+
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        _, grid = strategy.create_plot(sample_data, {})
+
+        # Header is at index 0 and should be a Div
+        header, _, _ = grid.children[0]
+        assert isinstance(header, Div)
+        assert "chr1:1000-1020" in header.text
+        assert "15" in header.text  # num_reads
+
+    def test_header_panel_with_sample_name(self, sample_data):
+        """Test that header panel displays sample name when provided"""
+        from bokeh.models import Div
+
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        # Add sample_name to data
+        sample_data["sample_name"] = "Sample_A"
+        _, grid = strategy.create_plot(sample_data, {})
+
+        # Header should contain sample name
+        header, _, _ = grid.children[0]
+        assert isinstance(header, Div)
+        assert "Sample_A" in header.text
+        assert "chr1:1000-1020" in header.text
+        assert "15" in header.text
 
     def test_signal_track_has_title(self, sample_data):
         """Test that signal track has appropriate title"""
@@ -372,11 +405,9 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        # Panel order: pileup (0), signal (1), quality (2)
-        signal_track, _, _ = grid.children[1]
+        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        signal_track, _, _ = grid.children[2]
         assert "Aggregate Signal" in signal_track.title.text
-        assert "chr1:1000-1020" in signal_track.title.text
-        assert "15 reads" in signal_track.title.text
 
     def test_pileup_track_has_title(self, sample_data):
         """Test that pileup track has appropriate title"""
@@ -385,8 +416,8 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        # Panel order: pileup (0), signal (1), quality (2)
-        pileup_track, _, _ = grid.children[0]
+        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        pileup_track, _, _ = grid.children[1]
         assert "Base Call Pileup" in pileup_track.title.text
 
     def test_quality_track_has_title(self, sample_data):
@@ -396,7 +427,8 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        quality_track, _, _ = grid.children[2]
+        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        quality_track, _, _ = grid.children[3]
         assert "Base Quality Scores" in quality_track.title.text
 
     def test_pileup_track_y_range(self, sample_data):
@@ -406,24 +438,25 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figure from (figure, row, col) tuple
-        # Panel order: pileup (0), signal (1), quality (2)
-        pileup_track, _, _ = grid.children[0]
+        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        pileup_track, _, _ = grid.children[1]
         assert pileup_track.y_range.start == 0
         assert pileup_track.y_range.end == 1.15
 
     def test_tracks_have_linked_x_ranges(self, sample_data):
-        """Test that all three tracks have synchronized x-ranges"""
+        """Test that all data tracks have synchronized x-ranges"""
         strategy = AggregatePlotStrategy(Theme.LIGHT)
 
         _, grid = strategy.create_plot(sample_data, {})
 
         # Extract figures from (figure, row, col) tuples
-        # Panel order: pileup (0), signal (1), quality (2)
-        pileup_track, _, _ = grid.children[0]
-        signal_track, _, _ = grid.children[1]
-        quality_track, _, _ = grid.children[2]
+        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        # Header (Div) is not linked - only data tracks share x_range
+        pileup_track, _, _ = grid.children[1]
+        signal_track, _, _ = grid.children[2]
+        quality_track, _, _ = grid.children[3]
 
-        # All should reference the same x_range object
+        # All data tracks should reference the same x_range object
         assert pileup_track.x_range is signal_track.x_range
         assert quality_track.x_range is signal_track.x_range
 
@@ -465,7 +498,7 @@ class TestAggregateIntegration:
 
         assert isinstance(html, str)
         assert isinstance(grid, GridPlot)
-        assert len(grid.children) == 3
+        assert len(grid.children) == 4  # header + pileup + signal + quality
         assert "chr1:1000-1100" in html
         assert "50 reads" in html
 
