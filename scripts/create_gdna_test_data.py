@@ -303,15 +303,15 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads):
         print("  ERROR: No POD5 files found!")
         return 0
 
-    # Convert paths to strings for pod5.Reader
+    # Convert paths to strings for pod5.DatasetReader
     pod5_paths = [str(f) for f in pod5_files]
 
     print(f"  Searching for {len(selected_reads)} reads across {len(pod5_files)} files...")
 
     reads_written = 0
 
-    # Open all POD5 files at once and use selection parameter for batch lookup
-    with pod5.Reader(pod5_paths) as reader:
+    # Open all POD5 files at once using DatasetReader for multi-file support
+    with pod5.DatasetReader(pod5_paths) as reader:
         with pod5.Writer(str(output_path)) as writer:
             # Use selection parameter to fetch only the reads we want
             # missing_ok=True skips IDs not found instead of raising error
