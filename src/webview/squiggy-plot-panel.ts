@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { promises as fs } from 'fs';
+import { statusBarMessenger } from '../utils/status-bar-messenger';
 
 export class SquigglePlotPanel {
     public static currentPanel: SquigglePlotPanel | undefined;
@@ -131,7 +132,7 @@ export class SquigglePlotPanel {
         if (outputPath.endsWith('.html')) {
             // Using imported fs.promises
             await fs.writeFile(outputPath, this._currentHtml, 'utf-8');
-            vscode.window.showInformationMessage(`Plot exported to ${outputPath}`);
+            statusBarMessenger.show('Exported', 'export');
         } else {
             // PNG/SVG export would require calling Python backend
             vscode.window.showErrorMessage('PNG/SVG export not yet implemented');

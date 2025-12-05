@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
 import { SessionStateManager } from '../state/session-state-manager';
 import { logger } from '../utils/logger';
+import { statusBarMessenger } from '../utils/status-bar-messenger';
 
 /**
  * Register all session management commands
@@ -67,15 +68,10 @@ export async function saveSessionCommand(
             // Save to workspace state
             await SessionStateManager.saveSession(sessionState, context);
 
-            // Get workspace name for better feedback
-            const workspaceName = vscode.workspace.name || 'this workspace';
-
-            vscode.window.showInformationMessage(
-                `Session ${sessionName ? `"${sessionName}" ` : ''}saved to ${workspaceName} workspace state`
-            );
+            statusBarMessenger.show('Session saved', 'save');
         }
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to save session: ${error}`);
+        statusBarMessenger.showError(`Save failed: ${error}`);
     }
 }
 
@@ -115,20 +111,19 @@ export async function restoreSessionCommand(
             }
         }
 
-        // Show progress while restoring
+        // Show progress in status bar (less intrusive)
         await vscode.window.withProgress(
             {
-                location: vscode.ProgressLocation.Notification,
-                title: 'Restoring session...',
-                cancellable: false,
+                location: vscode.ProgressLocation.Window,
+                title: 'Squiggy',
             },
             async (progress) => {
-                progress.report({ message: 'Loading files...' });
+                progress.report({ message: 'Restoring session...' });
                 await extensionState.fromSessionState(savedSession, context);
             }
         );
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to restore session: ${error}`);
+        statusBarMessenger.showError(`Restore failed: ${error}`);
     }
 }
 
@@ -165,9 +160,9 @@ export async function exportSessionCommand(
         // Export session with full metadata
         await SessionStateManager.exportSession(sessionState, uri.fsPath, context);
 
-        vscode.window.showInformationMessage(`Session exported to ${uri.fsPath}`);
+        statusBarMessenger.show('Session exported', 'export');
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to export session: ${error}`);
+        statusBarMessenger.showError(`Export failed: ${error}`);
     }
 }
 
@@ -213,20 +208,19 @@ export async function importSessionCommand(
         // Import session
         const importedSession = await SessionStateManager.importSession(uris[0].fsPath);
 
-        // Show progress while restoring
+        // Show progress in status bar (less intrusive)
         await vscode.window.withProgress(
             {
-                location: vscode.ProgressLocation.Notification,
-                title: 'Importing session...',
-                cancellable: false,
+                location: vscode.ProgressLocation.Window,
+                title: 'Squiggy',
             },
             async (progress) => {
-                progress.report({ message: 'Loading files...' });
+                progress.report({ message: 'Importing session...' });
                 await extensionState.fromSessionState(importedSession, context);
             }
         );
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to import session: ${error}`);
+        statusBarMessenger.showError(`Import failed: ${error}`);
     }
 }
 
@@ -247,9 +241,9 @@ export async function clearSessionCommand(context: vscode.ExtensionContext): Pro
         }
 
         await SessionStateManager.clearSession(context);
-        vscode.window.showInformationMessage('Saved session cleared');
+        statusBarMessenger.show('Session cleared', 'trash');
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to clear session: ${error}`);
+        statusBarMessenger.showError(`Clear failed: ${error}`);
     }
 }
 
@@ -281,15 +275,14 @@ export async function loadDemoSessionCommand(
             }
         }
 
-        // Show progress while loading
+        // Show progress in status bar (less intrusive)
         await vscode.window.withProgress(
             {
-                location: vscode.ProgressLocation.Notification,
-                title: 'Loading demo session...',
-                cancellable: false,
+                location: vscode.ProgressLocation.Window,
+                title: 'Squiggy',
             },
             async (progress) => {
-                progress.report({ message: 'Loading yeast tRNA reads...' });
+                progress.report({ message: 'Loading demo...' });
                 await extensionState.loadDemoSession(context);
             }
         );
@@ -297,6 +290,6 @@ export async function loadDemoSessionCommand(
         logger.info('Demo session loaded successfully');
     } catch (error) {
         logger.error('Failed to load demo session', error);
-        vscode.window.showErrorMessage(`Failed to load demo session: ${error}`);
+        statusBarMessenger.showError(`Demo load failed: ${error}`);
     }
 }
