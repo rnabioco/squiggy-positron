@@ -21,7 +21,8 @@ describe('ExtensionState', () => {
         });
 
         it('should have undefined backend references initially', () => {
-            expect(state.positronClient).toBeUndefined();
+            // Kernel manager and API are undefined until initializeBackends is called
+            expect(state.kernelManager).toBeUndefined();
             expect(state.squiggyAPI).toBeUndefined();
         });
 
@@ -119,8 +120,8 @@ describe('ExtensionState', () => {
         });
 
         it('should provide getter access to backend instances', () => {
-            // All backend instances start as undefined
-            expect(state.positronClient).toBeUndefined();
+            // All backend instances start as undefined until initializeBackends is called
+            expect(state.kernelManager).toBeUndefined();
             expect(state.squiggyAPI).toBeUndefined();
         });
 

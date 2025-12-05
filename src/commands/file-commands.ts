@@ -140,8 +140,8 @@ paths = {
 }
                 `.trim();
 
-                // Use the background kernel to avoid polluting foreground console
-                const api = await state.ensureBackgroundKernel();
+                // Use the Squiggy kernel
+                const api = await state.ensureKernel();
                 await api.client.executeSilent(getPathsCode);
                 const paths = (await api.client.getVariable('paths')) as {
                     pod5: string;
@@ -314,12 +314,12 @@ paths = {
  * Load more reads for POD5 pagination
  */
 async function loadMoreReads(state: ExtensionState): Promise<void> {
-    if (!state.squiggyAPI || !state.currentPod5File) {
+    if (!state.currentPod5File) {
         return;
     }
 
-    // Get dedicated kernel API
-    const api = await state.ensureBackgroundKernel();
+    // Get Squiggy kernel API
+    const api = await state.ensureKernel();
 
     // Track POD5 pagination context
     if (!state.pod5LoadContext) {
@@ -369,8 +369,8 @@ async function expandReference(
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for ${referenceName}...`);
 
-        // Get background API
-        const api = await state.ensureBackgroundKernel();
+        // Get Squiggy kernel API
+        const api = await state.ensureKernel();
 
         // Check if we're in multi-sample mode or single-file mode
         if (state.selectedReadExplorerSample) {
@@ -410,18 +410,14 @@ async function expandReference(
  * Load reads for a specific sample from the multi-sample registry
  */
 async function loadReadsForSample(sampleName: string, state: ExtensionState): Promise<void> {
-    if (!state.squiggyAPI) {
-        return;
-    }
-
     try {
         // Show loading state
         state.readsViewPane?.setLoading(true, `Loading reads for sample '${sampleName}'...`);
 
         logger.debug(`[loadReadsForSample] Starting to load reads for '${sampleName}'`);
 
-        // Get background API (sample data is in dedicated kernel)
-        const api = await state.ensureBackgroundKernel();
+        // Get Squiggy kernel API (sample data is in dedicated kernel)
+        const api = await state.ensureKernel();
 
         // Get read IDs and references in a single optimized batch query
         // (avoids two separate getVariable() calls which each add 3x kernel round-trips)
@@ -559,13 +555,11 @@ async function openPOD5File(filePath: string, state: ExtensionState): Promise<vo
             // Maintain legacy state for backward compatibility
             state.currentPod5File = filePath;
 
-            // Get and display read IDs from dedicated kernel
-            if (state.squiggyAPI) {
-                const api = await state.ensureBackgroundKernel();
-                const readIds = await api.getReadIds(0, 1000);
-                if (readIds.length > 0) {
-                    state.readsViewPane?.setReads(readIds);
-                }
+            // Get and display read IDs from Squiggy kernel
+            const api = await state.ensureKernel();
+            const readIds = await api.getReadIds(0, 1000);
+            if (readIds.length > 0) {
+                state.readsViewPane?.setReads(readIds);
             }
 
             // Update plot options to enable controls
@@ -631,28 +625,26 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
             // Maintain legacy state for backward compatibility
             state.currentBamFile = filePath;
 
-            // Get references for lazy loading from dedicated kernel
+            // Get references for lazy loading from Squiggy kernel
             let referenceToReads: Record<string, string[]> = {};
-            if (state.squiggyAPI) {
-                const api = await state.ensureBackgroundKernel();
-                const references = await api.getReferences();
-                for (const ref of references) {
-                    const readCount = await api.client.getVariable(
-                        `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
-                    );
-                    referenceToReads[ref] = new Array(readCount as number);
-                }
+            const api = await state.ensureKernel();
+            const refNames = await api.getReferences();
+            for (const ref of refNames) {
+                const readCount = await api.client.getVariable(
+                    `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                );
+                referenceToReads[ref] = new Array(readCount as number);
             }
 
             // Update reads view to show references
             if (Object.keys(referenceToReads).length > 0) {
-                const references = Object.entries(referenceToReads).map(
+                const referenceList = Object.entries(referenceToReads).map(
                     ([referenceName, reads]) => ({
                         referenceName,
                         readCount: Array.isArray(reads) ? reads.length : 0,
                     })
                 );
-                state.readsViewPane?.setReferencesOnly(references);
+                state.readsViewPane?.setReferencesOnly(referenceList);
             }
 
             // Update modifications panel and context
@@ -699,9 +691,9 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
  */
 async function closePOD5File(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state in the background kernel
+        // Clear Python state in the Squiggy kernel
         if (state.kernelManager) {
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.client.executeSilent(`
 import squiggy
 squiggy.close_pod5()
@@ -732,9 +724,9 @@ squiggy.close_pod5()
  */
 async function closeBAMFile(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state in the background kernel
+        // Clear Python state in the Squiggy kernel
         if (state.kernelManager) {
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.client.executeSilent(`
 import squiggy
 squiggy.close_bam()
@@ -768,7 +760,7 @@ squiggy.close_bam()
 
         // If POD5 is still loaded, revert to flat read list
         if (state.currentPod5File) {
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             const readIds = await api.getReadIds(0, 1000);
             state.readsViewPane?.setReads(readIds);
         }
@@ -841,9 +833,9 @@ async function openFASTAFile(filePath: string, state: ExtensionState): Promise<v
  */
 async function closeFASTAFile(state: ExtensionState): Promise<void> {
     try {
-        // Clear Python state in the background kernel
+        // Clear Python state in the Squiggy kernel
         if (state.kernelManager) {
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.client.executeSilent(`
 import squiggy
 squiggy.close_fasta()
@@ -934,8 +926,8 @@ async function loadSampleForComparison(
     // Load sample via FileLoadingService
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
+            if (!state.kernelManager) {
+                throw new Error('Squiggy kernel not initialized');
             }
 
             // Use FileLoadingService to load sample into registry (for multi-sample support)
@@ -951,7 +943,7 @@ async function loadSampleForComparison(
             let references = undefined;
             if (bamPath) {
                 try {
-                    const api = await state.ensureBackgroundKernel();
+                    const api = await state.ensureKernel();
                     const sampleInfo = await api.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         references = sampleInfo.references;
@@ -1056,7 +1048,7 @@ paths = {
         `.trim();
 
         // Use the background kernel to avoid polluting foreground console
-        const api = await state.ensureBackgroundKernel();
+        const api = await state.ensureKernel();
         await api.client.executeSilent(getPathsCode);
         const paths = (await api.client.getVariable('paths')) as {
             pod5: string;
@@ -1099,8 +1091,8 @@ paths = {
 
             await safeExecuteWithProgress(
                 async () => {
-                    if (!state.squiggyAPI) {
-                        throw new Error('SquiggyAPI not initialized');
+                    if (!state.kernelManager) {
+                        throw new Error('Squiggy kernel not initialized');
                     }
 
                     // Use FileLoadingService to load sample into registry (for multi-sample support)
@@ -1116,7 +1108,7 @@ paths = {
                     let references = undefined;
                     if (sample.bamPath) {
                         try {
-                            const api = await state.ensureBackgroundKernel();
+                            const api = await state.ensureKernel();
                             const sampleInfo = await api.getSampleInfo(sample.name);
                             if (sampleInfo && sampleInfo.references) {
                                 references = sampleInfo.references;

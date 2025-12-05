@@ -370,7 +370,7 @@ async function plotReads(
             const theme = colorThemeKind === vscode.ColorThemeKind.Dark ? 'DARK' : 'LIGHT';
 
             // Use dedicated kernel - plot appears in Plots pane automatically
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.generatePlot(
                 readIds,
                 mode,
@@ -416,7 +416,7 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
             const maxReads = config.get<number>('aggregateSampleSize', 100);
 
             // Use dedicated kernel - plot appears in Plots pane automatically
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
 
             // Get modification filters from panel
             const modFilters = state.modificationsProvider?.getFilters() || {
@@ -481,7 +481,7 @@ async function plotMotifAggregateAll(
             const maxReadsPerMotif = config.get<number>('aggregateSampleSize', 100);
 
             // Use dedicated kernel - plot appears in Plots pane automatically
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.generateMotifAggregateAllPlot(
                 params.fastaFile,
                 params.motif,
@@ -516,7 +516,7 @@ async function plotSignalOverlayComparison(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate signal overlay plot
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.generateSignalOverlayComparison(sampleNames, normalization, theme, maxReads);
         },
         ErrorContext.PLOT_GENERATE,
@@ -544,18 +544,8 @@ async function plotDeltaComparison(
             const theme = isDark ? 'DARK' : 'LIGHT';
 
             // Generate delta plot
-            if (state.positronClient) {
-                const api = await state.ensureBackgroundKernel();
-                await api.generateDeltaPlot(
-                    sampleNames,
-                    referenceName,
-                    normalization,
-                    theme,
-                    maxReads
-                );
-            } else {
-                throw new Error('No backend available');
-            }
+            const api = await state.ensureKernel();
+            await api.generateDeltaPlot(sampleNames, referenceName, normalization, theme, maxReads);
         },
         ErrorContext.PLOT_GENERATE,
         `Comparing samples: ${sampleNames.join(', ')} on reference ${referenceName}...`
@@ -597,7 +587,7 @@ async function checkSampleReferenceCompatibility(
                     `[Reference Check] Sample '${sampleName}' has no cached references - fetching on-demand from Python...`
                 );
                 try {
-                    const api = await state.ensureBackgroundKernel();
+                    const api = await state.ensureKernel();
                     const sampleInfo = await api.getSampleInfo(sampleName);
                     if (sampleInfo && sampleInfo.references) {
                         // Update the sample with fetched reference info
@@ -720,8 +710,8 @@ async function plotAggregateComparison(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
+            if (!state.kernelManager) {
+                throw new Error('Squiggy kernel not initialized');
             }
 
             // Validate params
@@ -776,7 +766,7 @@ async function plotAggregateComparison(
             }
 
             // Generate aggregate comparison plot
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
             await api.generateAggregateComparison(
                 params.sampleNames,
                 params.reference,
@@ -804,17 +794,13 @@ async function plotMultiReadOverlay(
 ): Promise<void> {
     await safeExecuteWithProgress(
         async () => {
-            if (!state.squiggyAPI) {
-                throw new Error('SquiggyAPI not initialized');
-            }
-
             // Validate params
             if (sampleNames.length === 0) {
                 throw new Error('At least one sample must be selected');
             }
 
-            // Get background API
-            const api = await state.ensureBackgroundKernel();
+            // Get Squiggy kernel API
+            const api = await state.ensureKernel();
 
             // Extract reads from each sample and build mappings
             const allReadIds: string[] = [];
@@ -904,7 +890,7 @@ async function plotMultiReadStacked(
             }
 
             // Get background API
-            const api = await state.ensureBackgroundKernel();
+            const api = await state.ensureKernel();
 
             // Extract reads from each sample and build mappings
             const allReadIds: string[] = [];

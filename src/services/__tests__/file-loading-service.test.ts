@@ -31,7 +31,7 @@ describe('FileLoadingService', () => {
 
         mockState = {
             squiggyAPI: mockAPI,
-            ensureBackgroundKernel: jest.fn().mockResolvedValue(mockAPI),
+            ensureKernel: jest.fn().mockResolvedValue(mockAPI),
         } as any;
 
         service = new FileLoadingService(mockState);
@@ -39,8 +39,8 @@ describe('FileLoadingService', () => {
         // Clear all mocks before each test
         jest.clearAllMocks();
 
-        // Re-setup ensureBackgroundKernel after clearAllMocks
-        mockState.ensureBackgroundKernel = jest.fn().mockResolvedValue(mockAPI);
+        // Re-setup ensureKernel after clearAllMocks
+        mockState.ensureKernel = jest.fn().mockResolvedValue(mockAPI);
     });
 
     describe('loadFile()', () => {
@@ -150,9 +150,7 @@ describe('FileLoadingService', () => {
         it('should return error when API is not initialized', async () => {
             const stateWithoutAPI = {
                 squiggyAPI: undefined,
-                ensureBackgroundKernel: jest
-                    .fn()
-                    .mockRejectedValue(new Error('API not initialized')),
+                ensureKernel: jest.fn().mockRejectedValue(new Error('API not initialized')),
             } as any;
             service = new FileLoadingService(stateWithoutAPI);
 
@@ -245,7 +243,7 @@ describe('FileLoadingService', () => {
             const apiWithoutFASTA = { ...mockAPI, loadFASTA: undefined } as any;
             const stateWithoutFASTA = {
                 squiggyAPI: apiWithoutFASTA,
-                ensureBackgroundKernel: jest.fn().mockResolvedValue(apiWithoutFASTA),
+                ensureKernel: jest.fn().mockResolvedValue(apiWithoutFASTA),
             } as any;
             service = new FileLoadingService(stateWithoutFASTA);
 

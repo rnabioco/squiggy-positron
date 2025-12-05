@@ -45,8 +45,8 @@ export function registerStateCommands(
  * Re-fetches data from squiggy_kernel instead of using cached data
  */
 async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
-    if (!state.squiggyAPI) {
-        vscode.window.showWarningMessage('Squiggy API not initialized');
+    if (!state.kernelManager) {
+        vscode.window.showWarningMessage('Squiggy kernel not initialized');
         return;
     }
 
@@ -55,7 +55,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
         state.readsViewPane?.setLoading(true, 'Refreshing read list...');
 
         // Get background API
-        const api = await state.ensureBackgroundKernel();
+        const api = await state.ensureKernel();
 
         // Check if POD5 is loaded in Python session
         const hasPod5 = await api.client.getVariable('squiggy_kernel._reader is not None');
@@ -90,7 +90,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
  */
 async function refreshPOD5Only(state: ExtensionState): Promise<void> {
     // Get background API
-    const api = await state.ensureBackgroundKernel();
+    const api = await state.ensureKernel();
 
     // Get total read count
     const totalReads = await api.client.getVariable('len(squiggy_kernel._read_ids)');
@@ -114,7 +114,7 @@ async function refreshPOD5Only(state: ExtensionState): Promise<void> {
  */
 async function refreshWithBAM(state: ExtensionState): Promise<void> {
     // Get background API
-    const api = await state.ensureBackgroundKernel();
+    const api = await state.ensureKernel();
 
     // Get references from Python session
     const references = await api.getReferences();
@@ -142,7 +142,7 @@ async function refreshWithBAM(state: ExtensionState): Promise<void> {
 async function debugModificationsPanel(state: ExtensionState): Promise<void> {
     try {
         // Get background API
-        const api = await state.ensureBackgroundKernel();
+        const api = await state.ensureKernel();
 
         // Check if BAM is loaded in Python
         const hasBAM = await api.client.getVariable('squiggy_kernel._bam_path is not None');

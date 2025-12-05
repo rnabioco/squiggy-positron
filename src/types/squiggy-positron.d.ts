@@ -79,7 +79,8 @@ declare module 'positron' {
             allowIncomplete?: boolean,
             mode?: RuntimeCodeExecutionMode,
             errorBehavior?: RuntimeErrorBehavior,
-            observer?: RuntimeCodeExecutionObserver
+            observer?: RuntimeCodeExecutionObserver,
+            sessionId?: string
         ): Thenable<Record<string, any>>;
 
         export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
@@ -125,6 +126,18 @@ declare module 'positron' {
          * Delete/shutdown a session
          */
         export function deleteSession(sessionId: string): Thenable<void>;
+
+        /**
+         * List all active sessions
+         */
+        export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
+
+        /**
+         * Get a specific session by its ID
+         */
+        export function getSession(
+            sessionId: string
+        ): Thenable<BaseLanguageRuntimeSession | undefined>;
 
         /**
          * Event that fires when the foreground session changes (including kernel restarts)

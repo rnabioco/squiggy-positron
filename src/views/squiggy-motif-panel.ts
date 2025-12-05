@@ -342,7 +342,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         this.updateView();
 
         try {
-            const api = await this.state.ensureBackgroundKernel();
+            const api = await this.state.ensureKernel();
             const matches = await api.searchMotif(
                 this.state.currentFastaFile,
                 motif,

@@ -26,17 +26,54 @@ export enum SquiggyKernelState {
     Restarting = 'restarting',
 }
 
+// Key for storing session ID in workspace state
+const SESSION_ID_KEY = 'squiggy.dedicatedKernelSessionId';
+
 export class SquiggyKernelManager implements RuntimeClient {
     private session: positron.LanguageRuntimeSession | undefined;
+    // For reconnected sessions (from window reload), we only have the session ID
+    private reconnectedSessionId: string | undefined;
     private state: SquiggyKernelState = SquiggyKernelState.Uninitialized;
     private stateChangeEmitter = new vscode.EventEmitter<SquiggyKernelState>();
     private extensionPath: string;
     private isDisposed = false;
+    private context: vscode.ExtensionContext | undefined;
 
     readonly onDidChangeState = this.stateChangeEmitter.event;
 
-    constructor(extensionPath: string) {
+    // Session name used to identify our dedicated kernel
+    private static readonly SESSION_NAME = 'Squiggy Dedicated Kernel';
+
+    constructor(extensionPath: string, context?: vscode.ExtensionContext) {
         this.extensionPath = extensionPath;
+        this.context = context;
+    }
+
+    /**
+     * Save session ID to workspace state for reconnection after reload
+     */
+    private saveSessionId(sessionId: string): void {
+        if (this.context) {
+            this.context.workspaceState.update(SESSION_ID_KEY, sessionId);
+            logger.debug(`Saved session ID to workspace state: ${sessionId}`);
+        }
+    }
+
+    /**
+     * Get saved session ID from workspace state
+     */
+    private getSavedSessionId(): string | undefined {
+        return this.context?.workspaceState.get<string>(SESSION_ID_KEY);
+    }
+
+    /**
+     * Clear saved session ID from workspace state
+     */
+    private clearSavedSessionId(): void {
+        if (this.context) {
+            this.context.workspaceState.update(SESSION_ID_KEY, undefined);
+            logger.debug('Cleared saved session ID from workspace state');
+        }
     }
 
     /**
@@ -50,11 +87,12 @@ export class SquiggyKernelManager implements RuntimeClient {
      * Get the dedicated kernel session ID (if running)
      */
     getSessionId(): string | undefined {
-        return this.session?.metadata.sessionId;
+        return this.session?.metadata.sessionId ?? this.reconnectedSessionId;
     }
 
     /**
      * Start the background Python kernel
+     * First tries to reconnect to an existing session, then creates a new one if needed
      */
     async start(): Promise<void> {
         if (this.isDisposed) {
@@ -67,7 +105,13 @@ export class SquiggyKernelManager implements RuntimeClient {
         }
 
         this.setState(SquiggyKernelState.Starting);
-        logger.info('Starting Squiggy dedicated kernel...');
+
+        // Try to reconnect to an existing session first
+        if (await this.tryReconnectToExistingSession()) {
+            return;
+        }
+
+        logger.info('Starting new Squiggy dedicated kernel...');
 
         try {
             // Poll for squiggy venv to appear in registered runtimes
@@ -125,10 +169,9 @@ export class SquiggyKernelManager implements RuntimeClient {
             // NOTE: positron.runtime.startLanguageRuntime() only supports Console and Notebook modes
             // Background mode is not exposed through the public API
             // This creates a Console session which is separate from the foreground session
-            const sessionName = 'Squiggy Dedicated Kernel';
             this.session = await positron.runtime.startLanguageRuntime(
                 runtimeId,
-                sessionName,
+                SquiggyKernelManager.SESSION_NAME,
                 undefined // notebookUri - undefined means Console mode
             );
 
@@ -156,10 +199,184 @@ export class SquiggyKernelManager implements RuntimeClient {
             // State should already be Ready from handleRuntimeStateChange
             // Don't set it manually to avoid interfering with event flow
             logger.info('Squiggy dedicated kernel ready');
+
+            // Save session ID for reconnection after window reload
+            this.saveSessionId(this.session.metadata.sessionId);
         } catch (error) {
             this.setState(SquiggyKernelState.Error);
             logger.error(`Failed to start dedicated kernel: ${error}`);
             throw error;
+        }
+    }
+
+    /**
+     * Try to reconnect to an existing Squiggy session (e.g., after window reload)
+     * @returns true if successfully reconnected, false otherwise
+     */
+    private async tryReconnectToExistingSession(): Promise<boolean> {
+        try {
+            // Get saved session ID from workspace state
+            const savedSessionId = this.getSavedSessionId();
+            if (!savedSessionId) {
+                logger.debug('No saved session ID found in workspace state');
+                return false;
+            }
+
+            logger.debug(`Looking for saved session ID: ${savedSessionId}`);
+
+            // First, check if sessions are already available
+            let sessions = await positron.runtime.getActiveSessions();
+            logger.debug(
+                `Active sessions (${sessions.length}): ${sessions.map((s) => `${s.metadata.sessionName ?? 'unnamed'} [${s.metadata.sessionId}] (${s.metadata.sessionMode})`).join(', ')}`
+            );
+
+            // If no sessions yet, wait for Positron to restore them (event-driven)
+            if (sessions.length === 0) {
+                logger.debug('No sessions yet, waiting for session restoration...');
+                sessions = await this.waitForSessionRestoration(savedSessionId);
+            }
+
+            // Find our saved session
+            const existingSession = sessions.find((s) => s.metadata.sessionId === savedSessionId);
+
+            if (!existingSession) {
+                logger.debug(`Saved session ${savedSessionId} no longer exists, clearing state`);
+                this.clearSavedSessionId();
+                return false;
+            }
+
+            logger.info(`Found existing Squiggy session: ${existingSession.metadata.sessionId}`);
+
+            // Store the session ID for reconnected session
+            this.reconnectedSessionId = existingSession.metadata.sessionId;
+
+            // Set up PYTHONPATH and verify squiggy is available
+            await this.setupPythonPathForReconnected();
+            await this.verifySquiggyAvailableForReconnected();
+
+            this.setState(SquiggyKernelState.Ready);
+            logger.info('Successfully reconnected to existing Squiggy session');
+            return true;
+        } catch (error) {
+            logger.warning(`Failed to reconnect to existing session: ${error}`);
+            this.reconnectedSessionId = undefined;
+            return false;
+        }
+    }
+
+    /**
+     * Wait for Positron to restore sessions after window reload.
+     * Uses event subscription rather than polling.
+     */
+    private async waitForSessionRestoration(
+        savedSessionId: string
+    ): Promise<positron.BaseLanguageRuntimeSession[]> {
+        const timeoutMs = 5000;
+
+        return new Promise((resolve) => {
+            let resolved = false;
+
+            // Set up timeout - if no sessions appear, return empty array
+            const timeout = setTimeout(async () => {
+                if (!resolved) {
+                    resolved = true;
+                    disposable.dispose();
+                    logger.debug('Timeout waiting for session restoration');
+                    // Final check before giving up
+                    const sessions = await positron.runtime.getActiveSessions();
+                    resolve(sessions);
+                }
+            }, timeoutMs);
+
+            // Listen for foreground session changes - this fires when Positron restores sessions
+            const disposable = positron.runtime.onDidChangeForegroundSession(async (sessionId) => {
+                if (resolved) return;
+
+                logger.debug(`Foreground session changed: ${sessionId ?? 'none'}`);
+
+                // Check if our saved session is now available
+                const sessions = await positron.runtime.getActiveSessions();
+                const found = sessions.find((s) => s.metadata.sessionId === savedSessionId);
+
+                if (found || sessions.length > 0) {
+                    // Either found our session, or sessions exist (ours might not have survived)
+                    resolved = true;
+                    clearTimeout(timeout);
+                    disposable.dispose();
+                    logger.debug(
+                        `Sessions restored (${sessions.length}): ${sessions.map((s) => s.metadata.sessionId).join(', ')}`
+                    );
+                    resolve(sessions);
+                }
+            });
+        });
+    }
+
+    /**
+     * Set up PYTHONPATH for a reconnected session (uses sessionId instead of session object)
+     */
+    private async setupPythonPathForReconnected(): Promise<void> {
+        const sessionId = this.reconnectedSessionId;
+        if (!sessionId) {
+            return;
+        }
+
+        const squiggyPath = this.extensionPath;
+
+        try {
+            await positron.runtime.executeCode(
+                'python',
+                `
+import sys
+import os
+
+# Add extension path to sys.path if not already present (temporary variable)
+_squiggy_temp_path = ${JSON.stringify(squiggyPath)}
+if _squiggy_temp_path not in sys.path:
+    sys.path.insert(0, _squiggy_temp_path)
+del _squiggy_temp_path
+`,
+                false,
+                true,
+                positron.RuntimeCodeExecutionMode.Silent,
+                positron.RuntimeErrorBehavior.Continue,
+                undefined,
+                sessionId
+            );
+            logger.info(`Added ${squiggyPath} to PYTHONPATH in reconnected session`);
+        } catch (error) {
+            logger.warning(`Failed to set up PYTHONPATH for reconnected session: ${error}`);
+        }
+    }
+
+    /**
+     * Verify squiggy package is available in reconnected session
+     */
+    private async verifySquiggyAvailableForReconnected(): Promise<void> {
+        const sessionId = this.reconnectedSessionId;
+        if (!sessionId) {
+            throw new Error('No reconnected session ID');
+        }
+
+        try {
+            await positron.runtime.executeCode(
+                'python',
+                `
+import squiggy
+assert hasattr(squiggy, 'load_pod5'), "squiggy.load_pod5 not found"
+assert hasattr(squiggy, 'load_bam'), "squiggy.load_bam not found"
+assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
+`,
+                false,
+                true,
+                positron.RuntimeCodeExecutionMode.Silent,
+                positron.RuntimeErrorBehavior.Continue,
+                undefined,
+                sessionId
+            );
+            logger.info('Squiggy package verified in reconnected session');
+        } catch (error) {
+            throw new Error(`Squiggy package not available in reconnected session: ${error}`);
         }
     }
 
@@ -175,19 +392,27 @@ export class SquiggyKernelManager implements RuntimeClient {
         this.setState(SquiggyKernelState.Restarting);
 
         try {
-            if (this.session) {
+            const sessionId = this.getSessionId();
+            if (sessionId) {
                 // Use Positron API to restart the session
-                await positron.runtime.restartSession(this.session.metadata.sessionId);
+                await positron.runtime.restartSession(sessionId);
 
-                // Wait for kernel to be ready after restart
-                logger.info('Waiting for restarted kernel to be ready...');
-                await this.waitForReady();
-                logger.info('Restarted kernel is ready, setting up environment...');
+                // For sessions with full object (has event listeners), wait for ready
+                if (this.session) {
+                    logger.info('Waiting for restarted kernel to be ready...');
+                    await this.waitForReady();
+                    logger.info('Restarted kernel is ready, setting up environment...');
+                    await this.setupPythonPath();
+                    await this.verifySquiggyAvailable();
+                } else {
+                    // For reconnected sessions (only have sessionId), wait a bit then verify
+                    logger.info('Waiting for reconnected session to restart...');
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                    await this.setupPythonPathForReconnected();
+                    await this.verifySquiggyAvailableForReconnected();
+                    this.setState(SquiggyKernelState.Ready);
+                }
 
-                await this.setupPythonPath();
-                await this.verifySquiggyAvailable();
-
-                // State should already be Ready from handleRuntimeStateChange
                 logger.info('Squiggy dedicated kernel restarted');
             } else {
                 // No session - start fresh
@@ -199,6 +424,7 @@ export class SquiggyKernelManager implements RuntimeClient {
 
             // Try to recover by starting fresh
             this.session = undefined;
+            this.reconnectedSessionId = undefined;
             await this.start();
         }
     }
@@ -214,7 +440,8 @@ export class SquiggyKernelManager implements RuntimeClient {
         code: string,
         mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent
     ): Promise<Record<string, unknown>> {
-        if (!this.session) {
+        const sessionId = this.getSessionId();
+        if (!sessionId) {
             throw new Error('Dedicated kernel not started');
         }
 
@@ -223,14 +450,16 @@ export class SquiggyKernelManager implements RuntimeClient {
         }
 
         try {
-            // Execute code using Positron runtime API
+            // Execute code using Positron runtime API with explicit sessionId
             return await positron.runtime.executeCode(
                 'python',
                 code,
                 false, // focus
                 true, // allowIncomplete
                 mode,
-                positron.RuntimeErrorBehavior.Continue
+                positron.RuntimeErrorBehavior.Continue,
+                undefined, // observer
+                sessionId
             );
         } catch (error) {
             logger.error(`Dedicated kernel execution failed: ${error}`);
@@ -253,7 +482,8 @@ export class SquiggyKernelManager implements RuntimeClient {
      * @param _enableRetry Ignored (for RuntimeClient interface compatibility)
      */
     async getVariable(varName: string, _enableRetry?: boolean): Promise<unknown> {
-        if (!this.session) {
+        const sessionId = this.getSessionId();
+        if (!sessionId) {
             throw new Error('Dedicated kernel not started');
         }
 
@@ -265,10 +495,7 @@ import json
 ${tempVar} = json.dumps(${varName})
 `);
 
-            const [[variable]] = await positron.runtime.getSessionVariables(
-                this.session.metadata.sessionId,
-                [[tempVar]]
-            );
+            const [[variable]] = await positron.runtime.getSessionVariables(sessionId, [[tempVar]]);
 
             await this.executeSilent(`
 if '${tempVar}' in globals():
@@ -297,14 +524,16 @@ if '${tempVar}' in globals():
      * Shutdown the dedicated kernel
      */
     async shutdown(): Promise<void> {
-        if (this.session) {
+        const sessionId = this.getSessionId();
+        if (sessionId) {
             logger.info('Shutting down Squiggy dedicated kernel...');
             try {
-                await positron.runtime.deleteSession(this.session.metadata.sessionId);
+                await positron.runtime.deleteSession(sessionId);
             } catch (error) {
                 logger.error(`Error shutting down kernel: ${error}`);
             }
             this.session = undefined;
+            this.reconnectedSessionId = undefined;
         }
     }
 

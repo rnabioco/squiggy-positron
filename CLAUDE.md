@@ -98,11 +98,11 @@ squiggy-positron-extension/
 ├── src/                               # TypeScript extension (frontend)
 │   ├── extension.ts                   # Entry point, command registration
 │   ├── backend/
-│   │   ├── positron-runtime-client.ts  # Positron kernel communication
+│   │   ├── positron-runtime-client.ts  # Positron kernel communication (low-level)
 │   │   ├── squiggy-python-backend.ts   # JSON-RPC subprocess fallback
-│   │   ├── squiggy-kernel-manager.ts   # Background kernel manager (experimental)
+│   │   ├── squiggy-kernel-manager.ts   # Dedicated Squiggy kernel manager
 │   │   ├── runtime-client-interface.ts # RuntimeClient interface
-│   │   └── squiggy-runtime-api.ts      # High-level API wrapper
+│   │   └── squiggy-runtime-api.ts      # High-level API for file/plot operations
 │   ├── views/
 │   │   ├── components/                 # React components for reads panel
 │   │   │   ├── squiggy-reads-core.tsx  # Main table logic
@@ -165,92 +165,60 @@ squiggy-positron-extension/
 Activates when Positron loads:
 - Registers commands: `squiggy.openPOD5`, `squiggy.openBAM`, `squiggy.plotRead`, `squiggy.restartBackgroundKernel`, etc.
 - Creates sidebar views: Files, Reads, Plot Options, Modifications
-- Initializes PositronRuntime for kernel communication
-- Initializes SquiggyKernelManager for background kernel (experimental)
-- Sets up status bar item showing background kernel state (⭕ → 🔄 → ✅ or ❌)
+- Initializes SquiggyKernelManager for the dedicated Squiggy kernel
+- Sets up status bar item showing kernel state (⭕ → 🔄 → ✅ or ❌)
 - Sets up webview panels for plots
 
 ### Python Communication
 
-**PositronRuntimeClient** (`src/backend/positron-runtime-client.ts`):
-- Executes Python code in active Positron kernel
-- Primary communication method when running in Positron
-- Access to kernel state and variables
+**SquiggyKernelManager** (`src/backend/squiggy-kernel-manager.ts`):
+- Manages the dedicated "Squiggy Kernel" session
+- State machine: Uninitialized → Starting → Ready | Error
+- Provides status bar integration with visual indicators (⭕ → 🔄 → ✅ or ❌)
+- Command: `squiggy.restartBackgroundKernel` - Restart kernel with progress UI
 
 **SquiggyRuntimeAPI** (`src/backend/squiggy-runtime-api.ts`):
 - High-level API for squiggy operations (loading files, generating plots)
-- Built on top of PositronRuntimeClient
-
-**PythonBackend** (`src/backend/squiggy-python-backend.ts`):
-- JSON-RPC subprocess communication
-- Fallback for non-Positron environments (e.g., VSCode)
-- Spawns Python process and manages request/response
-
-### Background Kernel Architecture (Experimental)
-
-**GOAL**: Isolate extension UI operations from the user's foreground kernel to eliminate Variables pane clutter.
-
-**Dual-Mode Architecture**:
-- **Extension UI** → Background kernel (isolated state, no Variables pane pollution)
-- **Notebook API** → Foreground kernel (full programmatic access, as before)
-
-This allows users to use Squiggy's extension UI (file loading, plot generation) without cluttering their Variables pane with internal `_squiggy_*` variables, while preserving the ability to use the notebook API (`import squiggy; squiggy.load_pod5(...)`) in their own code.
-
-#### Components
-
-**SquiggyKernelManager** (`src/backend/squiggy-kernel-manager.ts`):
-- Manages dedicated background Python kernel lifecycle
-- State machine: Uninitialized → Starting → Ready | Error
-- Attempts to create `RuntimeSessionMode.Background` session
-- Provides status bar integration with visual indicators (⭕ → 🔄 → ✅ or ❌)
-- Command: `squiggy.restartBackgroundKernel` - Restart background kernel with progress UI
-
-**RuntimeClient Interface** (`src/backend/runtime-client-interface.ts`):
-- Common interface for both PositronRuntime and SquiggyKernelManager
-- Enables polymorphic API access: `executeSilent()`, `getVariable()`
-- SquiggyRuntimeAPI can work with either foreground or background kernel transparently
-
-**SquiggyRuntimeAPI** (`src/backend/squiggy-runtime-api.ts`):
-- High-level API wrapping RuntimeClient for file loading and plot generation
-- Works with both foreground and background kernels via RuntimeClient interface
+- Built on top of RuntimeClient interface
 - Called by FileLoadingService and plot commands
 
-**File Loading Routing** (`src/services/file-loading-service.ts`):
-- All file loading (POD5, BAM, FASTA) routes through `state.ensureBackgroundKernel()`
-- Attempts background kernel first, falls back to foreground if unavailable
+**RuntimeClient Interface** (`src/backend/runtime-client-interface.ts`):
+- Common interface for kernel communication
+- Provides: `executeSilent()`, `getVariable()`
 
-**Plot Generation Routing** (`src/commands/plot-commands.ts`):
-- All plot generation routes through background kernel
-- Isolates plot state from user's workspace
+### Kernel Architecture
 
-#### Current Limitations
+**Single Kernel Design**: All extension operations use a dedicated "Squiggy Kernel" session. This simplifies the architecture and eliminates user confusion from having multiple kernel sessions visible in the console selector.
 
-**⚠️ API Access Limitation**: Background kernel creation currently fails in practice because:
-- No `positron.positron-python` extension exists in Positron
-- Sessions are managed by `positron.positron-supervisor` (Kallichore) via internal APIs
-- These APIs are not exposed for third-party extension use
+**Key Design Decisions**:
+- **No foreground kernel fallback**: The extension requires the dedicated kernel to function
+- **Lazy initialization**: Kernel starts on first use (`state.ensureKernel()`)
+- **Clear error handling**: If kernel fails to start, user sees clear error message
 
-**Graceful Fallback**:
+**API Access Pattern**:
 ```typescript
-async ensureBackgroundKernel(): Promise<SquiggyRuntimeAPI> {
-    try {
-        await this._kernelManager.start();
-        // Use background kernel...
-    } catch (error) {
-        logger.warning('Falling back to foreground kernel API');
-        return this._squiggyAPI; // FALLBACK
+async ensureKernel(): Promise<SquiggyRuntimeAPI> {
+    if (!this._kernelManager) {
+        throw new Error('Squiggy kernel manager not initialized');
     }
+
+    if (this._kernelManager.getState() === SquiggyKernelState.Uninitialized) {
+        await this._kernelManager.start();
+    }
+
+    if (!this._squiggyAPI) {
+        this._squiggyAPI = new SquiggyRuntimeAPI(this._kernelManager);
+    }
+
+    return this._squiggyAPI;
 }
 ```
 
-**Current Behavior**: Extension functions normally using foreground kernel fallback. All features work, but Variables pane isolation is not achieved.
+**File Loading and Plot Generation**:
+- All file loading (POD5, BAM, FASTA) routes through `state.ensureKernel()`
+- All plot generation uses the same dedicated kernel
+- State is isolated from user's interactive console
 
-**Future Work**:
-- Contact Positron team about proper API for background session creation
-- Investigate `positron.positron-supervisor` extension API surface
-- Alternative approach: Variable naming conventions (e.g., hide variables starting with `_squiggy_`)
-
-**Reference**: See PR #143 for full implementation and testing plan.
 
 ### 🚨 CRITICAL: Positron Extension Integration Patterns
 
