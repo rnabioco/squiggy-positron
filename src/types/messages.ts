@@ -352,6 +352,8 @@ export interface SampleItem {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+    hasMods?: boolean; // BAM has MM/ML tags for base modifications
+    hasEvents?: boolean; // BAM has mv tag for signal-to-base mapping
     references?: ReferenceInfo[]; // List of references this sample aligns to
 }
 

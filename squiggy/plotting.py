@@ -21,10 +21,15 @@ from .utils import (
     _route_to_plots_pane,
     calculate_aggregate_signal,
     calculate_base_pileup,
+    calculate_base_pileup_from_alignments,
+    calculate_coverage_from_alignments,
     calculate_delta_stats,
     calculate_dwell_time_statistics,
     calculate_modification_statistics,
+    calculate_modification_statistics_from_alignments,
     calculate_quality_by_position,
+    calculate_quality_by_position_from_alignments,
+    extract_alignments_for_reference,
     extract_reads_for_motif,
     extract_reads_for_reference,
     get_available_reads_for_reference,
@@ -700,6 +705,249 @@ def plot_aggregate(
     }
 
     # Create strategy and generate plot
+    strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
+    html, grid = strategy.create_plot(data, options)
+
+    # Route to Positron Plots pane if running in Positron
+    _route_to_plots_pane(grid)
+
+    return html
+
+
+def plot_pileup(
+    reference_name: str,
+    max_reads: int = 100,
+    theme: str = "LIGHT",
+    show_modifications: bool = True,
+    mod_filter: dict | None = None,
+    min_mod_frequency: float = 0.0,
+    min_modified_reads: int = 1,
+    show_pileup: bool = True,
+    show_quality: bool = True,
+    clip_x_to_alignment: bool = True,
+    transform_coordinates: bool = True,
+    sample_name: str | None = None,
+) -> str:
+    """
+    Generate pileup-only visualization for BAM files without move tables
+
+    This function creates a visualization that works with BAM files that lack
+    the move table (mv tag). Unlike plot_aggregate(), it does NOT require POD5
+    files or signal-to-base mapping.
+
+    Creates up to four synchronized tracks:
+    1. Modifications heatmap (optional, if BAM has MM/ML tags)
+    2. Base pileup (IGV-style stacked bar chart)
+    3. Quality scores by position
+    4. Coverage depth track
+
+    Args:
+        reference_name: Name of reference sequence from BAM file
+        max_reads: Maximum number of reads to sample for aggregation (default 100)
+        theme: Color theme (LIGHT, DARK)
+        show_modifications: Show modifications heatmap panel (default True)
+        mod_filter: Dictionary mapping modification codes to minimum probability thresholds
+                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications shown.
+        min_mod_frequency: Minimum fraction of reads that must be modified at a position (0.0-1.0).
+                          Positions with lower modification frequency are excluded (default 0.0).
+        min_modified_reads: Minimum number of reads that must have the modification at a position.
+                           Positions with fewer modified reads are excluded (default 1).
+        show_pileup: Show base pileup panel (default True)
+        show_quality: Show quality panel (default True)
+        clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
+                             If False, x-axis extends to include soft-clipped regions.
+        transform_coordinates: If True, transform to 1-based coordinates anchored to first
+                               reference base (default True). If False, use raw genomic coordinates.
+        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
+                     plots from that specific sample instead of the global session.
+
+    Returns:
+        Bokeh HTML string with synchronized tracks
+
+    Examples:
+        >>> import squiggy
+        >>> # Works with BAM-only (no POD5 required!)
+        >>> squiggy.load_bam('alignments.bam')
+        >>> html = squiggy.plot_pileup('chr1', max_reads=50)
+
+        >>> # With modification filtering
+        >>> html = squiggy.plot_pileup('chr1', mod_filter={'m': 0.8, 'a': 0.7})
+
+    Raises:
+        ValueError: If BAM file not loaded
+
+    Note:
+        This function does NOT require:
+        - POD5 files (signal data)
+        - Move tables (mv tag)
+        - Signal-to-base mapping
+
+        It only uses alignment information from BAM files.
+    """
+
+    # Determine which sample to use
+    if sample_name:
+        # Multi-sample mode: use sample-specific paths
+        sample = squiggy_kernel.get_sample(sample_name)
+        if not sample or sample._bam_path is None:
+            raise ValueError(
+                f"Sample '{sample_name}' not loaded or has no BAM file."
+            )
+        bam_path = sample._bam_path
+        fasta_path = sample._fasta_path
+    else:
+        # Single-file mode: use global session paths
+        if squiggy_kernel._bam_path is None:
+            raise ValueError(
+                "No BAM file loaded. Call load_bam() first."
+            )
+        bam_path = squiggy_kernel._bam_path
+        fasta_path = squiggy_kernel._fasta_path
+
+    # Parse parameters
+    params = parse_plot_parameters(theme=theme)
+    theme_enum = params["theme"]
+
+    # Extract alignment data (no mv tag required!)
+    reads_data = extract_alignments_for_reference(
+        bam_file=bam_path,
+        reference_name=reference_name,
+        max_reads=max_reads,
+    )
+
+    if not reads_data:
+        raise ValueError(
+            f"No reads found for reference '{reference_name}'. Check BAM file and reference name."
+        )
+
+    num_reads = len(reads_data)
+
+    # Calculate statistics using pileup-only functions (no move tables required)
+    pileup_stats = calculate_base_pileup_from_alignments(
+        reads_data,
+        bam_file=bam_path,
+        reference_name=reference_name,
+        fasta_file=fasta_path,
+    )
+    quality_stats = calculate_quality_by_position_from_alignments(reads_data)
+    coverage_stats = calculate_coverage_from_alignments(reads_data)
+    modification_stats = calculate_modification_statistics_from_alignments(
+        reads_data,
+        mod_filter=mod_filter,
+        min_frequency=min_mod_frequency,
+        min_modified_reads=min_modified_reads,
+    )
+
+    # Store diagnostic info for plot title
+    transformation_info = ""
+
+    if transform_coordinates:
+        # Anchor to first base of reference sequence (from pileup reference_bases)
+        reference_bases = pileup_stats.get("reference_bases", {})
+
+        if reference_bases:
+            min_pos = min(reference_bases.keys())
+        else:
+            # Fallback: find minimum position across all tracks
+            all_positions = []
+            if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
+                all_positions.extend(list(pileup_stats["positions"]))
+            if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
+                all_positions.extend(list(quality_stats["positions"]))
+
+            if not all_positions:
+                min_pos = None
+            else:
+                min_pos = int(np.min(all_positions))
+
+        if min_pos is not None:
+            offset = min_pos - 1  # Offset to make positions 1-based
+
+            transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
+
+            # Transform pileup_stats
+            if "positions" in pileup_stats and len(pileup_stats["positions"]) > 0:
+                old_positions = list(pileup_stats["positions"])
+                new_positions = np.array([int(p) - offset for p in old_positions])
+                pileup_stats["positions"] = new_positions
+
+                # Remap counts dict
+                old_counts = pileup_stats["counts"]
+                new_counts = {}
+                for p in old_positions:
+                    new_p = int(p) - offset
+                    new_counts[int(new_p)] = old_counts[int(p)]
+                pileup_stats["counts"] = new_counts
+
+                # Remap reference_bases dict
+                if "reference_bases" in pileup_stats:
+                    old_ref = pileup_stats["reference_bases"]
+                    new_ref = {}
+                    for p in old_positions:
+                        old_p = int(p)
+                        if old_p in old_ref:
+                            new_p = int(old_p - offset)
+                            new_ref[new_p] = old_ref[old_p]
+                    pileup_stats["reference_bases"] = new_ref
+
+            # Transform quality_stats
+            if "positions" in quality_stats and len(quality_stats["positions"]) > 0:
+                old = list(quality_stats["positions"])
+                quality_stats["positions"] = np.array([int(p) - offset for p in old])
+
+            # Transform coverage_stats
+            if "positions" in coverage_stats and len(coverage_stats["positions"]) > 0:
+                old = list(coverage_stats["positions"])
+                coverage_stats["positions"] = np.array([int(p) - offset for p in old])
+
+            # Transform modification_stats
+            if modification_stats and modification_stats.get("mod_stats"):
+                mod_stats = modification_stats["mod_stats"]
+                new_mod_stats = {}
+                for mod_code, pos_dict in mod_stats.items():
+                    new_mod_stats[mod_code] = {}
+                    for p, stats in pos_dict.items():
+                        new_p = int(int(p) - offset)
+                        new_mod_stats[mod_code][new_p] = stats
+                modification_stats["mod_stats"] = new_mod_stats
+
+                if "positions" in modification_stats:
+                    old = modification_stats["positions"]
+                    modification_stats["positions"] = [int(p) - offset for p in old]
+
+    # Build aggregate_stats from coverage (for x-range calculation in strategy)
+    # We don't have signal data, but we need the structure for the strategy
+    aggregate_stats = {
+        "positions": coverage_stats.get("positions", np.array([])),
+        "mean_signal": np.zeros(len(coverage_stats.get("positions", []))),  # Placeholder
+        "std_signal": np.zeros(len(coverage_stats.get("positions", []))),   # Placeholder
+        "coverage": coverage_stats.get("coverage", np.array([])),
+    }
+
+    # Prepare data for AggregatePlotStrategy (reuse existing strategy)
+    data = {
+        "aggregate_stats": aggregate_stats,
+        "pileup_stats": pileup_stats,
+        "quality_stats": quality_stats,
+        "modification_stats": modification_stats,
+        "dwell_stats": None,  # No dwell time without move tables
+        "reference_name": reference_name,
+        "num_reads": num_reads,
+        "transformation_info": transformation_info,
+        "sample_name": sample_name,
+    }
+
+    options = {
+        "normalization": None,  # No signal normalization
+        "show_modifications": show_modifications,
+        "show_pileup": show_pileup,
+        "show_dwell_time": False,  # No dwell time without move tables
+        "show_signal": False,  # No signal without POD5
+        "show_quality": show_quality,
+        "clip_x_to_alignment": clip_x_to_alignment,
+    }
+
+    # Create strategy and generate plot (reuse AggregatePlotStrategy)
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
     html, grid = strategy.create_plot(data, options)
 

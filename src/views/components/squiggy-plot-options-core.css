@@ -207,3 +207,17 @@
     display: flex;
     flex-direction: column;
 }
+
+/* Disabled feature tag (e.g., "no mv tag") - red background with white text */
+.plot-options-tag-disabled {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    font-size: 0.7em;
+    font-style: normal;
+    font-weight: 500;
+    color: white;
+    background-color: var(--vscode-errorForeground, #f14c4c);
+    border: none;
+    border-radius: 3px;
+}

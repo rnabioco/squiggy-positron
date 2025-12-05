@@ -532,7 +532,30 @@ if '_squiggy_plot_error' in globals():
             // Build sample name parameter if in multi-sample mode
             const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
 
-            const code = `
+            // Use plot_pileup() when signal and dwell time are disabled (no mv tag required)
+            // This allows aggregate-style plots for BAM files without move tables
+            const usePileupOnly = !showSignal && !showDwellTime;
+
+            const code = usePileupOnly
+                ? `
+import squiggy
+
+# Generate pileup-only plot (no mv tag required) - will be automatically routed to Plots pane
+squiggy.plot_pileup(
+    reference_name='${escapedRefName}',
+    max_reads=${maxReads},
+    theme='${theme}',
+    show_modifications=${showModifications ? 'True' : 'False'},
+    mod_filter=${modFilterDict},
+    min_mod_frequency=${minModFrequency},
+    min_modified_reads=${minModifiedReads},
+    show_pileup=${showPileup ? 'True' : 'False'},
+    show_quality=${showQuality ? 'True' : 'False'},
+    clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
+    transform_coordinates=${transformCoordinates ? 'True' : 'False'}${sampleNameParam}
+)
+`
+                : `
 import squiggy
 
 # Generate aggregate plot - will be automatically routed to Plots pane

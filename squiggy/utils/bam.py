@@ -883,6 +883,102 @@ def validate_sq_headers(bam_file_a: str, bam_file_b: str) -> dict:
     }
 
 
+def extract_alignments_for_reference(
+    bam_file,
+    reference_name,
+    max_reads=100,
+    random_sample=True,
+):
+    """Extract alignment data for reads mapping to a reference (no mv tag required)
+
+    This function extracts BAM alignment data without requiring move tables (mv tag).
+    It enables pileup-only visualizations from BAM files that lack signal-to-base mapping.
+
+    Args:
+        bam_file: Path to BAM file with alignments
+        reference_name: Name of reference sequence to extract reads from
+        max_reads: Maximum number of reads to return (will subsample if more available)
+        random_sample: If True, randomly sample reads; if False, take first N reads
+
+    Returns:
+        List of dicts with keys:
+            - read_id: Read identifier
+            - reference_start: Start position on reference
+            - reference_end: End position on reference
+            - sequence: Basecalled sequence
+            - quality_scores: Per-base quality scores
+            - modifications: List of ModificationAnnotation objects
+            - aligned_pairs: Dict mapping query_pos -> ref_pos (handles indels)
+
+    Note:
+        Unlike extract_reads_for_reference(), this function does NOT require POD5 files
+        or move tables. It only extracts alignment information from BAM files.
+    """
+    import random
+
+    reads_info = []
+
+    try:
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            for read in bam.fetch(until_eof=True):
+                if read.is_unmapped:
+                    continue
+
+                # Check if read maps to the specified reference
+                ref_name = bam.get_reference_name(read.reference_id)
+                if ref_name != reference_name:
+                    continue
+
+                # Get quality scores
+                quality_scores = (
+                    np.array(read.query_qualities) if read.query_qualities else None
+                )
+
+                # Extract modifications using _parse_alignment
+                modifications = []
+                try:
+                    from ..alignment import _parse_alignment
+
+                    aligned_read = _parse_alignment(read)
+                    if aligned_read:
+                        modifications = aligned_read.modifications
+                except Exception:
+                    # Modifications are optional, don't fail if extraction fails
+                    pass
+
+                # Build query_pos -> ref_pos mapping from aligned pairs
+                aligned_pairs = {}
+                for query_pos, ref_pos in read.get_aligned_pairs():
+                    if query_pos is not None and ref_pos is not None:
+                        aligned_pairs[query_pos] = ref_pos
+
+                reads_info.append(
+                    {
+                        "read_id": read.query_name,
+                        "reference_start": read.reference_start,
+                        "reference_end": read.reference_end,
+                        "sequence": read.query_sequence,
+                        "quality_scores": quality_scores,
+                        "modifications": modifications,
+                        "aligned_pairs": aligned_pairs,
+                    }
+                )
+
+        # Subsample if we have too many reads
+        if len(reads_info) > max_reads:
+            if random_sample:
+                reads_info = random.sample(reads_info, max_reads)
+            else:
+                reads_info = reads_info[:max_reads]
+
+        return reads_info
+
+    except Exception as e:
+        raise ValueError(
+            f"Error extracting alignments for reference {reference_name}: {str(e)}"
+        ) from e
+
+
 @contextmanager
 def open_bam_safe(bam_path: str | Path):
     """

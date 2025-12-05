@@ -1489,6 +1489,49 @@ async function updateSampleFiles(
             files.fastaPath || sample.fastaPath
         );
 
+        // If BAM was provided, query BAM metadata and update loaded item
+        const effectiveBamPath = files.bamPath || sample.bamPath;
+        if (effectiveBamPath) {
+            try {
+                const api = await state.ensureKernel();
+
+                // Query BAM info from Python kernel for this sample
+                const hasMods = await api.client.getVariable(
+                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('has_modifications', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
+                );
+                const hasEvents = await api.client.getVariable(
+                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('has_event_alignment', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
+                );
+
+                logger.debug(
+                    `[updateSampleFiles] BAM metadata for '${sampleName}': hasMods=${hasMods}, hasEvents=${hasEvents}`
+                );
+
+                // Update the loaded item in unified state
+                const itemId = `sample:${sampleName}`;
+                const existingItem = state.getLoadedItem(itemId);
+                if (existingItem) {
+                    const updatedItem: LoadedItem = {
+                        ...existingItem,
+                        bamPath: effectiveBamPath,
+                        hasAlignments: true,
+                        hasMods: hasMods as boolean,
+                        hasEvents: hasEvents as boolean,
+                    };
+                    state.addLoadedItem(updatedItem);
+                    logger.debug(
+                        `[updateSampleFiles] Updated loaded item with BAM metadata for '${sampleName}'`
+                    );
+                }
+            } catch (bamError) {
+                logger.debug(
+                    `[updateSampleFiles] Could not query BAM metadata for '${sampleName}':`,
+                    bamError
+                );
+                // Non-fatal - BAM is loaded, just metadata query failed
+            }
+        }
+
         statusBarMessenger.show('Updated', 'pencil');
 
         logger.debug(`[updateSampleFiles] Successfully updated files for '${sampleName}'`);
