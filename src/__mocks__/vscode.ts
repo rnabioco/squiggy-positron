@@ -41,6 +41,10 @@ export class ThemeIcon {
     constructor(public id: string) {}
 }
 
+export class ThemeColor {
+    constructor(public id: string) {}
+}
+
 export interface Command {
     command: string;
     title: string;
@@ -168,6 +172,22 @@ export enum ViewColumn {
     Nine = 9,
 }
 
+// Mock Status Bar Alignment
+export enum StatusBarAlignment {
+    Left = 1,
+    Right = 2,
+}
+
+// Mock StatusBarItem
+export interface StatusBarItem {
+    text: string;
+    tooltip: string | undefined;
+    command: string | undefined;
+    show: () => void;
+    hide: () => void;
+    dispose: () => void;
+}
+
 // Mock window API
 export const window = {
     showErrorMessage: jest.fn().mockResolvedValue(undefined),
@@ -191,6 +211,16 @@ export const window = {
         hide: jest.fn(),
         dispose: jest.fn(),
     })),
+    createStatusBarItem: jest.fn(
+        (_alignment?: StatusBarAlignment, _priority?: number): StatusBarItem => ({
+            text: '',
+            tooltip: undefined,
+            command: undefined,
+            show: jest.fn(),
+            hide: jest.fn(),
+            dispose: jest.fn(),
+        })
+    ),
 };
 
 // Command registry for testing

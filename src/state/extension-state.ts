@@ -20,6 +20,7 @@ import { SessionStateManager } from './session-state-manager';
 import { PathResolver } from './path-resolver';
 import { FileResolver } from './file-resolver';
 import { logger } from '../utils/logger';
+import { statusBarMessenger } from '../utils/status-bar-messenger';
 
 /**
  * Information about a loaded sample (POD5 + optional BAM/FASTA)
@@ -951,7 +952,7 @@ squiggy.close_fasta()
         if (errors.length > 0) {
             vscode.window.showWarningMessage(`Session restored with errors:\n${errors.join('\n')}`);
         } else {
-            vscode.window.showInformationMessage('Session restored successfully');
+            statusBarMessenger.show('Restored', 'folder-opened');
         }
     }
 
@@ -1203,8 +1204,6 @@ squiggy.close_fasta()
         // Restore from demo session
         await this.fromSessionState(demoSession, context);
 
-        vscode.window.showInformationMessage(
-            'Demo session loaded! Explore 180 yeast tRNA reads with base annotations.'
-        );
+        statusBarMessenger.show('Demo loaded', 'play');
     }
 }
