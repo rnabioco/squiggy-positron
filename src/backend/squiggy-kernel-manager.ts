@@ -362,6 +362,14 @@ del _squiggy_temp_path
             await positron.runtime.executeCode(
                 'python',
                 `
+import sys
+
+# Force fresh import by clearing cached modules (ensures code changes are picked up)
+_to_remove = [key for key in sys.modules if key.startswith('squiggy')]
+for _key in _to_remove:
+    del sys.modules[_key]
+
+# Now import fresh from disk
 import squiggy
 assert hasattr(squiggy, 'load_pod5'), "squiggy.load_pod5 not found"
 assert hasattr(squiggy, 'load_bam'), "squiggy.load_bam not found"
@@ -620,6 +628,14 @@ del _squiggy_temp_path
     private async verifySquiggyAvailable(): Promise<void> {
         try {
             await this.executeSilent(`
+import sys
+
+# Force fresh import by clearing cached modules (ensures code changes are picked up)
+_to_remove = [key for key in sys.modules if key.startswith('squiggy')]
+for _key in _to_remove:
+    del sys.modules[_key]
+
+# Now import fresh from disk
 import squiggy
 assert hasattr(squiggy, 'load_pod5'), "squiggy.load_pod5 not found"
 assert hasattr(squiggy, 'load_bam'), "squiggy.load_bam not found"

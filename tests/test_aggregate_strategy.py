@@ -346,14 +346,14 @@ class TestAggregateTracks:
             "num_reads": 15,
         }
 
-    def test_gridplot_has_four_rows(self, sample_data):
-        """Test that gridplot has four rows (header, pileup, signal, quality)"""
+    def test_gridplot_has_five_rows(self, sample_data):
+        """Test that gridplot has five rows (header, pileup, signal, quality, coverage)"""
         strategy = AggregatePlotStrategy(Theme.LIGHT)
 
         _, grid = strategy.create_plot(sample_data, {})
 
         # GridPlot children are tuples of (figure, row, col)
-        assert len(grid.children) == 4
+        assert len(grid.children) == 5
 
     def test_all_data_tracks_are_plots(self, sample_data):
         """Test that all data tracks (after header) are Plot objects"""
@@ -362,7 +362,7 @@ class TestAggregateTracks:
         _, grid = strategy.create_plot(sample_data, {})
 
         # GridPlot children are tuples of (figure, row, col)
-        # Panel order: header (0), pileup (1), signal (2), quality (3)
+        # Panel order: header (0), pileup (1), signal (2), quality (3), coverage (4)
         # Skip the header (index 0) which is a Div
         for fig, _row, _col in grid.children[1:]:
             assert isinstance(fig, Plot)
@@ -498,7 +498,7 @@ class TestAggregateIntegration:
 
         assert isinstance(html, str)
         assert isinstance(grid, GridPlot)
-        assert len(grid.children) == 4  # header + pileup + signal + quality
+        assert len(grid.children) == 5  # header + pileup + signal + quality + coverage
         assert "chr1:1000-1100" in html
         assert "50 reads" in html
 
@@ -660,3 +660,136 @@ class TestAggregateIntegration:
 
         assert isinstance(html, str)
         assert isinstance(grid, GridPlot)
+
+
+class TestRnaMode:
+    """Tests for RNA mode (T -> U display)"""
+
+    @pytest.fixture
+    def sample_data_with_T_reference(self):
+        """Sample data with T bases in reference and pileup"""
+        positions = np.arange(10)
+        return {
+            "aggregate_stats": {
+                "positions": positions,
+                "mean_signal": np.random.randn(10),
+                "std_signal": np.abs(np.random.randn(10)),
+                "median_signal": np.random.randn(10),
+                "coverage": np.full(10, 20),
+            },
+            "pileup_stats": {
+                "positions": positions,
+                "counts": {pos: {"A": 5, "C": 5, "G": 5, "T": 5} for pos in positions},
+                # Include some T bases in reference
+                "reference_bases": {
+                    0: "A",
+                    1: "T",
+                    2: "C",
+                    3: "G",
+                    4: "T",
+                    5: "A",
+                    6: "T",
+                    7: "C",
+                    8: "G",
+                    9: "T",
+                },
+            },
+            "quality_stats": {
+                "positions": positions,
+                "mean_quality": np.random.uniform(25, 35, 10),
+                "std_quality": np.random.uniform(2, 4, 10),
+            },
+            "reference_name": "rna_test:1-10",
+            "num_reads": 20,
+        }
+
+    def test_rna_mode_disabled_shows_T(self, sample_data_with_T_reference):
+        """Test that with rna_mode=False, T is shown in pileup"""
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        options = {"rna_mode": False, "show_signal": False, "show_quality": False}
+        html, grid = strategy.create_plot(sample_data_with_T_reference, options)
+
+        # Check that T is in the HTML (legend label)
+        assert ">T<" in html or "legend" in html.lower()
+        # U should NOT appear in DNA mode
+        assert ">U<" not in html
+
+    def test_rna_mode_enabled_shows_U(self, sample_data_with_T_reference):
+        """Test that with rna_mode=True, U is shown instead of T in pileup"""
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        options = {"rna_mode": True, "show_signal": False, "show_quality": False}
+        html, grid = strategy.create_plot(sample_data_with_T_reference, options)
+
+        # Check that U is in the HTML (in legend label as JSON)
+        # Bokeh JSON format: "label":{"type":"value","value":"U"}
+        assert '"value":"U"' in html, "U should appear in legend labels"
+        # U should also be in the pileup data columns
+        assert '"U"' in html
+
+    def test_rna_mode_reference_base_T_to_U(self, sample_data_with_T_reference):
+        """Test that reference T bases are displayed as U in RNA mode"""
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        options = {"rna_mode": True, "show_signal": False, "show_quality": False}
+        _, grid = strategy.create_plot(sample_data_with_T_reference, options)
+
+        # Find the pileup track (index 1 after header)
+        pileup_track, _, _ = grid.children[1]
+
+        # Look at the data sources for the text labels (reference bases)
+        # The text labels should show U instead of T for positions 1, 4, 6, 9
+        text_renderers = [
+            r
+            for r in pileup_track.renderers
+            if hasattr(r, "glyph") and hasattr(r.glyph, "text")
+        ]
+        if text_renderers:
+            for renderer in text_renderers:
+                source = renderer.data_source
+                if "text" in source.data:
+                    texts = source.data["text"]
+                    # All T's should be converted to U's in RNA mode
+                    assert "T" not in texts, "T should be converted to U in RNA mode"
+
+    def test_rna_mode_default_is_false(self, sample_data_with_T_reference):
+        """Test that RNA mode defaults to False when not specified"""
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        # Don't specify rna_mode - should default to False (DNA mode)
+        options = {"show_signal": False, "show_quality": False}
+        html, grid = strategy.create_plot(sample_data_with_T_reference, options)
+
+        # Should show T (DNA mode), not U
+        assert ">T<" in html or "legend" in html.lower()
+
+    def test_rna_mode_pileup_data_structure(self, sample_data_with_T_reference):
+        """Test that pileup data uses U keys in RNA mode"""
+        strategy = AggregatePlotStrategy(Theme.LIGHT)
+
+        options = {"rna_mode": True, "show_signal": False, "show_quality": False}
+        _, grid = strategy.create_plot(sample_data_with_T_reference, options)
+
+        # Find the pileup track
+        pileup_track, _, _ = grid.children[1]
+
+        # Find vbar renderers (the stacked bars)
+        vbar_renderers = [
+            r
+            for r in pileup_track.renderers
+            if hasattr(r, "glyph") and r.glyph.__class__.__name__ == "VBar"
+        ]
+
+        # Check that we have 4 renderers (A, C, G, U)
+        assert len(vbar_renderers) == 4
+
+        # Check that the data source has U columns, not T columns
+        if vbar_renderers:
+            source = vbar_renderers[0].data_source
+            data_keys = list(source.data.keys())
+            assert "U" in data_keys, "RNA mode should have U column"
+            assert "U_bottom" in data_keys, "RNA mode should have U_bottom column"
+            assert "U_top" in data_keys, "RNA mode should have U_top column"
+            # T columns should not exist in RNA mode
+            assert "T" not in data_keys, "RNA mode should not have T column"

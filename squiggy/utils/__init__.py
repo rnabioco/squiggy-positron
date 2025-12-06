@@ -15,6 +15,7 @@ organized into submodules by functionality:
 # BAM utilities
 from .bam import (
     ModelProvenance,
+    extract_alignments_for_reference,
     extract_model_provenance,
     extract_reads_for_reference,
     get_available_reads_for_reference,
@@ -73,9 +74,14 @@ from .signal import (
 from .statistics import (
     calculate_aggregate_signal,
     calculate_base_pileup,
+    calculate_base_pileup_from_alignments,
+    calculate_coverage_from_alignments,
     calculate_dwell_time_statistics,
     calculate_modification_statistics,
+    calculate_modification_statistics_from_alignments,
     calculate_quality_by_position,
+    calculate_quality_by_position_from_alignments,
+    iter_aligned_positions,
 )
 
 __all__ = [
@@ -101,6 +107,7 @@ __all__ = [
     "get_reference_sequence_from_fasta",
     "get_available_reads_for_reference",
     "extract_reads_for_reference",
+    "extract_alignments_for_reference",
     "extract_model_provenance",
     "validate_sq_headers",
     "open_bam_safe",
@@ -115,6 +122,12 @@ __all__ = [
     "calculate_aggregate_signal",
     "calculate_base_pileup",
     "calculate_quality_by_position",
+    # Pileup-only statistics (no move tables required)
+    "iter_aligned_positions",
+    "calculate_base_pileup_from_alignments",
+    "calculate_quality_by_position_from_alignments",
+    "calculate_modification_statistics_from_alignments",
+    "calculate_coverage_from_alignments",
     # Comparison utilities
     "compare_read_sets",
     "calculate_delta_stats",

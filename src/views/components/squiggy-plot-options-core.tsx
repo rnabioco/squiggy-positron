@@ -25,6 +25,8 @@ interface PlotOptionsState {
     hasPod5: boolean;
     hasBam: boolean;
     hasFasta: boolean;
+    hasEvents: boolean; // Any selected sample has mv tags (signal-to-base mapping)
+    hasMods: boolean; // Any selected sample has MM/ML tags (base modifications)
 
     // Common options
     normalization: 'NONE' | 'ZNORM' | 'MEDIAN' | 'MAD';
@@ -50,6 +52,8 @@ interface PlotOptionsState {
     showPileup: boolean;
     showSignal: boolean;
     showQuality: boolean;
+    showCoverage: boolean;
+    rnaMode: boolean;
     availableReferences: string[];
 
     // Comparison options
@@ -67,6 +71,8 @@ export const PlotOptionsCore: React.FC = () => {
         hasPod5: false,
         hasBam: false,
         hasFasta: false,
+        hasEvents: false, // Default to false - will be updated when samples load
+        hasMods: false, // Default to false - will be updated when samples load
         normalization: 'ZNORM',
         // Single Read options (used by Read Explorer clicks, not this panel)
         plotMode: 'SINGLE',
@@ -87,6 +93,8 @@ export const PlotOptionsCore: React.FC = () => {
         showPileup: true,
         showSignal: true,
         showQuality: true,
+        showCoverage: false, // Off by default
+        rnaMode: false,
         availableReferences: [],
         // Comparison
         loadedSamples: [],
@@ -132,6 +140,8 @@ export const PlotOptionsCore: React.FC = () => {
                         showPileup: message.options.showPileup ?? prev.showPileup,
                         showSignal: message.options.showSignal ?? prev.showSignal,
                         showQuality: message.options.showQuality ?? prev.showQuality,
+                        showCoverage: message.options.showCoverage ?? prev.showCoverage,
+                        rnaMode: message.options.rnaMode ?? prev.rnaMode,
                     }));
                     break;
                 case 'updatePod5Status':
@@ -179,9 +189,23 @@ export const PlotOptionsCore: React.FC = () => {
                         // Don't auto-select samples here - visualization selection is managed
                         // by the Sample Manager (eye icons) and synced via updateSelectedSamples message
                         // This prevents the "only first 2 samples" bug (Issue #124)
+
+                        // Compute hasEvents/hasMods from selected samples
+                        const selectedSampleData = message.samples.filter((s: SampleItem) =>
+                            prev.selectedSamples.includes(s.name)
+                        );
+                        const hasEvents = selectedSampleData.some(
+                            (s: SampleItem) => s.hasEvents === true
+                        );
+                        const hasMods = selectedSampleData.some(
+                            (s: SampleItem) => s.hasMods === true
+                        );
+
                         return {
                             ...prev,
                             loadedSamples: message.samples,
+                            hasEvents,
+                            hasMods,
                             // Preserve existing selectedSamples - will be updated by updateSelectedSamples
                         };
                     });
@@ -191,10 +215,21 @@ export const PlotOptionsCore: React.FC = () => {
                         '[PlotOptions React] Updating selectedSamples from extension:',
                         message.selectedSamples
                     );
-                    setOptions((prev) => ({
-                        ...prev,
-                        selectedSamples: message.selectedSamples,
-                    }));
+                    setOptions((prev) => {
+                        // Recompute hasEvents/hasMods based on new selection
+                        const selectedSampleData = prev.loadedSamples.filter((s) =>
+                            message.selectedSamples.includes(s.name)
+                        );
+                        const hasEvents = selectedSampleData.some((s) => s.hasEvents === true);
+                        const hasMods = selectedSampleData.some((s) => s.hasMods === true);
+
+                        return {
+                            ...prev,
+                            selectedSamples: message.selectedSamples,
+                            hasEvents,
+                            hasMods,
+                        };
+                    });
                     break;
             }
         };
@@ -264,6 +299,11 @@ export const PlotOptionsCore: React.FC = () => {
     const handleGenerateAggregate = () => {
         // Unified handler: works for 1+ samples
         console.log('[PlotOptions] Generating aggregate with samples:', options.selectedSamples);
+        // Send effective values - if hasEvents is false, signal/dwell are forced off
+        // This triggers plot_pileup() instead of plot_aggregate() for BAMs without mv tags
+        const effectiveShowDwellTime = options.showDwellTime && options.hasEvents;
+        const effectiveShowSignal = options.showSignal && options.hasEvents;
+
         sendMessage('generateAggregatePlot', {
             sampleNames: options.selectedSamples, // Now required for all aggregate plots
             reference: options.aggregateReference,
@@ -272,11 +312,13 @@ export const PlotOptionsCore: React.FC = () => {
             normalization: options.normalization,
             showModifications: options.showModifications,
             showPileup: options.showPileup,
-            showDwellTime: options.showDwellTime,
-            showSignal: options.showSignal,
+            showDwellTime: effectiveShowDwellTime,
+            showSignal: effectiveShowSignal,
             showQuality: options.showQuality,
+            showCoverage: options.showCoverage,
             clipXAxisToAlignment: options.clipXAxisToAlignment,
             transformCoordinates: options.transformCoordinates,
+            rnaMode: options.rnaMode,
         });
     };
 
@@ -759,25 +801,55 @@ export const PlotOptionsCore: React.FC = () => {
                             </label>
                         </div>
 
+                        {/* RNA Mode - show U instead of T in pileup */}
+                        {options.showPileup && (
+                            <div
+                                className="plot-options-checkbox-row"
+                                style={{ marginLeft: '22px' }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="rnaMode"
+                                    checked={options.rnaMode}
+                                    onChange={(e) =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            rnaMode: e.target.checked,
+                                        }))
+                                    }
+                                    disabled={!options.hasBam}
+                                />
+                                <label htmlFor="rnaMode" className="plot-options-checkbox-label">
+                                    Show as RNA (U instead of T)
+                                </label>
+                            </div>
+                        )}
+
                         {/* Dwell Time Panel */}
                         <div className="plot-options-checkbox-row">
                             <input
                                 type="checkbox"
                                 id="showDwellTimeAggregate"
-                                checked={options.showDwellTime}
+                                checked={options.showDwellTime && options.hasEvents}
                                 onChange={(e) =>
                                     setOptions((prev) => ({
                                         ...prev,
                                         showDwellTime: e.target.checked,
                                     }))
                                 }
-                                disabled={!options.hasBam}
+                                disabled={!options.hasBam || !options.hasEvents}
                             />
                             <label
                                 htmlFor="showDwellTimeAggregate"
                                 className="plot-options-checkbox-label"
+                                style={{
+                                    opacity: options.hasEvents ? 1 : 0.5,
+                                }}
                             >
                                 Dwell time
+                                {!options.hasEvents && options.hasBam && (
+                                    <span className="plot-options-tag-disabled">no mv tag</span>
+                                )}
                             </label>
                         </div>
 
@@ -786,20 +858,26 @@ export const PlotOptionsCore: React.FC = () => {
                             <input
                                 type="checkbox"
                                 id="showSignalAggregate"
-                                checked={options.showSignal}
+                                checked={options.showSignal && options.hasEvents}
                                 onChange={(e) =>
                                     setOptions((prev) => ({
                                         ...prev,
                                         showSignal: e.target.checked,
                                     }))
                                 }
-                                disabled={!options.hasBam}
+                                disabled={!options.hasBam || !options.hasEvents}
                             />
                             <label
                                 htmlFor="showSignalAggregate"
                                 className="plot-options-checkbox-label"
+                                style={{
+                                    opacity: options.hasEvents ? 1 : 0.5,
+                                }}
                             >
                                 Signal
+                                {!options.hasEvents && options.hasBam && (
+                                    <span className="plot-options-tag-disabled">no mv tag</span>
+                                )}
                             </label>
                         </div>
 
@@ -822,6 +900,28 @@ export const PlotOptionsCore: React.FC = () => {
                                 className="plot-options-checkbox-label"
                             >
                                 Quality scores
+                            </label>
+                        </div>
+
+                        {/* Coverage Panel */}
+                        <div className="plot-options-checkbox-row">
+                            <input
+                                type="checkbox"
+                                id="showCoverageAggregate"
+                                checked={options.showCoverage}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        showCoverage: e.target.checked,
+                                    }))
+                                }
+                                disabled={!options.hasBam}
+                            />
+                            <label
+                                htmlFor="showCoverageAggregate"
+                                className="plot-options-checkbox-label"
+                            >
+                                Coverage depth
                             </label>
                         </div>
                     </div>

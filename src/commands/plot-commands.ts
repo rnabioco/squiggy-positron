@@ -438,9 +438,10 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
                 true, // showDwellTime
                 true, // showSignal
                 true, // showQuality
+                false, // showCoverage (off by default)
                 true, // clipXAxisToAlignment
                 true, // transformCoordinates
-                state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
+                undefined, // Pass current sample for multi-sample mode
                 modFilters.minFrequency,
                 modFilters.minModifiedReads
             );

@@ -193,8 +193,10 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     showDwellTime: boolean;
     showSignal: boolean;
     showQuality: boolean;
+    showCoverage: boolean;
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
+    rnaMode: boolean;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
@@ -277,6 +279,8 @@ export interface PlotOptions {
     showPileup?: boolean;
     showSignal?: boolean;
     showQuality?: boolean;
+    showCoverage?: boolean;
+    rnaMode?: boolean;
 
     // Comparison options
     selectedSamples?: string[]; // For multi-sample comparisons
@@ -352,6 +356,8 @@ export interface SampleItem {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+    hasMods?: boolean; // BAM has MM/ML tags for base modifications
+    hasEvents?: boolean; // BAM has mv tag for signal-to-base mapping
     references?: ReferenceInfo[]; // List of references this sample aligns to
 }
 

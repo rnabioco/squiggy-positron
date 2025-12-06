@@ -177,13 +177,16 @@ def _load_sample_files(
         if not os.path.exists(abs_fasta_path):
             raise FileNotFoundError(f"FASTA file not found: {abs_fasta_path}")
 
-        # Check for index
+        # Check for index, create if missing
         fai_path = abs_fasta_path + ".fai"
         if not os.path.exists(fai_path):
-            raise FileNotFoundError(
-                f"FASTA index not found: {fai_path}. "
-                f"Create index with: samtools faidx {abs_fasta_path}"
-            )
+            try:
+                pysam.faidx(abs_fasta_path)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to create FASTA index for {abs_fasta_path}. "
+                    f"Error: {e}. You can also create it manually with: samtools faidx {abs_fasta_path}"
+                ) from e
 
         # Open FASTA file to get metadata
         fasta = pysam.FastaFile(abs_fasta_path)
