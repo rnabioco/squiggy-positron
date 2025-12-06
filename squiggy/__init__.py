@@ -23,7 +23,7 @@ Example usage in Jupyter notebook:
     >>> show(Div(text=html))
 """
 
-__version__ = "0.1.21"
+__version__ = "0.1.22"
 
 # Object-oriented API (NEW - notebook-friendly)
 # Core data structures and constants

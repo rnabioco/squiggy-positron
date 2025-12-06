@@ -1,5 +1,21 @@
 # Squiggy Release Notes
 
+## v0.1.22-alpha (2025-12-05)
+
+New visualization features for BAM files without move tables and improved aggregate plot context.
+
+### Features
+
+- **Pileup-Only Visualization**: Added support for visualizing BAM files without move tables, displaying base pileup and quality tracks when signal alignment is not available (#171)
+- **Reference Header Panel**: Aggregate plots now include a reference header panel showing reference name, position range, and optional sample name for better context (#170)
+- **Genomic DNA Test Data Script**: Added script for extracting genomic DNA test data to support expanded testing scenarios (#172)
+
+### Improvements
+
+- **Kernel Restart**: Improved kernel restart reliability and user feedback
+- **Status Bar Version Display**: Moved version display from sidebar title to status bar for cleaner UI
+- **Startup Progress Messages**: Clarified startup progress messages for better user feedback
+
 ## v0.1.21-alpha (2025-12-05)
 
 UX improvements with simplified kernel architecture and cleaner status notifications.
