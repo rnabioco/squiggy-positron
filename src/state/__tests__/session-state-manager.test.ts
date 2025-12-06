@@ -65,6 +65,7 @@ describe('SessionStateManager', () => {
                 scaleDwellTime: false,
                 downsample: 5,
                 showSignalPoints: false,
+                trimAdapters: false,
             },
         };
 

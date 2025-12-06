@@ -151,6 +151,20 @@ class SingleReadPlotStrategy(PlotStrategy):
         min_mod_probability = options.get("min_mod_probability", 0.5)
         enabled_mod_types = options.get("enabled_mod_types", None)
         coordinate_space = options.get("coordinate_space", "signal")
+        trim_adapters = options.get("trim_adapters", False)
+
+        # Apply adapter trimming if requested (before normalization/downsampling)
+        if trim_adapters and aligned_read is not None:
+            signal, seq_to_sig_map, _ = self._apply_adapter_trimming(
+                signal, aligned_read, seq_to_sig_map
+            )
+            # Also trim the sequence if available
+            if sequence and aligned_read:
+                query_start = getattr(aligned_read, "query_start_offset", 0)
+                query_end = getattr(aligned_read, "query_end_offset", 0)
+                if query_start > 0 or query_end > 0:
+                    end_idx = len(sequence) - query_end if query_end > 0 else len(sequence)
+                    sequence = sequence[query_start:end_idx]
 
         # Process signal (normalize and downsample)
         signal, seq_to_sig_map = self._process_signal(

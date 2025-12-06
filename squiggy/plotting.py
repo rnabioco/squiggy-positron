@@ -37,6 +37,153 @@ from .utils import (
 )
 
 
+def _apply_adapter_trimming_to_reads(reads_data: list[dict]) -> list[dict]:
+    """
+    Apply adapter trimming to a list of read data dictionaries.
+
+    Trims the signal and sequence data based on soft-clip information from
+    the query_start_offset and query_end_offset fields. This should be called
+    before calculating aggregate statistics to exclude adapter regions.
+
+    Args:
+        reads_data: List of read data dictionaries from extract_reads_for_reference.
+                   Each dict should contain: signal, sequence, move_table, stride,
+                   query_start_offset, query_end_offset
+
+    Returns:
+        List of read data dictionaries with trimmed signal and sequence data
+
+    Note:
+        Reads without soft-clipping are returned unchanged.
+        Reads where trimming would remove all data are filtered out.
+    """
+    trimmed_reads = []
+
+    for read_info in reads_data:
+        query_start = read_info.get("query_start_offset", 0)
+        query_end = read_info.get("query_end_offset", 0)
+
+        # If no soft-clipping, keep read as-is
+        if query_start == 0 and query_end == 0:
+            trimmed_reads.append(read_info)
+            continue
+
+        signal = read_info.get("signal")
+        sequence = read_info.get("sequence", "")
+        move_table = read_info.get("move_table")
+        stride = read_info.get("stride", 1)
+
+        if signal is None:
+            continue
+
+        # Calculate signal trim indices from base positions via move table
+        # Move table maps signal samples to base boundaries
+        trim_signal_start = 0
+        trim_signal_end = len(signal)
+
+        if move_table is not None and len(move_table) > 0:
+            # Move table contains cumulative moves (1 = new base starts)
+            # Build base boundary positions
+            base_positions = []
+            current_pos = 0
+            for move in move_table:
+                if move == 1:
+                    base_positions.append(current_pos)
+                current_pos += stride
+
+            # Trim signal based on soft-clip base counts
+            if query_start > 0 and len(base_positions) > query_start:
+                trim_signal_start = base_positions[query_start]
+
+            if query_end > 0:
+                last_aligned_base = len(base_positions) - query_end
+                if last_aligned_base > 0 and last_aligned_base < len(base_positions):
+                    # Signal end is at the next base boundary or signal end
+                    if last_aligned_base + 1 < len(base_positions):
+                        trim_signal_end = base_positions[last_aligned_base + 1]
+
+        # Validate trim boundaries
+        if trim_signal_start >= trim_signal_end or trim_signal_start >= len(signal):
+            continue  # Skip reads with invalid trim
+
+        # Create trimmed read info
+        trimmed_info = read_info.copy()
+        trimmed_info["signal"] = signal[trim_signal_start:trim_signal_end]
+
+        # Trim sequence
+        if sequence:
+            seq_end = len(sequence) - query_end if query_end > 0 else len(sequence)
+            trimmed_info["sequence"] = sequence[query_start:seq_end]
+
+        # Trim quality scores if present
+        quality_scores = read_info.get("quality_scores")
+        if quality_scores is not None and len(quality_scores) > 0:
+            qual_end = len(quality_scores) - query_end if query_end > 0 else len(quality_scores)
+            trimmed_info["quality_scores"] = quality_scores[query_start:qual_end]
+
+        # Adjust move table if present
+        if move_table is not None:
+            # The move table needs to be sliced to match the trimmed signal
+            # Each entry in move_table corresponds to 'stride' signal samples
+            move_start_idx = trim_signal_start // stride
+            move_end_idx = trim_signal_end // stride
+            trimmed_move_table = move_table[move_start_idx:move_end_idx]
+
+            # Verify the move table has the correct number of bases
+            # The expected number of aligned bases is: total - soft_start - soft_end
+            expected_bases = len(sequence) - query_start - query_end if sequence else None
+            actual_bases = sum(trimmed_move_table) if len(trimmed_move_table) > 0 else 0
+
+            # If we have too many bases, trim the move table from the end
+            if expected_bases is not None and actual_bases > expected_bases:
+                # Find and remove extra move=1 entries from the end
+                import numpy as np
+
+                excess = actual_bases - expected_bases
+                trimmed_list = list(trimmed_move_table)
+                removed = 0
+                for i in range(len(trimmed_list) - 1, -1, -1):
+                    if trimmed_list[i] == 1:
+                        trimmed_list[i] = 0
+                        removed += 1
+                        if removed >= excess:
+                            break
+                trimmed_move_table = np.array(trimmed_list, dtype=np.uint8)
+
+            trimmed_info["move_table"] = trimmed_move_table
+
+        # Adjust reference positions if present (for coordinate mapping)
+        if "reference_start" in read_info and query_start > 0:
+            # Increment reference_start by the number of bases trimmed from start
+            trimmed_info["reference_start"] = read_info["reference_start"] + query_start
+
+        if "reference_end" in read_info and query_end > 0:
+            # Decrement reference_end by the number of bases trimmed from end
+            trimmed_info["reference_end"] = read_info["reference_end"] - query_end
+
+        if "query_to_ref" in read_info:
+            # Adjust query_to_ref mapping for trimmed coordinates
+            old_mapping = read_info["query_to_ref"]
+            new_mapping = {}
+            # Calculate new sequence length after trimming
+            new_seq_len = len(trimmed_info.get("sequence", "")) if trimmed_info.get("sequence") else None
+            for query_pos, ref_pos in old_mapping.items():
+                new_query_pos = query_pos - query_start
+                # Filter out positions outside the trimmed range
+                if new_query_pos >= 0:
+                    if new_seq_len is None or new_query_pos < new_seq_len:
+                        new_mapping[new_query_pos] = ref_pos
+            trimmed_info["query_to_ref"] = new_mapping
+
+        # Reset soft-clip offsets since we've trimmed them
+        trimmed_info["query_start_offset"] = 0
+        trimmed_info["query_end_offset"] = 0
+
+        trimmed_reads.append(trimmed_info)
+
+    return trimmed_reads
+
+
 def plot_read(
     read_id: str,
     mode: str = "SINGLE",
@@ -53,6 +200,7 @@ def plot_read(
     clip_x_to_alignment: bool = True,
     sample_name: str | None = None,
     coordinate_space: str = "signal",
+    trim_adapters: bool = False,
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -76,6 +224,8 @@ def plot_read(
                      plots from that specific sample instead of the global session.
         coordinate_space: X-axis coordinate system ('signal' or 'sequence').
                          'signal' uses sample indices, 'sequence' uses genomic positions (requires BAM).
+        trim_adapters: If True, trim soft-clipped (adapter) regions from the signal before
+                       plotting. Uses CIGAR soft-clip information from BAM file. Default False.
 
     Returns:
         Bokeh HTML string
@@ -128,8 +278,8 @@ def plot_read(
             "sample_rate": read_obj.run_info.sample_rate,
         }
 
-        # If sequence coordinate space requested, get alignment data
-        if coordinate_space == "sequence":
+        # If sequence coordinate space or trim_adapters requested, get alignment data
+        if coordinate_space == "sequence" or trim_adapters:
             if sample_name:
                 sample = squiggy_kernel.get_sample(sample_name)
                 bam_path = sample._bam_path if sample else None
@@ -137,9 +287,14 @@ def plot_read(
                 bam_path = squiggy_kernel._bam_path
 
             if bam_path is None:
-                raise ValueError(
-                    "Sequence coordinate space requires a BAM file. Call load_bam() first or use coordinate_space='signal'."
-                )
+                if trim_adapters:
+                    raise ValueError(
+                        "Adapter trimming requires a BAM file. Call load_bam() first or disable trim_adapters."
+                    )
+                else:
+                    raise ValueError(
+                        "Sequence coordinate space requires a BAM file. Call load_bam() first or use coordinate_space='signal'."
+                    )
 
             from .alignment import extract_alignment_from_bam
 
@@ -155,6 +310,7 @@ def plot_read(
             "show_signal_points": show_signal_points,
             "x_axis_mode": "dwell_time" if scale_dwell_time else "regular_time",
             "coordinate_space": coordinate_space,
+            "trim_adapters": trim_adapters,
         }
 
     elif plot_mode == PlotMode.EVENTALIGN:
@@ -209,6 +365,7 @@ def plot_read(
             "show_signal_points": show_signal_points,
             "position_label_interval": position_label_interval,
             "clip_x_to_alignment": clip_x_to_alignment,
+            "trim_adapters": trim_adapters,
         }
 
     else:
@@ -242,6 +399,7 @@ def plot_reads(
     read_sample_map: dict[str, str] | None = None,
     read_colors: dict[str, str] | None = None,
     coordinate_space: str = "signal",
+    trim_adapters: bool = False,
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -268,6 +426,8 @@ def plot_reads(
                      the default color cycling. Useful for sample-based coloring.
         coordinate_space: Coordinate system for x-axis ('signal' or 'sequence').
                           'signal' uses raw sample points, 'sequence' uses BAM alignment positions.
+        trim_adapters: If True, trim soft-clipped (adapter) regions from signals before
+                       plotting. Uses CIGAR soft-clip information from BAM file. Default False.
 
     Returns:
         Bokeh HTML string
@@ -398,6 +558,7 @@ def plot_reads(
             "downsample": downsample,
             "show_signal_points": show_signal_points,
             "coordinate_space": coordinate_space,
+            "trim_adapters": trim_adapters,
         }
         # Add read colors if provided (for multi-sample coloring)
         if read_colors:
@@ -442,6 +603,7 @@ def plot_reads(
             "show_dwell_time": scale_dwell_time,
             "show_labels": show_labels,
             "show_signal_points": show_signal_points,
+            "trim_adapters": trim_adapters,
         }
 
     else:
@@ -478,6 +640,7 @@ def plot_aggregate(
     transform_coordinates: bool = True,
     rna_mode: bool = False,
     sample_name: str | None = None,
+    trim_adapters: bool = False,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -513,6 +676,9 @@ def plot_aggregate(
                                reference base (default True). If False, use raw genomic coordinates.
         sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        trim_adapters: If True, trim soft-clipped (adapter) regions from signals before
+                       aggregation. Uses CIGAR soft-clip information from BAM. Default False.
+                       When enabled, aggregate plots start at position 1 (first aligned base).
 
     Returns:
         Bokeh HTML string with synchronized tracks
@@ -572,6 +738,10 @@ def plot_aggregate(
         raise ValueError(
             f"No reads found for reference '{reference_name}'. Check BAM file and reference name."
         )
+
+    # Apply adapter trimming if requested
+    if trim_adapters:
+        reads_data = _apply_adapter_trimming_to_reads(reads_data)
 
     num_reads = len(reads_data)
 
@@ -708,6 +878,7 @@ def plot_aggregate(
         "show_coverage": show_coverage,
         "clip_x_to_alignment": clip_x_to_alignment,
         "rna_mode": rna_mode,
+        "trim_adapters": trim_adapters,
     }
 
     # Create strategy and generate plot

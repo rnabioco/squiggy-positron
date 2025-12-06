@@ -384,7 +384,8 @@ async function plotReads(
                 options.downsample,
                 options.showSignalPoints,
                 state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
-                coordinateSpace
+                coordinateSpace,
+                options.trimAdapters ?? false
             );
             logger.info('Plot generated successfully (dedicated kernel)');
         },
@@ -443,7 +444,9 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
                 true, // transformCoordinates
                 undefined, // Pass current sample for multi-sample mode
                 modFilters.minFrequency,
-                modFilters.minModifiedReads
+                modFilters.minModifiedReads,
+                false, // rnaMode
+                options.trimAdapters ?? false
             );
         },
         ErrorContext.PLOT_GENERATE,

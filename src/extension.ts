@@ -480,7 +480,8 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.sampleNames[0],
                         modFilters.minFrequency,
                         modFilters.minModifiedReads,
-                        options.rnaMode
+                        options.rnaMode,
+                        options.trimAdapters ?? false
                     );
 
                     statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');

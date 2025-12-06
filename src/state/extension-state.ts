@@ -763,6 +763,7 @@ squiggy.close_fasta()
                   scaleDwellTime: providerOptions.scaleDwellTime ?? false,
                   downsample: providerOptions.downsample ?? 5,
                   showSignalPoints: providerOptions.showSignalPoints ?? false,
+                  trimAdapters: providerOptions.trimAdapters ?? false,
               }
             : {
                   mode: 'SINGLE',
@@ -772,6 +773,7 @@ squiggy.close_fasta()
                   scaleDwellTime: false,
                   downsample: 5,
                   showSignalPoints: false,
+                  trimAdapters: false,
               };
 
         // Get modification filters if available

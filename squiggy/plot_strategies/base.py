@@ -216,6 +216,139 @@ class PlotStrategy(ABC):
 
         return signal, seq_to_sig_map
 
+    def _calculate_adapter_trim_indices(
+        self,
+        aligned_read: Any,
+        signal_length: int,
+    ) -> tuple[int, int]:
+        """
+        Calculate signal indices for adapter trimming based on soft-clip info.
+
+        Uses the soft-clip information from the AlignedRead to determine which
+        portions of the signal correspond to adapter sequences that should be
+        removed.
+
+        The soft-clipped bases map to signal indices through the base annotations:
+        - query_start_offset: Number of bases soft-clipped at 5' end (start)
+        - query_end_offset: Number of bases soft-clipped at 3' end (end)
+
+        Args:
+            aligned_read: AlignedRead object with base annotations and soft-clip info
+            signal_length: Total length of the signal array
+
+        Returns:
+            Tuple of (trim_start, trim_end) signal indices:
+            - trim_start: First signal index to include (0 if no 5' clipping)
+            - trim_end: Last signal index to include (signal_length if no 3' clipping)
+
+        Examples:
+            >>> # Read with 50bp soft-clipped at start, 30bp at end
+            >>> aligned_read.query_start_offset = 50
+            >>> aligned_read.query_end_offset = 30
+            >>> start, end = self._calculate_adapter_trim_indices(aligned_read, 100000)
+            >>> trimmed_signal = signal[start:end]
+        """
+        from ..alignment import AlignedRead
+
+        # Default to full signal if no alignment or no soft-clips
+        if aligned_read is None:
+            return 0, signal_length
+
+        # Get soft-clip offsets
+        query_start_offset = getattr(aligned_read, "query_start_offset", 0)
+        query_end_offset = getattr(aligned_read, "query_end_offset", 0)
+
+        # If no soft-clipping, return full signal range
+        if query_start_offset == 0 and query_end_offset == 0:
+            return 0, signal_length
+
+        # Get base annotations to map base positions to signal positions
+        bases = getattr(aligned_read, "bases", [])
+        if not bases:
+            # No base annotations, can't determine signal positions
+            return 0, signal_length
+
+        # Calculate trim_start: signal index after the soft-clipped 5' bases
+        trim_start = 0
+        if query_start_offset > 0 and len(bases) > query_start_offset:
+            # Signal start is at the first aligned base (after soft-clipped bases)
+            trim_start = bases[query_start_offset].signal_start
+
+        # Calculate trim_end: signal index before the soft-clipped 3' bases
+        trim_end = signal_length
+        if query_end_offset > 0:
+            # Find the last aligned base (before soft-clipped bases at end)
+            last_aligned_idx = len(bases) - query_end_offset - 1
+            if last_aligned_idx >= 0 and last_aligned_idx < len(bases):
+                # End at the signal_end of the last aligned base
+                trim_end = bases[last_aligned_idx].signal_end
+
+        # Validate bounds
+        trim_start = max(0, min(trim_start, signal_length))
+        trim_end = max(trim_start, min(trim_end, signal_length))
+
+        return trim_start, trim_end
+
+    def _apply_adapter_trimming(
+        self,
+        signal: np.ndarray,
+        aligned_read: Any,
+        seq_to_sig_map: list[int] | None = None,
+    ) -> tuple[np.ndarray, list[int] | None, int]:
+        """
+        Trim adapter regions from signal and adjust sequence-to-signal mapping.
+
+        This method removes the signal portions corresponding to soft-clipped
+        (adapter) bases from the read. It uses the AlignedRead's soft-clip
+        information to determine trim boundaries.
+
+        Args:
+            signal: Raw signal array
+            aligned_read: AlignedRead object with soft-clip information
+            seq_to_sig_map: Optional sequence-to-signal index mapping
+
+        Returns:
+            Tuple of (trimmed_signal, adjusted_seq_to_sig_map, trim_start):
+            - trimmed_signal: Signal with adapter regions removed
+            - adjusted_seq_to_sig_map: Mapping adjusted for the new signal indices
+            - trim_start: The starting index that was trimmed (for coordinate adjustment)
+
+        Examples:
+            >>> # Trim adapters from signal
+            >>> trimmed, mapping, offset = self._apply_adapter_trimming(
+            ...     signal, aligned_read, seq_to_sig_map
+            ... )
+        """
+        if aligned_read is None:
+            return signal, seq_to_sig_map, 0
+
+        # Calculate trim indices
+        trim_start, trim_end = self._calculate_adapter_trim_indices(
+            aligned_read, len(signal)
+        )
+
+        # If nothing to trim, return original
+        if trim_start == 0 and trim_end == len(signal):
+            return signal, seq_to_sig_map, 0
+
+        # Trim the signal
+        trimmed_signal = signal[trim_start:trim_end]
+
+        # Adjust sequence-to-signal mapping if provided
+        adjusted_mapping = None
+        if seq_to_sig_map is not None:
+            # Shift indices and filter out any that are now out of bounds
+            adjusted_mapping = []
+            for idx in seq_to_sig_map:
+                new_idx = idx - trim_start
+                if 0 <= new_idx < len(trimmed_signal):
+                    adjusted_mapping.append(new_idx)
+                else:
+                    # Keep the mapping but clamp to valid range
+                    adjusted_mapping.append(max(0, min(new_idx, len(trimmed_signal) - 1)))
+
+        return trimmed_signal, adjusted_mapping, trim_start
+
     def _validate_read_tuples(self, reads: list) -> None:
         """
         Validate list of read tuples

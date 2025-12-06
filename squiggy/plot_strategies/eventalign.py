@@ -149,6 +149,64 @@ class EventAlignPlotStrategy(PlotStrategy):
             "position_label_interval", DEFAULT_POSITION_LABEL_INTERVAL
         )
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
+        trim_adapters = options.get("trim_adapters", False)
+
+        # Apply adapter trimming if requested
+        if trim_adapters:
+            trimmed_reads = []
+            trimmed_aligned = []
+            for (read_id, signal, sample_rate), aligned_read in zip(
+                reads_data, aligned_reads, strict=False
+            ):
+                # Trim signal using soft-clip info
+                trimmed_signal, _, _ = self._apply_adapter_trimming(signal, aligned_read)
+
+                # Trim aligned_read bases if soft-clipping present
+                query_start = getattr(aligned_read, "query_start_offset", 0)
+                query_end = getattr(aligned_read, "query_end_offset", 0)
+                if query_start > 0 or query_end > 0:
+                    # Create a copy of aligned_read with trimmed bases
+                    from ..alignment import AlignedRead
+
+                    end_idx = (
+                        len(aligned_read.bases) - query_end
+                        if query_end > 0
+                        else len(aligned_read.bases)
+                    )
+                    trimmed_bases = aligned_read.bases[query_start:end_idx]
+                    # Adjust signal indices in bases
+                    if trimmed_bases and query_start > 0:
+                        offset = aligned_read.bases[query_start].signal_start
+                        for base in trimmed_bases:
+                            base.signal_start -= offset
+                            base.signal_end -= offset
+                    # Create new AlignedRead with trimmed data
+                    trimmed_seq = (
+                        aligned_read.sequence[query_start:end_idx]
+                        if aligned_read.sequence
+                        else ""
+                    )
+                    new_aligned = AlignedRead(
+                        read_id=aligned_read.read_id,
+                        sequence=trimmed_seq,
+                        bases=trimmed_bases,
+                        chromosome=aligned_read.chromosome,
+                        genomic_start=aligned_read.genomic_start,
+                        genomic_end=aligned_read.genomic_end,
+                        strand=aligned_read.strand,
+                        is_reverse=aligned_read.is_reverse,
+                        modifications=aligned_read.modifications,
+                        query_start_offset=0,  # Already trimmed
+                        query_end_offset=0,
+                    )
+                    trimmed_aligned.append(new_aligned)
+                else:
+                    trimmed_aligned.append(aligned_read)
+
+                trimmed_reads.append((read_id, trimmed_signal, sample_rate))
+
+            reads_data = trimmed_reads
+            aligned_reads = trimmed_aligned
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)

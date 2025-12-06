@@ -187,28 +187,40 @@ describe('PlotOptionsViewProvider', () => {
 
             await messageHandler({
                 type: 'generateAggregatePlot',
+                sampleNames: ['sample1'],
                 reference: 'chr2',
                 maxReads: 150,
+                viewStyle: 'overlay',
                 normalization: 'MAD',
                 showModifications: true,
                 showPileup: true,
                 showDwellTime: false,
                 showSignal: true,
                 showQuality: true,
+                showCoverage: false,
                 clipXAxisToAlignment: true,
+                transformCoordinates: true,
+                rnaMode: false,
+                trimAdapters: false,
             });
 
             // Should fire event with plot parameters
             expect(aggregatePlotListener).toHaveBeenCalledWith({
+                sampleNames: ['sample1'],
                 reference: 'chr2',
                 maxReads: 150,
+                viewStyle: 'overlay',
                 normalization: 'MAD',
                 showModifications: true,
                 showPileup: true,
                 showDwellTime: false,
                 showSignal: true,
                 showQuality: true,
+                showCoverage: false,
                 clipXAxisToAlignment: true,
+                transformCoordinates: true,
+                rnaMode: false,
+                trimAdapters: false,
             });
         });
     });
