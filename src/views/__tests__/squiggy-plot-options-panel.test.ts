@@ -304,7 +304,7 @@ describe('PlotOptionsViewProvider', () => {
         });
 
         it('should update BAM status to true and keep mode as SINGLE', () => {
-            provider.updateBamStatus(true);
+            provider.updateBamStatus({ isRna: false });
 
             expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
                 type: 'updateBamStatus',
@@ -318,11 +318,11 @@ describe('PlotOptionsViewProvider', () => {
 
         it('should update BAM status to false and switch back to MULTI_READ_OVERLAY mode', () => {
             // First set to true
-            provider.updateBamStatus(true);
+            provider.updateBamStatus({ isRna: false });
             jest.clearAllMocks();
 
-            // Then set to false
-            provider.updateBamStatus(false);
+            // Then set to false (null)
+            provider.updateBamStatus(null);
 
             expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
                 type: 'updateBamStatus',
@@ -340,7 +340,7 @@ describe('PlotOptionsViewProvider', () => {
             };
             (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(mockConfig);
 
-            provider.updateBamStatus(true);
+            provider.updateBamStatus({ isRna: false });
 
             expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith('squiggy');
             expect(mockConfig.update).toHaveBeenCalledWith(
@@ -356,7 +356,7 @@ describe('PlotOptionsViewProvider', () => {
             };
             (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(mockConfig);
 
-            provider.updateBamStatus(false);
+            provider.updateBamStatus(null);
 
             expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith('squiggy');
             expect(mockConfig.update).toHaveBeenCalledWith(
@@ -449,7 +449,7 @@ describe('PlotOptionsViewProvider', () => {
         });
 
         it('should send references when BAM loaded and references available', () => {
-            provider.updateBamStatus(true);
+            provider.updateBamStatus({ isRna: false });
             provider.updateReferences(['chr1', 'chr2']);
             jest.clearAllMocks();
 

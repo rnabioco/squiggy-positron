@@ -319,6 +319,8 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                     hasFasta: !!item.fastaPath,
                     hasMods: item.hasMods ?? false, // BAM has MM/ML tags
                     hasEvents: item.hasEvents ?? false, // BAM has mv tag (move table)
+                    isRna: item.isRna ?? false, // BAM basecalled with RNA model
+                    basecallModel: item.basecallModel,
                 }));
 
             logger.debug('[extension.ts] Filtered samples:', samples.length, samples);
@@ -335,6 +337,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
             const hasPod5 = samples.length > 0; // Any samples = POD5 is loaded
             const hasBam = samples.some((s) => s.hasBam); // Any sample with BAM
             const hasFasta = samples.some((s) => s.hasFasta); // Any sample with FASTA
+            const isRna = samples.some((s) => s.isRna); // Any sample with RNA model
 
             logger.debug(
                 '[extension.ts] Setting hasPod5:',
@@ -342,12 +345,14 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                 'hasBam:',
                 hasBam,
                 'hasFasta:',
-                hasFasta
+                hasFasta,
+                'isRna:',
+                isRna
             );
 
             if (plotOptionsProvider) {
                 plotOptionsProvider.updatePod5Status(hasPod5);
-                plotOptionsProvider.updateBamStatus(hasBam);
+                plotOptionsProvider.updateBamStatus(hasBam ? { isRna } : null);
                 plotOptionsProvider.updateFastaStatus(hasFasta);
             }
 

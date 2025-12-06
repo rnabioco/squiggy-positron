@@ -218,6 +218,8 @@ export class FileLoadingService {
                 modificationTypes: result.modificationTypes || [],
                 hasProbabilities: result.hasProbabilities || false,
                 hasEventAlignment: result.hasEventAlignment || false,
+                basecallModel: result.basecallModel,
+                isRna: result.isRna || false,
                 error: null,
             };
         } catch (error) {
@@ -234,6 +236,8 @@ export class FileLoadingService {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: false,
+                basecallModel: undefined,
+                isRna: false,
                 error: `Failed to load BAM: ${errorMessage}`,
             };
         }

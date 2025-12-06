@@ -19,6 +19,15 @@ import {
 import { ExtensionState } from '../state/extension-state';
 import { logger } from '../utils/logger';
 
+/**
+ * BAM status info for plot options updates
+ * Contains the subset of BAM metadata relevant to plot configuration
+ */
+export interface BAMStatusInfo {
+    isRna: boolean;
+    // Add future BAM-related flags here (e.g., hasModifications, hasEvents)
+}
+
 type PlotType =
     | 'MULTI_READ_OVERLAY'
     | 'MULTI_READ_STACKED'
@@ -426,18 +435,28 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
 
     /**
      * Update BAM file status and available plot modes
+     * @param bamInfo - BAM status info, or null if BAM unloaded
      */
-    public updateBamStatus(hasBam: boolean) {
-        logger.debug('[PlotOptions] updateBamStatus called with:', hasBam);
+    public updateBamStatus(bamInfo: BAMStatusInfo | null) {
+        const hasBam = bamInfo !== null;
+        logger.debug('[PlotOptions] updateBamStatus called with:', hasBam, bamInfo);
         this._hasBamFile = hasBam;
 
         // When BAM loads, switch to AGGREGATE but keep mode as SINGLE
         // (coordinate_space toggle controls signal vs sequence coordinates)
-        if (hasBam) {
+        if (hasBam && bamInfo) {
             this._plotType = 'AGGREGATE';
             // Keep mode as SINGLE - no longer auto-switch to EVENTALIGN
             this._plotMode = 'SINGLE';
             this._updateConfig('defaultPlotMode', 'SINGLE');
+
+            // Auto-enable RNA mode if RNA basecalling model detected
+            if (bamInfo.isRna) {
+                this._rnaMode = true;
+                logger.debug(
+                    '[PlotOptions] Auto-enabled RNA mode (RNA basecalling model detected)'
+                );
+            }
         }
         // When BAM unloads, switch to MULTI_READ_OVERLAY
         else {
@@ -453,6 +472,11 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         };
         logger.debug('[PlotOptions] Sending BAM status:', hasBam);
         this.postMessage(message);
+
+        // If RNA mode changed, also send updated options to webview
+        if (hasBam && bamInfo?.isRna) {
+            this.updateView();
+        }
     }
 
     /**

@@ -48,6 +48,8 @@ export interface BAMLoadResult extends BaseFileLoadResult {
     modificationTypes: string[];
     hasProbabilities: boolean;
     hasEventAlignment: boolean;
+    basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"
+    isRna: boolean; // True if RNA basecalling model detected
 }
 
 /**

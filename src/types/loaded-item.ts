@@ -73,6 +73,16 @@ export interface LoadedItem {
      */
     hasEvents: boolean;
 
+    /**
+     * Whether BAM was basecalled with an RNA model (auto-enables RNA mode)
+     */
+    isRna?: boolean;
+
+    /**
+     * Basecalling model name (e.g., "rna004_130bps_sup@v5.1.0")
+     */
+    basecallModel?: string;
+
     // ========== File Info ==========
 
     /**

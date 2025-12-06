@@ -403,7 +403,8 @@ export const ReadsCore: React.FC = () => {
             // Check if we have complete reference data
             const hasCompleteData =
                 referenceToReadsRef.current.size > 0 &&
-                referenceToReadsRef.current.size >= prev.items.filter((i) => i.type === 'reference').length;
+                referenceToReadsRef.current.size >=
+                    prev.items.filter((i) => i.type === 'reference').length;
 
             let newItems: ReadListItem[];
 

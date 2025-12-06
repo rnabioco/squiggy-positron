@@ -212,7 +212,7 @@ export class ExtensionState {
         // Clear UI panels
         this._readsViewPane?.setReads([]);
         this._plotOptionsProvider?.updatePod5Status(false);
-        this._plotOptionsProvider?.updateBamStatus(false);
+        this._plotOptionsProvider?.updateBamStatus(null);
 
         // Clear Python kernel state in the dedicated Squiggy kernel
         if (this._kernelManager) {
@@ -1073,9 +1073,9 @@ squiggy.close_fasta()
                 this._readsViewPane?.setReferencesOnly(referenceList);
             }
 
-            // Update plot options BAM status
+            // Update plot options BAM status (pass BAM info to auto-enable RNA mode)
             if (this._plotOptionsProvider) {
-                this._plotOptionsProvider.updateBamStatus(true);
+                this._plotOptionsProvider.updateBamStatus({ isRna: _bamResult.isRna });
             }
 
             // Update plot options with available references for aggregate plots

@@ -400,6 +400,8 @@ def _collect_bam_metadata_single_pass(
             - has_event_alignment: bool (mv tag present)
             - ref_mapping: dict[str, list[str]] (if build_ref_mapping=True)
             - num_reads: int (total mapped reads)
+            - basecall_model: str or None (extracted from RG tag)
+            - is_rna: bool (True if RNA model detected)
 
     Performance:
         - 180 reads: ~100ms (vs ~500ms with 4 scans)
@@ -416,6 +418,7 @@ def _collect_bam_metadata_single_pass(
     has_ml = False
     has_mv = False
     reads_processed = 0
+    basecall_model = None
 
     with pysam.AlignmentFile(str(bam_path), "rb", check_sq=False) as bam:
         # Get reference info from header
@@ -462,6 +465,16 @@ def _collect_bam_metadata_single_pass(
                 if read.has_tag("mv"):
                     has_mv = True
 
+                # Extract basecall model from RG tag (first read only)
+                if basecall_model is None and read.has_tag("RG"):
+                    rg_value = read.get_tag("RG")
+                    # RG format: {run_id}_{model_name}
+                    # e.g., "7e2aabdf..._{model_name}"
+                    if "_" in rg_value:
+                        basecall_model = rg_value.split("_", 1)[1]
+                    else:
+                        basecall_model = rg_value
+
     # Update reference counts
     for ref in references:
         ref["read_count"] = ref_counts.get(ref["name"], 0)
@@ -476,6 +489,9 @@ def _collect_bam_metadata_single_pass(
     if build_ref_mapping:
         ref_mapping = dict(ref_mapping)
 
+    # Detect if RNA model was used (model name contains "rna")
+    is_rna = basecall_model is not None and "rna" in basecall_model.lower()
+
     return {
         "references": references,
         "has_modifications": has_modifications,
@@ -485,6 +501,8 @@ def _collect_bam_metadata_single_pass(
         "ref_mapping": ref_mapping,
         "ref_counts": dict(ref_counts),
         "num_reads": sum(ref["read_count"] for ref in references),
+        "basecall_model": basecall_model,
+        "is_rna": is_rna,
     }
 
 
@@ -548,6 +566,8 @@ def load_bam(
         "modification_types": metadata["modification_types"],
         "has_probabilities": metadata["has_probabilities"],
         "has_event_alignment": metadata["has_event_alignment"],
+        "basecall_model": metadata.get("basecall_model"),
+        "is_rna": metadata.get("is_rna", False),
     }
 
     # Get ref_mapping from metadata

@@ -19,21 +19,25 @@ import { logger } from '../utils/logger';
 import { MotifMatch } from '../types/motif-types';
 
 /**
- * Result from loading a POD5 file
+ * Result from loading a POD5 file via Python kernel
+ * (Internal type - FileLoadingService constructs full POD5LoadResult)
  */
-export interface POD5LoadResult {
+export interface POD5KernelResult {
     numReads: number;
 }
 
 /**
- * Result from loading a BAM file
+ * Result from loading a BAM file via Python kernel
+ * (Internal type - FileLoadingService constructs full BAMLoadResult)
  */
-export interface BAMLoadResult {
+export interface BAMKernelResult {
     numReads: number;
     hasModifications: boolean;
     modificationTypes: string[];
     hasProbabilities: boolean;
     hasEventAlignment: boolean;
+    basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"
+    isRna: boolean; // True if RNA basecalling model detected
 }
 
 /**
@@ -80,7 +84,7 @@ export class SquiggyRuntimeAPI {
      * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
      * @throws POD5Error if loading fails
      */
-    async loadPOD5(filePath: string): Promise<POD5LoadResult> {
+    async loadPOD5(filePath: string): Promise<POD5KernelResult> {
         try {
             // Validate input
             if (!filePath || typeof filePath !== 'string') {
@@ -139,7 +143,7 @@ squiggy.load_pod5('${escapedPath}')
      * getReadsForReferencePaginated() to fetch data on-demand.
      * @throws BAMError if loading fails
      */
-    async loadBAM(filePath: string): Promise<BAMLoadResult> {
+    async loadBAM(filePath: string): Promise<BAMKernelResult> {
         try {
             // Validate input
             if (!filePath || typeof filePath !== 'string') {
@@ -176,6 +180,12 @@ squiggy.get_read_to_reference_mapping()
             const hasEventAlignment = await this._client.getVariable(
                 "squiggy_kernel._bam_info.get('has_event_alignment', False)"
             );
+            const basecallModel = await this._client.getVariable(
+                "squiggy_kernel._bam_info.get('basecall_model', None)"
+            );
+            const isRna = await this._client.getVariable(
+                "squiggy_kernel._bam_info.get('is_rna', False)"
+            );
 
             return {
                 numReads: numReads as number,
@@ -183,6 +193,8 @@ squiggy.get_read_to_reference_mapping()
                 modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
                 hasProbabilities: hasProbabilities as boolean,
                 hasEventAlignment: hasEventAlignment as boolean,
+                basecallModel: basecallModel as string | undefined,
+                isRna: isRna as boolean,
             };
         } catch (error) {
             if (error instanceof ValidationError) {
@@ -734,7 +746,7 @@ squiggy.plot_motif_aggregate_all(
         pod5Path: string,
         bamPath?: string,
         fastaPath?: string
-    ): Promise<POD5LoadResult> {
+    ): Promise<POD5KernelResult> {
         // Escape single quotes in paths
         const escapedSampleName = sampleName.replace(/'/g, "\\'");
         const escapedPod5Path = pod5Path.replace(/'/g, "\\'");

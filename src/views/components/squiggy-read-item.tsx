@@ -14,7 +14,7 @@ export const ReadItemComponent: React.FC<ReadItemProps> = ({
     isSelected,
     isFocused,
     isEvenRow,
-    nameColumnWidth,
+    nameColumnWidth: _nameColumnWidth,
     detailsColumnWidth,
     onPlotRead,
     onClick,

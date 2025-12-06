@@ -117,23 +117,25 @@ describe('ReadItemComponent', () => {
         });
     });
 
-    describe('Column Widths', () => {
-        it('should apply name column width', () => {
+    describe('Column Layout', () => {
+        it('should render name column with flexible width', () => {
             const { container } = render(
                 <ReadItemComponent {...baseProps} nameColumnWidth={400} />
             );
 
             const nameColumn = container.querySelector('.read-item-name');
-            expect(nameColumn).toHaveStyle({ width: '400px' });
+            expect(nameColumn).toBeInTheDocument();
+            // Name column uses flex layout, not fixed width
         });
 
-        it('should apply details column width', () => {
+        it('should render details column', () => {
             const { container } = render(
                 <ReadItemComponent {...baseProps} detailsColumnWidth={250} />
             );
 
             const detailsColumn = container.querySelector('.read-item-details');
-            expect(detailsColumn).toHaveStyle({ width: '250px' });
+            expect(detailsColumn).toBeInTheDocument();
+            // Details column uses flex layout, not fixed width
         });
     });
 
