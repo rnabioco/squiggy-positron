@@ -305,14 +305,32 @@ export const ReadsCore: React.FC = () => {
         // Rebuild items list if this reference is expanded
         setState((prev) => {
             if (prev.expandedReferences.has(referenceName)) {
-                const newItems = rebuildItemsList(
-                    referenceToReadsRef.current,
-                    prev.expandedReferences,
-                    prev.searchText,
-                    prev.sortBy,
-                    prev.sortOrder,
-                    prev.searchMode
-                );
+                // Check if we have complete reference data
+                const hasCompleteData =
+                    referenceToReadsRef.current.size > 0 &&
+                    referenceToReadsRef.current.size >=
+                        prev.items.filter((i) => i.type === 'reference').length;
+
+                let newItems: ReadListItem[];
+
+                if (hasCompleteData) {
+                    newItems = rebuildItemsList(
+                        referenceToReadsRef.current,
+                        prev.expandedReferences,
+                        prev.searchText,
+                        prev.sortBy,
+                        prev.sortOrder,
+                        prev.searchMode
+                    );
+                } else {
+                    // Lazy-loading mode - use original items + cache
+                    newItems = rebuildFromOriginalItems(
+                        prev.items,
+                        prev.expandedReferences,
+                        referenceCacheRef.current
+                    );
+                }
+
                 return {
                     ...prev,
                     filteredItems: newItems,
@@ -382,15 +400,31 @@ export const ReadsCore: React.FC = () => {
                 }
             }
 
-            // Rebuild items list with expansion (either collapsing or using cached data)
-            const newItems = rebuildItemsList(
-                referenceToReadsRef.current,
-                expandedReferences,
-                prev.searchText,
-                prev.sortBy,
-                prev.sortOrder,
-                prev.searchMode
-            );
+            // Check if we have complete reference data
+            const hasCompleteData =
+                referenceToReadsRef.current.size > 0 &&
+                referenceToReadsRef.current.size >= prev.items.filter((i) => i.type === 'reference').length;
+
+            let newItems: ReadListItem[];
+
+            if (hasCompleteData) {
+                // Full data available - rebuild from scratch
+                newItems = rebuildItemsList(
+                    referenceToReadsRef.current,
+                    expandedReferences,
+                    prev.searchText,
+                    prev.sortBy,
+                    prev.sortOrder,
+                    prev.searchMode
+                );
+            } else {
+                // Lazy-loading mode - rebuild from original items + cached reads
+                newItems = rebuildFromOriginalItems(
+                    prev.items,
+                    expandedReferences,
+                    referenceCacheRef.current
+                );
+            }
 
             return {
                 ...prev,
@@ -407,10 +441,16 @@ export const ReadsCore: React.FC = () => {
             const newSortOrder =
                 prev.sortBy === column && prev.sortOrder === 'asc' ? 'desc' : 'asc';
 
+            // Check if we have complete reference data
+            const hasCompleteData =
+                referenceToReadsRef.current.size > 0 &&
+                referenceToReadsRef.current.size >=
+                    prev.items.filter((i) => i.type === 'reference').length;
+
             let newItems: ReadListItem[];
 
-            // If we have full reference data, rebuild from scratch
-            if (referenceToReadsRef.current.size > 0) {
+            if (hasCompleteData) {
+                // Full data available - rebuild from scratch with sorting
                 newItems = rebuildItemsList(
                     referenceToReadsRef.current,
                     prev.expandedReferences,
@@ -802,4 +842,43 @@ function rebuildItemsList(
     }
 
     return items;
+}
+
+/**
+ * Rebuild items list in lazy-loading mode
+ * Uses original items (reference headers) + cached reads for expanded references
+ */
+function rebuildFromOriginalItems(
+    originalItems: ReadListItem[],
+    expandedReferences: Set<string>,
+    cache: Map<string, { reads: ReadItem[]; fullyLoaded: boolean; offset: number }>
+): ReadListItem[] {
+    const result: ReadListItem[] = [];
+
+    for (const item of originalItems) {
+        if (item.type === 'reference') {
+            // Update the isExpanded state for this reference
+            const isExpanded = expandedReferences.has(item.referenceName);
+            result.push({
+                ...item,
+                isExpanded,
+            });
+
+            // If expanded and we have cached reads, add them
+            if (isExpanded) {
+                const cached = cache.get(item.referenceName);
+                if (cached) {
+                    for (const read of cached.reads) {
+                        result.push({
+                            ...read,
+                            indentLevel: 1,
+                        });
+                    }
+                }
+            }
+        }
+        // Skip individual reads from originalItems - they're added from cache above
+    }
+
+    return result;
 }

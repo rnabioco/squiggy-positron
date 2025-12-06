@@ -39,10 +39,7 @@ export const ReadItemComponent: React.FC<ReadItemProps> = ({
             {/* Name column - Read ID */}
             <div
                 className="read-item-column read-item-name"
-                style={{
-                    width: `${nameColumnWidth}px`,
-                    paddingLeft: `${8 + indentPx}px`,
-                }}
+                style={{ paddingLeft: `${8 + indentPx}px` }}
             >
                 <span className="read-item-icon">📊</span>
                 <span className="read-item-id">{item.readId}</span>

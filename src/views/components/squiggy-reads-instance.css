@@ -10,7 +10,7 @@
     min-height: 0; /* Critical for flex children */
 }
 
-/* Column headers */
+/* Column headers - matches row structure exactly */
 .reads-header {
     display: flex;
     align-items: center;
@@ -21,21 +21,47 @@
     font-size: 11px;
     text-transform: uppercase;
     color: var(--vscode-descriptionForeground);
-    padding: 0 8px;
+    padding: 0 8px; /* Same as .read-item padding */
+    min-width: 0;
 }
 
 .reads-header-column {
-    padding: 0 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
 }
 
-.reads-header-actions {
-    width: 80px;
+/* Name column - flexible, takes remaining space */
+.reads-header-name {
+    padding: 0 8px;
+    flex: 1 1 auto; /* Grow and shrink to fill space */
+    min-width: 80px;
+}
+
+/* Divider wrapper in header to match row dividers */
+.reads-header-divider {
+    width: 4px;
     flex-shrink: 0;
-    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Details/Reads column - matches .read-item-details structure */
+.reads-header-details {
+    padding: 0 8px;
+}
+
+/* Actions column */
+.reads-header-actions {
+    width: 50px;
+    min-width: 50px;
+    flex-shrink: 0;
+    padding: 0 4px;
+    justify-content: flex-end;
 }
 
 /* Sortable header column */

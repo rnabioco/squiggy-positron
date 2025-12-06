@@ -30,13 +30,16 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0; /* Prevent shrinking - must match header */
 }
 
-/* Name column */
+/* Name column - flexible, takes remaining space */
 .reference-group-name {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1 1 auto; /* Grow and shrink to fill space */
+    min-width: 80px;
 }
 
 .reference-group-chevron {
@@ -81,8 +84,10 @@
 
 /* Actions column */
 .reference-group-actions {
-    width: 80px;
+    width: 50px;
+    min-width: 50px;
     flex-shrink: 0;
+    padding: 0 4px;
     justify-content: flex-end;
     display: flex;
 }
