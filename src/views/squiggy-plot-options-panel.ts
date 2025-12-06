@@ -50,6 +50,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showSignalPoints: boolean = false;
     private _clipXAxisToAlignment: boolean = true;
     private _transformCoordinates: boolean = true;
+    private _trimAdapters: boolean = false;
     private _hasPod5File: boolean = false;
     private _hasBamFile: boolean = false;
 
@@ -132,6 +133,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         clipXAxisToAlignment: boolean;
         transformCoordinates: boolean;
         rnaMode: boolean;
+        trimAdapters: boolean;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -205,6 +207,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             if (message.options.transformCoordinates !== undefined) {
                 this._transformCoordinates = message.options.transformCoordinates;
             }
+            if (message.options.trimAdapters !== undefined) {
+                this._trimAdapters = message.options.trimAdapters;
+            }
 
             // Update aggregate-specific options if present
             if (message.options.aggregateReference !== undefined) {
@@ -255,6 +260,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
                 transformCoordinates: message.transformCoordinates,
                 rnaMode: message.rnaMode,
+                trimAdapters: message.trimAdapters ?? false,
             });
         }
 
@@ -407,6 +413,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             showSignalPoints: this._showSignalPoints,
             clipXAxisToAlignment: this._clipXAxisToAlignment,
             transformCoordinates: this._transformCoordinates,
+            trimAdapters: this._trimAdapters,
             aggregateReference: this._aggregateReference,
             aggregateMaxReads: this._aggregateMaxReads,
             showModifications: this._showModifications,

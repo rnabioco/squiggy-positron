@@ -264,7 +264,8 @@ squiggy.get_read_to_reference_mapping()
         downsample: number = 5,
         showSignalPoints: boolean = false,
         sampleName?: string,
-        coordinateSpace?: 'signal' | 'sequence'
+        coordinateSpace?: 'signal' | 'sequence',
+        trimAdapters: boolean = false
     ): Promise<void> {
         try {
             // Validate inputs
@@ -287,6 +288,10 @@ squiggy.get_read_to_reference_mapping()
                 ? `, coordinate_space='${coordinateSpace}'`
                 : '';
 
+            // Build trim adapters parameter
+            const trimAdaptersParam = `,
+    trim_adapters=${trimAdapters ? 'True' : 'False'}`;
+
             // Build the plot function call with proper multi-line formatting
             const plotCall =
                 readIds.length === 1
@@ -301,7 +306,7 @@ squiggy.get_read_to_reference_mapping()
     min_mod_probability=${minModProbability},
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
-    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}${trimAdaptersParam}
 )`
                     : `squiggy.plot_reads(
     ${readIdsJson},
@@ -314,7 +319,7 @@ squiggy.get_read_to_reference_mapping()
     min_mod_probability=${minModProbability},
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
-    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
+    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}${trimAdaptersParam}
 )`;
 
             const code = `
@@ -506,7 +511,8 @@ if '_squiggy_plot_error' in globals():
         sampleName?: string,
         minModFrequency: number = 0.2,
         minModifiedReads: number = 5,
-        rnaMode: boolean = false
+        rnaMode: boolean = false,
+        trimAdapters: boolean = false
     ): Promise<void> {
         try {
             // Validate inputs
@@ -591,7 +597,8 @@ squiggy.plot_aggregate(
     show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'},
-    rna_mode=${rnaMode ? 'True' : 'False'}${sampleNameParam}
+    rna_mode=${rnaMode ? 'True' : 'False'},
+    trim_adapters=${trimAdapters ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 

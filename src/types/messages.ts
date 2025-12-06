@@ -197,6 +197,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
     rnaMode: boolean;
+    trimAdapters?: boolean;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
@@ -268,6 +269,7 @@ export interface PlotOptions {
     showSignalPoints: boolean;
     clipXAxisToAlignment?: boolean;
     transformCoordinates?: boolean;
+    trimAdapters?: boolean; // Trim soft-clipped (adapter) regions from signals
 
     // Multi-Read Overlay/Stacked options
     maxReadsMulti?: number;

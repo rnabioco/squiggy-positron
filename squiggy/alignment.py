@@ -34,6 +34,9 @@ class AlignedRead:
     modifications: list = field(
         default_factory=list
     )  # List of ModificationAnnotation objects
+    # Soft-clip information for adapter trimming
+    query_start_offset: int = 0  # Bases soft-clipped at start (5' adapter)
+    query_end_offset: int = 0  # Bases soft-clipped at end (3' adapter)
 
 
 def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | None:
@@ -140,6 +143,18 @@ def _parse_alignment(alignment) -> AlignedRead | None:
     genomic_end = alignment.reference_end if not alignment.is_unmapped else None
     strand = "-" if alignment.is_reverse else "+"
 
+    # Extract soft-clip information from CIGAR string
+    query_start_offset = 0
+    query_end_offset = 0
+    cigar = alignment.cigartuples
+    if cigar:
+        # Check for soft clip at start (operation code 4)
+        if cigar[0][0] == 4:
+            query_start_offset = cigar[0][1]
+        # Check for soft clip at end (operation code 4)
+        if cigar[-1][0] == 4:
+            query_end_offset = cigar[-1][1]
+
     # Extract base modifications if present
     modifications = []
     try:
@@ -160,6 +175,8 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         strand=strand,
         is_reverse=alignment.is_reverse,
         modifications=modifications,
+        query_start_offset=query_start_offset,
+        query_end_offset=query_end_offset,
     )
 
 
