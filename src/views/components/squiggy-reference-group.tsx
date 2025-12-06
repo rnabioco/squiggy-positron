@@ -27,10 +27,7 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
             title={`${item.referenceName} (${item.readCount} reads)`}
         >
             {/* Name column - Reference name with chevron */}
-            <div
-                className="reference-group-column reference-group-name"
-                style={{ width: `${nameColumnWidth}px` }}
-            >
+            <div className="reference-group-column reference-group-name">
                 <span className={`reference-group-chevron ${item.isExpanded ? 'expanded' : ''}`}>
                     ▶
                 </span>
@@ -48,6 +45,9 @@ export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
             >
                 <span className="reference-group-count">{item.readCount}</span>
             </div>
+
+            {/* Actions column - empty for reference groups to maintain alignment */}
+            <div className="reference-group-column reference-group-actions" />
         </div>
     );
 };

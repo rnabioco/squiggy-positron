@@ -264,14 +264,16 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
 
     return (
         <div className="reads-instance-container" ref={containerRef}>
-            {/* Column headers */}
+            {/* Column headers - structure matches row content exactly */}
             <div className="reads-header">
-                <div className="reads-header-column" style={{ width: `${nameColumnWidth}px` }}>
+                <div className="reads-header-column reads-header-name">
                     Name
                 </div>
-                <ColumnResizer onResize={handleColumnResize} />
+                <div className="reads-header-divider">
+                    <ColumnResizer onResize={handleColumnResize} />
+                </div>
                 <div
-                    className={`reads-header-column ${hasReferences ? 'reads-sortable' : ''}`}
+                    className={`reads-header-column reads-header-details ${hasReferences ? 'reads-sortable' : ''}`}
                     style={{ width: `${detailsColumnWidth}px` }}
                     onClick={() => hasReferences && onSort('reads')}
                     title={hasReferences ? 'Click to sort by read count' : ''}

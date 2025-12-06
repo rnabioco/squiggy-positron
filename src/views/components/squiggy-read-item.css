@@ -38,14 +38,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0; /* Prevent shrinking - must match header */
 }
 
-/* Name column */
+/* Name column - flexible, takes remaining space */
 .read-item-name {
     display: flex;
     align-items: center;
     gap: 8px;
     font-family: var(--vscode-font-family, sans-serif);
+    flex: 1 1 auto; /* Grow and shrink to fill space */
+    min-width: 80px;
 }
 
 .read-item-icon {
@@ -89,8 +92,10 @@
 
 /* Actions column */
 .read-item-actions {
-    width: 80px;
+    width: 50px;
+    min-width: 50px;
     flex-shrink: 0;
+    padding: 0 4px;
     justify-content: flex-end;
 }
 

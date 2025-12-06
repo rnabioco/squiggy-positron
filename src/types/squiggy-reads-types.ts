@@ -144,11 +144,11 @@ export const CONSTANTS = {
     OVERSCAN_COUNT: 5, // Number of items to render outside visible area
 
     // Default column widths
-    DEFAULT_NAME_WIDTH: 300, // px
-    DEFAULT_DETAILS_WIDTH: 200, // px
-    MIN_COLUMN_WIDTH: 100, // px
-    MAX_COLUMN_WIDTH: 800, // px
-    ACTIONS_COLUMN_WIDTH: 80, // px (fixed)
+    DEFAULT_NAME_WIDTH: 180, // px - fits typical read IDs
+    DEFAULT_DETAILS_WIDTH: 100, // px - fits read counts/positions
+    MIN_COLUMN_WIDTH: 80, // px
+    MAX_COLUMN_WIDTH: 500, // px
+    ACTIONS_COLUMN_WIDTH: 50, // px (fixed) - just enough for "Plot" button
 
     // Lazy loading
     INITIAL_LOAD_COUNT: 1000,
