@@ -1,0 +1,170 @@
+======================================================================
+Genomic DNA Test Data Extraction
+======================================================================
+Input POD5 dir:   /home/jhesselberth@xsede.org/scratch/nanopore-data/greenfield-nanopore/pod5
+Input BAM:        /home/jhesselberth@xsede.org/scratch/nanopore-data/greenfield-nanopore/S_phase_BrdU_Incorporation.sorted.bam
+Target reads:     100
+Min MAPQ:         20
+Min length:       1,000 bp
+Min depth:        100x per-base coverage
+Random seed:      42
+Output POD5:      gdna_reads.pod5
+Output BAM:       gdna_mappings.bam
+======================================================================
+
+Auto-detecting high-coverage position...
+Scanning BAM for positions with >= 100x per-base coverage...
+  Found 76 candidate windows, checking per-base coverage...
+    chrXII:478,692 has 1581x coverage
+  Best position: chrXII:478,692 (1581x coverage)
+Collecting reads overlapping position chrXII:478,692
+  Found 849 candidate reads
+  Length range: 1,038 - 85,070 bp
+  Median length: 15,190 bp
+
+Selected 299 reads:
+  150 longest reads
+  150 randomly sampled
+  Selected length range: 1,073 - 85,070 bp
+
+Extracting POD5 subset to: gdna_reads.pod5
+Found 51 POD5 files in /home/jhesselberth@xsede.org/scratch/nanopore-data/greenfield-nanopore/pod5
+  Searching for up to 100 reads (from 299 candidates) across 51 files...
+    Extracted read 2cee7780... (1/100)
+    Extracted read ff91e0a9... (2/100)
+    Extracted read 0a4e10e7... (3/100)
+    Extracted read d58d4812... (4/100)
+    Extracted read 0cb2c131... (5/100)
+    Extracted read 77ab535d... (6/100)
+    Extracted read 1c5fdadb... (7/100)
+    Extracted read c4fc91bc... (8/100)
+    Extracted read 4837311b... (9/100)
+    Extracted read 2832ba17... (10/100)
+    Extracted read 6efd52f8... (11/100)
+    Extracted read 46372ac7... (12/100)
+    Extracted read bc72b82c... (13/100)
+    Extracted read 750b47f0... (14/100)
+    Extracted read d06a4ca1... (15/100)
+    Extracted read f003b54e... (16/100)
+    Extracted read 7c82eae2... (17/100)
+    Extracted read ea340dd2... (18/100)
+    Extracted read d986e423... (19/100)
+    Extracted read bab6d2bc... (20/100)
+    Extracted read 2b1a6bd5... (21/100)
+    Extracted read e8604b57... (22/100)
+    Extracted read 3d3c6b65... (23/100)
+    Extracted read da2a9272... (24/100)
+    Extracted read cf167bfd... (25/100)
+    Extracted read 4d7931fe... (26/100)
+    Extracted read 879f60ba... (27/100)
+    Extracted read 51c0dde7... (28/100)
+    Extracted read 4b6c58e3... (29/100)
+    Extracted read 47843857... (30/100)
+    Extracted read 5488b838... (31/100)
+    Extracted read 5811da4e... (32/100)
+    Extracted read a0c70140... (33/100)
+    Extracted read bbce2398... (34/100)
+    Extracted read a417cfd5... (35/100)
+    Extracted read 61c1f707... (36/100)
+    Extracted read 8037b4a0... (37/100)
+    Extracted read c03cfe3d... (38/100)
+    Extracted read e4548fdc... (39/100)
+    Extracted read 8aa210a1... (40/100)
+    Extracted read adfa771d... (41/100)
+    Extracted read 089bafa9... (42/100)
+    Extracted read 4b503cdd... (43/100)
+    Extracted read 9a38987a... (44/100)
+    Extracted read 41f7f302... (45/100)
+    Extracted read 4f237e7e... (46/100)
+    Extracted read b314098b... (47/100)
+    Extracted read 73d91857... (48/100)
+    Extracted read c6da41f5... (49/100)
+    Extracted read 3d1d26dc... (50/100)
+    Extracted read e8473505... (51/100)
+    Extracted read 0bb558f0... (52/100)
+    Extracted read d5382bed... (53/100)
+    Extracted read 2fa02c12... (54/100)
+    Extracted read 2e74f52a... (55/100)
+    Extracted read ae782f67... (56/100)
+    Extracted read d7fd6bbe... (57/100)
+    Extracted read eec34a71... (58/100)
+    Extracted read e8c551ab... (59/100)
+    Extracted read 86fba9fc... (60/100)
+    Extracted read 4619235c... (61/100)
+    Extracted read d7a3d373... (62/100)
+    Extracted read fcdfa068... (63/100)
+    Extracted read fb8688cc... (64/100)
+    Extracted read e30dc0a3... (65/100)
+    Extracted read feff17b7... (66/100)
+    Extracted read 53a449d3... (67/100)
+    Extracted read 87a7bc5a... (68/100)
+    Extracted read 61c2f639... (69/100)
+    Extracted read 2368e170... (70/100)
+    Extracted read 6d9dfae8... (71/100)
+    Extracted read 1f883a25... (72/100)
+    Extracted read a29d57e2... (73/100)
+    Extracted read 0430a196... (74/100)
+    Extracted read de412c79... (75/100)
+    Extracted read 37bbc6b8... (76/100)
+    Extracted read 22447e8e... (77/100)
+    Extracted read 759916e9... (78/100)
+    Extracted read 4e7a7306... (79/100)
+    Extracted read d65f566e... (80/100)
+    Extracted read 8c8bd155... (81/100)
+    Extracted read bbe6956c... (82/100)
+    Extracted read 6af46d4b... (83/100)
+    Extracted read 52a2eb5d... (84/100)
+    Extracted read f7536c31... (85/100)
+    Extracted read dc144626... (86/100)
+    Extracted read fc7c10d1... (87/100)
+    Extracted read fa1b532d... (88/100)
+    Extracted read 0cd6ed2a... (89/100)
+    Extracted read 5cffbe23... (90/100)
+    Extracted read 465900d5... (91/100)
+    Extracted read a5699399... (92/100)
+    Extracted read 8075e814... (93/100)
+    Extracted read 8d251661... (94/100)
+    Extracted read d441e62d... (95/100)
+    Extracted read 1d9c4052... (96/100)
+    Extracted read 7949ebdd... (97/100)
+    Extracted read 151d3a0b... (98/100)
+    Extracted read 6cec6497... (99/100)
+    Extracted read b3611c1e... (100/100)
+  WARNING: Skipped 1 corrupted POD5 files
+  Completed: Extracted 100 reads
+
+Extracting BAM subset to: gdna_mappings.bam
+  Extracted 100 alignments (primary only)
+  Indexing BAM file...
+  Created index: gdna_mappings.bam.bai
+
+Verified: POD5 and BAM contain the same 100 reads
+
+======================================================================
+EXTRACTION COMPLETE
+======================================================================
+
+Output files:
+  POD5: gdna_reads.pod5 (32.30 MB)
+  BAM:  gdna_mappings.bam (2726.6 KB)
+
+Dataset summary:
+  Region:        chrXII:428,692-528,692
+  Target pos:    478,692
+  Depth @ pos:   93x
+  Total reads:   100
+  Total bases:   2,940,853 bp
+
+Read lengths:
+  Min:    1,073 bp
+  Median: 32,025 bp
+  Max:    85,070 bp
+
+Coverage:
+  Span: 474,771 - 523,980
+  Width: 49,209 bp
+
+======================================================================
+SUCCESS!
+======================================================================
+

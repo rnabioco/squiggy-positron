@@ -37,6 +37,7 @@ coverage.xml
 coverage.json
 tests/*.arrow
 *.arrow
+testing/
 
 # mkdocs
 site/

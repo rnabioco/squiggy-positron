@@ -1,0 +1,1 @@
+pixi run ../scripts/create_gdna_test_data.py -i ~/scratch/nanopore-data/greenfield-nanopore/pod5/ -b ~/scratch/nanopore-data/greenfield-nanopore/S_phase_BrdU_Incorporation.sorted.bam -d 100 --num-reads 100
