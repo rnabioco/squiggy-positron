@@ -40,6 +40,7 @@ interface PlotOptionsState {
     showSignalPoints: boolean;
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
+    trimAdapters: boolean;
 
     // Multi-Read options (Overlay/Stacked)
     maxReadsMulti: number;
@@ -83,6 +84,7 @@ export const PlotOptionsCore: React.FC = () => {
         showSignalPoints: false,
         clipXAxisToAlignment: true,
         transformCoordinates: true,
+        trimAdapters: false,
         // Multi-Read
         maxReadsMulti: 50,
         // Aggregate defaults (now supports 1+ samples)
@@ -131,6 +133,7 @@ export const PlotOptionsCore: React.FC = () => {
                             message.options.clipXAxisToAlignment ?? prev.clipXAxisToAlignment,
                         transformCoordinates:
                             message.options.transformCoordinates ?? prev.transformCoordinates,
+                        trimAdapters: message.options.trimAdapters ?? prev.trimAdapters,
                         aggregateReference:
                             message.options.aggregateReference || prev.aggregateReference,
                         aggregateMaxReads:
@@ -319,6 +322,7 @@ export const PlotOptionsCore: React.FC = () => {
             clipXAxisToAlignment: options.clipXAxisToAlignment,
             transformCoordinates: options.transformCoordinates,
             rnaMode: options.rnaMode,
+            trimAdapters: options.trimAdapters,
         });
     };
 
@@ -997,6 +1001,37 @@ export const PlotOptionsCore: React.FC = () => {
                         >
                             Anchor position 1 to first reference base (uncheck to use genomic
                             coordinates)
+                        </div>
+
+                        {/* Trim Adapters */}
+                        <div className="plot-options-checkbox-row">
+                            <input
+                                type="checkbox"
+                                id="trimAdaptersAggregate"
+                                checked={options.trimAdapters}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        trimAdapters: e.target.checked,
+                                    }))
+                                }
+                                disabled={!options.hasBam}
+                            />
+                            <label
+                                htmlFor="trimAdaptersAggregate"
+                                className="plot-options-checkbox-label"
+                            >
+                                Trim adapters (soft-clipped regions)
+                            </label>
+                        </div>
+                        <div
+                            className="plot-options-description"
+                            style={{
+                                marginTop: '-6px',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Remove signal from soft-clipped adapter sequences before plotting
                         </div>
                     </div>
                 </>
