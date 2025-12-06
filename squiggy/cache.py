@@ -10,6 +10,11 @@ import pickle
 from datetime import datetime
 from pathlib import Path
 
+# Cache schema version - bump this when cache format changes
+# v1: Initial schema
+# v2: Added basecall_model and is_rna fields to BAM metadata
+CACHE_VERSION = 2
+
 
 class SquiggyCache:
     """
@@ -311,6 +316,10 @@ class SquiggyCache:
             with open(cache_path, "rb") as f:
                 cached = pickle.load(f)
 
+            # Check cache version - invalidate if schema changed
+            if cached.get("version", 1) < CACHE_VERSION:
+                return None
+
             # Validate file hasn't changed (using mtime for faster check)
             current_mtime = file_path.stat().st_mtime
             if abs(cached["file_mtime"] - current_mtime) > 0.001:
@@ -351,6 +360,7 @@ class SquiggyCache:
 
         try:
             cached = {
+                "version": CACHE_VERSION,
                 "file_path": str(file_path),
                 "file_mtime": file_path.stat().st_mtime,
                 "file_size": file_path.stat().st_size,

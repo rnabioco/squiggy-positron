@@ -266,9 +266,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
         <div className="reads-instance-container" ref={containerRef}>
             {/* Column headers - structure matches row content exactly */}
             <div className="reads-header">
-                <div className="reads-header-column reads-header-name">
-                    Name
-                </div>
+                <div className="reads-header-column reads-header-name">Name</div>
                 <div className="reads-header-divider">
                     <ColumnResizer onResize={handleColumnResize} />
                 </div>

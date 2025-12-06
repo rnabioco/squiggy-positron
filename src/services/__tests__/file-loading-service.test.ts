@@ -81,6 +81,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: false,
+                isRna: false,
             });
 
             const result = await service.loadFile(filePath, 'bam');
@@ -179,6 +180,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: ['5mC', '6mA'],
                 hasProbabilities: true,
                 hasEventAlignment: true,
+                isRna: false,
             });
 
             const result = await service.loadFile(filePath, 'bam');
@@ -207,6 +209,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: false,
+                isRna: false,
             });
 
             const result = await service.loadFile(filePath, 'bam');
@@ -276,6 +279,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: true,
+                isRna: false,
             });
             mockAPI.loadFASTA.mockResolvedValue(undefined);
 

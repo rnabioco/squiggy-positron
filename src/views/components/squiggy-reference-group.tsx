@@ -12,7 +12,7 @@ import './squiggy-reference-group.css';
 export const ReferenceGroupComponent: React.FC<ReferenceGroupProps> = ({
     item,
     isEvenRow,
-    nameColumnWidth,
+    nameColumnWidth: _nameColumnWidth,
     detailsColumnWidth,
     onToggle,
 }) => {

@@ -617,6 +617,8 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                         hasAlignments: true,
                         hasMods: bamResult.hasModifications,
                         hasEvents: bamResult.hasEventAlignment,
+                        isRna: bamResult.isRna,
+                        basecallModel: bamResult.basecallModel,
                     };
                     state.addLoadedItem(updatedItem);
                 }
@@ -668,8 +670,8 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                 );
             }
 
-            // Update plot options
-            state.plotOptionsProvider?.updateBamStatus(true);
+            // Update plot options with BAM status info
+            state.plotOptionsProvider?.updateBamStatus({ isRna: bamResult.isRna });
 
             const references = Object.keys(referenceToReads);
             if (references.length > 0) {
@@ -755,7 +757,7 @@ squiggy.close_bam()
 
         // Clear UI
         state.modificationsProvider?.clear();
-        state.plotOptionsProvider?.updateBamStatus(false);
+        state.plotOptionsProvider?.updateBamStatus(null);
         vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
         // If POD5 is still loaded, revert to flat read list
@@ -1502,9 +1504,15 @@ async function updateSampleFiles(
                 const hasEvents = await api.client.getVariable(
                     `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('has_event_alignment', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
                 );
+                const basecallModel = await api.client.getVariable(
+                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('basecall_model', None) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else None`
+                );
+                const isRna = await api.client.getVariable(
+                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('is_rna', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
+                );
 
                 logger.debug(
-                    `[updateSampleFiles] BAM metadata for '${sampleName}': hasMods=${hasMods}, hasEvents=${hasEvents}`
+                    `[updateSampleFiles] BAM metadata for '${sampleName}': hasMods=${hasMods}, hasEvents=${hasEvents}, basecallModel=${basecallModel}, isRna=${isRna}`
                 );
 
                 // Update the loaded item in unified state
@@ -1517,6 +1525,8 @@ async function updateSampleFiles(
                         hasAlignments: true,
                         hasMods: hasMods as boolean,
                         hasEvents: hasEvents as boolean,
+                        isRna: isRna as boolean,
+                        basecallModel: basecallModel as string | undefined,
                     };
                     state.addLoadedItem(updatedItem);
                     logger.debug(

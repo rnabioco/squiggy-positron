@@ -359,6 +359,8 @@ export interface SampleItem {
     hasMods?: boolean; // BAM has MM/ML tags for base modifications
     hasEvents?: boolean; // BAM has mv tag for signal-to-base mapping
     references?: ReferenceInfo[]; // List of references this sample aligns to
+    isRna?: boolean; // BAM was basecalled with RNA model (auto-enable RNA mode)
+    basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"
 }
 
 export interface UpdateSamplesMessage extends BaseMessage {
