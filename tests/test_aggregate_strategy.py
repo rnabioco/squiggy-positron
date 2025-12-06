@@ -682,8 +682,16 @@ class TestRnaMode:
                 "counts": {pos: {"A": 5, "C": 5, "G": 5, "T": 5} for pos in positions},
                 # Include some T bases in reference
                 "reference_bases": {
-                    0: "A", 1: "T", 2: "C", 3: "G", 4: "T",
-                    5: "A", 6: "T", 7: "C", 8: "G", 9: "T",
+                    0: "A",
+                    1: "T",
+                    2: "C",
+                    3: "G",
+                    4: "T",
+                    5: "A",
+                    6: "T",
+                    7: "C",
+                    8: "G",
+                    9: "T",
                 },
             },
             "quality_stats": {
@@ -732,7 +740,11 @@ class TestRnaMode:
 
         # Look at the data sources for the text labels (reference bases)
         # The text labels should show U instead of T for positions 1, 4, 6, 9
-        text_renderers = [r for r in pileup_track.renderers if hasattr(r, 'glyph') and hasattr(r.glyph, 'text')]
+        text_renderers = [
+            r
+            for r in pileup_track.renderers
+            if hasattr(r, "glyph") and hasattr(r.glyph, "text")
+        ]
         if text_renderers:
             for renderer in text_renderers:
                 source = renderer.data_source
@@ -763,7 +775,11 @@ class TestRnaMode:
         pileup_track, _, _ = grid.children[1]
 
         # Find vbar renderers (the stacked bars)
-        vbar_renderers = [r for r in pileup_track.renderers if hasattr(r, 'glyph') and r.glyph.__class__.__name__ == 'VBar']
+        vbar_renderers = [
+            r
+            for r in pileup_track.renderers
+            if hasattr(r, "glyph") and r.glyph.__class__.__name__ == "VBar"
+        ]
 
         # Check that we have 4 renderers (A, C, G, U)
         assert len(vbar_renderers) == 4

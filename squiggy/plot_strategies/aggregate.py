@@ -584,8 +584,6 @@ class AggregatePlotStrategy(PlotStrategy):
         # Define base set based on RNA mode
         # Data always uses T (from sequencing), but display as U for RNA
         bases = ["A", "C", "G", "U"] if rna_mode else ["A", "C", "G", "T"]
-        # Map from data key (always T) to display key (T or U)
-        base_display_map = {"T": "U"} if rna_mode else {}
 
         # Build diagnostic title
         title = "Base Call Pileup"
@@ -669,7 +667,9 @@ class AggregatePlotStrategy(PlotStrategy):
         # First base shows total reads, others just percentage
         for i, display_base in enumerate(bases):
             if i == 0:
-                tooltips.append((display_base, f"@{display_base}{{0.0%}} (@{{total}} reads)"))
+                tooltips.append(
+                    (display_base, f"@{display_base}{{0.0%}} (@{{total}} reads)")
+                )
             else:
                 tooltips.append((display_base, f"@{display_base}{{0.0%}}"))
         tooltips.append(("Total", "@total reads"))

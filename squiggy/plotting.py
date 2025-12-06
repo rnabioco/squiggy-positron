@@ -799,17 +799,13 @@ def plot_pileup(
         # Multi-sample mode: use sample-specific paths
         sample = squiggy_kernel.get_sample(sample_name)
         if not sample or sample._bam_path is None:
-            raise ValueError(
-                f"Sample '{sample_name}' not loaded or has no BAM file."
-            )
+            raise ValueError(f"Sample '{sample_name}' not loaded or has no BAM file.")
         bam_path = sample._bam_path
         fasta_path = sample._fasta_path
     else:
         # Single-file mode: use global session paths
         if squiggy_kernel._bam_path is None:
-            raise ValueError(
-                "No BAM file loaded. Call load_bam() first."
-            )
+            raise ValueError("No BAM file loaded. Call load_bam() first.")
         bam_path = squiggy_kernel._bam_path
         fasta_path = squiggy_kernel._fasta_path
 
@@ -928,8 +924,10 @@ def plot_pileup(
     # We don't have signal data, but we need the structure for the strategy
     aggregate_stats = {
         "positions": coverage_stats.get("positions", np.array([])),
-        "mean_signal": np.zeros(len(coverage_stats.get("positions", []))),  # Placeholder
-        "std_signal": np.zeros(len(coverage_stats.get("positions", []))),   # Placeholder
+        "mean_signal": np.zeros(
+            len(coverage_stats.get("positions", []))
+        ),  # Placeholder
+        "std_signal": np.zeros(len(coverage_stats.get("positions", []))),  # Placeholder
         "coverage": coverage_stats.get("coverage", np.array([])),
     }
 
