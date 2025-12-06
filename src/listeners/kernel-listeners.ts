@@ -46,19 +46,23 @@ export function registerKernelListeners(
         // Listen for session changes (kernel switches)
         context.subscriptions.push(
             positron.runtime.onDidChangeForegroundSession(async (sessionId: string | undefined) => {
-                // Don't clear state if this is our dedicated kernel starting
+                // With dedicated kernel architecture, we should NOT clear state when
+                // the user switches between their interactive console and our kernel.
+                // The dedicated kernel maintains state independently.
                 if (state.kernelManager) {
                     const dedicatedSessionId = state.kernelManager.getSessionId();
-                    if (dedicatedSessionId && sessionId === dedicatedSessionId) {
+                    if (dedicatedSessionId) {
+                        // Dedicated kernel exists - don't clear state for foreground changes
+                        // State is only cleared when the dedicated kernel itself restarts/exits
                         logger.debug(
-                            `[KernelListeners] Foreground session changed to dedicated kernel (${sessionId}), NOT clearing state`
+                            `[KernelListeners] Foreground session changed to ${sessionId}, dedicated kernel (${dedicatedSessionId}) still active - NOT clearing state`
                         );
                         return;
                     }
                 }
 
-                // Clear state for actual user session changes
-                await clearExtensionState('Python session changed');
+                // Only clear state if there's no dedicated kernel (legacy behavior)
+                await clearExtensionState('Python session changed (no dedicated kernel)');
             })
         );
 

@@ -51,6 +51,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showPileup: boolean = true;
     private _showSignal: boolean = true;
     private _showQuality: boolean = true;
+    private _rnaMode: boolean = false;
     private _availableReferences: string[] = [];
 
     // Multi-sample state
@@ -118,8 +119,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         showDwellTime: boolean;
         showSignal: boolean;
         showQuality: boolean;
+        showCoverage: boolean;
         clipXAxisToAlignment: boolean;
         transformCoordinates: boolean;
+        rnaMode: boolean;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -213,6 +216,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             if (message.options.showQuality !== undefined) {
                 this._showQuality = message.options.showQuality;
             }
+            if (message.options.rnaMode !== undefined) {
+                this._rnaMode = message.options.rnaMode;
+            }
 
             // Fire change event
             this._onDidChangeOptions.fire();
@@ -236,8 +242,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showDwellTime: message.showDwellTime,
                 showSignal: message.showSignal,
                 showQuality: message.showQuality,
+                showCoverage: message.showCoverage,
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
                 transformCoordinates: message.transformCoordinates,
+                rnaMode: message.rnaMode,
             });
         }
 
@@ -332,6 +340,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showPileup: this._showPileup,
                 showSignal: this._showSignal,
                 showQuality: this._showQuality,
+                rnaMode: this._rnaMode,
             },
         };
         this.postMessage(updateMessage);
@@ -395,6 +404,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             showPileup: this._showPileup,
             showSignal: this._showSignal,
             showQuality: this._showQuality,
+            rnaMode: this._rnaMode,
         };
     }
 

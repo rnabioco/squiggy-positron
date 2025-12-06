@@ -5,7 +5,7 @@ This module centralizes all theme-related functionality, providing consistent
 styling across all plot types.
 """
 
-from bokeh.models import WheelZoomTool
+from bokeh.models import NumeralTickFormatter, WheelZoomTool
 from bokeh.plotting import figure
 
 from ..constants import (
@@ -136,8 +136,8 @@ class ThemeManager:
         }
 
         # Only set active tools if they're in the tools string
-        if "xbox_zoom" in tools:
-            fig_kwargs["active_drag"] = "xbox_zoom"
+        if "xpan" in tools:
+            fig_kwargs["active_drag"] = "xpan"
         if "wheel_zoom" in tools:
             fig_kwargs["active_scroll"] = "wheel_zoom"
 
@@ -200,6 +200,9 @@ class ThemeManager:
         for tool in fig.tools:
             if isinstance(tool, WheelZoomTool):
                 tool.dimensions = "width"
+
+        # Format x-axis with comma separators for large genomic coordinates
+        fig.xaxis.formatter = NumeralTickFormatter(format="0,0")
 
     def configure_legend(self, fig) -> None:
         """
@@ -285,3 +288,20 @@ class ThemeManager:
             '#FF8C00'  # Dark orange for dark theme
         """
         return self.colors["quality_band"]
+
+    def get_coverage_color(self) -> str:
+        """
+        Get coverage color for current theme
+
+        Returns theme-appropriate color for coverage depth track
+        in aggregate plots.
+
+        Returns:
+            Hex color string
+
+        Examples:
+            >>> manager = ThemeManager(Theme.DARK)
+            >>> manager.get_coverage_color()
+            '#00B386'  # Teal/green for dark theme
+        """
+        return self.colors["coverage"]

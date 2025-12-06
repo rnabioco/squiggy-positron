@@ -317,6 +317,8 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                     readCount: item.readCount, // Use unified state directly (already populated)
                     hasBam: !!item.bamPath,
                     hasFasta: !!item.fastaPath,
+                    hasMods: item.hasMods ?? false, // BAM has MM/ML tags
+                    hasEvents: item.hasEvents ?? false, // BAM has mv tag (move table)
                 }));
 
             logger.debug('[extension.ts] Filtered samples:', samples.length, samples);
@@ -467,9 +469,13 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.showDwellTime,
                         options.showSignal,
                         options.showQuality,
+                        options.showCoverage,
                         options.clipXAxisToAlignment,
                         options.transformCoordinates,
-                        options.sampleNames[0]
+                        options.sampleNames[0],
+                        modFilters.minFrequency,
+                        modFilters.minModifiedReads,
+                        options.rnaMode
                     );
 
                     statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');

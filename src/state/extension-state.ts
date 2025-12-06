@@ -50,6 +50,8 @@ export interface SampleInfo {
     readCount: number;
     hasBam: boolean;
     hasFasta: boolean;
+    hasMods?: boolean; // BAM has MM/ML tags for base modifications
+    hasEvents?: boolean; // BAM has mv tag for signal-to-base mapping
 
     // Reference information (from BAM alignment)
     references?: ReferenceInfo[]; // List of references this sample aligns to

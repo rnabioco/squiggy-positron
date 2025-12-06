@@ -414,24 +414,30 @@ def calculate_base_pileup(
                 pass
 
         # Fall back to BAM file (uses MD tag or query sequence)
+        # Iterate through all reads to build complete reference coverage
         if bam_file and not reference_bases:
             try:
-                # Get reference sequence from any read (they all map to same reference)
-                first_read = reads_data[0]
-                ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
-                    bam_file, first_read["read_id"]
-                )
+                for read in reads_data:
+                    ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+                        bam_file, read["read_id"]
+                    )
 
-                if ref_seq and ref_start is not None:
-                    # Create dict mapping position to reference base
-                    for pos in positions:
-                        # Calculate index in reference sequence
-                        idx = pos - ref_start
-                        if 0 <= idx < len(ref_seq):
-                            reference_bases[pos] = ref_seq[idx].upper()
+                    if ref_seq and ref_start is not None:
+                        # Add reference bases from this read's alignment
+                        for pos in positions:
+                            if pos in reference_bases:
+                                continue  # Already have this position
+                            # Calculate index in reference sequence
+                            idx = pos - ref_start
+                            if 0 <= idx < len(ref_seq):
+                                reference_bases[pos] = ref_seq[idx].upper()
 
-                    if reference_bases:
-                        result["reference_bases"] = reference_bases
+                    # Stop early if we've covered all positions
+                    if len(reference_bases) >= len(positions):
+                        break
+
+                if reference_bases:
+                    result["reference_bases"] = reference_bases
             except Exception:
                 # If we can't get reference sequence, just skip it
                 pass
@@ -481,4 +487,260 @@ def calculate_quality_by_position(reads_data):
         "positions": np.array(positions),
         "mean_quality": np.array(mean_qualities),
         "std_quality": np.array(std_qualities),
+    }
+
+
+# =============================================================================
+# Pileup-only functions (work without move tables)
+# =============================================================================
+
+
+def iter_aligned_positions(read: dict):
+    """
+    Iterate over aligned positions using aligned_pairs mapping (no move table required)
+
+    This generator yields information about each aligned base using the aligned_pairs
+    dict from extract_alignments_for_reference(). Unlike iter_aligned_bases(), this
+    does NOT require move tables.
+
+    Args:
+        read: Read dict from extract_alignments_for_reference() containing:
+            - aligned_pairs: Dict mapping query_pos -> ref_pos
+
+    Yields:
+        Tuples of (seq_idx, ref_pos) for each aligned base:
+        - seq_idx: Index in query sequence
+        - ref_pos: Reference genome position
+    """
+    aligned_pairs = read.get("aligned_pairs", {})
+
+    # Iterate over aligned pairs in order
+    for seq_idx in sorted(aligned_pairs.keys()):
+        ref_pos = aligned_pairs[seq_idx]
+        if ref_pos is not None:
+            yield seq_idx, ref_pos
+
+
+def calculate_base_pileup_from_alignments(
+    reads_data, bam_file=None, reference_name=None, fasta_file=None
+):
+    """Calculate IGV-style base pileup using alignment data (no move table required)
+
+    This function works with data from extract_alignments_for_reference() which
+    doesn't require move tables.
+
+    Args:
+        reads_data: List of read dicts from extract_alignments_for_reference()
+        bam_file: Optional path to BAM file (for extracting reference sequence from MD tag)
+        reference_name: Optional reference name (for extracting reference sequence)
+        fasta_file: Optional path to FASTA file (preferred source for reference sequence)
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - counts: Dict mapping each position to dict of base counts
+                     e.g., {pos: {'A': 10, 'C': 2, 'G': 5, 'T': 8}}
+            - reference_bases: Dict mapping position to reference base (from FASTA or BAM)
+    """
+    import pysam
+
+    from .bam import get_reference_sequence_for_read
+
+    position_bases = {}
+
+    for read in reads_data:
+        sequence = read.get("sequence", "")
+        if not sequence:
+            continue
+
+        # Use aligned_pairs mapping (works without move tables)
+        for seq_idx, ref_pos in iter_aligned_positions(read):
+            if seq_idx < len(sequence):
+                base = sequence[seq_idx].upper()
+
+                if ref_pos not in position_bases:
+                    position_bases[ref_pos] = {}
+                if base not in position_bases[ref_pos]:
+                    position_bases[ref_pos][base] = 0
+                position_bases[ref_pos][base] += 1
+
+    # Only include positions that have actual coverage
+    positions = sorted(position_bases.keys())
+
+    result = {
+        "positions": np.array(positions),
+        "counts": {pos: position_bases[pos] for pos in positions},
+    }
+
+    # Extract reference bases from FASTA (preferred) or BAM
+    if reference_name and reads_data and positions:
+        reference_bases = {}
+
+        # Try FASTA first (most accurate)
+        if fasta_file:
+            try:
+                fasta = pysam.FastaFile(str(fasta_file))
+                # Get the range of positions we need
+                min_pos = int(min(positions))
+                max_pos = int(max(positions))
+
+                # Fetch reference sequence for the region
+                ref_seq = fasta.fetch(reference_name, min_pos, max_pos + 1)
+
+                # Map each position to its reference base
+                for pos in positions:
+                    idx = int(pos) - min_pos
+                    if 0 <= idx < len(ref_seq):
+                        reference_bases[pos] = ref_seq[idx].upper()
+
+                fasta.close()
+
+                if reference_bases:
+                    result["reference_bases"] = reference_bases
+                    return result
+            except Exception:
+                # FASTA failed, fall back to BAM
+                pass
+
+        # Fall back to BAM file (uses MD tag or query sequence)
+        # Iterate through all reads to build complete reference coverage
+        if bam_file and not reference_bases:
+            try:
+                for read in reads_data:
+                    ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
+                        bam_file, read["read_id"]
+                    )
+
+                    if ref_seq and ref_start is not None:
+                        # Add reference bases from this read's alignment
+                        for pos in positions:
+                            if pos in reference_bases:
+                                continue  # Already have this position
+                            # Calculate index in reference sequence
+                            idx = pos - ref_start
+                            if 0 <= idx < len(ref_seq):
+                                reference_bases[pos] = ref_seq[idx].upper()
+
+                    # Stop early if we've covered all positions
+                    if len(reference_bases) >= len(positions):
+                        break
+
+                if reference_bases:
+                    result["reference_bases"] = reference_bases
+            except Exception:
+                # If we can't get reference sequence, just skip it
+                pass
+
+    return result
+
+
+def calculate_quality_by_position_from_alignments(reads_data):
+    """Calculate average quality scores using alignment data (no move table required)
+
+    This function works with data from extract_alignments_for_reference() which
+    doesn't require move tables.
+
+    Args:
+        reads_data: List of read dicts from extract_alignments_for_reference()
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - mean_quality: Mean quality score at each position
+            - std_quality: Standard deviation of quality at each position
+    """
+    position_qualities = {}
+
+    for read in reads_data:
+        quality_scores = read.get("quality_scores")
+        if quality_scores is None:
+            continue
+
+        # Use aligned_pairs mapping (works without move tables)
+        for seq_idx, ref_pos in iter_aligned_positions(read):
+            if seq_idx < len(quality_scores):
+                qual = quality_scores[seq_idx]
+
+                if ref_pos not in position_qualities:
+                    position_qualities[ref_pos] = []
+                position_qualities[ref_pos].append(qual)
+
+    positions = sorted(position_qualities.keys())
+    mean_qualities = []
+    std_qualities = []
+
+    for pos in positions:
+        values = np.array(position_qualities[pos])
+        mean_qualities.append(np.mean(values))
+        std_qualities.append(np.std(values))
+
+    return {
+        "positions": np.array(positions),
+        "mean_quality": np.array(mean_qualities),
+        "std_quality": np.array(std_qualities),
+    }
+
+
+def calculate_modification_statistics_from_alignments(
+    reads_data, mod_filter=None, min_frequency=0.0, min_modified_reads=1
+):
+    """Calculate modification statistics using alignment data (no move table required)
+
+    This function works with data from extract_alignments_for_reference() which
+    doesn't require move tables. The modification data comes from MM/ML tags in BAM.
+
+    Args:
+        reads_data: List of read dicts from extract_alignments_for_reference()
+        mod_filter: Optional dict mapping mod_code -> minimum probability threshold
+        min_frequency: Minimum fraction of reads that must be modified (0.0-1.0)
+        min_modified_reads: Minimum number of reads that must have the modification
+
+    Returns:
+        Dict with keys (same format as calculate_modification_statistics):
+            - mod_stats: Dict mapping mod_code -> position -> statistics
+            - positions: Sorted list of all positions with modifications >= threshold
+    """
+    # Reuse the existing modification statistics logic
+    # It doesn't actually depend on move tables - only on the modifications list
+    # which is extracted from MM/ML tags
+    return calculate_modification_statistics(
+        reads_data,
+        mod_filter=mod_filter,
+        min_frequency=min_frequency,
+        min_modified_reads=min_modified_reads,
+    )
+
+
+def calculate_coverage_from_alignments(reads_data):
+    """Calculate coverage depth at each reference position (no move table required)
+
+    This function calculates how many reads cover each reference position,
+    using alignment data from extract_alignments_for_reference().
+
+    Args:
+        reads_data: List of read dicts from extract_alignments_for_reference()
+
+    Returns:
+        Dict with keys:
+            - positions: Array of reference positions
+            - coverage: Number of reads covering each position
+    """
+    position_coverage = {}
+
+    for read in reads_data:
+        ref_start = read.get("reference_start")
+        ref_end = read.get("reference_end")
+
+        if ref_start is not None and ref_end is not None:
+            for pos in range(ref_start, ref_end):
+                if pos not in position_coverage:
+                    position_coverage[pos] = 0
+                position_coverage[pos] += 1
+
+    positions = sorted(position_coverage.keys())
+    coverage = [position_coverage[pos] for pos in positions]
+
+    return {
+        "positions": np.array(positions),
+        "coverage": np.array(coverage),
     }
