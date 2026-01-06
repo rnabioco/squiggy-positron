@@ -15,6 +15,7 @@ export interface PlotOptionsState {
     scaleDwellTime: boolean;
     downsample: number;
     showSignalPoints: boolean;
+    trimAdapters: boolean;
 }
 
 /**

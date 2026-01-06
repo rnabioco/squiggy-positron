@@ -213,6 +213,7 @@ export class SessionStateManager {
                 scaleDwellTime: false,
                 downsample: 5,
                 showSignalPoints: false,
+                trimAdapters: false,
             },
 
             // No modification filters for demo (yeast data doesn't have mods)
