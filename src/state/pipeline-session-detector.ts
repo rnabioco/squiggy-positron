@@ -21,6 +21,12 @@ const PIPELINE_SESSION_FILENAME = 'squiggy-session.json';
 /** Workspace state key for user preference */
 const PIPELINE_SESSION_PREFERENCE_KEY = 'squiggy.pipelineSessionAutoLoad';
 
+/** Subdirectories to search for pipeline session files */
+const SEARCH_SUBDIRS = ['', 'results', 'output', 'analysis'];
+
+/** File size threshold (1GB) above which MD5 validation is skipped */
+const LARGE_FILE_THRESHOLD = 1024 * 1024 * 1024; // 1GB
+
 /** User preferences for auto-load behavior */
 type AutoLoadPreference = 'ask' | 'skip';
 
@@ -51,7 +57,8 @@ export interface ChecksumValidationResult {
 /**
  * Detect pipeline session file in workspace folders
  *
- * Scans all workspace folders for a squiggy-session.json file.
+ * Scans all workspace folders and common subdirectories for a squiggy-session.json file.
+ * Searches in: workspace root, results/, output/, analysis/
  * Returns the first match found.
  *
  * @returns Detection result with session path and parsed content if found
@@ -63,38 +70,41 @@ export async function detectPipelineSession(): Promise<PipelineSessionDetectionR
         return { found: false };
     }
 
-    // Scan each workspace folder for session file
+    // Scan each workspace folder and common subdirectories for session file
     for (const folder of workspaceFolders) {
-        const sessionPath = path.join(folder.uri.fsPath, PIPELINE_SESSION_FILENAME);
+        for (const subdir of SEARCH_SUBDIRS) {
+            const sessionPath = path.join(folder.uri.fsPath, subdir, PIPELINE_SESSION_FILENAME);
 
-        try {
-            // Check if file exists
-            await fs.access(sessionPath);
+            try {
+                // Check if file exists
+                await fs.access(sessionPath);
 
-            // Read and parse session
-            const json = await fs.readFile(sessionPath, 'utf-8');
-            const session = JSON.parse(json) as SessionState;
+                // Read and parse session
+                const json = await fs.readFile(sessionPath, 'utf-8');
+                const session = JSON.parse(json) as SessionState;
 
-            // Validate session schema
-            const validation = SessionStateManager.validateSession(session);
-            if (!validation.valid) {
-                logger.warning(
-                    `Pipeline session at ${sessionPath} has invalid schema: ${validation.errors.join(', ')}`
-                );
-                continue; // Try next workspace folder
+                // Validate session schema
+                const validation = SessionStateManager.validateSession(session);
+                if (!validation.valid) {
+                    logger.warning(
+                        `Pipeline session at ${sessionPath} has invalid schema: ${validation.errors.join(', ')}`
+                    );
+                    continue; // Try next subdirectory
+                }
+
+                const location = subdir ? `${folder.name}/${subdir}` : folder.name;
+                logger.info(`Detected pipeline session at ${sessionPath} (in ${location})`);
+
+                return {
+                    found: true,
+                    sessionPath,
+                    sessionDir: path.dirname(sessionPath),
+                    session,
+                };
+            } catch (_error) {
+                // File doesn't exist or can't be read - continue to next location
+                continue;
             }
-
-            logger.info(`Detected pipeline session at ${sessionPath}`);
-
-            return {
-                found: true,
-                sessionPath,
-                sessionDir: path.dirname(sessionPath),
-                session,
-            };
-        } catch (_error) {
-            // File doesn't exist or can't be read - continue to next folder
-            continue;
         }
     }
 
@@ -158,7 +168,8 @@ export function resolveAllPaths(session: SessionState, sessionFileDir: string): 
  * Validate file checksums against stored values
  *
  * Compares MD5 checksums of files against values stored in the session.
- * Useful for detecting if files have changed since the session was exported.
+ * For files larger than 1GB, only existence and size are validated (no MD5)
+ * to avoid memory exhaustion with multi-GB POD5 files.
  *
  * @param session Session state with fileChecksums (paths should be absolute)
  * @returns Validation result with list of mismatched files
@@ -173,10 +184,27 @@ export async function validateChecksums(session: SessionState): Promise<Checksum
 
     for (const [filePath, expectedInfo] of Object.entries(session.fileChecksums)) {
         try {
-            // Check if file exists
-            await fs.access(filePath);
+            // Get file stats to check existence and size
+            const stats = await fs.stat(filePath);
 
-            // Read file and calculate MD5
+            // For large files (>1GB), skip MD5 and only validate existence + size
+            if (stats.size > LARGE_FILE_THRESHOLD) {
+                if (expectedInfo.size !== undefined && expectedInfo.size !== stats.size) {
+                    mismatches.push({
+                        filePath,
+                        expected: `size ${expectedInfo.size}`,
+                        actual: `size ${stats.size}`,
+                        reason: 'changed',
+                    });
+                }
+                // File exists and size matches (or no size stored) - skip MD5
+                logger.debug(
+                    `Skipping MD5 validation for large file (${(stats.size / 1024 / 1024 / 1024).toFixed(1)} GB): ${path.basename(filePath)}`
+                );
+                continue;
+            }
+
+            // For smaller files, compute MD5 as before
             const content = await fs.readFile(filePath);
             const hash = crypto.createHash('md5');
             hash.update(content);
