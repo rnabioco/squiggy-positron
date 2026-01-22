@@ -123,7 +123,8 @@ def _load_sample_files(
         raise FileNotFoundError(f"POD5 file not found: {abs_pod5_path}")
 
     reader = pod5.Reader(abs_pod5_path)
-    read_ids = [str(read.read_id) for read in reader.reads()]
+    # Use read_ids attribute for O(1) indexed access instead of O(n) iteration
+    read_ids = [str(rid) for rid in reader.read_ids]
 
     sample._pod5_path = abs_pod5_path
     sample._pod5_reader = reader

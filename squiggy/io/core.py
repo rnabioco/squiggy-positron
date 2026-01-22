@@ -55,15 +55,10 @@ def get_reads_batch(
             raise RuntimeError("No POD5 file is currently loaded")
         reader = squiggy_kernel._reader
 
-    needed = set(read_ids)
+    # Use selection parameter for O(1) indexed access instead of O(n) iteration
     found = {}
-
-    for read in reader.reads():
-        read_id = str(read.read_id)
-        if read_id in needed:
-            found[read_id] = read
-            if len(found) == len(needed):
-                break  # Early exit once all found
+    for read in reader.reads(selection=read_ids, missing_ok=True):
+        found[str(read.read_id)] = read
 
     return found
 
@@ -147,33 +142,17 @@ def get_read_by_id(
         if not sample or sample._pod5_reader is None:
             raise RuntimeError(f"Sample '{sample_name}' not loaded or has no POD5 file")
         reader = sample._pod5_reader
-        pod5_index = sample.pod5_index if hasattr(sample, "pod5_index") else None
     else:
         if squiggy_kernel._reader is None:
             raise RuntimeError("No POD5 file is currently loaded")
         reader = squiggy_kernel._reader
-        pod5_index = (
-            squiggy_kernel._pod5_index
-            if hasattr(squiggy_kernel, "pod5_index")
-            else None
-        )
 
-    # Use index if available
-    if pod5_index is not None:
-        position = pod5_index.get_position(read_id)
-        if position is None:
-            return None
-
-        # Use indexed access
-        for idx, read in enumerate(reader.reads()):
-            if idx == position:
-                return read
-        return None
-
-    # Fallback to linear scan
-    for read in reader.reads():
-        if str(read.read_id) == read_id:
+    # Use POD5's native indexed selection for O(1) access
+    try:
+        for read in reader.reads(selection=[read_id]):
             return read
+    except RuntimeError:
+        pass  # Invalid read ID
     return None
 
 

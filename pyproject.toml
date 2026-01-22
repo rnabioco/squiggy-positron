@@ -1,6 +1,6 @@
 [project]
 name = "squiggy-positron"
-version = "0.1.22"
+version = "0.1.23"
 description = "Python backend for Squiggy Positron extension - Nanopore squiggle visualization. Not recommended for standalone use."
 readme = "docs/PYPI_README.md"
 requires-python = ">=3.12"
