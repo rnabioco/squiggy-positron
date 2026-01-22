@@ -262,7 +262,7 @@ Use the AskUserQuestion tool to ask the user:
 
 **Options:**
 - **Yes** - Create commit and tag (recommended)
-  - Description: "Commit the changes and create a git tag v[VERSION]"
+  - Description: "Commit the changes and create git tag v[VERSION]"
 - **No** - Stage only (manual commit later)
   - Description: "Leave changes staged for manual review and commit"
 
@@ -282,13 +282,36 @@ Use the AskUserQuestion tool to ask the user:
    git tag -a v[VERSION] -m "Release v[VERSION]"
    ```
 
-3. Show success message with next steps:
+3. Show the commit summary:
+   ```bash
+   git log -1 --oneline
+   git show v[VERSION] --quiet
    ```
-   ✅ Release v[VERSION] committed and tagged!
 
-   Next steps:
-   # Push to remote (this will trigger GitHub Actions):
+4. Proceed to Step 11 (Push confirmation).
+
+## Step 11: Prompt to Push Release
+
+Use the AskUserQuestion tool to ask the user:
+
+**Question:** "Release v[VERSION] is committed and tagged locally. Push to remote now?"
+
+**Options:**
+- **Yes** - Push now (recommended)
+  - Description: "Push commit and tag to trigger GitHub Actions release"
+- **No** - Don't push yet
+  - Description: "Keep release local for now; push manually later"
+
+### If user selects "Yes":
+
+1. Push to remote:
+   ```bash
    git push origin main v[VERSION]
+   ```
+
+2. Show success message:
+   ```
+   ✅ Release v[VERSION] pushed!
 
    The GitHub Actions workflow (.github/workflows/release.yml) will automatically:
    - Run tests
@@ -300,6 +323,16 @@ Use the AskUserQuestion tool to ask the user:
    # View the release after CI completes:
    gh release view v[VERSION] --web
    ```
+
+### If user selects "No":
+
+Show manual push instructions:
+```
+✅ Release v[VERSION] committed and tagged locally.
+
+When ready to publish, run:
+git push origin main v[VERSION]
+```
 
 ### If user selects "No":
 
@@ -330,8 +363,8 @@ git push origin main v[VERSION]
 - The .vsix file is built as a verification step but is NOT committed (it's in .gitignore)
 - If the user aborts at the VSIX check, restore all version changes with `git checkout`
 - Always show the staged diff before prompting to commit
-- Only create commit and tag if the user explicitly chooses "Yes" in the prompt
-- Do NOT push to remote - always leave that to the user
+- Only create commit and tag if the user explicitly chooses "Yes" in Step 10
+- Only push to remote if the user explicitly chooses "Yes" in Step 11
 - Do NOT create GitHub release manually - GitHub Actions (.github/workflows/release.yml) handles this automatically when tags are pushed
 - Be concise in the changelog - focus on user-facing changes
 - Skip internal/testing changes in the changelog unless they're significant
