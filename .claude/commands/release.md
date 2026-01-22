@@ -290,6 +290,29 @@ Use the AskUserQuestion tool to ask the user:
 
 4. Proceed to Step 11 (Push confirmation).
 
+### If user selects "No" (Step 10):
+
+Show manual next steps:
+```bash
+# Review the changes:
+git diff --cached
+
+# When ready, commit the release:
+git commit -m "Release v[VERSION]"
+
+# Create a git tag:
+git tag -a v[VERSION] -m "Release v[VERSION]"
+
+# Push to remote (this triggers GitHub Actions to create the release):
+git push origin main v[VERSION]
+
+# GitHub Actions will automatically:
+# - Run tests
+# - Build the .vsix extension
+# - Create GitHub release with auto-generated notes
+# - Upload the .vsix artifact
+```
+
 ## Step 11: Prompt to Push Release
 
 Use the AskUserQuestion tool to ask the user:
@@ -324,7 +347,7 @@ Use the AskUserQuestion tool to ask the user:
    gh release view v[VERSION] --web
    ```
 
-### If user selects "No":
+### If user selects "No" (Step 11):
 
 Show manual push instructions:
 ```
@@ -332,29 +355,6 @@ Show manual push instructions:
 
 When ready to publish, run:
 git push origin main v[VERSION]
-```
-
-### If user selects "No":
-
-Show manual next steps:
-```bash
-# Review the changes:
-git diff --cached
-
-# When ready, commit the release:
-git commit -m "Release v[VERSION]"
-
-# Create a git tag:
-git tag -a v[VERSION] -m "Release v[VERSION]"
-
-# Push to remote (this triggers GitHub Actions to create the release):
-git push origin main v[VERSION]
-
-# GitHub Actions will automatically:
-# - Run tests
-# - Build the .vsix extension
-# - Create GitHub release with auto-generated notes
-# - Upload the .vsix artifact
 ```
 
 ## Important Notes
