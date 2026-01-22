@@ -1,5 +1,20 @@
 # Squiggy Release Notes
 
+## v0.1.24-alpha (2026-01-22)
+
+Pipeline session integration for external workflow support.
+
+### Features
+
+- **Pipeline Session Auto-Detection**: Automatically detects `squiggy-session.json` files in workspace folders and prompts to load them (#174)
+- **Load Pipeline Session Command**: New command to manually load pipeline sessions via file picker
+- **Relative Path Resolution**: Pipeline sessions support paths relative to the session file location, enabling portable session files
+- **Checksum Validation**: Warns users when session files reference data that has changed since export
+
+### Improvements
+
+- **User Preferences**: "Don't Ask Again" option for pipeline session auto-detection prompts
+
 ## v0.1.23-alpha (2026-01-22)
 
 Performance optimizations for POD5 and BAM file operations, plus RNA basecalling auto-detection.
