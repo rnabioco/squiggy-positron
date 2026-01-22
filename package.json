@@ -182,6 +182,13 @@
         "enablement": "squiggy.packageInstalled"
       },
       {
+        "command": "squiggy.loadPipelineSession",
+        "title": "Load Pipeline Session",
+        "category": "Squiggy",
+        "icon": "$(folder-library)",
+        "enablement": "squiggy.packageInstalled"
+      },
+      {
         "command": "squiggy.showLogs",
         "title": "Show Extension Logs",
         "category": "Squiggy",

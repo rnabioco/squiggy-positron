@@ -5,8 +5,16 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ExtensionState } from '../state/extension-state';
 import { SessionStateManager } from '../state/session-state-manager';
+import {
+    detectPipelineSession,
+    resolveAllPaths,
+    validateChecksums,
+    browsePipelineSession,
+    showChecksumWarning,
+} from '../state/pipeline-session-detector';
 import { logger } from '../utils/logger';
 import { statusBarMessenger } from '../utils/status-bar-messenger';
 
@@ -33,6 +41,9 @@ export function registerSessionCommands(
         vscode.commands.registerCommand('squiggy.clearSession', () => clearSessionCommand(context)),
         vscode.commands.registerCommand('squiggy.loadDemoSession', () =>
             loadDemoSessionCommand(state, context)
+        ),
+        vscode.commands.registerCommand('squiggy.loadPipelineSession', () =>
+            loadPipelineSessionCommand(state, context)
         )
     );
 }
@@ -291,5 +302,111 @@ export async function loadDemoSessionCommand(
     } catch (error) {
         logger.error('Failed to load demo session', error);
         statusBarMessenger.showError(`Demo load failed: ${error}`);
+    }
+}
+
+/**
+ * Load pipeline session from squiggy-session.json
+ *
+ * Pipeline sessions (e.g., from aa-tRNA) use paths relative to the session file's
+ * directory. This command auto-detects session files in the workspace or allows
+ * manual selection via file picker.
+ */
+export async function loadPipelineSessionCommand(
+    extensionState: ExtensionState,
+    context: vscode.ExtensionContext
+): Promise<void> {
+    logger.info('Loading pipeline session...');
+
+    try {
+        // Try to auto-detect session in workspace
+        let sessionPath: string | undefined;
+        let sessionDir: string | undefined;
+        let session = await detectPipelineSession();
+
+        if (session.found && session.sessionPath && session.session) {
+            sessionPath = session.sessionPath;
+            sessionDir = session.sessionDir;
+            logger.info(`Auto-detected pipeline session at ${sessionPath}`);
+        } else {
+            // No auto-detected session, prompt for file
+            sessionPath = await browsePipelineSession();
+
+            if (!sessionPath) {
+                logger.info('Pipeline session load cancelled by user');
+                return;
+            }
+
+            // Parse the selected file
+            sessionDir = path.dirname(sessionPath);
+            const importedSession = await SessionStateManager.importSession(sessionPath);
+            session = {
+                found: true,
+                sessionPath,
+                sessionDir,
+                session: importedSession,
+            };
+        }
+
+        if (!session.session || !sessionDir) {
+            statusBarMessenger.showError('Failed to parse pipeline session');
+            return;
+        }
+
+        // Resolve all relative paths to absolute paths
+        const resolvedSession = resolveAllPaths(session.session, sessionDir);
+
+        // Validate checksums if present
+        const checksumResult = await validateChecksums(resolvedSession);
+        if (!checksumResult.valid) {
+            const missingOrChanged = checksumResult.mismatches.filter(
+                (m) => m.reason === 'missing' || m.reason === 'changed'
+            );
+
+            if (missingOrChanged.length > 0) {
+                const shouldContinue = await showChecksumWarning(missingOrChanged);
+                if (!shouldContinue) {
+                    logger.info('Pipeline session load cancelled due to checksum mismatch');
+                    return;
+                }
+            }
+        }
+
+        // Check for unsaved changes in current session
+        const currentState = extensionState.toSessionState();
+        const hasData = Object.keys(currentState.samples).length > 0;
+
+        if (hasData) {
+            const response = await vscode.window.showWarningMessage(
+                'Loading pipeline session will replace current data. Continue?',
+                { modal: true },
+                'Load Session'
+            );
+
+            if (response !== 'Load Session') {
+                logger.info('Pipeline session load cancelled by user');
+                return;
+            }
+        }
+
+        // Load the session
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Window,
+                title: 'Squiggy',
+            },
+            async (progress) => {
+                progress.report({ message: 'Loading pipeline session...' });
+                await extensionState.fromSessionState(resolvedSession, context);
+            }
+        );
+
+        // Show success with session name or path
+        const sessionName = resolvedSession.sessionName || path.basename(sessionPath);
+        statusBarMessenger.show(`Loaded: ${sessionName}`, 'folder-library');
+        logger.info(`Pipeline session loaded successfully: ${sessionName}`);
+    } catch (error) {
+        logger.error('Failed to load pipeline session', error);
+        statusBarMessenger.showError(`Pipeline session load failed: ${error}`);
     }
 }

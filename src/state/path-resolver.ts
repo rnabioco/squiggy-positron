@@ -77,6 +77,26 @@ if 'package_dir' in globals():
         return filePath;
     }
     /**
+     * Resolve paths relative to a session file's directory
+     *
+     * Used for pipeline-generated sessions (e.g., squiggy-session.json from aa-tRNA)
+     * where file paths are stored relative to the session file's location.
+     *
+     * @param relativePath Path from session file (may be relative or absolute)
+     * @param sessionFileDir Directory containing the session file
+     * @returns Absolute file path
+     */
+    static resolveSessionRelativePath(relativePath: string, sessionFileDir: string): string {
+        // If already absolute, return as-is
+        if (path.isAbsolute(relativePath)) {
+            return relativePath;
+        }
+
+        // Resolve relative to session file directory
+        return path.join(sessionFileDir, relativePath);
+    }
+
+    /**
      * Resolve extension-relative paths to absolute paths
      *
      * Converts paths like "${extensionPath}/out/test-data/file.pod5"
