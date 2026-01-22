@@ -568,6 +568,8 @@ def get_reference_sequence_from_fasta(
 def get_available_reads_for_reference(bam_file, reference_name):
     """Count total reads available for a reference in a BAM file
 
+    Uses BAM index for O(log n) lookup instead of O(n) full scan.
+
     Args:
         bam_file: Path to BAM file with alignments
         reference_name: Name of reference sequence to count reads for
@@ -579,16 +581,13 @@ def get_available_reads_for_reference(bam_file, reference_name):
         ValueError: If BAM file cannot be read or reference not found
     """
     try:
-        count = 0
-        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
-            for read in bam.fetch(until_eof=True):
-                if read.is_unmapped:
-                    continue
+        with pysam.AlignmentFile(str(bam_file), "rb") as bam:
+            # Verify reference exists in BAM header
+            if reference_name not in bam.references:
+                return 0
 
-                # Check if read maps to the specified reference
-                ref_name = bam.get_reference_name(read.reference_id)
-                if ref_name == reference_name:
-                    count += 1
+            # Use indexed fetch for O(log n) lookup instead of O(n) full scan
+            count = sum(1 for read in bam.fetch(reference_name) if not read.is_unmapped)
 
         return count
 
@@ -626,17 +625,23 @@ def extract_reads_for_reference(
     import random
 
     # First, get all reads that map to this reference from BAM
+    # Use indexed fetch for O(log n) lookup instead of O(n) full scan
     reads_info = []
 
     try:
-        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
-            for read in bam.fetch(until_eof=True):
-                if read.is_unmapped:
-                    continue
+        with pysam.AlignmentFile(str(bam_file), "rb") as bam:
+            # Verify reference exists in BAM header
+            if reference_name not in bam.references:
+                available = ", ".join(bam.references[:5])
+                suffix = "..." if len(bam.references) > 5 else ""
+                raise ValueError(
+                    f"Reference '{reference_name}' not found in BAM file.\n"
+                    f"Available references: {available}{suffix}"
+                )
 
-                # Check if read maps to the specified reference
-                ref_name = bam.get_reference_name(read.reference_id)
-                if ref_name != reference_name:
+            # Use indexed fetch - O(log n) instead of O(n)
+            for read in bam.fetch(reference_name):
+                if read.is_unmapped:
                     continue
 
                 # Extract move table and quality scores
@@ -709,19 +714,18 @@ def extract_reads_for_reference(
                 reads_info = reads_info[:max_reads]
 
         # Now extract signal data from POD5 for these reads
-        read_id_set = {r["read_id"] for r in reads_info}
+        # Use selection parameter for O(1) indexed lookup instead of O(n) full scan
+        read_id_list = [r["read_id"] for r in reads_info]
         signal_data = {}
 
         with pod5.Reader(pod5_file) as reader:
-            for pod5_read in reader.reads():
+            # Use selection parameter for direct indexed access
+            for pod5_read in reader.reads(selection=read_id_list, missing_ok=True):
                 read_id_str = str(pod5_read.read_id)
-                if read_id_str in read_id_set:
-                    signal_data[read_id_str] = {
-                        "signal": pod5_read.signal,
-                        "sample_rate": pod5_read.run_info.sample_rate,
-                    }
-                    if len(signal_data) == len(read_id_set):
-                        break
+                signal_data[read_id_str] = {
+                    "signal": pod5_read.signal,
+                    "sample_rate": pod5_read.run_info.sample_rate,
+                }
 
         # Combine BAM and POD5 data
         result = []

@@ -1,5 +1,24 @@
 # Squiggy Release Notes
 
+## v0.1.23-alpha (2026-01-22)
+
+Performance optimizations for POD5 and BAM file operations, plus RNA basecalling auto-detection.
+
+### Features
+
+- **RNA Basecalling Auto-Detection**: Automatically detects RNA basecalling models and enables RNA mode for correct signal orientation
+
+### Performance
+
+- **POD5 Read Access Optimization**: Use POD5's native indexed selection for O(1) read lookups instead of O(n) iteration through all reads
+- **BAM Reference Lookup Optimization**: Use indexed `bam.fetch()` for O(log n) reference queries instead of O(n) full file scans
+- **Batch Read Loading**: Optimized batch read operations using selection parameter with `missing_ok=True`
+
+### Fixes
+
+- **Read Explorer Table**: Improved column alignment and fixed reference collapse bug
+- **Loading Timeouts**: Increased sample loading timeouts from 30s to 120s for larger files
+
 ## v0.1.22-alpha (2025-12-05)
 
 New visualization features for BAM files without move tables and improved aggregate plot context.

@@ -428,10 +428,10 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
                     () =>
                         reject(
                             new Error(
-                                `Timeout loading reads and references for sample '${sampleName}' after 30 seconds`
+                                `Timeout loading reads and references for sample '${sampleName}' after 120 seconds`
                             )
                         ),
-                    30000
+                    120000
                 )
             ),
         ]);
@@ -461,10 +461,10 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
                         () =>
                             reject(
                                 new Error(
-                                    `Timeout loading reference read counts for sample '${sampleName}' after 30 seconds`
+                                    `Timeout loading reference read counts for sample '${sampleName}' after 120 seconds`
                                 )
                             ),
-                        30000
+                        120000
                     )
                 ),
             ]);

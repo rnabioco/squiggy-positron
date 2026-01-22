@@ -449,7 +449,7 @@ class TestPlotAggregateFunction:
         load_pod5(str(sample_pod5_file))
         load_bam(str(indexed_bam_file))
 
-        with pytest.raises(ValueError, match="No reads found.*NONEXISTENT_REF"):
+        with pytest.raises(ValueError, match="Reference 'NONEXISTENT_REF' not found"):
             plot_aggregate("NONEXISTENT_REF")
 
     def test_plot_aggregate_returns_html(self, sample_pod5_file, indexed_bam_file):

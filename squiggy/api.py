@@ -86,7 +86,8 @@ class Pod5File:
     def read_ids(self) -> list[str]:
         """Get list of all read IDs in the file"""
         if self._read_ids is None:
-            self._read_ids = [str(read.read_id) for read in self._reader.reads()]
+            # Use read_ids attribute for O(1) indexed access instead of O(n) iteration
+            self._read_ids = [str(rid) for rid in self._reader.read_ids]
         return self._read_ids
 
     def __len__(self) -> int:
@@ -106,9 +107,12 @@ class Pod5File:
         Raises:
             ValueError: If read ID not found
         """
-        for read_obj in self._reader.reads():
-            if str(read_obj.read_id) == read_id:
+        # Use POD5's native indexed selection for O(1) access
+        try:
+            for read_obj in self._reader.reads(selection=[read_id]):
                 return Read(read_obj, self)
+        except RuntimeError:
+            pass  # Invalid read ID - fall through to ValueError
 
         raise ValueError(f"Read not found: {read_id}")
 
