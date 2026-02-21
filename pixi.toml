@@ -18,8 +18,8 @@ test = { depends-on = ["test-py", "test-ts"] }
 check = { depends-on = ["format-check", "lint", "test"] }
 build = "npm run package"
 clean = "rm -rf build/ .pytest_cache/ .ruff_cache/ site/ squiggy.egg-info/ squiggy/__pycache__/ src/squiggy.egg-info/ src/squiggy/ test-*/ tests/__pycache__/ .DS_Store"
-docs = "mkdocs serve"  # Local development server (runs indefinitely)
-docs-build = "mkdocs build"  # Build static site for CI/CD (exits when done)
+docs = "pixi run -e docs docs-serve"
+docs-build = "pixi run -e docs docs-build"
 # === Granular Tasks ===
 # TypeScript
 compile = "npm run compile"
@@ -46,8 +46,6 @@ pillow = ">=10.0.0"
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 ruff = ">=0.1.0"
-mkdocs = ">=1.5.0"
-mkdocs-material = ">=9.0.0"
 
 [pypi-dependencies]
 # PyPI-only packages
@@ -55,5 +53,19 @@ pod5 = ">=0.3.0"
 pysam = ">=0.22.0"
 bokeh = ">=3.0.0"
 selenium = ">=4.6.0"
+
+# Documentation feature
+[feature.docs.dependencies]
+python = ">=3.10"
+
+[feature.docs.pypi-dependencies]
+zensical = "*"
 mkdocstrings = { version = ">=0.24.0", extras = ["python"] }
 mike = ">=2.0.0"
+
+[feature.docs.tasks]
+docs-build = "zensical build"
+docs-serve = "zensical serve"
+
+[environments]
+docs = { features = ["docs"], solve-group = "default" }

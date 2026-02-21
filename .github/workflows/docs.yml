@@ -29,10 +29,10 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: pixi install
+        run: pixi install -e docs
 
       - name: Build documentation
-        run: pixi run -e default mkdocs build
+        run: pixi run -e docs docs-build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
