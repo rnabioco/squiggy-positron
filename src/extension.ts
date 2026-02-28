@@ -3,6 +3,10 @@
  *
  * Main entry point - handles activation, deactivation, and registration only.
  * All logic is delegated to focused modules for better maintainability.
+ *
+ * Activation is split into two phases:
+ *   Phase 1 (always): Lightweight - logger, enable/disable commands, config watcher
+ *   Phase 2 (only when squiggy.enabled: true): Heavyweight - venv, kernel, panels
  */
 
 import * as vscode from 'vscode';
@@ -41,8 +45,14 @@ let kernelStatusBarItem: vscode.StatusBarItem;
 // Extension version (set during activation)
 let extensionVersion: string;
 
+// Guard against double full-activation
+let isFullyActivated = false;
+
 /**
- * Extension activation
+ * Extension activation - Phase 1 (always runs)
+ *
+ * Lightweight setup: logger, enable/disable commands, config watcher, context key.
+ * Full activation (venv, kernel, panels) only happens when squiggy.enabled is true.
  */
 export async function activate(context: vscode.ExtensionContext) {
     // Initialize centralized logger (creates Output Channel)
@@ -51,17 +61,129 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize status bar messenger for transient notifications
     context.subscriptions.push(statusBarMessenger.initialize());
 
-    // Register command to clear status bar errors (click to dismiss)
+    // Store and log version info
+    extensionVersion = context.extension.packageJSON.version;
+    logger.info(`Positron/VSCode version: ${vscode.version}`);
+    logger.info(`Squiggy extension version: ${extensionVersion}`);
+
+    // Register commands that must always be available (regardless of enabled state)
+    registerAlwaysAvailableCommands(context);
+
+    // Register empty TreeDataProvider for the welcome view
+    // (viewsWelcome in package.json handles the actual content)
+    vscode.window.registerTreeDataProvider('squiggyWelcome', {
+        getTreeItem: () => new vscode.TreeItem(''),
+        getChildren: () => [],
+    });
+
+    // Read current enabled state and set context key
+    const config = vscode.workspace.getConfiguration('squiggy');
+    const isEnabled = config.get<boolean>('enabled', false);
+    await vscode.commands.executeCommand('setContext', 'squiggy.enabled', isEnabled);
+
+    logger.info(`Squiggy enabled in workspace: ${isEnabled}`);
+
+    // Watch for configuration changes to squiggy.enabled
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(async (e) => {
+            if (!e.affectsConfiguration('squiggy.enabled')) {
+                return;
+            }
+
+            const newConfig = vscode.workspace.getConfiguration('squiggy');
+            const newEnabled = newConfig.get<boolean>('enabled', false);
+            await vscode.commands.executeCommand('setContext', 'squiggy.enabled', newEnabled);
+
+            if (newEnabled && !isFullyActivated) {
+                // Toggled on: perform full activation
+                logger.info('squiggy.enabled toggled to true - performing full activation');
+                await performFullActivation(context);
+            } else if (!newEnabled && isFullyActivated) {
+                // Toggled off: prompt for reload (can't unregister webview providers)
+                const reload = await vscode.window.showInformationMessage(
+                    'Squiggy has been disabled. Reload the window to complete deactivation.',
+                    'Reload Now',
+                    'Later'
+                );
+                if (reload === 'Reload Now') {
+                    await vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            }
+        })
+    );
+
+    // Phase 2: only if enabled
+    if (isEnabled) {
+        await performFullActivation(context);
+    }
+}
+
+/**
+ * Register commands that must work regardless of squiggy.enabled state
+ */
+function registerAlwaysAvailableCommands(context: vscode.ExtensionContext): void {
+    // Enable/disable workspace commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.enableInWorkspace', async () => {
+            const config = vscode.workspace.getConfiguration('squiggy');
+            await config.update('enabled', true, vscode.ConfigurationTarget.Workspace);
+            logger.info('Squiggy enabled in workspace via command');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.disableInWorkspace', async () => {
+            const config = vscode.workspace.getConfiguration('squiggy');
+            await config.update('enabled', false, vscode.ConfigurationTarget.Workspace);
+            logger.info('Squiggy disabled in workspace via command');
+        })
+    );
+
+    // Clear status bar errors (click to dismiss)
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.clearStatusBarError', () => {
             statusBarMessenger.clear();
         })
     );
 
-    // Store and log version info
-    extensionVersion = context.extension.packageJSON.version;
-    logger.info(`Positron/VSCode version: ${vscode.version}`);
-    logger.info(`Squiggy extension version: ${extensionVersion}`);
+    // Show logs
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.showLogs', () => {
+            logger.show();
+        })
+    );
+
+    // Set log level
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.setLogLevel', async () => {
+            const currentLevel = logger.getMinLevel();
+            const levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
+            const selected = await vscode.window.showQuickPick(levels, {
+                placeHolder: `Select log level (current: ${currentLevel})`,
+                title: 'Squiggy Log Level',
+            });
+
+            if (selected) {
+                const config = vscode.workspace.getConfiguration('squiggy');
+                await config.update('logLevel', selected, vscode.ConfigurationTarget.Global);
+                statusBarMessenger.show(`Log: ${selected}`, 'settings-gear');
+            }
+        })
+    );
+}
+
+/**
+ * Phase 2: Full activation (only when squiggy.enabled is true)
+ *
+ * Sets up venv, starts kernel, registers all panels and commands.
+ */
+async function performFullActivation(context: vscode.ExtensionContext): Promise<void> {
+    if (isFullyActivated) {
+        logger.info('Full activation already completed, skipping');
+        return;
+    }
+
+    logger.info('Performing full activation...');
 
     // Initialize venv manager
     venvManager = new VenvManager();
@@ -148,7 +270,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!venvResult.success) {
         logger.error(`Venv setup failed: ${venvResult.error}`);
         await showVenvSetupError(venvResult as any);
-        // Still register commands so user can retry
+        // Still register reset command so user can retry
         registerResetVenvCommand(context);
         return;
     }
@@ -181,6 +303,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Extension is ready - set context for command enablement
     await vscode.commands.executeCommand('setContext', 'squiggy.packageInstalled', true);
+
+    isFullyActivated = true;
+    logger.info('Full activation complete');
 }
 
 /**
@@ -604,13 +729,6 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     registerStateCommands(context, state);
     registerSessionCommands(context, state);
 
-    // Register command to show logs
-    context.subscriptions.push(
-        vscode.commands.registerCommand('squiggy.showLogs', () => {
-            logger.show();
-        })
-    );
-
     // Register command to restart dedicated kernel
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.restartBackgroundKernel', async () => {
@@ -661,25 +779,6 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
 
     // Register command to reset venv
     registerResetVenvCommand(context);
-
-    // Register command to set log level
-    context.subscriptions.push(
-        vscode.commands.registerCommand('squiggy.setLogLevel', async () => {
-            const currentLevel = logger.getMinLevel();
-            const levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR'];
-            const selected = await vscode.window.showQuickPick(levels, {
-                placeHolder: `Select log level (current: ${currentLevel})`,
-                title: 'Squiggy Log Level',
-            });
-
-            if (selected) {
-                // Update both the logger and VS Code settings
-                const config = vscode.workspace.getConfiguration('squiggy');
-                await config.update('logLevel', selected, vscode.ConfigurationTarget.Global);
-                statusBarMessenger.show(`Log: ${selected}`, 'settings-gear');
-            }
-        })
-    );
 
     logger.info('All panels and commands registered');
 

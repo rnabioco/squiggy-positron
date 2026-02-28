@@ -189,6 +189,18 @@
         "enablement": "squiggy.packageInstalled"
       },
       {
+        "command": "squiggy.enableInWorkspace",
+        "title": "Enable in Workspace",
+        "category": "Squiggy",
+        "icon": "$(check)"
+      },
+      {
+        "command": "squiggy.disableInWorkspace",
+        "title": "Disable in Workspace",
+        "category": "Squiggy",
+        "icon": "$(close)"
+      },
+      {
         "command": "squiggy.showLogs",
         "title": "Show Extension Logs",
         "category": "Squiggy",
@@ -219,39 +231,56 @@
     "views": {
       "squiggy-sidebar": [
         {
+          "id": "squiggyWelcome",
+          "name": "Squiggy",
+          "when": "!squiggy.enabled"
+        },
+        {
           "id": "squiggyComparisonSamples",
           "name": "Samples",
-          "type": "webview"
+          "type": "webview",
+          "when": "squiggy.enabled"
         },
         {
           "id": "squiggySessionPanel",
           "name": "Session Manager",
-          "type": "webview"
+          "type": "webview",
+          "when": "squiggy.enabled"
         },
         {
           "id": "squiggyReadList",
           "name": "Read Explorer",
           "type": "webview",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "when": "squiggy.enabled"
         },
         {
           "id": "squiggyPlotOptions",
           "name": "Plotting",
-          "type": "webview"
+          "type": "webview",
+          "when": "squiggy.enabled"
         },
         {
           "id": "squiggyModificationsPanel",
           "name": "Modifications Explorer",
-          "type": "webview"
+          "type": "webview",
+          "when": "squiggy.enabled"
         },
         {
           "id": "squiggyMotifSearch",
           "name": "Motif Explorer",
           "type": "webview",
-          "visibility": "collapsed"
+          "visibility": "collapsed",
+          "when": "squiggy.enabled"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "squiggyWelcome",
+        "contents": "Squiggy is not enabled in this workspace.\n[Enable Squiggy](command:squiggy.enableInWorkspace)\nVisualize Oxford Nanopore sequencing data from POD5 files."
+      }
+    ],
     "menus": {
       "view/title": [
         {
@@ -276,6 +305,13 @@
     "configuration": {
       "title": "Squiggy",
       "properties": {
+        "squiggy.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Enable Squiggy in this workspace. When disabled, venv setup and kernel auto-start are skipped.",
+          "order": 0
+        },
         "squiggy.defaultPlotMode": {
           "type": "string",
           "enum": [
