@@ -30,6 +30,14 @@ jest.mock('../../state/session-state-manager', () => ({
     },
 }));
 
+// Mock pipeline-session-detector validation functions
+jest.mock('../../state/pipeline-session-detector', () => ({
+    ...(jest.requireActual('../../state/pipeline-session-detector') as object),
+    validateSessionFiles: (jest.fn() as any).mockResolvedValue({ valid: true, issues: [] }),
+    showSessionValidationReport: (jest.fn() as any).mockResolvedValue(true),
+    stripMissingFiles: jest.fn().mockReturnValue(0),
+}));
+
 import { SessionStateManager } from '../../state/session-state-manager';
 
 describe('Session Commands', () => {

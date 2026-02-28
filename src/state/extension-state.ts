@@ -15,9 +15,9 @@ import { ModificationsPanelProvider } from '../views/squiggy-modifications-panel
 import { SamplesPanelProvider } from '../views/squiggy-samples-panel';
 import { SessionState, SampleSessionState } from '../types/squiggy-session-types';
 import { LoadedItem } from '../types/loaded-item';
+import * as fs from 'fs/promises';
 import { SessionStateManager } from './session-state-manager';
 import { PathResolver } from './path-resolver';
-import { FileResolver } from './file-resolver';
 import { logger } from '../utils/logger';
 import { statusBarMessenger } from '../utils/status-bar-messenger';
 
@@ -1035,17 +1035,12 @@ squiggy.close_fasta()
                 resolvedPath = PathResolver.resolveExtensionPath(pod5PathItem, extensionUri);
             }
 
-            const resolution = await FileResolver.resolveFilePath(
-                resolvedPath,
-                'POD5',
-                isDemo,
-                extensionUri
-            );
-
-            if (resolution.resolved && resolution.newPath) {
-                resolvedPod5Paths.push(resolution.newPath);
-            } else {
-                throw new Error(resolution.error || 'Failed to resolve POD5 file');
+            // Silent check — upfront validation already handled missing files
+            try {
+                await fs.access(resolvedPath);
+                resolvedPod5Paths.push(resolvedPath);
+            } catch {
+                throw new Error(`POD5 file not found: ${resolvedPath}`);
             }
         }
 
@@ -1064,17 +1059,12 @@ squiggy.close_fasta()
                 resolvedPath = PathResolver.resolveExtensionPath(sampleData.bamPath, extensionUri);
             }
 
-            const resolution = await FileResolver.resolveFilePath(
-                resolvedPath,
-                'BAM',
-                isDemo,
-                extensionUri
-            );
-
-            if (resolution.resolved && resolution.newPath) {
-                resolvedBamPath = resolution.newPath;
-            } else if (!isDemo) {
-                vscode.window.showWarningMessage(`BAM file not found: ${sampleData.bamPath}`);
+            // Silent check — upfront validation already stripped missing files
+            try {
+                await fs.access(resolvedPath);
+                resolvedBamPath = resolvedPath;
+            } catch {
+                logger.warning(`BAM file not found during restore: ${resolvedPath}`);
             }
         }
 
@@ -1091,15 +1081,12 @@ squiggy.close_fasta()
                 resolvedPath = PathResolver.resolveExtensionPath(sampleData.fastaPath, extensionUri);
             }
 
-            const resolution = await FileResolver.resolveFilePath(
-                resolvedPath,
-                'FASTA',
-                isDemo,
-                extensionUri
-            );
-
-            if (resolution.resolved && resolution.newPath) {
-                resolvedFastaPath = resolution.newPath;
+            // Silent check — upfront validation already stripped missing files
+            try {
+                await fs.access(resolvedPath);
+                resolvedFastaPath = resolvedPath;
+            } catch {
+                logger.warning(`FASTA file not found during restore: ${resolvedPath}`);
             }
         }
 

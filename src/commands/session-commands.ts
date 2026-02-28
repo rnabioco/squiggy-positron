@@ -14,6 +14,9 @@ import {
     validateChecksums,
     browsePipelineSession,
     showChecksumWarning,
+    validateSessionFiles,
+    showSessionValidationReport,
+    stripMissingFiles,
 } from '../state/pipeline-session-detector';
 import { logger } from '../utils/logger';
 import { statusBarMessenger } from '../utils/status-bar-messenger';
@@ -122,6 +125,14 @@ export async function restoreSessionCommand(
             }
         }
 
+        // Validate file paths upfront
+        const validation = await validateSessionFiles(savedSession);
+        if (!validation.valid) {
+            const proceed = await showSessionValidationReport(validation.issues);
+            if (!proceed) return;
+            stripMissingFiles(savedSession, validation.issues);
+        }
+
         // Show progress in status bar (less intrusive)
         await vscode.window.withProgress(
             {
@@ -218,6 +229,14 @@ export async function importSessionCommand(
 
         // Import session
         const importedSession = await SessionStateManager.importSession(uris[0].fsPath);
+
+        // Validate file paths upfront
+        const validation = await validateSessionFiles(importedSession);
+        if (!validation.valid) {
+            const proceed = await showSessionValidationReport(validation.issues);
+            if (!proceed) return;
+            stripMissingFiles(importedSession, validation.issues);
+        }
 
         // Show progress in status bar (less intrusive)
         await vscode.window.withProgress(
@@ -370,6 +389,17 @@ export async function loadPipelineSessionCommand(
                     return;
                 }
             }
+        }
+
+        // Validate file paths upfront
+        const fileValidation = await validateSessionFiles(resolvedSession);
+        if (!fileValidation.valid) {
+            const proceed = await showSessionValidationReport(fileValidation.issues);
+            if (!proceed) {
+                logger.info('Pipeline session load cancelled due to missing files');
+                return;
+            }
+            stripMissingFiles(resolvedSession, fileValidation.issues);
         }
 
         // Check for unsaved changes in current session

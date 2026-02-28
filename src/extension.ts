@@ -31,6 +31,9 @@ import {
     resolveAllPaths,
     getAutoLoadPreference,
     setAutoLoadPreference,
+    validateSessionFiles,
+    showSessionValidationReport,
+    stripMissingFiles,
 } from './state/pipeline-session-detector';
 
 // Global extension state
@@ -828,6 +831,17 @@ async function detectAndPromptPipelineSession(
     if (response === 'Load Session') {
         // Resolve paths and load session
         const resolvedSession = resolveAllPaths(detection.session, detection.sessionDir);
+
+        // Validate file paths upfront
+        const validation = await validateSessionFiles(resolvedSession);
+        if (!validation.valid) {
+            const proceed = await showSessionValidationReport(validation.issues);
+            if (!proceed) {
+                logger.info('Pipeline session auto-load cancelled due to missing files');
+                return;
+            }
+            stripMissingFiles(resolvedSession, validation.issues);
+        }
 
         await vscode.window.withProgress(
             {
