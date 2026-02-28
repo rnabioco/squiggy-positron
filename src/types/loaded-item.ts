@@ -102,4 +102,16 @@ export interface LoadedItem {
      * Defined only when type === 'sample'
      */
     sampleName?: string;
+
+    // ========== Loading State (Session Restore) ==========
+
+    /**
+     * Whether this item is currently being loaded (for progressive UI updates)
+     */
+    isLoading?: boolean;
+
+    /**
+     * Optional loading status message (e.g., "Loading POD5...", "Loading BAM...")
+     */
+    loadingMessage?: string;
 }

@@ -80,6 +80,8 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 readCount: item.readCount,
                 hasBam: item.hasAlignments,
                 hasFasta: item.hasReference,
+                isLoading: item.isLoading ?? false,
+                loadingMessage: item.loadingMessage,
             }));
 
         logger.debug(
@@ -329,6 +331,10 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     return null;
                 }
 
+                // Check unified state for loading status
+                const itemId = `sample:${name}`;
+                const loadedItem = this._state.getLoadedItem(itemId);
+
                 const sampleItem: SampleItem = {
                     name: sampleInfo.displayName, // User-facing display name (editable)
                     pod5Path: sampleInfo.pod5Path,
@@ -337,6 +343,8 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     readCount: sampleInfo.readCount,
                     hasBam: sampleInfo.hasBam,
                     hasFasta: sampleInfo.hasFasta,
+                    isLoading: loadedItem?.isLoading ?? false,
+                    loadingMessage: loadedItem?.loadingMessage,
                 };
                 return sampleItem;
             })

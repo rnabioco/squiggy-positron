@@ -542,14 +542,18 @@ export const SamplesCore: React.FC = () => {
                 <div className="samples-list-container">
                     {state.samples.map((sample) => {
                         const isExpanded = state.expandedSamples.has(sample.name);
+                        const isLoading = sample.isLoading ?? false;
                         return (
                             <div
                                 key={sample.name}
+                                className={isLoading ? 'sample-row loading' : 'sample-row'}
                                 style={{
                                     backgroundColor: 'var(--vscode-editor-background)',
                                     border: '1px solid var(--vscode-widget-border)',
                                     borderRadius: '4px',
                                     overflow: 'hidden',
+                                    opacity: isLoading ? 0.7 : 1,
+                                    transition: 'opacity 0.3s ease',
                                 }}
                             >
                                 {/* Collapsed Header Row */}
@@ -756,19 +760,40 @@ export const SamplesCore: React.FC = () => {
                                         </label>
                                     )}
 
-                                    {/* Read Count Badge */}
-                                    <span
-                                        style={{
-                                            fontSize: '0.75em',
-                                            backgroundColor: 'var(--vscode-badge-background)',
-                                            color: 'var(--vscode-badge-foreground)',
-                                            padding: '2px 4px',
-                                            borderRadius: '2px',
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {sample.readCount.toLocaleString()} reads
-                                    </span>
+                                    {/* Read Count Badge or Loading Spinner */}
+                                    {sample.isLoading ? (
+                                        <span
+                                            className="loading-spinner"
+                                            style={{
+                                                fontSize: '0.75em',
+                                                backgroundColor: 'var(--vscode-badge-background)',
+                                                color: 'var(--vscode-badge-foreground)',
+                                                padding: '2px 6px',
+                                                borderRadius: '2px',
+                                                flexShrink: 0,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                            }}
+                                            title={sample.loadingMessage || 'Loading...'}
+                                        >
+                                            <span className="spinner-icon">⟳</span>
+                                            {sample.loadingMessage || 'Loading...'}
+                                        </span>
+                                    ) : (
+                                        <span
+                                            style={{
+                                                fontSize: '0.75em',
+                                                backgroundColor: 'var(--vscode-badge-background)',
+                                                color: 'var(--vscode-badge-foreground)',
+                                                padding: '2px 4px',
+                                                borderRadius: '2px',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            {sample.readCount.toLocaleString()} reads
+                                        </span>
+                                    )}
 
                                     {/* Delete/Remove Sample Button (Trash Icon) */}
                                     <button

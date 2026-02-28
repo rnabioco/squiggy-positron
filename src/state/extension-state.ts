@@ -801,6 +801,10 @@ squiggy.close_fasta()
 
     /**
      * Restore extension state from SessionState
+     *
+     * Uses progressive loading for improved UX:
+     * - Phase 1: Immediately shows skeleton samples with loading spinners
+     * - Phase 2: Loads sample data in parallel, updating UI as each completes
      */
     async fromSessionState(session: SessionState, context: vscode.ExtensionContext): Promise<void> {
         if (!this._extensionContext) {
@@ -816,42 +820,92 @@ squiggy.close_fasta()
         // Track any errors during restoration
         const errors: string[] = [];
 
-        // Restore each sample
-        for (const [sampleName, sampleData] of Object.entries(session.samples)) {
-            try {
-                await this.restoreSample(sampleName, sampleData, isDemo, extensionUri);
+        // ========== PHASE 1: Immediate UI Population ==========
+        // Create skeleton samples with loading indicators and show them immediately
+        logger.info(
+            `[fromSessionState] Phase 1: Creating skeleton UI for ${Object.keys(session.samples).length} samples`
+        );
 
-                // Also add to unified state for cross-panel synchronization
-                // Use sampleName if it's not "Default", otherwise use POD5 path
-                const pod5Path = sampleData.pod5Paths?.[0];
-                if (pod5Path) {
-                    const itemId =
-                        sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
-                    const unifiedItem: LoadedItem = {
-                        id: itemId,
-                        type: sampleName === 'Default' ? 'pod5' : 'sample',
-                        pod5Path: pod5Path,
-                        bamPath: sampleData.bamPath,
-                        fastaPath: sampleData.fastaPath,
-                        sampleName: sampleName === 'Default' ? undefined : sampleName,
-                        readCount: 0, // Will be populated by restoreSample
-                        fileSize: 0, // Will be populated by restoreSample
-                        fileSizeFormatted: 'Unknown',
-                        hasAlignments: !!sampleData.bamPath,
-                        hasReference: !!sampleData.fastaPath,
-                        hasMods: false, // Will be determined when loading BAM
-                        hasEvents: false, // Will be determined when loading BAM
-                    };
-                    this.addLoadedItem(unifiedItem);
-                }
-            } catch (error) {
-                errors.push(`Failed to restore sample ${sampleName}: ${error}`);
-            }
+        for (const [sampleName, sampleData] of Object.entries(session.samples)) {
+            const pod5Path = sampleData.pod5Paths?.[0];
+            if (!pod5Path) continue;
+
+            const itemId = sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+
+            // Create skeleton LoadedItem with isLoading=true
+            const skeletonItem: LoadedItem = {
+                id: itemId,
+                type: sampleName === 'Default' ? 'pod5' : 'sample',
+                pod5Path: pod5Path,
+                bamPath: sampleData.bamPath,
+                fastaPath: sampleData.fastaPath,
+                sampleName: sampleName === 'Default' ? undefined : sampleName,
+                readCount: 0, // Placeholder until loaded
+                fileSize: 0,
+                fileSizeFormatted: 'Unknown',
+                hasAlignments: !!sampleData.bamPath,
+                hasReference: !!sampleData.fastaPath,
+                hasMods: false,
+                hasEvents: false,
+                isLoading: true, // Show loading spinner
+                loadingMessage: 'Loading...',
+            };
+            this.addLoadedItem(skeletonItem);
+
+            // Also create a skeleton SampleInfo entry in legacy state
+            const skeletonSampleInfo: SampleInfo = {
+                sampleId: itemId,
+                displayName: sampleName,
+                pod5Path: pod5Path,
+                bamPath: sampleData.bamPath,
+                fastaPath: sampleData.fastaPath,
+                readCount: 0,
+                hasBam: !!sampleData.bamPath,
+                hasFasta: !!sampleData.fastaPath,
+                isLoaded: false,
+                metadata: {
+                    autoDetected: false,
+                    sourceType: 'manual',
+                },
+            };
+            this._loadedSamples.set(sampleName, skeletonSampleInfo);
         }
 
+        // Update samples panel to show skeletons immediately
+        this._samplesProvider?.refresh();
+
+        // ========== PHASE 2: Parallel Background Loading ==========
+        // Load sample data concurrently, updating UI as each completes
+        logger.info('[fromSessionState] Phase 2: Loading sample data in parallel');
+
+        const loadPromises = Object.entries(session.samples).map(
+            async ([sampleName, sampleData]) => {
+                try {
+                    await this.restoreSampleWithProgress(
+                        sampleName,
+                        sampleData,
+                        isDemo,
+                        extensionUri
+                    );
+                } catch (error) {
+                    errors.push(`Failed to restore sample ${sampleName}: ${error}`);
+                    // Mark sample as failed in UI
+                    const pod5Path = sampleData.pod5Paths?.[0];
+                    if (pod5Path) {
+                        const itemId =
+                            sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+                        this.updateLoadedItemStatus(itemId, false, `Error: ${error}`);
+                    }
+                }
+            }
+        );
+
+        // Wait for all samples to finish loading
+        await Promise.all(loadPromises);
+
+        // ========== PHASE 3: Restore UI State ==========
         // Restore plot options
         if (session.plotOptions && this._plotOptionsProvider) {
-            // Update provider state directly (this will trigger view update)
             const provider = this._plotOptionsProvider as any;
             provider._plotMode = session.plotOptions.mode;
             provider._normalization = session.plotOptions.normalization;
@@ -875,9 +929,8 @@ squiggy.close_fasta()
         if (session.ui) {
             this._selectedSamplesForComparison = session.ui.selectedSamplesForComparison || [];
 
-            // Also populate unified state comparison items
             const comparisonIds = (session.ui.selectedSamplesForComparison || []).map(
-                (sampleName) => `sample:${sampleName}`
+                (name) => `sample:${name}`
             );
             if (comparisonIds.length > 0) {
                 this.setComparisonItems(comparisonIds);
@@ -888,8 +941,7 @@ squiggy.close_fasta()
                 this._selectedReadExplorerSample = session.ui.selectedReadExplorerSample;
                 const sampleName = session.ui.selectedReadExplorerSample;
 
-                // Trigger reads view to load for the selected sample
-                // Delay to ensure sample is fully registered in Python registry
+                // Delay to ensure sample is fully registered
                 setTimeout(() => {
                     logger.debug(
                         `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
@@ -905,7 +957,7 @@ squiggy.close_fasta()
                             err
                         );
                     });
-                }, 1500); // Wait 1.5s to ensure sample is registered
+                }, 500); // Reduced delay since samples load in parallel now
             }
         }
 
@@ -918,36 +970,71 @@ squiggy.close_fasta()
     }
 
     /**
-     * Restore a single sample from session data
+     * Update the loading status of a LoadedItem and notify listeners
+     * @private
      */
-    private async restoreSample(
+    private updateLoadedItemStatus(
+        itemId: string,
+        isLoading: boolean,
+        loadingMessage?: string
+    ): void {
+        const item = this._loadedItems.get(itemId);
+        if (item) {
+            item.isLoading = isLoading;
+            item.loadingMessage = loadingMessage;
+            this._notifyLoadedItemsChanged();
+        }
+    }
+
+    /**
+     * Update a LoadedItem with new data and notify listeners
+     * @private
+     */
+    private updateLoadedItemData(itemId: string, updates: Partial<LoadedItem>): void {
+        const item = this._loadedItems.get(itemId);
+        if (item) {
+            Object.assign(item, updates);
+            this._notifyLoadedItemsChanged();
+        }
+    }
+
+    /**
+     * Restore a single sample with progress updates for progressive loading
+     * Updates the UI as each phase completes
+     * @private
+     */
+    private async restoreSampleWithProgress(
         sampleName: string,
         sampleData: SampleSessionState,
         isDemo: boolean,
         extensionUri: vscode.Uri
     ): Promise<void> {
+        const pod5Path = sampleData.pod5Paths?.[0];
+        if (!pod5Path) return;
+
+        const itemId = sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+
+        // Update status: Resolving paths
+        this.updateLoadedItemStatus(itemId, true, 'Resolving paths...');
+
         // Get API client for path resolution
         const api = await this.ensureKernel();
         const pathResolverClient = api.client;
 
         // Resolve POD5 paths
         const resolvedPod5Paths: string[] = [];
-        for (const pod5Path of sampleData.pod5Paths) {
-            let resolvedPath = pod5Path;
+        for (const pod5PathItem of sampleData.pod5Paths) {
+            let resolvedPath = pod5PathItem;
 
-            // First try to resolve Python package paths (for demo)
-            if (pod5Path.startsWith('<package:')) {
+            if (pod5PathItem.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
-                    pod5Path,
+                    pod5PathItem,
                     pathResolverClient
                 );
-            }
-            // Otherwise, resolve extension-relative paths
-            else if (pod5Path.includes('${extensionPath}')) {
-                resolvedPath = PathResolver.resolveExtensionPath(pod5Path, extensionUri);
+            } else if (pod5PathItem.includes('${extensionPath}')) {
+                resolvedPath = PathResolver.resolveExtensionPath(pod5PathItem, extensionUri);
             }
 
-            // Check if file exists, prompt if missing
             const resolution = await FileResolver.resolveFilePath(
                 resolvedPath,
                 'POD5',
@@ -962,20 +1049,18 @@ squiggy.close_fasta()
             }
         }
 
-        // Resolve BAM path if present
+        // Resolve BAM path
         let resolvedBamPath: string | undefined;
         if (sampleData.bamPath) {
-            let resolvedPath = sampleData.bamPath;
+            this.updateLoadedItemStatus(itemId, true, 'Loading BAM...');
 
-            // Resolve Python package paths first
+            let resolvedPath = sampleData.bamPath;
             if (sampleData.bamPath.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     sampleData.bamPath,
                     pathResolverClient
                 );
-            }
-            // Otherwise, resolve extension-relative paths
-            else if (sampleData.bamPath.includes('${extensionPath}')) {
+            } else if (sampleData.bamPath.includes('${extensionPath}')) {
                 resolvedPath = PathResolver.resolveExtensionPath(sampleData.bamPath, extensionUri);
             }
 
@@ -989,29 +1074,21 @@ squiggy.close_fasta()
             if (resolution.resolved && resolution.newPath) {
                 resolvedBamPath = resolution.newPath;
             } else if (!isDemo) {
-                // For user sessions, BAM is optional
                 vscode.window.showWarningMessage(`BAM file not found: ${sampleData.bamPath}`);
             }
         }
 
-        // Resolve FASTA path if present
+        // Resolve FASTA path
         let resolvedFastaPath: string | undefined;
         if (sampleData.fastaPath) {
             let resolvedPath = sampleData.fastaPath;
-
-            // Resolve Python package paths first
             if (sampleData.fastaPath.startsWith('<package:')) {
                 resolvedPath = await PathResolver.resolvePythonPackagePath(
                     sampleData.fastaPath,
                     pathResolverClient
                 );
-            }
-            // Otherwise, resolve extension-relative paths
-            else if (sampleData.fastaPath.includes('${extensionPath}')) {
-                resolvedPath = PathResolver.resolveExtensionPath(
-                    sampleData.fastaPath,
-                    extensionUri
-                );
+            } else if (sampleData.fastaPath.includes('${extensionPath}')) {
+                resolvedPath = PathResolver.resolveExtensionPath(sampleData.fastaPath, extensionUri);
             }
 
             const resolution = await FileResolver.resolveFilePath(
@@ -1026,69 +1103,57 @@ squiggy.close_fasta()
             }
         }
 
-        // Load files via API (api was already obtained at start for path resolution)
-        logger.debug('[restoreSample] Loading files via background API...');
+        // Update status: Loading POD5
+        this.updateLoadedItemStatus(itemId, true, 'Loading POD5...');
 
-        // Load POD5 (assuming single POD5 for now)
+        // Load POD5
         if (resolvedPod5Paths.length > 0) {
-            const pod5Path = resolvedPod5Paths[0];
-            const _pod5Result = await api.loadPOD5(pod5Path);
-            this._currentPod5File = pod5Path;
+            const resolvedPod5Path = resolvedPod5Paths[0];
+            await api.loadPOD5(resolvedPod5Path);
+            this._currentPod5File = resolvedPod5Path;
 
-            // Get first 1000 read IDs for reads view (lazy loading)
+            // Get first 1000 read IDs for reads view
             const readIds = await api.getReadIds(0, 1000);
             if (readIds.length > 0) {
                 this._readsViewPane?.setReads(readIds);
             }
 
-            // Update plot options
             this._plotOptionsProvider?.updatePod5Status(true);
         }
 
         // Load BAM if present
+        let bamResult: any;
         if (resolvedBamPath) {
-            const _bamResult = await api.loadBAM(resolvedBamPath);
+            this.updateLoadedItemStatus(itemId, true, 'Loading alignments...');
+            bamResult = await api.loadBAM(resolvedBamPath);
             this._currentBamFile = resolvedBamPath;
 
-            // Get references only (lazy loading - don't fetch reads yet)
+            // Get references using batch query for performance
             const references = await api.getReferences();
-            const referenceToReads: Record<string, string[]> = {};
 
-            // Build reference count map by getting length for each reference
-            for (const ref of references) {
-                const readCount = (await api.client.getVariable(
-                    `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
-                )) as number;
-                referenceToReads[ref] = new Array(readCount); // Placeholder
-            }
-
-            // Update reads view with references if POD5 was loaded
-            if (resolvedPod5Paths.length > 0 && Object.keys(referenceToReads).length > 0) {
-                const referenceList = Object.entries(referenceToReads).map(
-                    ([referenceName, reads]) => ({
-                        referenceName,
-                        readCount: Array.isArray(reads) ? reads.length : 0,
-                    })
-                );
-                this._readsViewPane?.setReferencesOnly(referenceList);
-            }
-
-            // Update plot options BAM status (pass BAM info to auto-enable RNA mode)
-            if (this._plotOptionsProvider) {
-                this._plotOptionsProvider.updateBamStatus({ isRna: _bamResult.isRna });
-            }
-
-            // Update plot options with available references for aggregate plots
+            // OPTIMIZATION: Batch query for reference counts instead of N sequential calls
             if (references.length > 0) {
+                const refCounts = await this.batchGetReferenceCounts(api);
+
+                // Update reads view with references
+                const referenceList = references.map((refName) => ({
+                    referenceName: refName,
+                    readCount: refCounts[refName] ?? 0,
+                }));
+                this._readsViewPane?.setReferencesOnly(referenceList);
+
                 this._plotOptionsProvider?.updateReferences(references);
             }
 
-            // Update modifications panel
-            if (_bamResult.hasModifications && this._modificationsProvider) {
+            if (this._plotOptionsProvider) {
+                this._plotOptionsProvider.updateBamStatus({ isRna: bamResult.isRna });
+            }
+
+            if (bamResult.hasModifications && this._modificationsProvider) {
                 this._modificationsProvider.setModificationInfo(
-                    _bamResult.hasModifications,
-                    _bamResult.modificationTypes,
-                    _bamResult.hasProbabilities
+                    bamResult.hasModifications,
+                    bamResult.modificationTypes,
+                    bamResult.hasProbabilities
                 );
             } else if (this._modificationsProvider) {
                 this._modificationsProvider.clear();
@@ -1101,57 +1166,73 @@ squiggy.close_fasta()
             this._currentFastaFile = resolvedFastaPath;
         }
 
-        // Add to loaded samples if multi-sample mode
-        if (resolvedPod5Paths.length > 0) {
-            // CRITICAL: Load sample into Python registry so TypeScript queries work
-            let numReads = 0;
-            try {
-                logger.debug(
-                    `[restoreSample] Loading sample '${sampleName}' into Python registry...`
-                );
-                const sampleResult = await api.loadSample(
-                    sampleName,
-                    resolvedPod5Paths[0],
-                    resolvedBamPath,
-                    resolvedFastaPath
-                );
-                numReads = sampleResult.numReads;
-                logger.debug(
-                    `[restoreSample] Sample '${sampleName}' successfully loaded into Python registry with ${numReads} reads`
-                );
-            } catch (error) {
-                logger.error(`[restoreSample] Failed to load sample into Python registry`, error);
-                // Continue anyway - sample is in TypeScript state
-            }
+        // Load sample into Python registry
+        this.updateLoadedItemStatus(itemId, true, 'Registering sample...');
+        let numReads = 0;
+        try {
+            logger.debug(`[restoreSampleWithProgress] Loading sample '${sampleName}' into registry`);
+            const sampleResult = await api.loadSample(
+                sampleName,
+                resolvedPod5Paths[0],
+                resolvedBamPath,
+                resolvedFastaPath
+            );
+            numReads = sampleResult.numReads;
+            logger.debug(`[restoreSampleWithProgress] Sample '${sampleName}' loaded: ${numReads} reads`);
+        } catch (error) {
+            logger.error(`[restoreSampleWithProgress] Failed to load sample into registry`, error);
+        }
 
-            const sampleInfo: SampleInfo = {
-                // Core identifiers
-                sampleId: `sample:${sampleName}`, // Consistent with LoadedItem ID format
-                displayName: sampleName, // Can be edited later in Sample Manager
-                // File associations
-                pod5Path: resolvedPod5Paths[0],
-                bamPath: resolvedBamPath,
-                fastaPath: resolvedFastaPath,
-                // File metadata
-                readCount: numReads,
-                hasBam: !!resolvedBamPath,
-                hasFasta: !!resolvedFastaPath,
-                // Kernel state
-                isLoaded: true, // Files have been loaded to kernel
-                // Extensible metadata
-                metadata: {
-                    autoDetected: false, // Manual sample creation for now
-                    sourceType: 'manual', // Manual UI creation (not from TSV)
-                },
-            };
-            this._loadedSamples.set(sampleName, sampleInfo);
+        // ========== Update State with Final Data ==========
 
-            // Also update the unified LoadedItem with the read count
-            const itemId = `sample:${sampleName}`;
-            const existingItem = this._loadedItems.get(itemId);
-            if (existingItem) {
-                existingItem.readCount = numReads;
-            }
+        // Update SampleInfo in legacy state
+        const sampleInfo = this._loadedSamples.get(sampleName);
+        if (sampleInfo) {
+            sampleInfo.pod5Path = resolvedPod5Paths[0];
+            sampleInfo.bamPath = resolvedBamPath;
+            sampleInfo.fastaPath = resolvedFastaPath;
+            sampleInfo.readCount = numReads;
+            sampleInfo.hasBam = !!resolvedBamPath;
+            sampleInfo.hasFasta = !!resolvedFastaPath;
+            sampleInfo.hasMods = bamResult?.hasModifications ?? false;
+            sampleInfo.hasEvents = bamResult?.hasEvents ?? false;
+            sampleInfo.isLoaded = true;
+        }
+
+        // Update LoadedItem with final data and mark as complete
+        this.updateLoadedItemData(itemId, {
+            pod5Path: resolvedPod5Paths[0],
+            bamPath: resolvedBamPath,
+            fastaPath: resolvedFastaPath,
+            readCount: numReads,
+            hasAlignments: !!resolvedBamPath,
+            hasReference: !!resolvedFastaPath,
+            hasMods: bamResult?.hasModifications ?? false,
+            hasEvents: bamResult?.hasEvents ?? false,
+            isRna: bamResult?.isRna ?? false,
+            isLoading: false, // Mark as complete
+            loadingMessage: undefined,
+        });
+
+        logger.info(`[restoreSampleWithProgress] Sample '${sampleName}' restore complete`);
+    }
+
+    /**
+     * Batch query for all reference counts in a single Python call
+     * This replaces N sequential getVariable calls with one efficient call
+     * @private
+     */
+    private async batchGetReferenceCounts(
+        api: SquiggyRuntimeAPI
+    ): Promise<Record<string, number>> {
+        try {
+            const counts = (await api.client.getVariable(
+                `{ref: len(reads) for ref, reads in squiggy.io.squiggy_kernel._ref_mapping.items()}`
+            )) as Record<string, number>;
+            return counts ?? {};
+        } catch (error) {
+            logger.error('[batchGetReferenceCounts] Failed to batch query reference counts', error);
+            return {};
         }
     }
 

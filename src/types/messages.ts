@@ -361,6 +361,8 @@ export interface SampleItem {
     references?: ReferenceInfo[]; // List of references this sample aligns to
     isRna?: boolean; // BAM was basecalled with RNA model (auto-enable RNA mode)
     basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"
+    isLoading?: boolean; // Sample is being loaded (session restore progressive loading)
+    loadingMessage?: string; // Optional status message during loading
 }
 
 export interface UpdateSamplesMessage extends BaseMessage {
