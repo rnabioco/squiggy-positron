@@ -1078,7 +1078,10 @@ squiggy.close_fasta()
                     pathResolverClient
                 );
             } else if (sampleData.fastaPath.includes('${extensionPath}')) {
-                resolvedPath = PathResolver.resolveExtensionPath(sampleData.fastaPath, extensionUri);
+                resolvedPath = PathResolver.resolveExtensionPath(
+                    sampleData.fastaPath,
+                    extensionUri
+                );
             }
 
             // Silent check — upfront validation already stripped missing files
@@ -1157,7 +1160,9 @@ squiggy.close_fasta()
         this.updateLoadedItemStatus(itemId, true, 'Registering sample...');
         let numReads = 0;
         try {
-            logger.debug(`[restoreSampleWithProgress] Loading sample '${sampleName}' into registry`);
+            logger.debug(
+                `[restoreSampleWithProgress] Loading sample '${sampleName}' into registry`
+            );
             const sampleResult = await api.loadSample(
                 sampleName,
                 resolvedPod5Paths[0],
@@ -1165,7 +1170,9 @@ squiggy.close_fasta()
                 resolvedFastaPath
             );
             numReads = sampleResult.numReads;
-            logger.debug(`[restoreSampleWithProgress] Sample '${sampleName}' loaded: ${numReads} reads`);
+            logger.debug(
+                `[restoreSampleWithProgress] Sample '${sampleName}' loaded: ${numReads} reads`
+            );
         } catch (error) {
             logger.error(`[restoreSampleWithProgress] Failed to load sample into registry`, error);
         }
@@ -1209,9 +1216,7 @@ squiggy.close_fasta()
      * This replaces N sequential getVariable calls with one efficient call
      * @private
      */
-    private async batchGetReferenceCounts(
-        api: SquiggyRuntimeAPI
-    ): Promise<Record<string, number>> {
+    private async batchGetReferenceCounts(api: SquiggyRuntimeAPI): Promise<Record<string, number>> {
         try {
             const counts = (await api.client.getVariable(
                 `{ref: len(reads) for ref, reads in squiggy.io.squiggy_kernel._ref_mapping.items()}`

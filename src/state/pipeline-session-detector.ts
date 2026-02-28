@@ -361,7 +361,12 @@ export async function validateSessionFiles(
             try {
                 await fs.access(pod5Path);
             } catch {
-                issues.push({ sampleName, filePath: pod5Path, fileType: 'POD5', severity: 'critical' });
+                issues.push({
+                    sampleName,
+                    filePath: pod5Path,
+                    fileType: 'POD5',
+                    severity: 'critical',
+                });
             }
         }
 
@@ -372,7 +377,12 @@ export async function validateSessionFiles(
                 try {
                     await fs.access(bamPath);
                 } catch {
-                    issues.push({ sampleName, filePath: bamPath, fileType: 'BAM', severity: 'warning' });
+                    issues.push({
+                        sampleName,
+                        filePath: bamPath,
+                        fileType: 'BAM',
+                        severity: 'warning',
+                    });
                 }
 
                 // Check BAM index
@@ -380,7 +390,12 @@ export async function validateSessionFiles(
                 try {
                     await fs.access(baiPath);
                 } catch {
-                    issues.push({ sampleName, filePath: baiPath, fileType: 'BAI', severity: 'warning' });
+                    issues.push({
+                        sampleName,
+                        filePath: baiPath,
+                        fileType: 'BAI',
+                        severity: 'warning',
+                    });
                 }
             }
         }
@@ -392,7 +407,12 @@ export async function validateSessionFiles(
                 try {
                     await fs.access(fastaPath);
                 } catch {
-                    issues.push({ sampleName, filePath: fastaPath, fileType: 'FASTA', severity: 'warning' });
+                    issues.push({
+                        sampleName,
+                        filePath: fastaPath,
+                        fileType: 'FASTA',
+                        severity: 'warning',
+                    });
                 }
             }
         }
@@ -411,9 +431,7 @@ export async function validateSessionFiles(
  * @param issues List of file issues from validateSessionFiles()
  * @returns true if user chose "Load Available", false if cancelled
  */
-export async function showSessionValidationReport(
-    issues: SessionFileIssue[]
-): Promise<boolean> {
+export async function showSessionValidationReport(issues: SessionFileIssue[]): Promise<boolean> {
     const critical = issues.filter((i) => i.severity === 'critical');
     const warnings = issues.filter((i) => i.severity === 'warning');
 
