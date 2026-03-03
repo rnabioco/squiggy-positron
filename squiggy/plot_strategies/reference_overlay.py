@@ -8,6 +8,7 @@ profiles across reads at the same reference location.
 """
 
 from collections import Counter
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -20,20 +21,30 @@ from ..rendering import BaseAnnotationRenderer, ReferenceTrackRenderer, ThemeMan
 from .base import PlotStrategy
 
 
+@dataclass
+class DwellXCoord:
+    """X-coordinate info for a single genomic position in dwell-scaled space."""
+
+    center: float
+    left: float
+    right: float
+
+
 class ReferenceOverlayPlotStrategy(PlotStrategy):
     """
     Strategy for overlaying multiple reads aligned to genomic reference positions
 
     Unlike EventAlign (which uses read-local base indices on the x-axis) or
     Overlay in sequence space (which collapses signal per position), this
-    strategy preserves the full raw signal shape within each base while
-    mapping to genomic coordinates so all reads are superimposed.
+    strategy computes a per-base mean of the raw signal and plots one point
+    per genomic position per read. This keeps traces clean even with many
+    overlaid reads.
 
-    For each base with a valid genomic_pos, signal samples from
-    signal[signal_start:signal_end] are distributed evenly across
-    [genomic_pos - 0.5, genomic_pos + 0.5]. Insertions (genomic_pos=None)
-    are skipped, and deletions (gaps > 1 in genomic_pos) insert NaN to
-    break the line.
+    Insertions (genomic_pos=None) are skipped, and deletions (gaps > 1 in
+    genomic_pos) insert NaN to break the line.
+
+    When a ``read_sample_map`` is provided in options, legend entries are
+    grouped by sample name instead of showing individual read IDs.
 
     Examples:
         >>> from squiggy.plot_strategies.reference_overlay import ReferenceOverlayPlotStrategy
@@ -122,6 +133,9 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                 - show_signal_points: bool show sample points (default: False)
                 - read_colors: dict mapping read_id to color (optional)
                 - clip_x_to_alignment: bool clip x-range (default: True)
+                - read_sample_map: dict mapping read_id to sample name (optional).
+                    When provided, legend shows sample names instead of read IDs.
+                - scale_x_by_dwell: bool scale base widths by dwell time (default: False)
 
         Returns:
             Tuple of (html_string, bokeh_figure_or_layout)
@@ -140,6 +154,8 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         show_signal_points = options.get("show_signal_points", False)
         read_colors = options.get("read_colors", None)
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
+        read_sample_map = options.get("read_sample_map", None)
+        scale_x_by_dwell = options.get("scale_x_by_dwell", False)
 
         # Alpha blending tiered by read count (same as Overlay)
         num_reads = len(reads_data)
@@ -154,13 +170,24 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         else:
             alpha = max(0.3, 1.0 / (num_reads**0.5))
 
+        # Build dwell x-map if scaling by dwell time
+        x_map: dict[int, DwellXCoord] | None = None
+        if scale_x_by_dwell:
+            dwell_map = self._build_consensus_dwell_map(aligned_reads)
+            if dwell_map:
+                # Determine genomic span for normalization
+                all_gpos = sorted(dwell_map.keys())
+                genomic_span = all_gpos[-1] - all_gpos[0] + 1
+                x_map = self._build_dwell_x_map(dwell_map, genomic_span)
+
         # Create figure
+        x_label = "Dwell-Scaled Genomic Position" if x_map else "Genomic Position"
         title = self._build_title(
             f"Reference Overlay: {num_reads} reads", normalization, downsample
         )
         fig = self.theme_manager.create_figure(
             title=title,
-            x_label="Genomic Position",
+            x_label=x_label,
             y_label=f"Signal ({normalization.value})",
             height=400,
         )
@@ -170,16 +197,17 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         all_genomic_min = []
         all_genomic_max = []
         all_signal_vals = []
+        seen_samples: set[str] = set()
 
         for idx, ((read_id, signal, _sample_rate), aligned_read) in enumerate(
             zip(reads_data, aligned_reads, strict=True)
         ):
-            # Normalize signal (downsample=1 here; we handle per-base distribution)
+            # Normalize signal (downsample=1 here; we handle per-base averaging)
             processed, _ = self._process_signal(signal, normalization, downsample=1)
 
-            # Build genomic signal coordinates
+            # Build genomic signal coordinates (per-base mean)
             x_coords, y_coords = self._build_genomic_signal_coordinates(
-                processed, aligned_read.bases, downsample
+                processed, aligned_read.bases, downsample, x_map=x_map
             )
 
             if len(x_coords) == 0:
@@ -200,6 +228,17 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
             else:
                 color = MULTI_READ_COLORS[idx % len(MULTI_READ_COLORS)]
 
+            # Determine legend label: sample name (first occurrence only) or read_id
+            legend_kwargs: dict[str, str] = {}
+            if read_sample_map and read_id in read_sample_map:
+                sample_name = read_sample_map[read_id]
+                if sample_name not in seen_samples:
+                    legend_kwargs["legend_label"] = sample_name
+                    seen_samples.add(sample_name)
+                # Subsequent reads in same sample: no legend entry
+            else:
+                legend_kwargs["legend_label"] = read_id[:12]
+
             # Create data source
             source = ColumnDataSource(
                 data={
@@ -217,7 +256,7 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                 color=color,
                 line_width=1,
                 alpha=alpha,
-                legend_label=read_id[:12],
+                **legend_kwargs,
             )
             all_renderers.append(line_renderer)
 
@@ -229,7 +268,7 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                     size=3,
                     color=color,
                     alpha=alpha * 0.7,
-                    legend_label=read_id[:12],
+                    **legend_kwargs,
                 )
                 all_renderers.append(circle_renderer)
 
@@ -239,7 +278,7 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
             signal_max = max(all_signal_vals)
             consensus_map = self._build_consensus_base_map(aligned_reads)
             self._add_genomic_base_annotations(
-                fig, consensus_map, signal_min, signal_max
+                fig, consensus_map, signal_min, signal_max, x_map=x_map
             )
 
         # Add hover tool
@@ -305,13 +344,14 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         signal: np.ndarray,
         base_annotations: list,
         downsample: int,
+        x_map: dict[int, DwellXCoord] | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Build x/y arrays mapping signal samples to genomic coordinates.
+        Build x/y arrays mapping per-base mean signal to genomic coordinates.
 
-        For each base with genomic_pos, distributes signal samples from
-        signal[signal_start:signal_end] evenly across
-        [genomic_pos - 0.5, genomic_pos + 0.5].
+        For each base with genomic_pos, computes the mean of
+        signal[signal_start:signal_end:downsample] and places a single point
+        at the genomic position (or dwell-scaled center if x_map provided).
 
         Insertions (genomic_pos=None) are skipped.
         Deletions (gap > 1 in consecutive genomic_pos) insert NaN to break the line.
@@ -342,20 +382,17 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
 
             # Get signal samples for this base, with downsampling
             base_signal = signal[start_idx:end_idx:downsample]
-            num_samples = len(base_signal)
 
-            if num_samples == 0:
+            if len(base_signal) == 0:
                 prev_genomic_pos = genomic_pos
                 continue
 
-            # Distribute samples evenly within [genomic_pos - 0.5, genomic_pos + 0.5]
-            if num_samples == 1:
-                base_x = np.array([float(genomic_pos)])
+            # Per-base mean: use dwell-scaled center or raw genomic position
+            if x_map and genomic_pos in x_map:
+                x_coords.append(x_map[genomic_pos].center)
             else:
-                base_x = np.linspace(genomic_pos - 0.5, genomic_pos + 0.5, num_samples)
-
-            x_coords.extend(base_x.tolist())
-            y_coords.extend(base_signal.tolist())
+                x_coords.append(float(genomic_pos))
+            y_coords.append(float(np.mean(base_signal)))
             prev_genomic_pos = genomic_pos
 
         return np.array(x_coords, dtype=float), np.array(y_coords, dtype=float)
@@ -393,10 +430,13 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         consensus_map: dict[int, str],
         signal_min: float,
         signal_max: float,
+        x_map: dict[int, DwellXCoord] | None = None,
     ) -> None:
         """
         Draw colored background patches at each genomic position
         using the consensus base for coloring.
+
+        When x_map is provided, patch widths are dwell-scaled.
         """
         base_colors = self.theme_manager.get_base_colors()
 
@@ -406,10 +446,16 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         for pos, base in sorted(consensus_map.items()):
             upper_base = base.upper()
             if upper_base in base_regions:
+                if x_map and pos in x_map:
+                    left = x_map[pos].left
+                    right = x_map[pos].right
+                else:
+                    left = pos - 0.5
+                    right = pos + 0.5
                 base_regions[upper_base].append(
                     {
-                        "left": pos - 0.5,
-                        "right": pos + 0.5,
+                        "left": left,
+                        "right": right,
                         "top": signal_max,
                         "bottom": signal_min,
                     }
@@ -422,6 +468,72 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
             show_labels=False,
         )
         renderer._add_base_type_patches(fig, base_regions)
+
+    # =========================================================================
+    # Private Methods: Dwell Scaling
+    # =========================================================================
+
+    def _build_consensus_dwell_map(self, aligned_reads: list) -> dict[int, float]:
+        """
+        Compute median dwell (signal_end - signal_start) per genomic position
+        across all reads.
+
+        Returns dict mapping genomic_pos -> median number of signal samples.
+        """
+        position_dwells: dict[int, list[int]] = {}
+
+        for aligned_read in aligned_reads:
+            for base_ann in aligned_read.bases:
+                if base_ann.genomic_pos is not None:
+                    pos = base_ann.genomic_pos
+                    n_samples = base_ann.signal_end - base_ann.signal_start
+                    if n_samples > 0:
+                        if pos not in position_dwells:
+                            position_dwells[pos] = []
+                        position_dwells[pos].append(n_samples)
+
+        return {
+            pos: float(np.median(dwells)) for pos, dwells in position_dwells.items()
+        }
+
+    def _build_dwell_x_map(
+        self, dwell_map: dict[int, float], genomic_span: int
+    ) -> dict[int, DwellXCoord]:
+        """
+        Build cumulative x-coordinate map where each base's width is
+        proportional to its median dwell time.
+
+        The total span is normalized to match the genomic span so that
+        the visual scale is preserved.
+
+        Returns dict mapping genomic_pos -> DwellXCoord(center, left, right).
+        """
+        positions = sorted(dwell_map.keys())
+        if not positions:
+            return {}
+
+        dwells = np.array([dwell_map[p] for p in positions])
+        total_dwell = dwells.sum()
+
+        if total_dwell == 0:
+            return {}
+
+        # Normalize widths so total equals genomic_span
+        widths = dwells * (genomic_span / total_dwell)
+
+        # Build cumulative coordinates starting from the first position
+        origin = positions[0] - 0.5  # align left edge with first position
+        x_map: dict[int, DwellXCoord] = {}
+        cursor = origin
+
+        for pos, width in zip(positions, widths, strict=True):
+            left = cursor
+            right = cursor + width
+            center = (left + right) / 2.0
+            x_map[pos] = DwellXCoord(center=center, left=left, right=right)
+            cursor = right
+
+        return x_map
 
     # =========================================================================
     # Private Methods: Reference Track

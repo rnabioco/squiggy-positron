@@ -336,7 +336,7 @@ export function registerPlotCommands(
     context.subscriptions.push(
         vscode.commands.registerCommand(
             'squiggy.plotReferenceOverlay',
-            async (sampleNames?: string[], maxReads?: number) => {
+            async (sampleNames?: string[], maxReads?: number, reference?: string) => {
                 if (!sampleNames || sampleNames.length === 0) {
                     vscode.window.showErrorMessage(
                         'Please select samples in the Plotting panel to generate reference overlay plots.'
@@ -344,8 +344,15 @@ export function registerPlotCommands(
                     return;
                 }
 
+                if (!reference) {
+                    vscode.window.showErrorMessage(
+                        'Please select a reference in the Plotting panel for reference overlay.'
+                    );
+                    return;
+                }
+
                 const maxReadsPerSample = maxReads || 10;
-                await plotReferenceOverlay(sampleNames, maxReadsPerSample, state);
+                await plotReferenceOverlay(sampleNames, maxReadsPerSample, reference, state);
             }
         )
     );
@@ -1001,6 +1008,7 @@ async function plotMultiReadStacked(
 async function plotReferenceOverlay(
     sampleNames: string[],
     maxReadsPerSample: number,
+    reference: string,
     state: ExtensionState
 ): Promise<void> {
     await safeExecuteWithProgress(
@@ -1011,7 +1019,7 @@ async function plotReferenceOverlay(
 
             const api = await state.ensureKernel();
 
-            // Extract reads from each sample and build mappings
+            // Extract reads from each sample, filtered by reference
             const allReadIds: string[] = [];
             const readSampleMap: Record<string, string> = {};
             const readColors: Record<string, string> = {};
@@ -1023,7 +1031,10 @@ async function plotReferenceOverlay(
                 }
 
                 const sampleColor = sample.metadata?.displayColor || '#888888';
-                const readIds = await api.getReadIdsForSample(sampleName, 0, maxReadsPerSample);
+
+                // Get reads aligned to the selected reference, then limit
+                const allRefsReadIds = await api.getReadsForReferenceSample(sampleName, reference);
+                const readIds = allRefsReadIds.slice(0, maxReadsPerSample);
 
                 for (const readId of readIds) {
                     allReadIds.push(readId);
@@ -1057,9 +1068,9 @@ async function plotReferenceOverlay(
                 'REFERENCE_OVERLAY',
                 options.normalization,
                 theme,
-                false, // showDwellTime (not applicable)
-                true, // showBaseAnnotations
-                false, // scaleDwellTime (not applicable)
+                false, // showDwellTime (not applicable for reference overlay)
+                options.showBaseColors ?? true, // show_labels: colored ACGT patches
+                options.scaleDwellTime, // scale_x_by_dwell: dwell-proportional widths
                 modFilters.minProbability,
                 modFilters.enabledModTypes,
                 options.downsample,

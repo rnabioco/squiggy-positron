@@ -37,6 +37,7 @@ interface PlotOptionsState {
     showDwellTime: boolean;
     showBaseAnnotations: boolean;
     scaleDwellTime: boolean;
+    showBaseColors: boolean;
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment: boolean;
@@ -80,6 +81,7 @@ export const PlotOptionsCore: React.FC = () => {
         showDwellTime: true,
         showBaseAnnotations: true,
         scaleDwellTime: false,
+        showBaseColors: true,
         downsample: 5,
         showSignalPoints: false,
         clipXAxisToAlignment: true,
@@ -126,6 +128,7 @@ export const PlotOptionsCore: React.FC = () => {
                         showBaseAnnotations:
                             message.options.showBaseAnnotations ?? prev.showBaseAnnotations,
                         scaleDwellTime: message.options.scaleDwellTime ?? prev.scaleDwellTime,
+                        showBaseColors: message.options.showBaseColors ?? prev.showBaseColors,
                         downsample: message.options.downsample ?? prev.downsample,
                         showSignalPoints: message.options.showSignalPoints ?? prev.showSignalPoints,
                         clipXAxisToAlignment:
@@ -363,6 +366,7 @@ export const PlotOptionsCore: React.FC = () => {
             sampleNames: options.selectedSamples,
             maxReads: options.maxReadsMulti,
             normalization: options.normalization,
+            reference: options.aggregateReference,
         });
     };
 
@@ -375,15 +379,20 @@ export const PlotOptionsCore: React.FC = () => {
         ) {
             const isRefOverlay = options.plotType === 'REFERENCE_OVERLAY';
             const disabled = isRefOverlay
-                ? options.selectedSamples.length === 0 || !options.hasPod5 || !options.hasBam
+                ? options.selectedSamples.length === 0 ||
+                  !options.hasPod5 ||
+                  !options.hasBam ||
+                  !options.aggregateReference
                 : options.selectedSamples.length === 0 || !options.hasPod5;
             const text = !options.hasPod5
                 ? 'Load POD5 to generate'
                 : isRefOverlay && !options.hasBam
                   ? 'Load BAM for reference overlay'
-                  : options.selectedSamples.length === 0
-                    ? 'Enable samples in Sample Manager'
-                    : 'Generate Plot';
+                  : isRefOverlay && !options.aggregateReference
+                    ? 'Select reference below'
+                    : options.selectedSamples.length === 0
+                      ? 'Enable samples in Sample Manager'
+                      : 'Generate Plot';
             const handler = isRefOverlay
                 ? handleGenerateReferenceOverlay
                 : options.plotType === 'MULTI_READ_OVERLAY'
@@ -608,6 +617,40 @@ export const PlotOptionsCore: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Reference Selection - only for Reference Overlay */}
+                    {options.plotType === 'REFERENCE_OVERLAY' && (
+                        <div className="plot-options-section">
+                            <div className="plot-options-section-header">Reference</div>
+                            <select
+                                value={options.aggregateReference}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        aggregateReference: e.target.value,
+                                    }))
+                                }
+                                disabled={!options.hasBam}
+                                className="plot-options-select"
+                                style={{
+                                    opacity: options.hasBam ? 1 : 0.5,
+                                }}
+                            >
+                                {options.availableReferences.length > 0 ? (
+                                    options.availableReferences.map((ref) => (
+                                        <option key={ref} value={ref}>
+                                            {ref}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value="">No references (load BAM file)</option>
+                                )}
+                            </select>
+                            <div className="plot-options-helper-text">
+                                All reads will be filtered to this reference chromosome
+                            </div>
+                        </div>
+                    )}
+
                     {/* Display Options */}
                     <div className="plot-options-section">
                         <div className="plot-options-section-header">Display Options</div>
@@ -706,6 +749,92 @@ export const PlotOptionsCore: React.FC = () => {
                                 {options.selectedSamples.length * options.maxReadsMulti})
                             </div>
                         )}
+
+                    {/* Downsample factor - only for Reference Overlay */}
+                    {options.plotType === 'REFERENCE_OVERLAY' && (
+                        <div className="plot-options-section">
+                            <div className="plot-options-slider-label">
+                                <span>Downsample:</span>
+                                <span>{options.downsample}x</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="1"
+                                max="20"
+                                step="1"
+                                value={options.downsample}
+                                onChange={(e) =>
+                                    setOptions((prev) => ({
+                                        ...prev,
+                                        downsample: parseInt(e.target.value),
+                                    }))
+                                }
+                                className="plot-options-range-slider"
+                            />
+                            <div className="plot-options-helper-text">
+                                Signal averaging factor (1 = no downsampling)
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Reference Overlay specific options */}
+                    {options.plotType === 'REFERENCE_OVERLAY' && (
+                        <div className="plot-options-section">
+                            <label className="plot-options-checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={options.scaleDwellTime}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            scaleDwellTime: checked,
+                                        }));
+                                        sendMessage('optionsChanged', {
+                                            options: {
+                                                ...options,
+                                                scaleDwellTime: checked,
+                                            },
+                                        });
+                                    }}
+                                />
+                                <span>Scale by dwell time</span>
+                            </label>
+                            <div
+                                className="plot-options-helper-text"
+                                style={{ marginLeft: '24px', marginBottom: '8px' }}
+                            >
+                                Base widths proportional to pore dwell time
+                            </div>
+
+                            <label className="plot-options-checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={options.showBaseColors}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            showBaseColors: checked,
+                                        }));
+                                        sendMessage('optionsChanged', {
+                                            options: {
+                                                ...options,
+                                                showBaseColors: checked,
+                                            },
+                                        });
+                                    }}
+                                />
+                                <span>Show base colors</span>
+                            </label>
+                            <div
+                                className="plot-options-helper-text"
+                                style={{ marginLeft: '24px' }}
+                            >
+                                Colored background for each base identity
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

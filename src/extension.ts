@@ -726,7 +726,8 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
             await vscode.commands.executeCommand(
                 'squiggy.plotReferenceOverlay',
                 params.sampleNames,
-                params.maxReads
+                params.maxReads,
+                params.reference
             );
         })
     );

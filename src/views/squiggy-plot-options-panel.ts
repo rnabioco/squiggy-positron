@@ -46,6 +46,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showDwellTime: boolean = false;
     private _showBaseAnnotations: boolean = true;
     private _scaleDwellTime: boolean = false;
+    private _showBaseColors: boolean = true;
     private _downsample: number = 5;
     private _showSignalPoints: boolean = false;
     private _clipXAxisToAlignment: boolean = true;
@@ -182,6 +183,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         sampleNames: string[];
         maxReads: number;
         normalization: string;
+        reference: string;
     }>();
     public readonly onDidRequestReferenceOverlay = this._onDidRequestReferenceOverlay.event;
 
@@ -205,6 +207,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             this._showDwellTime = message.options.showDwellTime;
             this._showBaseAnnotations = message.options.showBaseAnnotations;
             this._scaleDwellTime = message.options.scaleDwellTime;
+            if (message.options.showBaseColors !== undefined) {
+                this._showBaseColors = message.options.showBaseColors;
+            }
             this._downsample = message.options.downsample;
             this._showSignalPoints = message.options.showSignalPoints;
             if (message.options.clipXAxisToAlignment !== undefined) {
@@ -321,6 +326,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 sampleNames: message.sampleNames,
                 maxReads: message.maxReads,
                 normalization: message.normalization,
+                reference: message.reference,
             });
         }
 
@@ -355,6 +361,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showDwellTime: this._showDwellTime,
                 showBaseAnnotations: this._showBaseAnnotations,
                 scaleDwellTime: this._scaleDwellTime,
+                showBaseColors: this._showBaseColors,
                 downsample: this._downsample,
                 showSignalPoints: this._showSignalPoints,
                 clipXAxisToAlignment: this._clipXAxisToAlignment,
@@ -419,6 +426,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             showDwellTime: this._showDwellTime,
             showBaseAnnotations: this._showBaseAnnotations,
             scaleDwellTime: this._scaleDwellTime,
+            showBaseColors: this._showBaseColors,
             downsample: this._downsample,
             showSignalPoints: this._showSignalPoints,
             clipXAxisToAlignment: this._clipXAxisToAlignment,

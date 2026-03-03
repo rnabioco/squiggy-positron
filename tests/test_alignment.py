@@ -367,6 +367,89 @@ class TestGetBaseToSignalMapping:
         assert np.all(seq_to_sig_map[1:] >= seq_to_sig_map[:-1])
 
 
+class TestTrimStartOffset:
+    """Tests for ts (trim_start) tag handling in signal indices"""
+
+    def test_signal_indices_offset_by_trim_start(self, sample_bam_file):
+        """Signal indices should start at ts offset, not 0"""
+        from squiggy.alignment import _parse_alignment
+
+        with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if (
+                    alignment.has_tag("mv")
+                    and alignment.has_tag("ts")
+                    and alignment.query_sequence
+                ):
+                    ts = int(alignment.get_tag("ts"))
+                    aligned_read = _parse_alignment(alignment)
+                    assert aligned_read is not None
+
+                    # First base's signal_start should be >= ts
+                    first_base = aligned_read.bases[0]
+                    assert first_base.signal_start >= ts, (
+                        f"First base signal_start ({first_base.signal_start}) "
+                        f"should be >= ts ({ts})"
+                    )
+                    return
+
+        pytest.skip("No alignments with mv and ts tags found")
+
+    def test_signal_indices_within_expected_range(self, sample_bam_file):
+        """All signal indices should fall within [ts, ts + mv_coverage]"""
+        from squiggy.alignment import _parse_alignment
+
+        with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if (
+                    alignment.has_tag("mv")
+                    and alignment.has_tag("ts")
+                    and alignment.query_sequence
+                ):
+                    ts = int(alignment.get_tag("ts"))
+                    mv = np.array(alignment.get_tag("mv"), dtype=np.uint8)
+                    stride = int(mv[0])
+                    n_moves = len(mv) - 1
+                    mv_end = ts + n_moves * stride
+
+                    aligned_read = _parse_alignment(alignment)
+                    assert aligned_read is not None
+
+                    for base in aligned_read.bases:
+                        assert base.signal_start >= ts, (
+                            f"signal_start {base.signal_start} < ts {ts}"
+                        )
+                        assert base.signal_end <= mv_end, (
+                            f"signal_end {base.signal_end} > mv_end {mv_end}"
+                        )
+                    return
+
+        pytest.skip("No alignments with mv and ts tags found")
+
+    def test_no_ts_tag_starts_at_zero(self):
+        """Without ts tag, signal indices should start at 0"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _parse_alignment
+
+        mock_alignment = MagicMock()
+        mock_alignment.query_sequence = "AC"
+        mock_alignment.has_tag.side_effect = lambda t: t == "mv"
+        mock_alignment.get_tag.side_effect = lambda t: (
+            np.array([5, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0], dtype=np.uint8)
+            if t == "mv"
+            else None
+        )
+        mock_alignment.is_unmapped = True
+        mock_alignment.is_reverse = False
+        mock_alignment.query_qualities = None
+        mock_alignment.get_aligned_pairs.return_value = []
+
+        aligned_read = _parse_alignment(mock_alignment)
+        assert aligned_read is not None
+        assert aligned_read.bases[0].signal_start == 0
+
+
 class TestAlignmentEdgeCases:
     """Tests for edge cases and error handling"""
 
@@ -420,8 +503,13 @@ class TestAlignmentEdgeCases:
         # Verify they're different
         assert len({ar.read_id for ar in aligned_reads}) == len(aligned_reads)
 
-    def test_aligned_read_base_positions_sequential(self, sample_bam_file):
-        """Test that base positions are sequential (0, 1, 2, ...)"""
+    def test_aligned_read_base_positions_cover_all_indices(self, sample_bam_file):
+        """Test that base positions cover all query indices exactly once.
+
+        For DNA reads, positions are ascending (0, 1, 2, ...).
+        For RNA reads, positions are descending (N-1, N-2, ..., 0) because
+        the move table is in 3'→5' signal order while BAM query is 5'→3'.
+        """
         from squiggy.alignment import extract_alignment_from_bam
 
         # Find a read
@@ -436,10 +524,9 @@ class TestAlignmentEdgeCases:
         aligned_read = extract_alignment_from_bam(sample_bam_file, read_id)
         assert aligned_read is not None
 
-        # Check positions are sequential
+        # Positions should cover all indices 0..N-1 exactly once
         positions = [base.position for base in aligned_read.bases]
-        expected_positions = list(range(len(positions)))
-        assert positions == expected_positions
+        assert sorted(positions) == list(range(len(positions)))
 
     def test_aligned_read_signal_ranges_non_overlapping(self, sample_bam_file):
         """Test that signal ranges don't overlap (or minimally overlap)"""
@@ -466,3 +553,197 @@ class TestAlignmentEdgeCases:
             assert current.signal_end <= next_base.signal_start + 1, (
                 f"Overlapping signals at position {i}"
             )
+
+
+class TestIsRnaRead:
+    """Tests for _is_rna_read() helper"""
+
+    def test_rna_rg_tag(self):
+        """RG tag with RNA model name should return True"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _is_rna_read
+
+        alignment = MagicMock()
+        alignment.has_tag.return_value = True
+        alignment.get_tag.return_value = "7e2aabdf_rna004_130bps_sup@v5.1.0"
+
+        assert _is_rna_read(alignment) is True
+
+    def test_dna_rg_tag(self):
+        """RG tag with DNA model name should return False"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _is_rna_read
+
+        alignment = MagicMock()
+        alignment.has_tag.return_value = True
+        alignment.get_tag.return_value = "7e2aabdf_dna_r10.4.1_e8.2_400bps_sup@v4.2.0"
+
+        assert _is_rna_read(alignment) is False
+
+    def test_no_rg_tag(self):
+        """Missing RG tag should return False"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _is_rna_read
+
+        alignment = MagicMock()
+        alignment.has_tag.return_value = False
+
+        assert _is_rna_read(alignment) is False
+
+    def test_rg_tag_no_underscore(self):
+        """RG tag without underscore uses full value"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _is_rna_read
+
+        alignment = MagicMock()
+        alignment.has_tag.return_value = True
+        alignment.get_tag.return_value = "rna004model"
+
+        assert _is_rna_read(alignment) is True
+
+    def test_real_bam_rna_detection(self, sample_bam_file):
+        """Test RNA detection on real BAM file (yeast tRNA = RNA data)"""
+        from squiggy.alignment import _is_rna_read
+
+        with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if alignment.has_tag("RG"):
+                    # The test BAM is RNA data — should detect as RNA
+                    assert _is_rna_read(alignment) is True
+                    return
+
+        pytest.skip("No reads with RG tag found")
+
+
+class TestRnaOrientation:
+    """Tests for RNA move table orientation fix"""
+
+    def test_rna_mock_reverses_query_positions(self):
+        """For RNA, first move-table hit should map to last query position"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _parse_alignment
+
+        mock_alignment = MagicMock()
+        mock_alignment.query_sequence = "ACGT"
+        mock_alignment.query_name = "rna_test_read"
+        mock_alignment.is_unmapped = True
+        mock_alignment.is_reverse = False
+        mock_alignment.query_qualities = np.array([10, 20, 30, 40], dtype=np.uint8)
+
+        # Move table: stride=5, 4 bases (one move per base, no gaps)
+        mv = np.array([5, 1, 1, 1, 1], dtype=np.uint8)
+
+        def has_tag_side_effect(tag):
+            return tag in ("mv", "RG")
+
+        def get_tag_side_effect(tag):
+            if tag == "mv":
+                return mv
+            if tag == "RG":
+                return "runid_rna004_130bps_sup@v5.1.0"
+            return None
+
+        mock_alignment.has_tag.side_effect = has_tag_side_effect
+        mock_alignment.get_tag.side_effect = get_tag_side_effect
+        mock_alignment.get_aligned_pairs.return_value = []
+
+        aligned_read = _parse_alignment(mock_alignment)
+        assert aligned_read is not None
+
+        # For RNA: move-table order is 3'→5', query is 5'→3'
+        # First hit in move table (base_idx=0) → query position seq_len-1 = 3
+        # Last hit (base_idx=3) → query position 0
+        positions = [b.position for b in aligned_read.bases]
+        assert positions == [3, 2, 1, 0]
+
+        # Bases should correspond to the reversed positions
+        bases = [b.base for b in aligned_read.bases]
+        assert bases == ["T", "G", "C", "A"]  # sequence[3], [2], [1], [0]
+
+        # Quality scores should follow the same reversed mapping
+        quals = [b.quality for b in aligned_read.bases]
+        assert quals == [40, 30, 20, 10]
+
+    def test_dna_mock_preserves_query_positions(self):
+        """For DNA, move-table order matches query order (no reversal)"""
+        from unittest.mock import MagicMock
+
+        from squiggy.alignment import _parse_alignment
+
+        mock_alignment = MagicMock()
+        mock_alignment.query_sequence = "ACGT"
+        mock_alignment.query_name = "dna_test_read"
+        mock_alignment.is_unmapped = True
+        mock_alignment.is_reverse = False
+        mock_alignment.query_qualities = np.array([10, 20, 30, 40], dtype=np.uint8)
+
+        mv = np.array([5, 1, 1, 1, 1], dtype=np.uint8)
+
+        def has_tag_side_effect(tag):
+            return tag in ("mv", "RG")
+
+        def get_tag_side_effect(tag):
+            if tag == "mv":
+                return mv
+            if tag == "RG":
+                return "runid_dna_r10.4.1_e8.2_400bps_sup@v4.2.0"
+            return None
+
+        mock_alignment.has_tag.side_effect = has_tag_side_effect
+        mock_alignment.get_tag.side_effect = get_tag_side_effect
+        mock_alignment.get_aligned_pairs.return_value = []
+
+        aligned_read = _parse_alignment(mock_alignment)
+        assert aligned_read is not None
+
+        positions = [b.position for b in aligned_read.bases]
+        assert positions == [0, 1, 2, 3]
+
+        bases = [b.base for b in aligned_read.bases]
+        assert bases == ["A", "C", "G", "T"]
+
+        quals = [b.quality for b in aligned_read.bases]
+        assert quals == [10, 20, 30, 40]
+
+    def test_rna_genomic_positions_monotonic(self, sample_bam_file):
+        """For forward-strand RNA, genomic positions in bases list should be
+        monotonically decreasing (signal runs 3'→5' = high→low genomic coords
+        on forward strand)."""
+        from squiggy.alignment import _parse_alignment
+
+        with pysam.AlignmentFile(str(sample_bam_file), "rb", check_sq=False) as bam:
+            for alignment in bam.fetch(until_eof=True):
+                if (
+                    alignment.has_tag("mv")
+                    and alignment.query_sequence
+                    and not alignment.is_unmapped
+                    and not alignment.is_reverse
+                ):
+                    aligned_read = _parse_alignment(alignment)
+                    assert aligned_read is not None
+
+                    # Get genomic positions (skip None from insertions)
+                    gpos = [
+                        b.genomic_pos
+                        for b in aligned_read.bases
+                        if b.genomic_pos is not None
+                    ]
+
+                    if len(gpos) < 2:
+                        continue
+
+                    # For forward-strand RNA, signal goes 3'→5' so genomic
+                    # positions should generally decrease along the bases list.
+                    # Check that the trend is decreasing (first > last).
+                    assert gpos[0] > gpos[-1], (
+                        f"Expected decreasing genomic positions for "
+                        f"forward-strand RNA, got first={gpos[0]} last={gpos[-1]}"
+                    )
+                    return
+
+        pytest.skip("No suitable forward-strand RNA alignments found")

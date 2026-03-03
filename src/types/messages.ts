@@ -220,6 +220,7 @@ export interface GenerateReferenceOverlayMessage extends BaseMessage {
     sampleNames: string[];
     maxReads: number;
     normalization: string;
+    reference: string;
 }
 
 export interface GenerateSignalOverlayComparisonMessage extends BaseMessage {
@@ -271,6 +272,7 @@ export interface PlotOptions {
     showDwellTime: boolean;
     showBaseAnnotations: boolean;
     scaleDwellTime: boolean;
+    showBaseColors: boolean;
     downsample: number;
     showSignalPoints: boolean;
     clipXAxisToAlignment?: boolean;

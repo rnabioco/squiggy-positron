@@ -1,5 +1,20 @@
 # Squiggy Release Notes
 
+## v0.1.26-alpha (2026-03-03)
+
+Reference overlay improvements with dwell-scaled base widths and toggleable base color annotations.
+
+### Features
+
+- **Dwell-Scaled Base Widths**: Reference overlay plots can now scale base widths proportional to pore dwell time, making longer-dwelled bases visually wider
+- **Toggle Base Colors**: New checkbox to show/hide colored ACGT background patches in reference overlay plots
+- **Reference Overlay UI Controls**: Added "Scale by dwell time" and "Show base colors" checkboxes in the Plotting panel for reference overlay mode
+
+### Fixes
+
+- **Reference Overlay Gating**: Gate reference overlay availability on BAM presence only, not on event (mv tag) availability
+- **Upfront Session Validation**: Consolidated file validation with clear error dialogs at session load time
+
 ## v0.1.24-alpha (2026-01-22)
 
 Pipeline session integration for external workflow support.

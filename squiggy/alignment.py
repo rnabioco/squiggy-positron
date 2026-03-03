@@ -58,6 +58,29 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | No
     return None
 
 
+def _is_rna_read(alignment) -> bool:
+    """Check if alignment is from an RNA read by inspecting the RG tag.
+
+    RNA basecall models include "rna" in the model name (e.g.,
+    "rna004_130bps_sup@v5.1.0"). The RG tag format is "{run_id}_{model_name}".
+
+    Args:
+        alignment: pysam AlignmentSegment object
+
+    Returns:
+        True if the read was basecalled with an RNA model
+    """
+    if not alignment.has_tag("RG"):
+        return False
+    rg_value = alignment.get_tag("RG")
+    # RG format: {run_id}_{model_name}
+    if "_" in rg_value:
+        model_name = rg_value.split("_", 1)[1]
+    else:
+        model_name = rg_value
+    return "rna" in model_name.lower()
+
+
 def _parse_alignment(alignment) -> AlignedRead | None:
     """Parse a pysam AlignmentSegment into AlignedRead
 
@@ -92,9 +115,29 @@ def _parse_alignment(alignment) -> AlignedRead | None:
             if query_pos is not None and ref_pos is not None:
                 query_to_ref[query_pos] = ref_pos
 
+    # Get trim_start offset (ts tag): number of raw signal samples to skip
+    # before the basecalled region begins (adapter/polyA trimming).
+    # Without this, signal indices point into adapter signal instead of bases.
+    trim_start = 0
+    if alignment.has_tag("ts"):
+        trim_start = int(alignment.get_tag("ts"))
+
+    # RNA orientation fix:
+    # - BAM query_sequence is always stored 5'→3' (BAM convention).
+    # - The mv tag (move table) is in signal order — 3'→5' for direct RNA.
+    # - For DNA these are the same orientation; for RNA they are opposite.
+    # - We reverse the query-space lookup so each signal range maps to the
+    #   correct query base. Signal positions remain unchanged.
+    is_rna = _is_rna_read(alignment)
+    seq_len = len(sequence)
+
+    def query_idx(move_base_idx: int) -> int:
+        """Map move-table base index to query-space position."""
+        return (seq_len - 1 - move_base_idx) if is_rna else move_base_idx
+
     # Convert move table to base annotations
     bases = []
-    signal_pos = 0
+    signal_pos = trim_start
     base_idx = 0
 
     for move_idx, move in enumerate(moves):
@@ -113,17 +156,19 @@ def _parse_alignment(alignment) -> AlignedRead | None:
                     # No next base found, extend to end of signal
                     signal_end = signal_pos + ((len(moves) - move_idx) * stride)
 
+                qi = query_idx(base_idx)
+
                 # Get genomic position using aligned_pairs (handles indels correctly)
-                genomic_pos = query_to_ref.get(base_idx)
+                genomic_pos = query_to_ref.get(qi)
 
                 # Get quality score
                 quality = None
                 if alignment.query_qualities is not None:
-                    quality = alignment.query_qualities[base_idx]
+                    quality = alignment.query_qualities[qi]
 
                 base = BaseAnnotation(
-                    base=sequence[base_idx],
-                    position=base_idx,
+                    base=sequence[qi],
+                    position=qi,
                     signal_start=signal_pos,
                     signal_end=signal_end,
                     genomic_pos=genomic_pos,
