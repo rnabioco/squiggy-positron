@@ -331,6 +331,24 @@ export function registerPlotCommands(
             }
         )
     );
+
+    // Plot reference overlay - Overlay reads aligned to genomic reference positions
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'squiggy.plotReferenceOverlay',
+            async (sampleNames?: string[], maxReads?: number) => {
+                if (!sampleNames || sampleNames.length === 0) {
+                    vscode.window.showErrorMessage(
+                        'Please select samples in the Plotting panel to generate reference overlay plots.'
+                    );
+                    return;
+                }
+
+                const maxReadsPerSample = maxReads || 10;
+                await plotReferenceOverlay(sampleNames, maxReadsPerSample, state);
+            }
+        )
+    );
 }
 
 /**
@@ -973,5 +991,83 @@ async function plotMultiReadStacked(
         },
         ErrorContext.PLOT_GENERATE,
         `Generating stacked plot with ${maxReadsPerSample} reads per sample from ${sampleNames.length} sample(s)...`
+    );
+}
+
+/**
+ * Generate reference overlay plot from selected samples
+ * Overlays raw signal from multiple reads aligned to genomic reference positions
+ */
+async function plotReferenceOverlay(
+    sampleNames: string[],
+    maxReadsPerSample: number,
+    state: ExtensionState
+): Promise<void> {
+    await safeExecuteWithProgress(
+        async () => {
+            if (sampleNames.length === 0) {
+                throw new Error('At least one sample must be selected');
+            }
+
+            const api = await state.ensureKernel();
+
+            // Extract reads from each sample and build mappings
+            const allReadIds: string[] = [];
+            const readSampleMap: Record<string, string> = {};
+            const readColors: Record<string, string> = {};
+
+            for (const sampleName of sampleNames) {
+                const sample = state.getSample(sampleName);
+                if (!sample) {
+                    throw new Error(`Sample '${sampleName}' not found`);
+                }
+
+                const sampleColor = sample.metadata?.displayColor || '#888888';
+                const readIds = await api.getReadIdsForSample(sampleName, 0, maxReadsPerSample);
+
+                for (const readId of readIds) {
+                    allReadIds.push(readId);
+                    readSampleMap[readId] = sampleName;
+                    readColors[readId] = sampleColor;
+                }
+            }
+
+            if (allReadIds.length === 0) {
+                throw new Error('No reads found in selected samples');
+            }
+
+            const options = state.plotOptionsProvider?.getOptions();
+            if (!options) {
+                throw new Error('Plot options not available');
+            }
+
+            const modFilters = state.modificationsProvider?.getFilters();
+            if (!modFilters) {
+                throw new Error('Modification filters not available');
+            }
+
+            const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+            const theme = isDark ? 'DARK' : 'LIGHT';
+
+            // Generate plot with REFERENCE_OVERLAY mode
+            await api.generateMultiSamplePlot(
+                allReadIds,
+                readSampleMap,
+                readColors,
+                'REFERENCE_OVERLAY',
+                options.normalization,
+                theme,
+                false, // showDwellTime (not applicable)
+                true, // showBaseAnnotations
+                false, // scaleDwellTime (not applicable)
+                modFilters.minProbability,
+                modFilters.enabledModTypes,
+                options.downsample,
+                options.showSignalPoints,
+                'signal' // coordinateSpace (strategy handles genomic mapping internally)
+            );
+        },
+        ErrorContext.PLOT_GENERATE,
+        `Generating reference overlay with ${maxReadsPerSample} reads per sample from ${sampleNames.length} sample(s)...`
     );
 }

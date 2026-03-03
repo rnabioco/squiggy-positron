@@ -720,6 +720,17 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
         })
     );
 
+    // Listen for reference overlay requests from plot options panel
+    context.subscriptions.push(
+        plotOptionsProvider.onDidRequestReferenceOverlay(async (params) => {
+            await vscode.commands.executeCommand(
+                'squiggy.plotReferenceOverlay',
+                params.sampleNames,
+                params.maxReads
+            );
+        })
+    );
+
     // Register kernel event listeners (session changes, restarts)
     registerKernelListeners(context, state, async () => {
         // Kernel session changed - log it

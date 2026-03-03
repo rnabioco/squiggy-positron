@@ -10,6 +10,7 @@ from squiggy.plot_strategies.aggregate import AggregatePlotStrategy
 from squiggy.plot_strategies.base import PlotStrategy
 from squiggy.plot_strategies.eventalign import EventAlignPlotStrategy
 from squiggy.plot_strategies.overlay import OverlayPlotStrategy
+from squiggy.plot_strategies.reference_overlay import ReferenceOverlayPlotStrategy
 from squiggy.plot_strategies.single_read import SingleReadPlotStrategy
 from squiggy.plot_strategies.stacked import StackedPlotStrategy
 
@@ -54,6 +55,14 @@ class TestPlotFactoryBasic:
         strategy = create_plot_strategy(PlotMode.AGGREGATE, Theme.LIGHT)
 
         assert isinstance(strategy, AggregatePlotStrategy)
+        assert isinstance(strategy, PlotStrategy)
+        assert strategy.theme == Theme.LIGHT
+
+    def test_create_reference_overlay_strategy(self):
+        """Test creating ReferenceOverlayPlotStrategy"""
+        strategy = create_plot_strategy(PlotMode.REFERENCE_OVERLAY, Theme.LIGHT)
+
+        assert isinstance(strategy, ReferenceOverlayPlotStrategy)
         assert isinstance(strategy, PlotStrategy)
         assert strategy.theme == Theme.LIGHT
 
@@ -125,6 +134,7 @@ class TestPlotFactoryStrategyInterface:
             PlotMode.STACKED,
             PlotMode.EVENTALIGN,
             PlotMode.AGGREGATE,
+            PlotMode.REFERENCE_OVERLAY,
         ],
     )
     def test_all_strategies_have_create_plot(self, plot_mode):
@@ -142,6 +152,7 @@ class TestPlotFactoryStrategyInterface:
             PlotMode.STACKED,
             PlotMode.EVENTALIGN,
             PlotMode.AGGREGATE,
+            PlotMode.REFERENCE_OVERLAY,
         ],
     )
     def test_all_strategies_have_validate_data(self, plot_mode):
@@ -159,6 +170,7 @@ class TestPlotFactoryStrategyInterface:
             PlotMode.STACKED,
             PlotMode.EVENTALIGN,
             PlotMode.AGGREGATE,
+            PlotMode.REFERENCE_OVERLAY,
         ],
     )
     def test_all_strategies_have_theme_attribute(self, plot_mode):

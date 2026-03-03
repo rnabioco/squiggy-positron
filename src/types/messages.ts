@@ -215,6 +215,13 @@ export interface GenerateMultiReadStackedMessage extends BaseMessage {
     coordinateSpace: 'signal' | 'sequence';
 }
 
+export interface GenerateReferenceOverlayMessage extends BaseMessage {
+    type: 'generateReferenceOverlay';
+    sampleNames: string[];
+    maxReads: number;
+    normalization: string;
+}
+
 export interface GenerateSignalOverlayComparisonMessage extends BaseMessage {
     type: 'generateSignalOverlayComparison';
     sampleNames: string[];
@@ -295,6 +302,7 @@ export type PlotOptionsIncomingMessage =
     | GenerateAggregatePlotMessage
     | GenerateMultiReadOverlayMessage
     | GenerateMultiReadStackedMessage
+    | GenerateReferenceOverlayMessage
     | GenerateSignalOverlayComparisonMessage
     | GenerateSignalDeltaMessage
     | GenerateAggregateComparisonMessage

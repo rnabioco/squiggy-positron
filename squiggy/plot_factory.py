@@ -12,6 +12,7 @@ from .plot_strategies.base import PlotStrategy
 from .plot_strategies.delta import DeltaPlotStrategy
 from .plot_strategies.eventalign import EventAlignPlotStrategy
 from .plot_strategies.overlay import OverlayPlotStrategy
+from .plot_strategies.reference_overlay import ReferenceOverlayPlotStrategy
 from .plot_strategies.signal_overlay_comparison import (
     SignalOverlayComparisonStrategy,
 )
@@ -49,6 +50,7 @@ def create_plot_strategy(plot_mode: PlotMode, theme: Theme) -> PlotStrategy:
         PlotMode.DELTA: DeltaPlotStrategy,
         PlotMode.SIGNAL_OVERLAY_COMPARISON: SignalOverlayComparisonStrategy,
         PlotMode.AGGREGATE_COMPARISON: AggregateComparisonStrategy,
+        PlotMode.REFERENCE_OVERLAY: ReferenceOverlayPlotStrategy,
     }
 
     strategy_class = strategy_map.get(plot_mode)

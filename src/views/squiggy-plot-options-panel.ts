@@ -107,6 +107,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         this._onDidRequestAggregateComparison.dispose();
         this._onDidRequestMultiReadOverlay.dispose();
         this._onDidRequestMultiReadStacked.dispose();
+        this._onDidRequestReferenceOverlay.dispose();
 
         // Call base class dispose to clean up all other disposables
         super.dispose();
@@ -176,6 +177,13 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         coordinateSpace: 'signal' | 'sequence';
     }>();
     public readonly onDidRequestMultiReadStacked = this._onDidRequestMultiReadStacked.event;
+
+    private _onDidRequestReferenceOverlay = new vscode.EventEmitter<{
+        sampleNames: string[];
+        maxReads: number;
+        normalization: string;
+    }>();
+    public readonly onDidRequestReferenceOverlay = this._onDidRequestReferenceOverlay.event;
 
     protected getTitle(): string {
         return 'Plotting';
@@ -305,6 +313,14 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 maxReads: message.maxReads,
                 normalization: message.normalization,
                 coordinateSpace: message.coordinateSpace,
+            });
+        }
+
+        if (message.type === 'generateReferenceOverlay') {
+            this._onDidRequestReferenceOverlay.fire({
+                sampleNames: message.sampleNames,
+                maxReads: message.maxReads,
+                normalization: message.normalization,
             });
         }
 

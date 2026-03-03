@@ -62,6 +62,9 @@ class PlotMode(Enum):
     AGGREGATE_COMPARISON = (
         "aggregate_comparison"  # Multi-sample aggregate statistics comparison
     )
+    REFERENCE_OVERLAY = (
+        "reference_overlay"  # Multi-read overlay aligned to genomic reference positions
+    )
 
 
 # Normalization methods

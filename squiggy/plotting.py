@@ -444,10 +444,50 @@ def plot_reads(
             "show_signal_points": show_signal_points,
         }
 
+    elif plot_mode == PlotMode.REFERENCE_OVERLAY:
+        # Reference overlay mode — same BAM extraction as EVENTALIGN
+        if sample_name:
+            sample = squiggy_kernel.get_sample(sample_name)
+            if not sample or not sample._bam_path:
+                raise ValueError(
+                    f"REFERENCE_OVERLAY mode requires a BAM file. "
+                    f"Sample '{sample_name}' has no BAM file loaded."
+                )
+            bam_path = sample._bam_path
+        else:
+            if squiggy_kernel._bam_path is None:
+                raise ValueError(
+                    "REFERENCE_OVERLAY mode requires a BAM file. Call load_bam() first."
+                )
+            bam_path = squiggy_kernel._bam_path
+
+        from .alignment import extract_alignment_from_bam
+
+        aligned_reads = []
+        for read_id in read_ids:
+            aligned_read = extract_alignment_from_bam(bam_path, read_id)
+            if aligned_read is None:
+                raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+            aligned_reads.append(aligned_read)
+
+        data = {
+            "reads": reads_data,
+            "aligned_reads": aligned_reads,
+        }
+
+        options = {
+            "normalization": norm_method,
+            "downsample": downsample,
+            "show_labels": show_labels,
+            "show_signal_points": show_signal_points,
+        }
+        if read_colors:
+            options["read_colors"] = read_colors
+
     else:
         raise ValueError(
             f"Plot mode {plot_mode} not supported for multiple reads. "
-            f"Use OVERLAY, STACKED, or EVENTALIGN."
+            f"Use OVERLAY, STACKED, EVENTALIGN, or REFERENCE_OVERLAY."
         )
 
     # Create strategy and generate plot

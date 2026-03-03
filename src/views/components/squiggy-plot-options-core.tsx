@@ -13,6 +13,7 @@ import './squiggy-plot-options-core.css';
 type PlotType =
     | 'MULTI_READ_OVERLAY'
     | 'MULTI_READ_STACKED'
+    | 'REFERENCE_OVERLAY'
     | 'AGGREGATE' // Now supports 1+ samples with view toggle
     | 'COMPARE_SIGNAL_DELTA';
 
@@ -248,6 +249,8 @@ export const PlotOptionsCore: React.FC = () => {
             case 'MULTI_READ_OVERLAY':
             case 'MULTI_READ_STACKED':
                 return options.hasPod5;
+            case 'REFERENCE_OVERLAY':
+                return options.hasPod5 && options.hasBam && options.hasEvents;
             case 'AGGREGATE':
                 // Now supports 1+ samples, all must have BAM
                 return (
@@ -355,24 +358,39 @@ export const PlotOptionsCore: React.FC = () => {
         });
     };
 
+    const handleGenerateReferenceOverlay = () => {
+        sendMessage('generateReferenceOverlay', {
+            sampleNames: options.selectedSamples,
+            maxReads: options.maxReadsMulti,
+            normalization: options.normalization,
+        });
+    };
+
     // Determine button state based on plot type
     const getButtonState = () => {
         if (
             options.plotType === 'MULTI_READ_OVERLAY' ||
-            options.plotType === 'MULTI_READ_STACKED'
+            options.plotType === 'MULTI_READ_STACKED' ||
+            options.plotType === 'REFERENCE_OVERLAY'
         ) {
-            return {
-                disabled: options.selectedSamples.length === 0 || !options.hasPod5,
-                text: !options.hasPod5
-                    ? 'Load POD5 to generate'
-                    : options.selectedSamples.length === 0
-                      ? 'Enable samples in Sample Manager'
-                      : 'Generate Plot',
-                handler:
-                    options.plotType === 'MULTI_READ_OVERLAY'
-                        ? handleGenerateMultiReadOverlay
-                        : handleGenerateMultiReadStacked,
-            };
+            const isRefOverlay = options.plotType === 'REFERENCE_OVERLAY';
+            const disabled = isRefOverlay
+                ? options.selectedSamples.length === 0 || !options.hasPod5 || !options.hasBam
+                : options.selectedSamples.length === 0 || !options.hasPod5;
+            const text = !options.hasPod5
+                ? 'Load POD5 to generate'
+                : isRefOverlay && !options.hasBam
+                  ? 'Load BAM for reference overlay'
+                  : options.selectedSamples.length === 0
+                    ? 'Enable samples in Sample Manager'
+                    : 'Generate Plot';
+            const handler = isRefOverlay
+                ? handleGenerateReferenceOverlay
+                : options.plotType === 'MULTI_READ_OVERLAY'
+                  ? handleGenerateMultiReadOverlay
+                  : handleGenerateMultiReadStacked;
+
+            return { disabled, text, handler };
         } else if (options.plotType === 'AGGREGATE') {
             return {
                 disabled:
@@ -524,7 +542,8 @@ export const PlotOptionsCore: React.FC = () => {
 
             {/* Dynamic UI based on plot type */}
             {(options.plotType === 'MULTI_READ_OVERLAY' ||
-                options.plotType === 'MULTI_READ_STACKED') && (
+                options.plotType === 'MULTI_READ_STACKED' ||
+                options.plotType === 'REFERENCE_OVERLAY') && (
                 <div>
                     {/* View Style: Overlay vs Stacked */}
                     <div className="plot-options-section">
@@ -560,6 +579,31 @@ export const PlotOptionsCore: React.FC = () => {
                                     }
                                 />
                                 <span>Stacked (offset)</span>
+                            </label>
+                            <label
+                                className="plot-options-radio-label"
+                                style={{
+                                    opacity: isPlotTypeAvailable('REFERENCE_OVERLAY') ? 1 : 0.5,
+                                }}
+                            >
+                                <input
+                                    type="radio"
+                                    name="perReadViewStyle"
+                                    checked={options.plotType === 'REFERENCE_OVERLAY'}
+                                    disabled={!isPlotTypeAvailable('REFERENCE_OVERLAY')}
+                                    onChange={() =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            plotType: 'REFERENCE_OVERLAY',
+                                        }))
+                                    }
+                                />
+                                <span>
+                                    Reference overlay
+                                    {!isPlotTypeAvailable('REFERENCE_OVERLAY')
+                                        ? ' (requires BAM)'
+                                        : ''}
+                                </span>
                             </label>
                         </div>
                     </div>
