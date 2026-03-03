@@ -21,6 +21,7 @@ import { registerFileCommands } from './commands/file-commands';
 import { registerPlotCommands } from './commands/plot-commands';
 import { registerStateCommands } from './commands/state-commands';
 import { registerSessionCommands } from './commands/session-commands';
+import { registerTSVCommands } from './commands/tsv-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 import { logger } from './utils/logger';
 import { statusBarMessenger } from './utils/status-bar-messenger';
@@ -743,6 +744,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     registerPlotCommands(context, state);
     registerStateCommands(context, state);
     registerSessionCommands(context, state);
+    registerTSVCommands(context, state);
 
     // Register command to restart dedicated kernel
     context.subscriptions.push(
