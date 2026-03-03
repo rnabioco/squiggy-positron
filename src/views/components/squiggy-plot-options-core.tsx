@@ -250,7 +250,7 @@ export const PlotOptionsCore: React.FC = () => {
             case 'MULTI_READ_STACKED':
                 return options.hasPod5;
             case 'REFERENCE_OVERLAY':
-                return options.hasPod5 && options.hasBam && options.hasEvents;
+                return options.hasPod5 && options.hasBam;
             case 'AGGREGATE':
                 // Now supports 1+ samples, all must have BAM
                 return (
