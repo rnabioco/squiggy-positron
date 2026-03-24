@@ -853,8 +853,8 @@ squiggy.close_fasta()
                 hasReference: !!sampleData.fastaPath,
                 hasMods: false,
                 hasEvents: false,
-                isLoading: false,
-                isDeferred: true, // User must click Load to trigger kernel work
+                isLoading: isDemo ? true : false,
+                isDeferred: isDemo ? false : true, // Demo sessions load immediately; session files are deferred
             };
             this.addLoadedItem(skeletonItem);
 
@@ -887,11 +887,30 @@ squiggy.close_fasta()
         // Update samples panel to show skeletons immediately
         this._samplesProvider?.refresh();
 
-        // ========== PHASE 2: Deferred Loading ==========
-        // All samples are deferred - user clicks "Load" in the Samples panel to load individually
-        logger.info(
-            `[fromSessionState] Phase 2: ${Object.keys(session.samples).length} samples deferred for on-demand loading`
-        );
+        // ========== PHASE 2: Loading ==========
+        if (isDemo) {
+            // Demo sessions: auto-load all samples immediately
+            logger.info(
+                `[fromSessionState] Phase 2: Auto-loading ${Object.keys(session.samples).length} demo samples`
+            );
+            for (const sampleName of Object.keys(session.samples)) {
+                if (this._deferredSessionData.has(sampleName)) {
+                    try {
+                        await this.loadDeferredSample(sampleName);
+                    } catch (error) {
+                        logger.error(
+                            `[fromSessionState] Failed to auto-load demo sample '${sampleName}'`,
+                            error
+                        );
+                    }
+                }
+            }
+        } else {
+            // Session file restore: defer for on-demand loading
+            logger.info(
+                `[fromSessionState] Phase 2: ${Object.keys(session.samples).length} samples deferred for on-demand loading`
+            );
+        }
 
         // ========== PHASE 3: Restore UI State ==========
         // Restore plot options
@@ -1269,6 +1288,7 @@ squiggy.close_fasta()
             hasEvents: bamResult?.hasEvents ?? false,
             isRna: bamResult?.isRna ?? false,
             isLoading: false, // Mark as complete
+            isDeferred: false, // No longer deferred
             loadingMessage: undefined,
         });
 
