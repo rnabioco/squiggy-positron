@@ -218,8 +218,7 @@ export async function importSessionCommand(
             const response = await vscode.window.showWarningMessage(
                 'Current session will be replaced. Continue?',
                 { modal: true },
-                'Import',
-                'Cancel'
+                'Import'
             );
 
             if (response !== 'Import') {
@@ -262,8 +261,7 @@ export async function clearSessionCommand(context: vscode.ExtensionContext): Pro
         const response = await vscode.window.showWarningMessage(
             'Clear saved session? This will not affect currently loaded files.',
             { modal: true },
-            'Clear',
-            'Cancel'
+            'Clear'
         );
 
         if (response !== 'Clear') {

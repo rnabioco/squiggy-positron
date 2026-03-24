@@ -328,8 +328,7 @@ export async function showChecksumWarning(
     const response = await vscode.window.showWarningMessage(
         message,
         { modal: true },
-        'Load Anyway',
-        'Cancel'
+        'Load Anyway'
     );
 
     return response === 'Load Anyway';
@@ -471,8 +470,7 @@ export async function showSessionValidationReport(issues: SessionFileIssue[]): P
     const response = await vscode.window.showWarningMessage(
         message,
         { modal: true },
-        'Load Available',
-        'Cancel'
+        'Load Available'
     );
 
     return response === 'Load Available';
