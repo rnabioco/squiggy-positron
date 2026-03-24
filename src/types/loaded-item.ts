@@ -114,4 +114,10 @@ export interface LoadedItem {
      * Optional loading status message (e.g., "Loading POD5...", "Loading BAM...")
      */
     loadingMessage?: string;
+
+    /**
+     * Whether this item's data has not yet been loaded from kernel
+     * (deferred loading - session paths loaded but kernel work deferred until user clicks Load)
+     */
+    isDeferred?: boolean;
 }

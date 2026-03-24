@@ -113,6 +113,11 @@ export class ExtensionState {
     // ========== UNIFIED STATE (Issue #92) ==========
     // Consolidated registry replacing fragmented state silos
     private _loadedItems: Map<string, LoadedItem> = new Map();
+    // Deferred session data for on-demand loading (session paths stored, kernel work deferred)
+    private _deferredSessionData = new Map<
+        string,
+        { sampleData: SampleSessionState; isDemo: boolean; extensionUri: vscode.Uri }
+    >();
     private _selectedItemIds: Set<string> = new Set();
     private _itemsForComparison: Set<string> = new Set();
 
@@ -578,6 +583,9 @@ squiggy.close_fasta()
     }
 
     removeSample(name: string): void {
+        // Also clean up deferred session data
+        this._deferredSessionData.delete(name);
+
         // Support removal by displayName (for backward compatibility) or by sampleId
         // First try direct lookup by sampleId
         if (this._loadedSamples.has(name)) {
@@ -588,6 +596,7 @@ squiggy.close_fasta()
         // Fall back to search by displayName
         for (const [sampleId, sample] of this._loadedSamples) {
             if (sample.displayName === name) {
+                this._deferredSessionData.delete(sample.displayName);
                 this._loadedSamples.delete(sampleId);
                 return;
             }
@@ -817,9 +826,6 @@ squiggy.close_fasta()
         // Clear current state first
         await this.clearAll();
 
-        // Track any errors during restoration
-        const errors: string[] = [];
-
         // ========== PHASE 1: Immediate UI Population ==========
         // Create skeleton samples with loading indicators and show them immediately
         logger.info(
@@ -832,7 +838,7 @@ squiggy.close_fasta()
 
             const itemId = sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
 
-            // Create skeleton LoadedItem with isLoading=true
+            // Create skeleton LoadedItem in deferred state (no kernel work yet)
             const skeletonItem: LoadedItem = {
                 id: itemId,
                 type: sampleName === 'Default' ? 'pod5' : 'sample',
@@ -847,10 +853,17 @@ squiggy.close_fasta()
                 hasReference: !!sampleData.fastaPath,
                 hasMods: false,
                 hasEvents: false,
-                isLoading: true, // Show loading spinner
-                loadingMessage: 'Loading...',
+                isLoading: false,
+                isDeferred: true, // User must click Load to trigger kernel work
             };
             this.addLoadedItem(skeletonItem);
+
+            // Store session data for deferred loading
+            this._deferredSessionData.set(sampleName, {
+                sampleData,
+                isDemo,
+                extensionUri,
+            });
 
             // Also create a skeleton SampleInfo entry in legacy state
             const skeletonSampleInfo: SampleInfo = {
@@ -874,34 +887,11 @@ squiggy.close_fasta()
         // Update samples panel to show skeletons immediately
         this._samplesProvider?.refresh();
 
-        // ========== PHASE 2: Parallel Background Loading ==========
-        // Load sample data concurrently, updating UI as each completes
-        logger.info('[fromSessionState] Phase 2: Loading sample data in parallel');
-
-        const loadPromises = Object.entries(session.samples).map(
-            async ([sampleName, sampleData]) => {
-                try {
-                    await this.restoreSampleWithProgress(
-                        sampleName,
-                        sampleData,
-                        isDemo,
-                        extensionUri
-                    );
-                } catch (error) {
-                    errors.push(`Failed to restore sample ${sampleName}: ${error}`);
-                    // Mark sample as failed in UI
-                    const pod5Path = sampleData.pod5Paths?.[0];
-                    if (pod5Path) {
-                        const itemId =
-                            sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
-                        this.updateLoadedItemStatus(itemId, false, `Error: ${error}`);
-                    }
-                }
-            }
+        // ========== PHASE 2: Deferred Loading ==========
+        // All samples are deferred - user clicks "Load" in the Samples panel to load individually
+        logger.info(
+            `[fromSessionState] Phase 2: ${Object.keys(session.samples).length} samples deferred for on-demand loading`
         );
-
-        // Wait for all samples to finish loading
-        await Promise.all(loadPromises);
 
         // ========== PHASE 3: Restore UI State ==========
         // Restore plot options
@@ -937,46 +927,109 @@ squiggy.close_fasta()
             }
 
             // Restore selected Read Explorer sample and auto-load its reads
+            // (skip if sample is deferred — will be loaded when user clicks Load)
             if (session.ui.selectedReadExplorerSample) {
                 this._selectedReadExplorerSample = session.ui.selectedReadExplorerSample;
                 const sampleName = session.ui.selectedReadExplorerSample;
 
-                // Delay to ensure sample is fully registered
-                setTimeout(() => {
-                    logger.debug(
-                        `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
-                    );
-                    Promise.resolve(
-                        vscode.commands.executeCommand(
-                            'squiggy.internal.loadReadsForSample',
-                            sampleName
-                        )
-                    ).catch((err: unknown) => {
-                        logger.error(
-                            `[fromSessionState] Failed to auto-load reads for sample '${sampleName}'`,
-                            err
+                if (!this._deferredSessionData.has(sampleName)) {
+                    // Delay to ensure sample is fully registered
+                    setTimeout(() => {
+                        logger.debug(
+                            `[fromSessionState] Auto-loading reads for selected sample: '${sampleName}'`
                         );
-                    });
-                }, 500); // Reduced delay since samples load in parallel now
+                        Promise.resolve(
+                            vscode.commands.executeCommand(
+                                'squiggy.internal.loadReadsForSample',
+                                sampleName
+                            )
+                        ).catch((err: unknown) => {
+                            logger.error(
+                                `[fromSessionState] Failed to auto-load reads for sample '${sampleName}'`,
+                                err
+                            );
+                        });
+                    }, 500);
+                } else {
+                    logger.debug(
+                        `[fromSessionState] Skipping auto-load for deferred sample: '${sampleName}'`
+                    );
+                }
             }
         }
 
-        // Show errors if any (collapse long lists)
-        if (errors.length > 0) {
-            const MAX_SHOWN = 5;
-            let errorMsg = `Session restored with ${errors.length} error(s):`;
-            for (const err of errors.slice(0, MAX_SHOWN)) {
-                errorMsg += `\n${err}`;
+        const deferredCount = this._deferredSessionData.size;
+        statusBarMessenger.show(
+            `Session loaded (${deferredCount} sample${deferredCount !== 1 ? 's' : ''} ready to load)`,
+            'folder-opened'
+        );
+    }
+
+    /**
+     * Load a single deferred sample on demand (triggered by user clicking Load button)
+     */
+    async loadDeferredSample(sampleName: string): Promise<void> {
+        const deferred = this._deferredSessionData.get(sampleName);
+        if (!deferred) {
+            logger.warning(`[loadDeferredSample] No deferred data for sample '${sampleName}'`);
+            return;
+        }
+
+        const pod5Path = deferred.sampleData.pod5Paths?.[0];
+        const itemId = sampleName === 'Default' ? `pod5:${pod5Path}` : `sample:${sampleName}`;
+
+        // Transition: deferred -> loading
+        const item = this._loadedItems.get(itemId);
+        if (item) {
+            item.isDeferred = false;
+            item.isLoading = true;
+            item.loadingMessage = 'Loading...';
+            this._notifyLoadedItemsChanged();
+        }
+
+        try {
+            await this.restoreSampleWithProgress(
+                sampleName,
+                deferred.sampleData,
+                deferred.isDemo,
+                deferred.extensionUri
+            );
+            this._deferredSessionData.delete(sampleName);
+        } catch (error) {
+            logger.error(`[loadDeferredSample] Failed to load sample '${sampleName}':`, error);
+            // Allow retry by restoring deferred state
+            const failedItem = this._loadedItems.get(itemId);
+            if (failedItem) {
+                failedItem.isDeferred = true;
+                failedItem.isLoading = false;
+                failedItem.loadingMessage = `Error: ${error}`;
+                this._notifyLoadedItemsChanged();
             }
-            if (errors.length > MAX_SHOWN) {
-                errorMsg += `\n... and ${errors.length - MAX_SHOWN} more (see Squiggy logs for details)`;
-                for (const err of errors) {
-                    logger.warning(err);
-                }
-            }
-            vscode.window.showWarningMessage(errorMsg);
-        } else {
-            statusBarMessenger.show('Restored', 'folder-opened');
+            vscode.window.showErrorMessage(`Failed to load sample '${sampleName}': ${error}`);
+        }
+    }
+
+    /**
+     * Rename a deferred sample's key (preserves deferred data during sample rename)
+     */
+    renameDeferredSample(oldName: string, newName: string): void {
+        const data = this._deferredSessionData.get(oldName);
+        if (data) {
+            this._deferredSessionData.delete(oldName);
+            this._deferredSessionData.set(newName, data);
+        }
+    }
+
+    /**
+     * Load all deferred samples sequentially (triggered by Load All button)
+     */
+    async loadAllDeferredSamples(): Promise<void> {
+        const deferredNames = Array.from(this._deferredSessionData.keys());
+        logger.info(
+            `[loadAllDeferredSamples] Loading ${deferredNames.length} samples sequentially`
+        );
+        for (const name of deferredNames) {
+            await this.loadDeferredSample(name);
         }
     }
 

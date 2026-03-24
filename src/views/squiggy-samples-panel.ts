@@ -82,6 +82,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 hasFasta: item.hasReference,
                 isLoading: item.isLoading ?? false,
                 loadingMessage: item.loadingMessage,
+                isDeferred: item.isDeferred ?? false,
             }));
 
         logger.debug(
@@ -248,6 +249,8 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 // Rename a sample in the state
                 const sample = this._state.getSample(message.oldName);
                 if (sample) {
+                    // Preserve deferred data under new name before removeSample deletes it
+                    this._state.renameDeferredSample(message.oldName, message.newName);
                     sample.displayName = message.newName;
                     // Update map key: remove old, add new
                     this._state.removeSample(message.oldName);
@@ -307,6 +310,16 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 await this.handleChangeSampleFasta(message.sampleName);
                 break;
             }
+
+            case 'loadDeferredSample': {
+                await this._state.loadDeferredSample(message.sampleName);
+                break;
+            }
+
+            case 'loadAllDeferredSamples': {
+                await this._state.loadAllDeferredSamples();
+                break;
+            }
         }
     }
 
@@ -345,6 +358,7 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                     hasFasta: sampleInfo.hasFasta,
                     isLoading: loadedItem?.isLoading ?? false,
                     loadingMessage: loadedItem?.loadingMessage,
+                    isDeferred: loadedItem?.isDeferred ?? false,
                 };
                 return sampleItem;
             })

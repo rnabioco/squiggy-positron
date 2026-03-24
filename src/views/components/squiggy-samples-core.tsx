@@ -96,15 +96,14 @@ export const SamplesCore: React.FC = () => {
                         const newlyAssignedColors: Array<{ name: string; color: string }> = [];
                         const newlySelectedSamples: string[] = [];
                         samples.forEach((sample, index) => {
-                            if (!newColors.has(sample.name)) {
+                            if (!newColors.has(sample.name) && !sample.isDeferred) {
                                 const colorIndex = index % OKABE_ITO_PALETTE.length;
                                 const color = OKABE_ITO_PALETTE[colorIndex];
                                 newColors.set(sample.name, color);
                                 newlyAssignedColors.push({ name: sample.name, color });
                             }
-                            // Default all samples to selected for visualization in local state
-                            // Track which samples are newly selected so we can sync with extension
-                            if (!newSelected.has(sample.name)) {
+                            // Default loaded (non-deferred) samples to selected for visualization
+                            if (!newSelected.has(sample.name) && !sample.isDeferred) {
                                 newSelected.add(sample.name);
                                 newlySelectedSamples.push(sample.name);
                             }
@@ -416,6 +415,37 @@ export const SamplesCore: React.FC = () => {
                 >
                     {state.sessionFastaPath ? '✓ Set Reference' : 'Set Reference'}
                 </button>
+
+                {/* "Load All" Button - shown when deferred samples exist */}
+                {state.samples.some((s) => s.isDeferred) && (
+                    <button
+                        onClick={() => {
+                            vscode.postMessage({ type: 'loadAllDeferredSamples' });
+                        }}
+                        style={{
+                            flex: 1,
+                            padding: '4px 5px',
+                            backgroundColor: 'var(--vscode-button-background)',
+                            color: 'var(--vscode-button-foreground)',
+                            border: 'none',
+                            borderRadius: '2px',
+                            cursor: 'pointer',
+                            fontSize: 'var(--vscode-font-size)',
+                            fontFamily: 'var(--vscode-font-family)',
+                        }}
+                        onMouseEnter={(e) => {
+                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                'var(--vscode-button-hoverBackground)';
+                        }}
+                        onMouseLeave={(e) => {
+                            (e.target as HTMLButtonElement).style.backgroundColor =
+                                'var(--vscode-button-background)';
+                        }}
+                        title="Load all deferred samples sequentially"
+                    >
+                        Load All
+                    </button>
+                )}
             </div>
             {state.sessionFastaPath && (
                 <div
@@ -543,10 +573,17 @@ export const SamplesCore: React.FC = () => {
                     {state.samples.map((sample) => {
                         const isExpanded = state.expandedSamples.has(sample.name);
                         const isLoading = sample.isLoading ?? false;
+                        const isDeferred = sample.isDeferred ?? false;
                         return (
                             <div
                                 key={sample.name}
-                                className={isLoading ? 'sample-row loading' : 'sample-row'}
+                                className={
+                                    isLoading
+                                        ? 'sample-row loading'
+                                        : isDeferred
+                                          ? 'sample-row deferred'
+                                          : 'sample-row'
+                                }
                                 style={{
                                     backgroundColor: 'var(--vscode-editor-background)',
                                     border: '1px solid var(--vscode-widget-border)',
@@ -573,52 +610,55 @@ export const SamplesCore: React.FC = () => {
                                     }}
                                     onClick={() => toggleSampleExpanded(sample.name)}
                                 >
-                                    {/* Selection Checkbox with Eye Icon */}
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '3px',
-                                            cursor: 'pointer',
-                                        }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleToggleSampleSelection(sample.name);
-                                        }}
-                                        title="Include this sample in plot visualizations"
-                                    >
-                                        <span
+                                    {/* Selection Checkbox with Eye Icon (hidden for deferred) */}
+                                    {!isDeferred && (
+                                        <div
                                             style={{
-                                                fontSize: '0.85em',
-                                                opacity: state.selectedSamplesForVisualization.has(
-                                                    sample.name
-                                                )
-                                                    ? 1
-                                                    : 0.3,
-                                                transition: 'opacity 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '3px',
+                                                cursor: 'pointer',
                                             }}
-                                        >
-                                            👁️
-                                        </span>
-                                        <input
-                                            type="checkbox"
-                                            checked={state.selectedSamplesForVisualization.has(
-                                                sample.name
-                                            )}
-                                            onChange={(e) => {
+                                            onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleToggleSampleSelection(sample.name);
                                             }}
-                                            onClick={(e) => e.stopPropagation()}
-                                            style={{
-                                                width: '16px',
-                                                height: '16px',
-                                                cursor: 'pointer',
-                                                flexShrink: 0,
-                                                margin: 0,
-                                            }}
-                                        />
-                                    </div>
+                                            title="Include this sample in plot visualizations"
+                                        >
+                                            <span
+                                                style={{
+                                                    fontSize: '0.85em',
+                                                    opacity:
+                                                        state.selectedSamplesForVisualization.has(
+                                                            sample.name
+                                                        )
+                                                            ? 1
+                                                            : 0.3,
+                                                    transition: 'opacity 0.2s',
+                                                }}
+                                            >
+                                                👁️
+                                            </span>
+                                            <input
+                                                type="checkbox"
+                                                checked={state.selectedSamplesForVisualization.has(
+                                                    sample.name
+                                                )}
+                                                onChange={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleSampleSelection(sample.name);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
+                                                    width: '16px',
+                                                    height: '16px',
+                                                    cursor: 'pointer',
+                                                    flexShrink: 0,
+                                                    margin: 0,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
 
                                     {/* Expand/Collapse Toggle */}
                                     <div
@@ -636,25 +676,30 @@ export const SamplesCore: React.FC = () => {
                                         {isExpanded ? '▼' : '▶'}
                                     </div>
 
-                                    {/* Color Picker */}
-                                    <input
-                                        type="color"
-                                        value={state.sampleColors.get(sample.name) || '#808080'}
-                                        onChange={(e) => {
-                                            e.stopPropagation();
-                                            handleSampleColorChange(sample.name, e.target.value);
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        style={{
-                                            width: '20px',
-                                            height: '20px',
-                                            border: 'none',
-                                            borderRadius: '2px',
-                                            cursor: 'pointer',
-                                            flexShrink: 0,
-                                        }}
-                                        title="Sample color for plots"
-                                    />
+                                    {/* Color Picker (hidden for deferred) */}
+                                    {!isDeferred && (
+                                        <input
+                                            type="color"
+                                            value={state.sampleColors.get(sample.name) || '#808080'}
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                handleSampleColorChange(
+                                                    sample.name,
+                                                    e.target.value
+                                                );
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{
+                                                width: '20px',
+                                                height: '20px',
+                                                border: 'none',
+                                                borderRadius: '2px',
+                                                cursor: 'pointer',
+                                                flexShrink: 0,
+                                            }}
+                                            title="Sample color for plots"
+                                        />
+                                    )}
 
                                     {/* Sample Name - Editable */}
                                     {state.editingSampleName === sample.name ? (
@@ -746,7 +791,10 @@ export const SamplesCore: React.FC = () => {
                                         <label
                                             htmlFor={`sample-${sample.name}`}
                                             style={{
-                                                fontWeight: 'bold',
+                                                fontWeight: isDeferred ? 'normal' : 'bold',
+                                                color: isDeferred
+                                                    ? 'var(--vscode-descriptionForeground)'
+                                                    : undefined,
                                                 flex: 1,
                                                 cursor: 'pointer',
                                                 userSelect: 'none',
@@ -760,8 +808,43 @@ export const SamplesCore: React.FC = () => {
                                         </label>
                                     )}
 
-                                    {/* Read Count Badge or Loading Spinner */}
-                                    {sample.isLoading ? (
+                                    {/* Load Button / Loading Spinner / Read Count Badge */}
+                                    {isDeferred ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                vscode.postMessage({
+                                                    type: 'loadDeferredSample',
+                                                    sampleName: sample.name,
+                                                });
+                                            }}
+                                            style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.75em',
+                                                backgroundColor: 'var(--vscode-button-background)',
+                                                color: 'var(--vscode-button-foreground)',
+                                                border: 'none',
+                                                borderRadius: '2px',
+                                                cursor: 'pointer',
+                                                flexShrink: 0,
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                (
+                                                    e.target as HTMLButtonElement
+                                                ).style.backgroundColor =
+                                                    'var(--vscode-button-hoverBackground)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                (
+                                                    e.target as HTMLButtonElement
+                                                ).style.backgroundColor =
+                                                    'var(--vscode-button-background)';
+                                            }}
+                                            title="Load this sample's data from disk"
+                                        >
+                                            Load
+                                        </button>
+                                    ) : isLoading ? (
                                         <span
                                             className="loading-spinner"
                                             style={{

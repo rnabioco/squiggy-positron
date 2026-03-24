@@ -373,6 +373,7 @@ export interface SampleItem {
     basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"
     isLoading?: boolean; // Sample is being loaded (session restore progressive loading)
     loadingMessage?: string; // Optional status message during loading
+    isDeferred?: boolean; // Metadata loaded but kernel data not yet loaded (deferred loading)
 }
 
 export interface UpdateSamplesMessage extends BaseMessage {
@@ -450,6 +451,15 @@ export interface RequestChangeSampleFastaMessage extends BaseMessage {
     sampleName: string;
 }
 
+export interface LoadDeferredSampleMessage extends BaseMessage {
+    type: 'loadDeferredSample';
+    sampleName: string;
+}
+
+export interface LoadAllDeferredSamplesMessage extends BaseMessage {
+    type: 'loadAllDeferredSamples';
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | UnloadSampleMessage
@@ -462,6 +472,8 @@ export type SamplesIncomingMessage =
     | ToggleSampleSelectionMessage
     | RequestChangeSampleBamMessage
     | RequestChangeSampleFastaMessage
+    | LoadDeferredSampleMessage
+    | LoadAllDeferredSamplesMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage
