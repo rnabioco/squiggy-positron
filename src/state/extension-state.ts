@@ -961,9 +961,20 @@ squiggy.close_fasta()
             }
         }
 
-        // Show errors if any
+        // Show errors if any (collapse long lists)
         if (errors.length > 0) {
-            vscode.window.showWarningMessage(`Session restored with errors:\n${errors.join('\n')}`);
+            const MAX_SHOWN = 5;
+            let errorMsg = `Session restored with ${errors.length} error(s):`;
+            for (const err of errors.slice(0, MAX_SHOWN)) {
+                errorMsg += `\n${err}`;
+            }
+            if (errors.length > MAX_SHOWN) {
+                errorMsg += `\n... and ${errors.length - MAX_SHOWN} more (see Squiggy logs for details)`;
+                for (const err of errors) {
+                    logger.warning(err);
+                }
+            }
+            vscode.window.showWarningMessage(errorMsg);
         } else {
             statusBarMessenger.show('Restored', 'folder-opened');
         }

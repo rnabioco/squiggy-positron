@@ -439,22 +439,33 @@ export async function showSessionValidationReport(issues: SessionFileIssue[]): P
     const criticalSamples = new Set(critical.map((i) => i.sampleName));
     const warningSamples = new Set(warnings.map((i) => i.sampleName));
 
+    const MAX_LISTED_SAMPLES = 5;
     let message = 'Some files in this session are missing:\n';
 
     if (criticalSamples.size > 0) {
-        message += `\n${criticalSamples.size} sample(s) will be skipped (missing POD5):\n`;
-        for (const name of criticalSamples) {
-            message += `  - ${name}\n`;
+        message += `\n${criticalSamples.size} sample(s) will be skipped (missing POD5):`;
+        const criticalList = [...criticalSamples];
+        for (const name of criticalList.slice(0, MAX_LISTED_SAMPLES)) {
+            message += `\n  - ${name}`;
         }
+        if (criticalList.length > MAX_LISTED_SAMPLES) {
+            message += `\n  ... and ${criticalList.length - MAX_LISTED_SAMPLES} more`;
+        }
+        message += '\n';
     }
 
     if (warningSamples.size > 0) {
-        message += `\n${warningSamples.size} sample(s) will load without alignments/reference:\n`;
-        for (const name of warningSamples) {
+        message += `\n${warningSamples.size} sample(s) will load without alignments/reference:`;
+        const warningList = [...warningSamples];
+        for (const name of warningList.slice(0, MAX_LISTED_SAMPLES)) {
             const sampleWarnings = warnings.filter((i) => i.sampleName === name);
             const types = [...new Set(sampleWarnings.map((i) => i.fileType))].join(', ');
-            message += `  - ${name} (missing ${types})\n`;
+            message += `\n  - ${name} (missing ${types})`;
         }
+        if (warningList.length > MAX_LISTED_SAMPLES) {
+            message += `\n  ... and ${warningList.length - MAX_LISTED_SAMPLES} more`;
+        }
+        message += '\n';
     }
 
     const response = await vscode.window.showWarningMessage(

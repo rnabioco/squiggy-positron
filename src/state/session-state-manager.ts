@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
+import * as path from 'path';
 import { SessionState, ValidationResult } from '../types/squiggy-session-types';
 import { logger } from '../utils/logger';
 
@@ -29,15 +30,15 @@ export class SessionStateManager {
         // Calculate file checksums
         const fileChecksums = await this.calculateFileChecksums(state);
 
-        // Add metadata
-        const sessionWithMetadata: SessionState = {
+        // Add metadata and normalize paths to absolute
+        const sessionWithMetadata = this.normalizeSessionPaths({
             ...state,
             version: state.version || SESSION_VERSION,
             timestamp: new Date().toISOString(),
             extensionVersion,
             positronVersion,
             fileChecksums,
-        };
+        });
 
         await context.workspaceState.update(SESSION_STATE_KEY, sessionWithMetadata);
     }
@@ -147,7 +148,10 @@ export class SessionStateManager {
             sessionWithMetadata.fileChecksums = await this.calculateFileChecksums(state);
         }
 
-        const json = JSON.stringify(sessionWithMetadata, null, 2);
+        // Normalize all paths to absolute before writing
+        const normalizedSession = this.normalizeSessionPaths(sessionWithMetadata);
+
+        const json = JSON.stringify(normalizedSession, null, 2);
         await fs.writeFile(filePath, json, 'utf-8');
     }
 
@@ -345,6 +349,42 @@ export class SessionStateManager {
         const saved = { ...savedState, timestamp: '' };
 
         return JSON.stringify(current) !== JSON.stringify(saved);
+    }
+
+    /**
+     * Normalize all file paths in a session to absolute paths.
+     * Skips special placeholder paths (e.g., <package:squiggy>/...).
+     */
+    static normalizeSessionPaths(session: SessionState): SessionState {
+        const isSpecialPath = (p: string): boolean => p.startsWith('<package:');
+
+        const normalizedSamples: typeof session.samples = {};
+        for (const [name, sample] of Object.entries(session.samples)) {
+            normalizedSamples[name] = {
+                pod5Paths: sample.pod5Paths.map((p) =>
+                    isSpecialPath(p) ? p : path.resolve(p)
+                ),
+                bamPath:
+                    sample.bamPath && !isSpecialPath(sample.bamPath)
+                        ? path.resolve(sample.bamPath)
+                        : sample.bamPath,
+                fastaPath:
+                    sample.fastaPath && !isSpecialPath(sample.fastaPath)
+                        ? path.resolve(sample.fastaPath)
+                        : sample.fastaPath,
+            };
+        }
+
+        let normalizedChecksums = session.fileChecksums;
+        if (session.fileChecksums) {
+            normalizedChecksums = {};
+            for (const [fp, info] of Object.entries(session.fileChecksums)) {
+                const key = isSpecialPath(fp) ? fp : path.resolve(fp);
+                normalizedChecksums[key] = info;
+            }
+        }
+
+        return { ...session, samples: normalizedSamples, fileChecksums: normalizedChecksums };
     }
 
     /**

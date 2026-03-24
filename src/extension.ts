@@ -24,6 +24,7 @@ import { registerSessionCommands } from './commands/session-commands';
 import { registerKernelListeners } from './listeners/kernel-listeners';
 import { logger } from './utils/logger';
 import { statusBarMessenger } from './utils/status-bar-messenger';
+import { updateWorkspaceConfig, getEffectiveConfig } from './utils/config-utils';
 import { SquiggyKernelState } from './backend/squiggy-kernel-manager';
 import { VenvManager, showVenvSetupError } from './backend/venv-manager';
 import {
@@ -79,9 +80,8 @@ export async function activate(context: vscode.ExtensionContext) {
         getChildren: () => [],
     });
 
-    // Read current enabled state and set context key
-    const config = vscode.workspace.getConfiguration('squiggy');
-    const isEnabled = config.get<boolean>('enabled', false);
+    // Read current enabled state and set context key (checks fallback config too)
+    const isEnabled = await getEffectiveConfig('enabled', false);
     await vscode.commands.executeCommand('setContext', 'squiggy.enabled', isEnabled);
 
     logger.info(`Squiggy enabled in workspace: ${isEnabled}`);
@@ -128,16 +128,31 @@ function registerAlwaysAvailableCommands(context: vscode.ExtensionContext): void
     // Enable/disable workspace commands
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.enableInWorkspace', async () => {
-            const config = vscode.workspace.getConfiguration('squiggy');
-            await config.update('enabled', true, vscode.ConfigurationTarget.Workspace);
+            await updateWorkspaceConfig('enabled', true);
+            // Directly set context and trigger activation in case fallback was used
+            // (config change watcher won't fire for fallback writes)
+            await vscode.commands.executeCommand('setContext', 'squiggy.enabled', true);
+            if (!isFullyActivated) {
+                await performFullActivation(context);
+            }
             logger.info('Squiggy enabled in workspace via command');
         })
     );
 
     context.subscriptions.push(
         vscode.commands.registerCommand('squiggy.disableInWorkspace', async () => {
-            const config = vscode.workspace.getConfiguration('squiggy');
-            await config.update('enabled', false, vscode.ConfigurationTarget.Workspace);
+            await updateWorkspaceConfig('enabled', false);
+            await vscode.commands.executeCommand('setContext', 'squiggy.enabled', false);
+            if (isFullyActivated) {
+                const reload = await vscode.window.showInformationMessage(
+                    'Squiggy has been disabled. Reload the window to complete deactivation.',
+                    'Reload Now',
+                    'Later'
+                );
+                if (reload === 'Reload Now') {
+                    await vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            }
             logger.info('Squiggy disabled in workspace via command');
         })
     );

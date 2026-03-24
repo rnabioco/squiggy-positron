@@ -536,6 +536,105 @@ describe('SessionStateManager', () => {
         });
     });
 
+    describe('normalizeSessionPaths', () => {
+        it('should convert relative paths to absolute', () => {
+            const session: SessionState = {
+                ...validSession,
+                samples: {
+                    Sample1: {
+                        pod5Paths: ['data/file.pod5'],
+                        bamPath: 'data/file.bam',
+                        fastaPath: 'data/ref.fasta',
+                    },
+                },
+            };
+
+            const result = SessionStateManager.normalizeSessionPaths(session);
+
+            // All paths should now be absolute
+            expect(result.samples['Sample1'].pod5Paths[0]).toMatch(/^\//);
+            expect(result.samples['Sample1'].bamPath).toMatch(/^\//);
+            expect(result.samples['Sample1'].fastaPath).toMatch(/^\//);
+        });
+
+        it('should leave absolute paths unchanged', () => {
+            const session: SessionState = {
+                ...validSession,
+                samples: {
+                    Sample1: {
+                        pod5Paths: ['/absolute/path/file.pod5'],
+                        bamPath: '/absolute/path/file.bam',
+                    },
+                },
+            };
+
+            const result = SessionStateManager.normalizeSessionPaths(session);
+
+            expect(result.samples['Sample1'].pod5Paths[0]).toBe('/absolute/path/file.pod5');
+            expect(result.samples['Sample1'].bamPath).toBe('/absolute/path/file.bam');
+        });
+
+        it('should skip special package placeholder paths', () => {
+            const session: SessionState = {
+                ...validSession,
+                samples: {
+                    Demo: {
+                        pod5Paths: ['<package:squiggy>/data/yeast.pod5'],
+                        bamPath: '<package:squiggy>/data/yeast.bam',
+                        fastaPath: '<package:squiggy>/data/yeast.fa',
+                    },
+                },
+            };
+
+            const result = SessionStateManager.normalizeSessionPaths(session);
+
+            expect(result.samples['Demo'].pod5Paths[0]).toBe(
+                '<package:squiggy>/data/yeast.pod5'
+            );
+            expect(result.samples['Demo'].bamPath).toBe('<package:squiggy>/data/yeast.bam');
+            expect(result.samples['Demo'].fastaPath).toBe('<package:squiggy>/data/yeast.fa');
+        });
+
+        it('should normalize fileChecksums keys to absolute paths', () => {
+            const session: SessionState = {
+                ...validSession,
+                fileChecksums: {
+                    'data/file.pod5': { md5: 'abc123', size: 1024 },
+                    '/absolute/file.bam': { md5: 'def456', size: 2048 },
+                },
+            };
+
+            const result = SessionStateManager.normalizeSessionPaths(session);
+
+            // Relative key should be resolved to absolute
+            const keys = Object.keys(result.fileChecksums!);
+            expect(keys.every((k) => k.startsWith('/'))).toBe(true);
+
+            // Absolute key should remain unchanged
+            expect(result.fileChecksums!['/absolute/file.bam']).toEqual({
+                md5: 'def456',
+                size: 2048,
+            });
+        });
+
+        it('should handle undefined optional paths', () => {
+            const session: SessionState = {
+                ...validSession,
+                samples: {
+                    Sample1: {
+                        pod5Paths: ['/path/file.pod5'],
+                        // bamPath and fastaPath are undefined
+                    },
+                },
+            };
+
+            const result = SessionStateManager.normalizeSessionPaths(session);
+
+            expect(result.samples['Sample1'].bamPath).toBeUndefined();
+            expect(result.samples['Sample1'].fastaPath).toBeUndefined();
+        });
+    });
+
     describe('migrateSession', () => {
         it('should return session unchanged if already current version', () => {
             const result = SessionStateManager.migrateSession(validSession);

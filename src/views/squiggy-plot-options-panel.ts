@@ -18,6 +18,7 @@ import {
 } from '../types/messages';
 import { ExtensionState } from '../state/extension-state';
 import { logger } from '../utils/logger';
+import { updateWorkspaceConfig } from '../utils/config-utils';
 
 /**
  * BAM status info for plot options updates
@@ -555,7 +556,6 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
      * Update workspace configuration
      */
     private _updateConfig(key: string, value: string | boolean | number): void {
-        const config = vscode.workspace.getConfiguration('squiggy');
-        config.update(key, value, vscode.ConfigurationTarget.Workspace);
+        updateWorkspaceConfig(key, value);
     }
 }
