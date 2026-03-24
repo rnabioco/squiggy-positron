@@ -588,9 +588,7 @@ describe('SessionStateManager', () => {
 
             const result = SessionStateManager.normalizeSessionPaths(session);
 
-            expect(result.samples['Demo'].pod5Paths[0]).toBe(
-                '<package:squiggy>/data/yeast.pod5'
-            );
+            expect(result.samples['Demo'].pod5Paths[0]).toBe('<package:squiggy>/data/yeast.pod5');
             expect(result.samples['Demo'].bamPath).toBe('<package:squiggy>/data/yeast.bam');
             expect(result.samples['Demo'].fastaPath).toBe('<package:squiggy>/data/yeast.fa');
         });

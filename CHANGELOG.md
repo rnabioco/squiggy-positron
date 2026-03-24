@@ -1,5 +1,15 @@
 # Squiggy Release Notes
 
+## v0.1.27-alpha (2026-03-24)
+
+Session reliability and remote workspace support improvements.
+
+### Fixes
+
+- **Absolute Session Paths**: Session save/export now normalizes all file paths to absolute, preventing broken references from relative paths
+- **Read-Only Workspace Fallback**: When workspace settings are read-only (e.g., SSH into another user's project), configuration falls back to `~/.cache/squiggy/` with user notification
+- **Collapsed Error Popups**: Session validation and restore error dialogs now show at most 5 samples with "... and N more" instead of listing all samples
+
 ## v0.1.26-alpha (2026-03-03)
 
 Reference overlay improvements with dwell-scaled base widths and toggleable base color annotations.

@@ -361,9 +361,7 @@ export class SessionStateManager {
         const normalizedSamples: typeof session.samples = {};
         for (const [name, sample] of Object.entries(session.samples)) {
             normalizedSamples[name] = {
-                pod5Paths: sample.pod5Paths.map((p) =>
-                    isSpecialPath(p) ? p : path.resolve(p)
-                ),
+                pod5Paths: sample.pod5Paths.map((p) => (isSpecialPath(p) ? p : path.resolve(p))),
                 bamPath:
                     sample.bamPath && !isSpecialPath(sample.bamPath)
                         ? path.resolve(sample.bamPath)
