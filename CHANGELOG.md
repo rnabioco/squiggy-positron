@@ -1,5 +1,15 @@
 # Squiggy Release Notes
 
+## v0.1.28-alpha (2026-03-24)
+
+Deferred sample loading for large sessions with many samples.
+
+### Features
+
+- **On-Demand Sample Loading**: Sessions with many samples (e.g., 72) no longer lock up the extension. Sample metadata loads instantly into the Samples panel; kernel work (POD5/BAM/FASTA loading) is deferred until the user clicks a per-sample "Load" button
+- **Load All Button**: Toolbar button to sequentially load all deferred samples when ready
+- **Deferred UI State**: Deferred samples show a muted name with a compact Load button; eye/checkbox and color picker appear only after loading
+
 ## v0.1.27-alpha (2026-03-24)
 
 Session reliability and remote workspace support improvements.
