@@ -319,110 +319,76 @@ describe('PositronRuntimeClient', () => {
     });
 
     describe('getVariable', () => {
-        it('should get variable value from kernel', async () => {
+        it('should get variable value via evaluateCode', async () => {
+            (positron.runtime.evaluateCode as any).mockResolvedValue({
+                result: '[1, 2, 3]',
+                output: '',
+            });
+
+            const result = await client.getVariable('my_list');
+
+            expect(result).toEqual([1, 2, 3]);
+            expect(positron.runtime.evaluateCode).toHaveBeenCalledWith(
+                'python',
+                expect.stringContaining('my_list'),
+            );
+        });
+
+        it('should handle string values', async () => {
+            (positron.runtime.evaluateCode as any).mockResolvedValue({
+                result: '"hello"',
+                output: '',
+            });
+
+            const result = await client.getVariable('my_string');
+            expect(result).toBe('hello');
+        });
+
+        it('should handle dict values', async () => {
+            (positron.runtime.evaluateCode as any).mockResolvedValue({
+                result: '{"key": "value"}',
+                output: '',
+            });
+
+            const result = await client.getVariable('my_dict');
+            expect(result).toEqual({ key: 'value' });
+        });
+
+        it('should handle numeric values', async () => {
+            (positron.runtime.evaluateCode as any).mockResolvedValue({
+                result: '42',
+                output: '',
+            });
+
+            const result = await client.getVariable('my_int');
+            expect(result).toBe(42);
+        });
+
+        it('should throw error on evaluateCode failure', async () => {
+            (positron.runtime.evaluateCode as any).mockRejectedValue(
+                new Error('NameError: name not defined')
+            );
+
+            await expect(client.getVariable('missing_var')).rejects.toThrow(
+                'Failed to get variable missing_var'
+            );
+        });
+
+        it('should fall back to getSessionVariables when evaluateCode unavailable', async () => {
+            // Remove evaluateCode to force legacy path
+            (positron.runtime as any).evaluateCode = undefined;
+            (client as any)._hasEvaluateCode = null;
+
             (positron.runtime.getSessionVariables as any).mockResolvedValue([
                 [{ display_value: '"[1, 2, 3]"' }],
             ]);
 
             const result = await client.getVariable('my_list');
-
             expect(result).toEqual([1, 2, 3]);
             expect(positron.runtime.getForegroundSession).toHaveBeenCalled();
-        });
 
-        it('should handle string values', async () => {
-            // Python repr of JSON string: '"hello"' is represented as \'"hello"\'
-            (positron.runtime.getSessionVariables as any).mockResolvedValue([
-                [{ display_value: '\'"hello"\'' }],
-            ]);
-
-            const result = await client.getVariable('my_string');
-
-            expect(result).toBe('hello');
-        });
-
-        it('should handle dict values', async () => {
-            (positron.runtime.getSessionVariables as any).mockResolvedValue([
-                [{ display_value: '\'{"key": "value"}\'' }],
-            ]);
-
-            const result = await client.getVariable('my_dict');
-
-            expect(result).toEqual({ key: 'value' });
-        });
-
-        it('should clean up temporary variable after reading', async () => {
-            (positron.runtime.getSessionVariables as any).mockResolvedValue([
-                [{ display_value: '"42"' }],
-            ]);
-
-            await client.getVariable('my_var');
-
-            // Should call executeSilent 3 times: create temp, read, cleanup
-            expect(positron.runtime.executeCode).toHaveBeenCalledTimes(3);
-
-            // Check cleanup call
-            const cleanupCall = (positron.runtime.executeCode as any).mock.calls[2][1];
-            expect(cleanupCall).toContain('del _squiggy_temp_');
-        });
-
-        it('should throw error if no session is available', async () => {
-            (positron.runtime.getForegroundSession as any).mockResolvedValue(null);
-
-            await expect(client.getVariable('my_var')).rejects.toThrow('No active Python session');
-        });
-
-        it('should throw error if session is not Python', async () => {
-            const rSession = {
-                ...mockSession,
-                runtimeMetadata: {
-                    languageId: 'r',
-                },
-            };
-            (positron.runtime.getForegroundSession as any).mockResolvedValue(rSession);
-
-            await expect(client.getVariable('my_var')).rejects.toThrow('No active Python session');
-        });
-
-        it('should throw error if variable not found', async () => {
-            (positron.runtime.getSessionVariables as any).mockResolvedValue([[null]]);
-
-            await expect(client.getVariable('missing_var')).rejects.toThrow(
-                'Variable missing_var not found'
-            );
-        });
-
-        it('should clean up temp variable on error', async () => {
-            (positron.runtime.executeCode as any).mockRejectedValue(new Error('Python error'));
-
-            await expect(client.getVariable('my_var')).rejects.toThrow(
-                'Failed to get variable my_var'
-            );
-
-            // Should attempt cleanup even after error
-            const lastCall = (positron.runtime.executeCode as any).mock.calls[
-                (positron.runtime.executeCode as any).mock.calls.length - 1
-            ];
-            expect(lastCall[1]).toContain('del _squiggy_temp_');
-        });
-
-        it('should support retry for getVariable', async () => {
-            let attemptCount = 0;
-            (positron.runtime.executeCode as any).mockImplementation(async () => {
-                attemptCount++;
-                if (attemptCount < 2) {
-                    throw new Error('timeout');
-                }
-                return {};
-            });
-
-            (positron.runtime.getSessionVariables as any).mockResolvedValue([
-                [{ display_value: '"42"' }],
-            ]);
-
-            const result = await client.getVariable('my_var', true);
-
-            expect(result).toBe(42);
+            // Restore
+            (positron.runtime as any).evaluateCode = jest.fn();
         });
     });
 
