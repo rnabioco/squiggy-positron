@@ -847,12 +847,12 @@ async function detectAndPromptPipelineSession(
 
     logger.info(`Found pipeline session: ${detection.sessionPath}`);
 
-    // Show notification to user
+    // Show persistent notification to user (modal so it doesn't auto-dismiss)
     const sessionName = detection.session.sessionName || 'squiggy-session.json';
     const response = await vscode.window.showInformationMessage(
         `Found pipeline session: "${sessionName}". Load it now?`,
+        { modal: true },
         'Load Session',
-        'Not Now',
         "Don't Ask Again"
     );
 
@@ -889,7 +889,7 @@ async function detectAndPromptPipelineSession(
         await setAutoLoadPreference(context, 'skip');
         logger.info('Pipeline session auto-detection disabled by user');
     }
-    // 'Not Now' just dismisses the notification
+    // Cancel (undefined) just dismisses the dialog
 }
 
 /**
