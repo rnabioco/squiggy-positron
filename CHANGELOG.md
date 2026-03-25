@@ -1,5 +1,15 @@
 # Squiggy Release Notes
 
+## v0.1.30-alpha (2026-03-25)
+
+Replace demo data with E. coli tRNA dataset for WT vs TruB mutant comparison.
+
+### Features
+
+- **New Demo Data**: Replace yeast tRNA demo with E. coli tRNA data from phage infection experiment. Two samples (WT and TruB mutant) enable side-by-side visualization of pseudouridine (Ψ55) presence/absence in the T-loop
+- **Richer Modifications**: Demo data now includes 8 modification types (vs 4 previously) with MM/ML tags and PT adapter boundary annotations
+- **Two-Sample Demo Session**: Demo session loads both WT and TruB samples automatically for immediate comparison
+
 ## v0.1.29-alpha (2026-03-24)
 
 Instant POD5 loading for large files and UI fixes.
