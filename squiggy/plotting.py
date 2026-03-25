@@ -721,46 +721,25 @@ def plot_aggregate(
     total_reads = None  # Set when primer filtering reduces the count
     primer_trim_bounds = None  # (start_ref_pos, end_ref_pos) for x-axis clipping
 
-    # Primer trimming: filter to reads with both adapters and compute
-    # consensus tRNA body boundaries for x-axis clipping.
+    # Primer trimming: derive body bounds from FASTA reference and optionally
+    # filter to reads with both adapters detected.
     if trim_primers:
+        # Derive body bounds from FASTA primer/adapter sequences
+        if fasta_path:
+            from .alignment import find_body_bounds
+
+            primer_trim_bounds = find_body_bounds(fasta_path, reference_name)
+
+        # Filter to reads with both adapters if PT tags are available
         from .alignment import has_both_adapters
 
-        total_reads = num_reads
-        reads_data = [
-            rd for rd in reads_data
-            if has_both_adapters(rd.get("primer_regions", []))
+        reads_with_adapters = [
+            rd for rd in reads_data if has_both_adapters(rd.get("primer_regions", []))
         ]
-        num_reads = len(reads_data)
-        if not reads_data:
-            raise ValueError(
-                f"No reads with both adapters found for '{reference_name}'. "
-                "Uncheck 'Show primers/adapters' to include all reads."
-            )
-
-        # Compute consensus tRNA body bounds from primer boundaries
-        # Map each read's primer end/start to reference coordinates
-        body_starts = []  # ref pos of first non-primer base per read
-        body_ends = []  # ref pos of last non-primer base per read
-        for rd in reads_data:
-            q2r = rd.get("query_to_ref", {})
-            for region in rd.get("primer_regions", []):
-                if region.start == 0:
-                    # 5' adapter: first non-primer base is at region.end
-                    rpos = q2r.get(region.end)
-                    if rpos is not None:
-                        body_starts.append(rpos)
-                else:
-                    # 3' adapter: last non-primer base is at region.start - 1
-                    rpos = q2r.get(region.start - 1)
-                    if rpos is not None:
-                        body_ends.append(rpos)
-
-        if body_starts and body_ends:
-            primer_trim_bounds = (
-                int(np.median(body_starts)),
-                int(np.median(body_ends)),
-            )
+        if reads_with_adapters:
+            total_reads = num_reads
+            reads_data = reads_with_adapters
+            num_reads = len(reads_data)
 
     # Calculate aggregate statistics
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
@@ -785,12 +764,11 @@ def plot_aggregate(
     transformation_info = ""
 
     if transform_coordinates:
-        # Anchor to first base of reference sequence (from pileup reference_bases)
-        # This ensures x-axis position 1 = first base of the reference sequence
-        reference_bases = pileup_stats.get("reference_bases", {})
-
-        if reference_bases:
-            # Use first position from reference_bases as anchor
+        if primer_trim_bounds is not None:
+            # When primer-trimmed, anchor to body start so position 1 = first body base
+            min_pos = primer_trim_bounds[0]
+        elif reference_bases := pileup_stats.get("reference_bases", {}):
+            # Anchor to first base of reference sequence
             min_pos = min(reference_bases.keys())
         else:
             # Fallback: find minimum position across all tracks
@@ -810,7 +788,10 @@ def plot_aggregate(
         if min_pos is not None:
             offset = min_pos - 1  # Offset to make positions 1-based
 
-            transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
+            if primer_trim_bounds is not None:
+                transformation_info = f"Body-anchored (genomic pos {min_pos}→1)"
+            else:
+                transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
 
             # Transform aggregate_stats
             if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
@@ -1869,6 +1850,16 @@ def plot_aggregate_comparison(
         )
         max_reads = min(max_reads, 100)  # Cap at 100 for performance
 
+    # Compute body bounds from FASTA if primer trimming requested
+    primer_trim_bounds = None
+    if trim_primers:
+        # Use the first sample's FASTA (all samples should share the same reference)
+        fasta_path = samples[0]._fasta_path if samples else None
+        if fasta_path:
+            from .alignment import find_body_bounds
+
+            primer_trim_bounds = find_body_bounds(fasta_path, reference_name)
+
     # Extract and calculate statistics for each sample
     sample_data = []
 
@@ -1887,44 +1878,15 @@ def plot_aggregate_comparison(
                 f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
             )
 
-        # Apply per-read primer trimming
+        # Apply primer trimming: filter reads and derive body bounds from FASTA
         if trim_primers:
             from .alignment import has_both_adapters
 
-            reads = [
-                rd for rd in reads
-                if has_both_adapters(rd.get("primer_regions", []))
+            reads_with_adapters = [
+                rd for rd in reads if has_both_adapters(rd.get("primer_regions", []))
             ]
-            if not reads:
-                raise ValueError(
-                    f"No reads with both adapters found for sample '{sample.name}' "
-                    f"on reference '{reference_name}'. "
-                    "Uncheck 'Show primers/adapters' to include all reads."
-                )
-            for rd in reads:
-                q2r = rd.get("query_to_ref", {})
-                for region in rd.get("primer_regions", []):
-                    if region.start == 0:
-                        rd["query_start_offset"] = max(
-                            rd.get("query_start_offset", 0), region.end
-                        )
-                        first_non_primer = q2r.get(region.end)
-                        if first_non_primer is not None:
-                            rd["reference_start"] = max(
-                                rd["reference_start"], first_non_primer
-                            )
-                    else:
-                        seq_len = len(rd.get("sequence", "")) or 0
-                        primer_end_count = seq_len - region.start
-                        if primer_end_count > 0:
-                            rd["query_end_offset"] = max(
-                                rd.get("query_end_offset", 0), primer_end_count
-                            )
-                        last_non_primer = q2r.get(region.start - 1) if region.start > 0 else None
-                        if last_non_primer is not None:
-                            rd["reference_end"] = min(
-                                rd["reference_end"], last_non_primer + 1
-                            )
+            if reads_with_adapters:
+                reads = reads_with_adapters
 
         # Calculate statistics based on requested metrics
         sample_stats = {"name": sample.name}
@@ -1965,6 +1927,7 @@ def plot_aggregate_comparison(
         "samples": sample_data,
         "reference_name": reference_name,
         "enabled_metrics": metrics,
+        "primer_trim_bounds": primer_trim_bounds,
     }
 
     options = {"normalization": norm_method}

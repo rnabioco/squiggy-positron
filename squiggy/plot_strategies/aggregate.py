@@ -165,8 +165,12 @@ class AggregatePlotStrategy(PlotStrategy):
         dwell_stats = data.get("dwell_stats")
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
-        total_reads = data.get("total_reads")  # Non-None when primer filtering reduced count
-        primer_trim_bounds = data.get("primer_trim_bounds")  # (start, end) for x-axis clipping
+        total_reads = data.get(
+            "total_reads"
+        )  # Non-None when primer filtering reduced count
+        primer_trim_bounds = data.get(
+            "primer_trim_bounds"
+        )  # (start, end) for x-axis clipping
         transformation_info = data.get("transformation_info", "")
         sample_name = data.get("sample_name")
 
@@ -346,16 +350,16 @@ class AggregatePlotStrategy(PlotStrategy):
         bg_color = self.theme_manager.get_color("plot_bg")
 
         # Build reads label, showing filter info when primer trimming reduced count
-        if total_reads is not None:
+        if total_reads is not None and total_reads != num_reads:
             reads_label = f"{num_reads:,}/{total_reads:,} reads, primer-trimmed"
+        elif total_reads is not None:
+            reads_label = f"{num_reads:,} reads, primer-trimmed"
         else:
             reads_label = f"{num_reads:,} reads"
 
         # Build header text with optional sample name
         if sample_name:
-            header_text = (
-                f"<b>{sample_name}</b> · {reference_name} ({reads_label})"
-            )
+            header_text = f"<b>{sample_name}</b> · {reference_name} ({reads_label})"
         else:
             header_text = f"<b>{reference_name}</b> ({reads_label})"
 

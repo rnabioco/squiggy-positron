@@ -264,6 +264,72 @@ def has_both_adapters(primer_regions: list[PrimerRegion]) -> bool:
     return has_5p and has_3p
 
 
+# Default primer/adapter sequences for ONT tRNA sequencing
+DEFAULT_5P_PRIMER = "CCTAAGAGCAAGAAGAAGCCTGGN"
+DEFAULT_3P_ADAPTER = "GGCTTCTTCTTGCTCTTCC"
+
+
+def _find_with_wildcards(sequence: str, pattern: str) -> int | None:
+    """Find pattern in sequence, treating N as matching any base (including N).
+
+    Returns the index of the first match, or None if not found.
+    """
+    import re
+
+    regex = pattern.upper().replace("N", "[ACGTN]")
+    match = re.search(regex, sequence.upper())
+    return match.start() if match else None
+
+
+def find_body_bounds(
+    fasta_path: str,
+    reference_name: str,
+    primer_5p: str = DEFAULT_5P_PRIMER,
+    adapter_3p: str = DEFAULT_3P_ADAPTER,
+) -> tuple[int, int] | None:
+    """Find tRNA body start/end positions by locating primer/adapter in reference.
+
+    Searches the reference FASTA sequence for known primer and adapter sequences
+    to determine where the tRNA body begins and ends. This is more reliable than
+    deriving bounds from noisy PT tag adapter positions.
+
+    Args:
+        fasta_path: Path to reference FASTA file
+        reference_name: Name of reference sequence
+        primer_5p: 5' primer sequence (N = any base). Body starts after this.
+        adapter_3p: 3' adapter sequence prefix. Body ends before this.
+
+    Returns:
+        (body_start, body_end) as 0-based reference positions (half-open interval),
+        or None if primer/adapter sequences not found in reference.
+    """
+    import pysam
+
+    with pysam.FastaFile(str(fasta_path)) as fa:
+        if reference_name not in fa.references:
+            return None
+        seq = fa.fetch(reference_name)
+
+    # Find 5' primer (body starts after it)
+    primer_pos = _find_with_wildcards(seq, primer_5p)
+    if primer_pos is not None:
+        body_start = primer_pos + len(primer_5p)
+    else:
+        return None
+
+    # Find 3' adapter (body ends before it)
+    adapter_pos = seq.upper().find(adapter_3p.upper())
+    if adapter_pos == -1:
+        return None
+
+    body_end = adapter_pos
+
+    if body_start >= body_end:
+        return None
+
+    return (body_start, body_end)
+
+
 def trim_primers(
     aligned_read: AlignedRead,
     signal: np.ndarray,
