@@ -201,6 +201,12 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
+    const handleUnloadAllSamples = () => {
+        vscode.postMessage({
+            type: 'unloadAllSamples',
+        });
+    };
+
     const _handleSetSessionFasta = () => {
         vscode.postMessage({
             type: 'requestSetSessionFasta',
@@ -498,72 +504,112 @@ export const SamplesCore: React.FC = () => {
                         Loaded Samples ({state.samples.length})
                     </div>
 
-                    {/* Bulk Selection Buttons */}
-                    {state.samples.length > 1 && (
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                    {/* Bulk Action Buttons */}
+                    {state.samples.length > 0 && (
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {state.samples.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            state.samples.forEach((sample) => {
+                                                if (
+                                                    !state.selectedSamplesForVisualization.has(
+                                                        sample.name
+                                                    )
+                                                ) {
+                                                    handleToggleSampleSelection(sample.name);
+                                                }
+                                            });
+                                        }}
+                                        style={{
+                                            padding: '2px 6px',
+                                            fontSize: '0.75em',
+                                            backgroundColor: 'var(--vscode-button-background)',
+                                            color: 'var(--vscode-button-foreground)',
+                                            border: 'none',
+                                            borderRadius: '2px',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            (
+                                                e.target as HTMLButtonElement
+                                            ).style.backgroundColor =
+                                                'var(--vscode-button-hoverBackground)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            (
+                                                e.target as HTMLButtonElement
+                                            ).style.backgroundColor =
+                                                'var(--vscode-button-background)';
+                                        }}
+                                        title="Select all samples for plotting"
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            state.samples.forEach((sample) => {
+                                                if (
+                                                    state.selectedSamplesForVisualization.has(
+                                                        sample.name
+                                                    )
+                                                ) {
+                                                    handleToggleSampleSelection(sample.name);
+                                                }
+                                            });
+                                        }}
+                                        style={{
+                                            padding: '2px 6px',
+                                            fontSize: '0.75em',
+                                            backgroundColor: 'var(--vscode-button-background)',
+                                            color: 'var(--vscode-button-foreground)',
+                                            border: 'none',
+                                            borderRadius: '2px',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            (
+                                                e.target as HTMLButtonElement
+                                            ).style.backgroundColor =
+                                                'var(--vscode-button-hoverBackground)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            (
+                                                e.target as HTMLButtonElement
+                                            ).style.backgroundColor =
+                                                'var(--vscode-button-background)';
+                                        }}
+                                        title="Deselect all samples from plotting"
+                                    >
+                                        Deselect All
+                                    </button>
+                                </>
+                            )}
                             <button
-                                onClick={() => {
-                                    // Select all samples for visualization
-                                    state.samples.forEach((sample) => {
-                                        if (
-                                            !state.selectedSamplesForVisualization.has(sample.name)
-                                        ) {
-                                            handleToggleSampleSelection(sample.name);
-                                        }
-                                    });
-                                }}
+                                onClick={handleUnloadAllSamples}
                                 style={{
                                     padding: '2px 6px',
                                     fontSize: '0.75em',
-                                    backgroundColor: 'var(--vscode-button-background)',
-                                    color: 'var(--vscode-button-foreground)',
-                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: 'var(--vscode-errorForeground)',
+                                    border: '1px solid var(--vscode-errorForeground)',
                                     borderRadius: '2px',
                                     cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
                                 }}
                                 onMouseEnter={(e) => {
                                     (e.target as HTMLButtonElement).style.backgroundColor =
-                                        'var(--vscode-button-hoverBackground)';
+                                        'var(--vscode-inputValidation-errorBackground)';
                                 }}
                                 onMouseLeave={(e) => {
                                     (e.target as HTMLButtonElement).style.backgroundColor =
-                                        'var(--vscode-button-background)';
+                                        'transparent';
                                 }}
-                                title="Select all samples for plotting"
+                                title="Unload all samples"
                             >
-                                Select All
-                            </button>
-                            <button
-                                onClick={() => {
-                                    // Deselect all samples for visualization
-                                    state.samples.forEach((sample) => {
-                                        if (
-                                            state.selectedSamplesForVisualization.has(sample.name)
-                                        ) {
-                                            handleToggleSampleSelection(sample.name);
-                                        }
-                                    });
-                                }}
-                                style={{
-                                    padding: '2px 6px',
-                                    fontSize: '0.75em',
-                                    backgroundColor: 'var(--vscode-button-background)',
-                                    color: 'var(--vscode-button-foreground)',
-                                    border: 'none',
-                                    borderRadius: '2px',
-                                    cursor: 'pointer',
-                                }}
-                                onMouseEnter={(e) => {
-                                    (e.target as HTMLButtonElement).style.backgroundColor =
-                                        'var(--vscode-button-hoverBackground)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    (e.target as HTMLButtonElement).style.backgroundColor =
-                                        'var(--vscode-button-background)';
-                                }}
-                                title="Deselect all samples from plotting"
-                            >
-                                Deselect All
+                                Unload All
                             </button>
                         </div>
                     )}

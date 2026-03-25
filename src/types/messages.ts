@@ -460,6 +460,10 @@ export interface LoadAllDeferredSamplesMessage extends BaseMessage {
     type: 'loadAllDeferredSamples';
 }
 
+export interface UnloadAllSamplesMessage extends BaseMessage {
+    type: 'unloadAllSamples';
+}
+
 export type SamplesIncomingMessage =
     | SelectSampleMessage
     | UnloadSampleMessage
@@ -474,6 +478,7 @@ export type SamplesIncomingMessage =
     | RequestChangeSampleFastaMessage
     | LoadDeferredSampleMessage
     | LoadAllDeferredSamplesMessage
+    | UnloadAllSamplesMessage
     | ReadyMessage;
 export type SamplesOutgoingMessage =
     | UpdateSamplesMessage

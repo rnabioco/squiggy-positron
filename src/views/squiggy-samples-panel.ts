@@ -320,6 +320,28 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
                 await this._state.loadAllDeferredSamples();
                 break;
             }
+
+            case 'unloadAllSamples': {
+                const sampleCount = this._state.getAllSampleNames().length;
+                if (sampleCount === 0) {
+                    break;
+                }
+
+                const confirm = await vscode.window.showWarningMessage(
+                    `Unload all ${sampleCount} sample${sampleCount === 1 ? '' : 's'}?`,
+                    { modal: true },
+                    'Yes'
+                );
+
+                if (confirm === 'Yes') {
+                    // Fire unload for each sample - extension.ts handles the actual cleanup
+                    const sampleNames = [...this._state.getAllSampleNames()];
+                    for (const name of sampleNames) {
+                        this._onDidRequestUnload.fire(name);
+                    }
+                }
+                break;
+            }
         }
     }
 
