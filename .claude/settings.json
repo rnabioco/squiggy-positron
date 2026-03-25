@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:zensical.org)",
+      "Bash(samtools view:*)",
+      "Bash(samtools idxstats:*)"
+    ]
+  },
+  "attribution": {
+    "commit": ""
+  }
+}
