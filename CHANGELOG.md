@@ -1,5 +1,20 @@
 # Squiggy Release Notes
 
+## v0.1.29-alpha (2026-03-24)
+
+Instant POD5 loading for large files and UI fixes.
+
+### Performance
+
+- **Instant POD5 Loading**: Use pod5 Arrow metadata (`num_reads`, `read_ids`) instead of iterating all reads with signal decompression. Files with 1-10M reads now load in milliseconds instead of minutes
+- **Remove Pod5Index**: Eliminated dead code that built an unused read-position index by iterating all reads on load
+
+### Fixes
+
+- **Slider Overflow**: Plot Options panel sliders no longer clip at the right edge in narrow sidebars
+- **Demo Session Auto-Load**: Demo session samples now load immediately without requiring manual interaction
+- **Duplicate Cancel Buttons**: Removed duplicate Cancel buttons from modal dialogs
+
 ## v0.1.28-alpha (2026-03-24)
 
 Deferred sample loading for large sessions with many samples.
