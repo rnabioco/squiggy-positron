@@ -137,6 +137,8 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         transformCoordinates: boolean;
         rnaMode: boolean;
         trimPrimers: boolean;
+        primer5p: string;
+        adapter3p: string;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -275,6 +277,8 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 transformCoordinates: message.transformCoordinates,
                 rnaMode: message.rnaMode,
                 trimPrimers: message.trimPrimers ?? true,
+                primer5p: message.primer5p ?? 'CCTAAGAGCAAGAAGAAGCCTGGN',
+                adapter3p: message.adapter3p ?? 'GGCTTCTTCTTGCTCTTCC',
             });
         }
 

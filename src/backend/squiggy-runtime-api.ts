@@ -536,7 +536,9 @@ if '_squiggy_plot_error' in globals():
         minModFrequency: number = 0.2,
         minModifiedReads: number = 5,
         rnaMode: boolean = false,
-        trimPrimers: boolean = true
+        trimPrimers: boolean = true,
+        primer5p?: string,
+        adapter3p?: string
     ): Promise<void> {
         try {
             // Validate inputs
@@ -575,6 +577,12 @@ if '_squiggy_plot_error' in globals():
 
             // Build sample name parameter if in multi-sample mode
             const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+
+            // Build optional primer sequence parameters
+            const primerParams =
+                primer5p || adapter3p
+                    ? `${primer5p ? `,\n    primer_5p='${primer5p.replace(/'/g, "\\'")}'` : ''}${adapter3p ? `,\n    adapter_3p='${adapter3p.replace(/'/g, "\\'")}'` : ''}`
+                    : '';
 
             // Use plot_pileup() when signal and dwell time are disabled (no mv tag required)
             // This allows aggregate-style plots for BAM files without move tables
@@ -622,7 +630,7 @@ squiggy.plot_aggregate(
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'},
     rna_mode=${rnaMode ? 'True' : 'False'},
-    trim_primers=${trimPrimers ? 'True' : 'False'}${sampleNameParam}
+    trim_primers=${trimPrimers ? 'True' : 'False'}${primerParams}${sampleNameParam}
 )
 `;
 

@@ -198,6 +198,8 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     transformCoordinates: boolean;
     rnaMode: boolean;
     trimPrimers?: boolean;
+    primer5p?: string;
+    adapter3p?: string;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {

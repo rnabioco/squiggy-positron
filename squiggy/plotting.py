@@ -621,6 +621,8 @@ def plot_aggregate(
     rna_mode: bool = False,
     sample_name: str | None = None,
     trim_primers: bool = True,
+    primer_5p: str | None = None,
+    adapter_3p: str | None = None,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -728,7 +730,14 @@ def plot_aggregate(
         if fasta_path:
             from .alignment import find_body_bounds
 
-            primer_trim_bounds = find_body_bounds(fasta_path, reference_name)
+            bounds_kwargs = {}
+            if primer_5p is not None:
+                bounds_kwargs["primer_5p"] = primer_5p
+            if adapter_3p is not None:
+                bounds_kwargs["adapter_3p"] = adapter_3p
+            primer_trim_bounds = find_body_bounds(
+                fasta_path, reference_name, **bounds_kwargs
+            )
 
         # Filter to reads with both adapters if PT tags are available
         from .alignment import has_both_adapters

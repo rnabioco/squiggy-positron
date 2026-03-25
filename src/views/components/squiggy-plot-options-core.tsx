@@ -58,6 +58,9 @@ interface PlotOptionsState {
     showCoverage: boolean;
     rnaMode: boolean;
     trimPrimers: boolean;
+    primer5p: string;
+    adapter3p: string;
+    showAdvanced: boolean;
     availableReferences: string[];
 
     // Comparison options
@@ -102,6 +105,9 @@ export const PlotOptionsCore: React.FC = () => {
         showCoverage: false, // Off by default
         rnaMode: false,
         trimPrimers: true, // Default: trim primers (don't show adapter regions)
+        primer5p: 'CCTAAGAGCAAGAAGAAGCCTGGN',
+        adapter3p: 'GGCTTCTTCTTGCTCTTCC',
+        showAdvanced: false,
         availableReferences: [],
         // Comparison
         loadedSamples: [],
@@ -337,6 +343,8 @@ export const PlotOptionsCore: React.FC = () => {
             transformCoordinates: options.transformCoordinates,
             rnaMode: options.rnaMode,
             trimPrimers: options.trimPrimers,
+            primer5p: options.primer5p,
+            adapter3p: options.adapter3p,
         });
     };
 
@@ -1154,25 +1162,89 @@ export const PlotOptionsCore: React.FC = () => {
 
                         {/* Show Primers/Adapters - only visible when PT tag detected */}
                         {options.hasPrimers && (
-                            <div className="plot-options-checkbox-row">
-                                <input
-                                    type="checkbox"
-                                    id="showPrimersAggregate"
-                                    checked={!options.trimPrimers}
-                                    onChange={(e) =>
+                            <>
+                                <div className="plot-options-checkbox-row">
+                                    <input
+                                        type="checkbox"
+                                        id="showPrimersAggregate"
+                                        checked={!options.trimPrimers}
+                                        onChange={(e) =>
+                                            setOptions((prev) => ({
+                                                ...prev,
+                                                trimPrimers: !e.target.checked,
+                                            }))
+                                        }
+                                    />
+                                    <label
+                                        htmlFor="showPrimersAggregate"
+                                        className="plot-options-checkbox-label"
+                                    >
+                                        Show primers/adapters
+                                    </label>
+                                </div>
+
+                                {/* Advanced: Primer Sequences */}
+                                <div
+                                    className="plot-options-advanced-toggle"
+                                    onClick={() =>
                                         setOptions((prev) => ({
                                             ...prev,
-                                            trimPrimers: !e.target.checked,
+                                            showAdvanced: !prev.showAdvanced,
                                         }))
                                     }
-                                />
-                                <label
-                                    htmlFor="showPrimersAggregate"
-                                    className="plot-options-checkbox-label"
                                 >
-                                    Show primers/adapters
-                                </label>
-                            </div>
+                                    <span className="plot-options-advanced-arrow">
+                                        {options.showAdvanced ? '▾' : '▸'}
+                                    </span>
+                                    Primer sequences
+                                </div>
+                                {options.showAdvanced && (
+                                    <div className="plot-options-advanced-content">
+                                        <div className="plot-options-input-group">
+                                            <label
+                                                htmlFor="primer5p"
+                                                className="plot-options-input-label"
+                                            >
+                                                5′ primer
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="primer5p"
+                                                className="plot-options-text-input"
+                                                value={options.primer5p}
+                                                onChange={(e) =>
+                                                    setOptions((prev) => ({
+                                                        ...prev,
+                                                        primer5p: e.target.value,
+                                                    }))
+                                                }
+                                                spellCheck={false}
+                                            />
+                                        </div>
+                                        <div className="plot-options-input-group">
+                                            <label
+                                                htmlFor="adapter3p"
+                                                className="plot-options-input-label"
+                                            >
+                                                3′ adapter
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="adapter3p"
+                                                className="plot-options-text-input"
+                                                value={options.adapter3p}
+                                                onChange={(e) =>
+                                                    setOptions((prev) => ({
+                                                        ...prev,
+                                                        adapter3p: e.target.value,
+                                                    }))
+                                                }
+                                                spellCheck={false}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {/* Transform Coordinates */}
