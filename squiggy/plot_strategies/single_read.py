@@ -151,6 +151,7 @@ class SingleReadPlotStrategy(PlotStrategy):
         min_mod_probability = options.get("min_mod_probability", 0.5)
         enabled_mod_types = options.get("enabled_mod_types", None)
         coordinate_space = options.get("coordinate_space", "signal")
+        base_offset = options.get("base_offset", 0)
 
         # Process signal (normalize and downsample)
         signal, seq_to_sig_map = self._process_signal(
@@ -172,6 +173,7 @@ class SingleReadPlotStrategy(PlotStrategy):
                 sequence=sequence,
                 seq_to_sig_map=seq_to_sig_map,
                 scale_dwell_time=scale_dwell_time,
+                base_offset=base_offset,
             )
 
         # Create main figure
@@ -272,6 +274,7 @@ class SingleReadPlotStrategy(PlotStrategy):
         sequence: str | None,
         seq_to_sig_map: list[int] | None,
         scale_dwell_time: bool,
+        base_offset: int = 0,
     ) -> tuple[np.ndarray, str]:
         """Create x-axis array and label"""
         if sequence and seq_to_sig_map is not None and len(seq_to_sig_map) > 0:
@@ -283,7 +286,7 @@ class SingleReadPlotStrategy(PlotStrategy):
             else:
                 # Base position mode
                 time_ms, x_label = self._create_base_position_axis(
-                    signal, sequence, seq_to_sig_map
+                    signal, sequence, seq_to_sig_map, base_offset=base_offset
                 )
         else:
             # Regular time mode
@@ -332,6 +335,7 @@ class SingleReadPlotStrategy(PlotStrategy):
         signal: np.ndarray,
         sequence: str,
         seq_to_sig_map: list[int],
+        base_offset: int = 0,
     ) -> tuple[np.ndarray, str]:
         """Create base position x-axis"""
         base_positions = np.zeros(len(signal))
@@ -351,7 +355,7 @@ class SingleReadPlotStrategy(PlotStrategy):
             # Assign base position to signal samples
             for i in range(sig_start, min(sig_end, len(signal))):
                 progress = (i - sig_start) / max(1, sig_end - sig_start)
-                base_positions[i] = seq_pos + progress
+                base_positions[i] = seq_pos + base_offset + progress
 
         return base_positions, "Base Position"
 

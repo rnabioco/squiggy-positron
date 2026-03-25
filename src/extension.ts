@@ -469,6 +469,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                     hasFasta: !!item.fastaPath,
                     hasMods: item.hasMods ?? false, // BAM has MM/ML tags
                     hasEvents: item.hasEvents ?? false, // BAM has mv tag (move table)
+                    hasPrimers: item.hasPrimers ?? false, // BAM has PT/pt tag
                     isRna: item.isRna ?? false, // BAM basecalled with RNA model
                     basecallModel: item.basecallModel,
                 }));
@@ -630,7 +631,8 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         options.sampleNames[0],
                         modFilters.minFrequency,
                         modFilters.minModifiedReads,
-                        options.rnaMode
+                        options.rnaMode,
+                        options.trimPrimers ?? true
                     );
 
                     statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');

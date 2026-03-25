@@ -36,6 +36,7 @@ export interface BAMKernelResult {
     modificationTypes: string[];
     hasProbabilities: boolean;
     hasEventAlignment: boolean;
+    hasPrimers: boolean; // PT/pt tag present (primer/adapter trim regions)
     basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"
     isRna: boolean; // True if RNA basecalling model detected
 }
@@ -54,6 +55,7 @@ export interface SampleLoadResult {
         modificationTypes: string[];
         hasProbabilities: boolean;
         hasEventAlignment: boolean;
+        hasPrimers?: boolean;
     };
 }
 
@@ -71,6 +73,7 @@ export interface SampleLoadMetadata {
         modification_types: string[];
         has_probabilities: boolean;
         has_event_alignment: boolean;
+        has_primers: boolean;
         basecall_model?: string;
         is_rna: boolean;
     };
@@ -205,6 +208,9 @@ squiggy.get_read_to_reference_mapping()
             const isRna = await this._client.getVariable(
                 "squiggy_kernel._bam_info.get('is_rna', False)"
             );
+            const hasPrimers = await this._client.getVariable(
+                "squiggy_kernel._bam_info.get('has_primers', False)"
+            );
 
             return {
                 numReads: numReads as number,
@@ -212,6 +218,7 @@ squiggy.get_read_to_reference_mapping()
                 modificationTypes: (modificationTypes as unknown[]).map((x) => String(x)),
                 hasProbabilities: hasProbabilities as boolean,
                 hasEventAlignment: hasEventAlignment as boolean,
+                hasPrimers: hasPrimers as boolean,
                 basecallModel: basecallModel as string | undefined,
                 isRna: isRna as boolean,
             };
@@ -283,7 +290,8 @@ squiggy.get_read_to_reference_mapping()
         downsample: number = 5,
         showSignalPoints: boolean = false,
         sampleName?: string,
-        coordinateSpace?: 'signal' | 'sequence'
+        coordinateSpace?: 'signal' | 'sequence',
+        trimPrimers: boolean = true
     ): Promise<void> {
         try {
             // Validate inputs
@@ -320,7 +328,8 @@ squiggy.get_read_to_reference_mapping()
     min_mod_probability=${minModProbability},
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
-    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
+    show_signal_points=${showSignalPoints ? 'True' : 'False'},
+    trim_primers=${trimPrimers ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
 )`
                     : `squiggy.plot_reads(
     ${readIdsJson},
@@ -333,7 +342,8 @@ squiggy.get_read_to_reference_mapping()
     min_mod_probability=${minModProbability},
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
-    show_signal_points=${showSignalPoints ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
+    show_signal_points=${showSignalPoints ? 'True' : 'False'},
+    trim_primers=${trimPrimers ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
 )`;
 
             const code = `
@@ -525,7 +535,8 @@ if '_squiggy_plot_error' in globals():
         sampleName?: string,
         minModFrequency: number = 0.2,
         minModifiedReads: number = 5,
-        rnaMode: boolean = false
+        rnaMode: boolean = false,
+        trimPrimers: boolean = true
     ): Promise<void> {
         try {
             // Validate inputs
@@ -610,7 +621,8 @@ squiggy.plot_aggregate(
     show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'},
-    rna_mode=${rnaMode ? 'True' : 'False'}${sampleNameParam}
+    rna_mode=${rnaMode ? 'True' : 'False'},
+    trim_primers=${trimPrimers ? 'True' : 'False'}${sampleNameParam}
 )
 `;
 
@@ -805,6 +817,7 @@ if _s._bam_info:
         'modification_types': _s._bam_info.get('modification_types', []),
         'has_probabilities': _s._bam_info.get('has_probabilities', False),
         'has_event_alignment': _s._bam_info.get('has_event_alignment', False),
+        'has_primers': _s._bam_info.get('has_primers', False),
         'basecall_model': _s._bam_info.get('basecall_model'),
         'is_rna': _s._bam_info.get('is_rna', False),
     }
@@ -820,9 +833,7 @@ del _s
             // Load sample and populate metadata variable in one execution
             await this._client.executeSilent(code);
             const loadTime = Date.now();
-            logger.debug(
-                `[loadSample] Python load completed in ${loadTime - startTime}ms`
-            );
+            logger.debug(`[loadSample] Python load completed in ${loadTime - startTime}ms`);
 
             // Single round-trip to get all metadata
             const meta = (await this._client.getVariable('_sample_meta')) as SampleLoadMetadata;

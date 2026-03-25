@@ -532,15 +532,11 @@ export const SamplesCore: React.FC = () => {
                                             whiteSpace: 'nowrap',
                                         }}
                                         onMouseEnter={(e) => {
-                                            (
-                                                e.target as HTMLButtonElement
-                                            ).style.backgroundColor =
+                                            (e.target as HTMLButtonElement).style.backgroundColor =
                                                 'var(--vscode-button-hoverBackground)';
                                         }}
                                         onMouseLeave={(e) => {
-                                            (
-                                                e.target as HTMLButtonElement
-                                            ).style.backgroundColor =
+                                            (e.target as HTMLButtonElement).style.backgroundColor =
                                                 'var(--vscode-button-background)';
                                         }}
                                         title="Select all samples for plotting"
@@ -570,15 +566,11 @@ export const SamplesCore: React.FC = () => {
                                             whiteSpace: 'nowrap',
                                         }}
                                         onMouseEnter={(e) => {
-                                            (
-                                                e.target as HTMLButtonElement
-                                            ).style.backgroundColor =
+                                            (e.target as HTMLButtonElement).style.backgroundColor =
                                                 'var(--vscode-button-hoverBackground)';
                                         }}
                                         onMouseLeave={(e) => {
-                                            (
-                                                e.target as HTMLButtonElement
-                                            ).style.backgroundColor =
+                                            (e.target as HTMLButtonElement).style.backgroundColor =
                                                 'var(--vscode-button-background)';
                                         }}
                                         title="Deselect all samples from plotting"

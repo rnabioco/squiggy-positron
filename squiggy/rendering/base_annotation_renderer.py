@@ -177,6 +177,7 @@ class BaseAnnotationRenderer:
         signal_max: float,
         position_label_interval: int = DEFAULT_POSITION_LABEL_INTERVAL,
         theme: Theme = Theme.LIGHT,
+        base_offset: int = 0,
     ):
         """
         Render base annotations for position-based plots (event-aligned mode)
@@ -219,6 +220,7 @@ class BaseAnnotationRenderer:
             signal_max=signal_max,
             sample_rate=sample_rate,
             signal_length=signal_length,
+            base_offset=base_offset,
         )
 
         # Add base type patches
@@ -234,6 +236,7 @@ class BaseAnnotationRenderer:
                 signal_length=signal_length,
                 position_label_interval=position_label_interval,
                 theme=theme,
+                base_offset=base_offset,
             )
 
     # =========================================================================
@@ -367,6 +370,7 @@ class BaseAnnotationRenderer:
         signal_max: float,
         sample_rate: int,
         signal_length: int,
+        base_offset: int = 0,
     ) -> dict[str, list]:
         """Calculate base regions for position-based mode"""
         base_regions = {base: [] for base in ["A", "C", "G", "T", "U"]}
@@ -410,8 +414,8 @@ class BaseAnnotationRenderer:
 
                 base_regions[base].append(
                     {
-                        "left": i - 0.5,
-                        "right": i + 0.5,
+                        "left": i + base_offset - 0.5,
+                        "right": i + base_offset + 0.5,
                         "top": signal_max,
                         "bottom": signal_min,
                     }
@@ -542,6 +546,7 @@ class BaseAnnotationRenderer:
         signal_length: int,
         position_label_interval: int,
         theme: Theme,
+        base_offset: int = 0,
     ):
         """Add base labels for position-based mode"""
         label_data = []
@@ -585,10 +590,11 @@ class BaseAnnotationRenderer:
             # Use base position for label positioning
             for i, base_annotation in enumerate(base_annotations):
                 base = base_annotation.base
+                x_pos = i + base_offset
                 if base in self.base_colors:
                     label_data.append(
                         {
-                            "x": i,
+                            "x": x_pos,
                             "y": signal_max,
                             "text": base,
                             "color": self.base_colors[base],
@@ -598,7 +604,7 @@ class BaseAnnotationRenderer:
                     # Add position number at intervals
                     if i % position_label_interval == 0:
                         position_number_data.append(
-                            {"x": i, "y": signal_max, "text": str(i)}
+                            {"x": x_pos, "y": signal_max, "text": str(x_pos)}
                         )
 
         # Add base letters

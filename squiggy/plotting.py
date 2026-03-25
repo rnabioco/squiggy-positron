@@ -53,6 +53,7 @@ def plot_read(
     clip_x_to_alignment: bool = True,
     sample_name: str | None = None,
     coordinate_space: str = "signal",
+    trim_primers: bool = True,
 ) -> str:
     """
     Generate a Bokeh HTML plot for a single read
@@ -76,6 +77,7 @@ def plot_read(
                      plots from that specific sample instead of the global session.
         coordinate_space: X-axis coordinate system ('signal' or 'sequence').
                          'signal' uses sample indices, 'sequence' uses genomic positions (requires BAM).
+        trim_primers: If True (default), trim primer/adapter regions identified by PT tag.
 
     Returns:
         Bokeh HTML string
@@ -147,6 +149,15 @@ def plot_read(
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
 
+            # Apply primer trimming if requested
+            if trim_primers and aligned_read.primer_regions:
+                from .alignment import trim_primers as do_trim_primers
+
+                aligned_read, trimmed_sig = do_trim_primers(
+                    aligned_read, data["signal"]
+                )
+                data["signal"] = trimmed_sig
+
             data["aligned_read"] = aligned_read
 
         options = {
@@ -155,6 +166,7 @@ def plot_read(
             "show_signal_points": show_signal_points,
             "x_axis_mode": "dwell_time" if scale_dwell_time else "regular_time",
             "coordinate_space": coordinate_space,
+            "base_offset": 1,
         }
 
     elif plot_mode == PlotMode.EVENTALIGN:
@@ -179,6 +191,13 @@ def plot_read(
         if aligned_read is None:
             raise ValueError(f"No alignment found for read {read_id} in BAM file.")
 
+        # Apply primer trimming if requested
+        signal = read_obj.signal
+        if trim_primers and aligned_read.primer_regions:
+            from .alignment import trim_primers as do_trim_primers
+
+            aligned_read, signal = do_trim_primers(aligned_read, signal)
+
         # Fetch reference sequence (FASTA-first pattern)
         reference_sequence = ""
         if (
@@ -196,7 +215,7 @@ def plot_read(
             )
 
         data = {
-            "reads": [(read_id, read_obj.signal, read_obj.run_info.sample_rate)],
+            "reads": [(read_id, signal, read_obj.run_info.sample_rate)],
             "aligned_reads": [aligned_read],
             "reference_sequence": reference_sequence,  # Add reference sequence
         }
@@ -209,6 +228,7 @@ def plot_read(
             "show_signal_points": show_signal_points,
             "position_label_interval": position_label_interval,
             "clip_x_to_alignment": clip_x_to_alignment,
+            "base_offset": 1,
         }
 
     else:
@@ -242,6 +262,7 @@ def plot_reads(
     read_sample_map: dict[str, str] | None = None,
     read_colors: dict[str, str] | None = None,
     coordinate_space: str = "signal",
+    trim_primers: bool = True,
 ) -> str:
     """
     Generate a Bokeh HTML plot for multiple reads
@@ -268,6 +289,7 @@ def plot_reads(
                      the default color cycling. Useful for sample-based coloring.
         coordinate_space: Coordinate system for x-axis ('signal' or 'sequence').
                           'signal' uses raw sample points, 'sequence' uses BAM alignment positions.
+        trim_primers: If True (default), trim primer/adapter regions identified by PT tag.
 
     Returns:
         Bokeh HTML string
@@ -390,6 +412,21 @@ def plot_reads(
                         )
                     aligned_reads.append(aligned_read)
 
+            # Apply primer trimming if requested
+            if trim_primers:
+                from .alignment import trim_primers as do_trim_primers
+
+                trimmed_data = []
+                trimmed_aligned = []
+                for (rid, sig, sr), ar in zip(reads_data, aligned_reads, strict=False):
+                    if ar.primer_regions:
+                        ar, sig = do_trim_primers(ar, sig)
+                    trimmed_data.append((rid, sig, sr))
+                    trimmed_aligned.append(ar)
+                reads_data = trimmed_data
+                aligned_reads = trimmed_aligned
+                data["reads"] = reads_data
+
             # Add aligned reads to data
             data["aligned_reads"] = aligned_reads
 
@@ -431,6 +468,20 @@ def plot_reads(
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
             aligned_reads.append(aligned_read)
 
+        # Apply primer trimming if requested
+        if trim_primers:
+            from .alignment import trim_primers as do_trim_primers
+
+            trimmed_data = []
+            trimmed_aligned = []
+            for (rid, sig, sr), ar in zip(reads_data, aligned_reads, strict=False):
+                if ar.primer_regions:
+                    ar, sig = do_trim_primers(ar, sig)
+                trimmed_data.append((rid, sig, sr))
+                trimmed_aligned.append(ar)
+            reads_data = trimmed_data
+            aligned_reads = trimmed_aligned
+
         data = {
             "reads": reads_data,
             "aligned_reads": aligned_reads,
@@ -442,6 +493,7 @@ def plot_reads(
             "show_dwell_time": scale_dwell_time,
             "show_labels": show_labels,
             "show_signal_points": show_signal_points,
+            "base_offset": 1,
         }
 
     elif plot_mode == PlotMode.REFERENCE_OVERLAY:
@@ -503,6 +555,20 @@ def plot_reads(
                     )
                 aligned_reads.append(aligned_read)
 
+        # Apply primer trimming if requested
+        if trim_primers:
+            from .alignment import trim_primers as do_trim_primers
+
+            trimmed_data = []
+            trimmed_aligned = []
+            for (rid, sig, sr), ar in zip(reads_data, aligned_reads, strict=False):
+                if ar.primer_regions:
+                    ar, sig = do_trim_primers(ar, sig)
+                trimmed_data.append((rid, sig, sr))
+                trimmed_aligned.append(ar)
+            reads_data = trimmed_data
+            aligned_reads = trimmed_aligned
+
         data = {
             "reads": reads_data,
             "aligned_reads": aligned_reads,
@@ -554,6 +620,7 @@ def plot_aggregate(
     transform_coordinates: bool = True,
     rna_mode: bool = False,
     sample_name: str | None = None,
+    trim_primers: bool = True,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -589,6 +656,7 @@ def plot_aggregate(
                                reference base (default True). If False, use raw genomic coordinates.
         sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
                      plots from that specific sample instead of the global session.
+        trim_primers: If True (default), trim primer/adapter regions identified by PT tag.
 
     Returns:
         Bokeh HTML string with synchronized tracks

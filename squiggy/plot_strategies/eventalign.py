@@ -149,6 +149,7 @@ class EventAlignPlotStrategy(PlotStrategy):
             "position_label_interval", DEFAULT_POSITION_LABEL_INTERVAL
         )
         clip_x_to_alignment = options.get("clip_x_to_alignment", True)
+        base_offset = options.get("base_offset", 1)
 
         # Create figure
         title = self._format_title(reads_data, normalization, downsample)
@@ -184,6 +185,7 @@ class EventAlignPlotStrategy(PlotStrategy):
             show_dwell_time=show_dwell_time,
             show_labels=show_labels,
             position_label_interval=position_label_interval,
+            base_offset=base_offset,
         )
 
         # Plot signals
@@ -201,6 +203,7 @@ class EventAlignPlotStrategy(PlotStrategy):
                 downsample=downsample,
                 show_signal_points=show_signal_points,
                 color_index=idx,
+                base_offset=base_offset,
             )
             all_renderers.extend(renderers)
 
@@ -224,7 +227,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         if clip_x_to_alignment and len(first_aligned.bases) > 0:
             from bokeh.models import Range1d
 
-            # X-axis is in base position units (0, 1, 2, ...) or time units
+            # X-axis is in base position units or time units
             num_bases = len(first_aligned.bases)
             if show_dwell_time:
                 # For dwell time mode, calculate total dwell time
@@ -234,10 +237,16 @@ class EventAlignPlotStrategy(PlotStrategy):
                     fig.x_range = Range1d(start=-0.5, end=total_dwell + 0.5)
                 except AttributeError:
                     # If dwell_time not available, fall back to position mode
-                    fig.x_range = Range1d(start=-0.5, end=num_bases - 0.5)
+                    fig.x_range = Range1d(
+                        start=base_offset - 0.5,
+                        end=num_bases + base_offset - 0.5,
+                    )
             else:
-                # For position mode, set range to [0, num_bases]
-                fig.x_range = Range1d(start=-0.5, end=num_bases - 0.5)
+                # For position mode, set range to [base_offset, num_bases + base_offset]
+                fig.x_range = Range1d(
+                    start=base_offset - 0.5,
+                    end=num_bases + base_offset - 0.5,
+                )
 
         # Configure legend
         self.theme_manager.configure_legend(fig)
@@ -324,6 +333,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         show_dwell_time: bool,
         show_labels: bool,
         position_label_interval: int,
+        base_offset: int = 0,
     ):
         """Add base annotations using BaseAnnotationRenderer"""
         base_colors = self.theme_manager.get_base_colors()
@@ -343,6 +353,7 @@ class EventAlignPlotStrategy(PlotStrategy):
             signal_max=signal_max,
             position_label_interval=position_label_interval,
             theme=self.theme,
+            base_offset=base_offset,
         )
 
     def _plot_aligned_signal(
@@ -356,6 +367,7 @@ class EventAlignPlotStrategy(PlotStrategy):
         downsample: int,
         show_signal_points: bool,
         color_index: int,
+        base_offset: int = 0,
     ) -> list:
         """Plot signal for one aligned read"""
         # Create signal coordinates
@@ -417,7 +429,7 @@ class EventAlignPlotStrategy(PlotStrategy):
                             position_offset = -0.5 + (sample_offset / (num_samples - 1))
                         else:
                             position_offset = 0.0
-                        signal_x.append(i + position_offset)
+                        signal_x.append(i + base_offset + position_offset)
                         signal_y.append(signal[sample_idx])
                         signal_base_labels.append(base)
 

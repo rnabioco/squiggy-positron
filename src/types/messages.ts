@@ -197,6 +197,7 @@ export interface GenerateAggregatePlotMessage extends BaseMessage {
     clipXAxisToAlignment: boolean;
     transformCoordinates: boolean;
     rnaMode: boolean;
+    trimPrimers?: boolean;
 }
 
 export interface GenerateMultiReadOverlayMessage extends BaseMessage {
@@ -290,6 +291,7 @@ export interface PlotOptions {
     showQuality?: boolean;
     showCoverage?: boolean;
     rnaMode?: boolean;
+    trimPrimers?: boolean;
 
     // Comparison options
     selectedSamples?: string[]; // For multi-sample comparisons
@@ -368,6 +370,7 @@ export interface SampleItem {
     hasFasta: boolean;
     hasMods?: boolean; // BAM has MM/ML tags for base modifications
     hasEvents?: boolean; // BAM has mv tag for signal-to-base mapping
+    hasPrimers?: boolean; // BAM has PT/pt tag for primer/adapter trim regions
     references?: ReferenceInfo[]; // List of references this sample aligns to
     isRna?: boolean; // BAM was basecalled with RNA model (auto-enable RNA mode)
     basecallModel?: string; // e.g., "rna004_130bps_sup@v5.1.0"

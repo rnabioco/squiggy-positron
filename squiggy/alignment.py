@@ -20,6 +20,16 @@ class BaseAnnotation:
 
 
 @dataclass
+class PrimerRegion:
+    """A primer/adapter region from the PT BAM tag"""
+
+    start: int  # Start position in basecall sequence (0-based, inclusive)
+    end: int  # End position in basecall sequence (0-based, exclusive)
+    strand: str  # '+' or '-'
+    name: str  # e.g., '5p_adapter', '3p_adapter_charged'
+
+
+@dataclass
 class AlignedRead:
     """POD5 read with base call annotations"""
 
@@ -34,6 +44,7 @@ class AlignedRead:
     modifications: list = field(
         default_factory=list
     )  # List of ModificationAnnotation objects
+    primer_regions: list[PrimerRegion] = field(default_factory=list)
 
 
 def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | None:
@@ -79,6 +90,40 @@ def _is_rna_read(alignment) -> bool:
     else:
         model_name = rg_value
     return "rna" in model_name.lower()
+
+
+def _parse_pt_tag(alignment) -> list[PrimerRegion]:
+    """Parse the PT/pt BAM tag into PrimerRegion objects.
+
+    Checks both uppercase PT and lowercase pt (the tag name may change).
+    PT tag format: 'start;end;strand;name' with '|' separating multiple entries.
+    Ranges are half-open [start, end).
+
+    Example: '0;6;+;5p_adapter|63;109;+;3p_adapter_charged'
+    """
+    pt_value = None
+    for tag_name in ("PT", "pt"):
+        if alignment.has_tag(tag_name):
+            pt_value = alignment.get_tag(tag_name)
+            break
+    if pt_value is None:
+        return []
+    regions = []
+    for entry in pt_value.split("|"):
+        parts = entry.split(";")
+        if len(parts) >= 4:
+            try:
+                regions.append(
+                    PrimerRegion(
+                        start=int(parts[0]),
+                        end=int(parts[1]),
+                        strand=parts[2],
+                        name=parts[3],
+                    )
+                )
+            except (ValueError, IndexError):
+                continue
+    return regions
 
 
 def _parse_alignment(alignment) -> AlignedRead | None:
@@ -195,6 +240,9 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         # Modifications are optional, don't fail if extraction fails
         pass
 
+    # Extract primer/adapter regions from PT tag
+    primer_regions = _parse_pt_tag(alignment)
+
     return AlignedRead(
         read_id=alignment.query_name,
         sequence=sequence,
@@ -205,7 +253,99 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         strand=strand,
         is_reverse=alignment.is_reverse,
         modifications=modifications,
+        primer_regions=primer_regions,
     )
+
+
+def trim_primers(
+    aligned_read: AlignedRead,
+    signal: np.ndarray,
+) -> tuple[AlignedRead, np.ndarray]:
+    """Remove primer/adapter bases and their signal from an AlignedRead.
+
+    Uses the PT tag regions stored on aligned_read.primer_regions.
+    After trimming:
+      - bases list excludes any BaseAnnotation whose position falls in a primer region
+      - signal is sliced to exclude primer signal ranges
+      - base positions are rebased starting at 0 with contiguous signal offsets
+
+    Args:
+        aligned_read: AlignedRead with primer_regions populated from PT tag
+        signal: Raw signal array from POD5
+
+    Returns:
+        (trimmed_AlignedRead, trimmed_signal). Returns inputs unchanged if no
+        primer_regions exist or if trimming would remove all bases.
+    """
+    if not aligned_read.primer_regions:
+        return aligned_read, signal
+
+    # Build set of sequence positions to exclude (half-open intervals)
+    excluded_positions = set()
+    for region in aligned_read.primer_regions:
+        for pos in range(region.start, region.end):
+            excluded_positions.add(pos)
+
+    # Filter bases, keeping those not in primer regions
+    kept_bases = [b for b in aligned_read.bases if b.position not in excluded_positions]
+
+    if not kept_bases:
+        return aligned_read, signal  # Don't trim everything
+
+    # Build signal mask from kept bases
+    signal_mask = np.zeros(len(signal), dtype=bool)
+    for base in kept_bases:
+        start = max(0, base.signal_start)
+        end = min(len(signal), base.signal_end)
+        signal_mask[start:end] = True
+
+    trimmed_signal = signal[signal_mask]
+
+    # Rebase: sequential positions and contiguous signal offsets
+    new_bases = []
+    cumulative_signal = 0
+    for new_pos, base in enumerate(kept_bases):
+        signal_length = min(base.signal_end, len(signal)) - max(base.signal_start, 0)
+        signal_length = max(0, signal_length)
+        new_bases.append(
+            BaseAnnotation(
+                base=base.base,
+                position=new_pos,
+                signal_start=cumulative_signal,
+                signal_end=cumulative_signal + signal_length,
+                genomic_pos=base.genomic_pos,
+                quality=base.quality,
+            )
+        )
+        cumulative_signal += signal_length
+
+    # Filter modifications in primer regions and rebase positions
+    position_remap = {
+        old_base.position: new_pos for new_pos, old_base in enumerate(kept_bases)
+    }
+    new_modifications = []
+    for mod in aligned_read.modifications:
+        if mod.position not in excluded_positions and mod.position in position_remap:
+            from copy import copy
+
+            new_mod = copy(mod)
+            new_mod.position = position_remap[mod.position]
+            new_modifications.append(new_mod)
+
+    trimmed_read = AlignedRead(
+        read_id=aligned_read.read_id,
+        sequence="".join(b.base for b in new_bases),
+        bases=new_bases,
+        chromosome=aligned_read.chromosome,
+        genomic_start=aligned_read.genomic_start,
+        genomic_end=aligned_read.genomic_end,
+        strand=aligned_read.strand,
+        is_reverse=aligned_read.is_reverse,
+        modifications=new_modifications,
+        primer_regions=aligned_read.primer_regions,
+    )
+
+    return trimmed_read, trimmed_signal
 
 
 def get_base_to_signal_mapping(aligned_read: AlignedRead) -> tuple[str, np.ndarray]:

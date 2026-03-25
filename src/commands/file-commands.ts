@@ -617,6 +617,7 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
                         hasAlignments: true,
                         hasMods: bamResult.hasModifications,
                         hasEvents: bamResult.hasEventAlignment,
+                        hasPrimers: bamResult.hasPrimers,
                         isRna: bamResult.isRna,
                         basecallModel: bamResult.basecallModel,
                     };
@@ -1295,6 +1296,7 @@ async function loadSamplesFromDropped(
                         hasReference: meta.has_fasta,
                         hasMods: meta.bam_info?.has_modifications ?? false,
                         hasEvents: meta.bam_info?.has_event_alignment ?? false,
+                        hasPrimers: meta.bam_info?.has_primers ?? false,
                     };
 
                     // Add to unified state (triggers onLoadedItemsChanged event)
@@ -1327,10 +1329,7 @@ async function loadSamplesFromDropped(
 
                     results.successful++;
                 } catch (error) {
-                    logger.error(
-                        `[loadSamplesFromDropped] Error loading ${sampleName}:`,
-                        error
-                    );
+                    logger.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
                     results.failed++;
                 }
             }
@@ -1346,10 +1345,7 @@ async function loadSamplesFromDropped(
                         firstSampleName
                     );
                 } catch (err) {
-                    logger.error(
-                        `Failed to auto-load reads for sample '${firstSampleName}':`,
-                        err
-                    );
+                    logger.error(`Failed to auto-load reads for sample '${firstSampleName}':`, err);
                 }
             }
         }

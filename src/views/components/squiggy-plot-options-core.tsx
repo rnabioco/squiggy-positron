@@ -28,6 +28,7 @@ interface PlotOptionsState {
     hasFasta: boolean;
     hasEvents: boolean; // Any selected sample has mv tags (signal-to-base mapping)
     hasMods: boolean; // Any selected sample has MM/ML tags (base modifications)
+    hasPrimers: boolean; // Any selected sample has PT/pt tag (primer/adapter trim)
 
     // Common options
     normalization: 'NONE' | 'ZNORM' | 'MEDIAN' | 'MAD';
@@ -56,6 +57,7 @@ interface PlotOptionsState {
     showQuality: boolean;
     showCoverage: boolean;
     rnaMode: boolean;
+    trimPrimers: boolean;
     availableReferences: string[];
 
     // Comparison options
@@ -75,6 +77,7 @@ export const PlotOptionsCore: React.FC = () => {
         hasFasta: false,
         hasEvents: false, // Default to false - will be updated when samples load
         hasMods: false, // Default to false - will be updated when samples load
+        hasPrimers: false, // Default to false - will be updated when samples load
         normalization: 'ZNORM',
         // Single Read options (used by Read Explorer clicks, not this panel)
         plotMode: 'SINGLE',
@@ -98,6 +101,7 @@ export const PlotOptionsCore: React.FC = () => {
         showQuality: true,
         showCoverage: false, // Off by default
         rnaMode: false,
+        trimPrimers: true, // Default: trim primers (don't show adapter regions)
         availableReferences: [],
         // Comparison
         loadedSamples: [],
@@ -194,7 +198,7 @@ export const PlotOptionsCore: React.FC = () => {
                         // by the Sample Manager (eye icons) and synced via updateSelectedSamples message
                         // This prevents the "only first 2 samples" bug (Issue #124)
 
-                        // Compute hasEvents/hasMods from selected samples
+                        // Compute hasEvents/hasMods/hasPrimers from selected samples
                         const selectedSampleData = message.samples.filter((s: SampleItem) =>
                             prev.selectedSamples.includes(s.name)
                         );
@@ -204,12 +208,16 @@ export const PlotOptionsCore: React.FC = () => {
                         const hasMods = selectedSampleData.some(
                             (s: SampleItem) => s.hasMods === true
                         );
+                        const hasPrimers = selectedSampleData.some(
+                            (s: SampleItem) => s.hasPrimers === true
+                        );
 
                         return {
                             ...prev,
                             loadedSamples: message.samples,
                             hasEvents,
                             hasMods,
+                            hasPrimers,
                             // Preserve existing selectedSamples - will be updated by updateSelectedSamples
                         };
                     });
@@ -220,18 +228,20 @@ export const PlotOptionsCore: React.FC = () => {
                         message.selectedSamples
                     );
                     setOptions((prev) => {
-                        // Recompute hasEvents/hasMods based on new selection
+                        // Recompute hasEvents/hasMods/hasPrimers based on new selection
                         const selectedSampleData = prev.loadedSamples.filter((s) =>
                             message.selectedSamples.includes(s.name)
                         );
                         const hasEvents = selectedSampleData.some((s) => s.hasEvents === true);
                         const hasMods = selectedSampleData.some((s) => s.hasMods === true);
+                        const hasPrimers = selectedSampleData.some((s) => s.hasPrimers === true);
 
                         return {
                             ...prev,
                             selectedSamples: message.selectedSamples,
                             hasEvents,
                             hasMods,
+                            hasPrimers,
                         };
                     });
                     break;
@@ -325,6 +335,7 @@ export const PlotOptionsCore: React.FC = () => {
             clipXAxisToAlignment: options.clipXAxisToAlignment,
             transformCoordinates: options.transformCoordinates,
             rnaMode: options.rnaMode,
+            trimPrimers: options.trimPrimers,
         });
     };
 
@@ -1139,6 +1150,29 @@ export const PlotOptionsCore: React.FC = () => {
                         >
                             Focus on high-coverage region (uncheck to show full reference range)
                         </div>
+
+                        {/* Show Primers/Adapters - only visible when PT tag detected */}
+                        {options.hasPrimers && (
+                            <div className="plot-options-checkbox-row">
+                                <input
+                                    type="checkbox"
+                                    id="showPrimersAggregate"
+                                    checked={!options.trimPrimers}
+                                    onChange={(e) =>
+                                        setOptions((prev) => ({
+                                            ...prev,
+                                            trimPrimers: !e.target.checked,
+                                        }))
+                                    }
+                                />
+                                <label
+                                    htmlFor="showPrimersAggregate"
+                                    className="plot-options-checkbox-label"
+                                >
+                                    Show primers/adapters
+                                </label>
+                            </div>
+                        )}
 
                         {/* Transform Coordinates */}
                         <div className="plot-options-checkbox-row">

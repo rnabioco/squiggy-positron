@@ -137,6 +137,7 @@ export class FileLoadingService {
                     ? {
                           hasModifications: meta.bam_info.has_modifications,
                           hasEventAlignment: meta.bam_info.has_event_alignment,
+                          hasPrimers: meta.bam_info.has_primers,
                       }
                     : undefined,
             };
@@ -218,6 +219,7 @@ export class FileLoadingService {
                 modificationTypes: result.modificationTypes || [],
                 hasProbabilities: result.hasProbabilities || false,
                 hasEventAlignment: result.hasEventAlignment || false,
+                hasPrimers: result.hasPrimers || false,
                 basecallModel: result.basecallModel,
                 isRna: result.isRna || false,
                 error: null,
@@ -236,6 +238,7 @@ export class FileLoadingService {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: false,
+                hasPrimers: false,
                 basecallModel: undefined,
                 isRna: false,
                 error: `Failed to load BAM: ${errorMessage}`,

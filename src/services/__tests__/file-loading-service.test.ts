@@ -81,6 +81,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: false,
+                hasPrimers: false,
                 isRna: false,
             });
 
@@ -180,6 +181,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: ['5mC', '6mA'],
                 hasProbabilities: true,
                 hasEventAlignment: true,
+                hasPrimers: false,
                 isRna: false,
             });
 
@@ -209,6 +211,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: false,
+                hasPrimers: false,
                 isRna: false,
             });
 
@@ -279,6 +282,7 @@ describe('FileLoadingService', () => {
                 modificationTypes: [],
                 hasProbabilities: false,
                 hasEventAlignment: true,
+                hasPrimers: false,
                 isRna: false,
             });
             mockAPI.loadFASTA.mockResolvedValue(undefined);

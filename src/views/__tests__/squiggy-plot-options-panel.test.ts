@@ -199,17 +199,20 @@ describe('PlotOptionsViewProvider', () => {
             });
 
             // Should fire event with plot parameters
-            expect(aggregatePlotListener).toHaveBeenCalledWith({
-                reference: 'chr2',
-                maxReads: 150,
-                normalization: 'MAD',
-                showModifications: true,
-                showPileup: true,
-                showDwellTime: false,
-                showSignal: true,
-                showQuality: true,
-                clipXAxisToAlignment: true,
-            });
+            expect(aggregatePlotListener).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    reference: 'chr2',
+                    maxReads: 150,
+                    normalization: 'MAD',
+                    showModifications: true,
+                    showPileup: true,
+                    showDwellTime: false,
+                    showSignal: true,
+                    showQuality: true,
+                    clipXAxisToAlignment: true,
+                    trimPrimers: true,
+                })
+            );
         });
     });
 

@@ -369,6 +369,7 @@ def _collect_bam_metadata_single_pass(
     has_modifications = False
     has_ml = False
     has_mv = False
+    has_pt = False
     reads_processed = 0
     basecall_model = None
 
@@ -417,6 +418,10 @@ def _collect_bam_metadata_single_pass(
                 if read.has_tag("mv"):
                     has_mv = True
 
+                # Check for PT/pt tag (primer trim regions)
+                if read.has_tag("PT") or read.has_tag("pt"):
+                    has_pt = True
+
                 # Extract basecall model from RG tag (first read only)
                 if basecall_model is None and read.has_tag("RG"):
                     rg_value = read.get_tag("RG")
@@ -450,6 +455,7 @@ def _collect_bam_metadata_single_pass(
         "modification_types": mod_types_list,
         "has_probabilities": has_ml,
         "has_event_alignment": has_mv,
+        "has_primers": has_pt,
         "ref_mapping": ref_mapping,
         "ref_counts": dict(ref_counts),
         "num_reads": sum(ref["read_count"] for ref in references),

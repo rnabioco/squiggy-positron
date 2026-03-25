@@ -52,6 +52,7 @@ export interface SampleInfo {
     hasFasta: boolean;
     hasMods?: boolean; // BAM has MM/ML tags for base modifications
     hasEvents?: boolean; // BAM has mv tag for signal-to-base mapping
+    hasPrimers?: boolean; // BAM has PT/pt tag for primer/adapter trim
 
     // Reference information (from BAM alignment)
     references?: ReferenceInfo[]; // List of references this sample aligns to
@@ -1322,7 +1323,8 @@ squiggy.close_fasta()
             sampleInfo.hasBam = !!resolvedBamPath;
             sampleInfo.hasFasta = !!resolvedFastaPath;
             sampleInfo.hasMods = bamResult?.hasModifications ?? false;
-            sampleInfo.hasEvents = bamResult?.hasEvents ?? false;
+            sampleInfo.hasEvents = bamResult?.hasEventAlignment ?? false;
+            sampleInfo.hasPrimers = bamResult?.hasPrimers ?? false;
             sampleInfo.isLoaded = true;
         }
 
@@ -1335,7 +1337,8 @@ squiggy.close_fasta()
             hasAlignments: !!resolvedBamPath,
             hasReference: !!resolvedFastaPath,
             hasMods: bamResult?.hasModifications ?? false,
-            hasEvents: bamResult?.hasEvents ?? false,
+            hasEvents: bamResult?.hasEventAlignment ?? false,
+            hasPrimers: bamResult?.hasPrimers ?? false,
             isRna: bamResult?.isRna ?? false,
             isLoading: false, // Mark as complete
             isDeferred: false, // No longer deferred

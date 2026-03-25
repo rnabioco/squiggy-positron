@@ -52,6 +52,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
     private _showSignalPoints: boolean = false;
     private _clipXAxisToAlignment: boolean = true;
     private _transformCoordinates: boolean = true;
+    private _trimPrimers: boolean = true;
     private _hasPod5File: boolean = false;
     private _hasBamFile: boolean = false;
 
@@ -135,6 +136,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         clipXAxisToAlignment: boolean;
         transformCoordinates: boolean;
         rnaMode: boolean;
+        trimPrimers: boolean;
     }>();
     public readonly onDidRequestAggregatePlot = this._onDidRequestAggregatePlot.event;
 
@@ -219,6 +221,9 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             if (message.options.transformCoordinates !== undefined) {
                 this._transformCoordinates = message.options.transformCoordinates;
             }
+            if (message.options.trimPrimers !== undefined) {
+                this._trimPrimers = message.options.trimPrimers;
+            }
 
             // Update aggregate-specific options if present
             if (message.options.aggregateReference !== undefined) {
@@ -269,6 +274,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 clipXAxisToAlignment: message.clipXAxisToAlignment,
                 transformCoordinates: message.transformCoordinates,
                 rnaMode: message.rnaMode,
+                trimPrimers: message.trimPrimers ?? true,
             });
         }
 
@@ -439,6 +445,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
             showSignal: this._showSignal,
             showQuality: this._showQuality,
             rnaMode: this._rnaMode,
+            trimPrimers: this._trimPrimers,
         };
     }
 

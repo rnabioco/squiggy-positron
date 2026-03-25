@@ -74,6 +74,11 @@ export interface LoadedItem {
     hasEvents: boolean;
 
     /**
+     * Whether BAM file has primer/adapter trim regions (PT/pt tag)
+     */
+    hasPrimers?: boolean;
+
+    /**
      * Whether BAM was basecalled with an RNA model (auto-enables RNA mode)
      */
     isRna?: boolean;

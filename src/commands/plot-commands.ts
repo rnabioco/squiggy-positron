@@ -409,7 +409,8 @@ async function plotReads(
                 options.downsample,
                 options.showSignalPoints,
                 state.selectedReadExplorerSample || undefined, // Pass current sample for multi-sample mode
-                coordinateSpace
+                coordinateSpace,
+                options.trimPrimers ?? true
             );
             logger.info('Plot generated successfully (dedicated kernel)');
         },
