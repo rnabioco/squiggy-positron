@@ -549,6 +549,12 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                             if (plotOptionsProvider) {
                                 plotOptionsProvider.updateReferences(uniqueRefs);
                             }
+                        })
+                        .catch((error) => {
+                            logger.error(
+                                '[extension.ts] Failed to fetch references from samples:',
+                                error
+                            );
                         });
                 }
             }

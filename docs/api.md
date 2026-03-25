@@ -4,6 +4,25 @@ Squiggy provides both a simple functional API and an object-oriented API for wor
 
 ## Quick Start
 
+### Object-Oriented API (Recommended)
+
+```python
+from squiggy.api import Pod5File, BamFile
+
+# Load files using OO API
+pod5 = Pod5File("data.pod5")
+bam = BamFile("alignments.bam")
+
+# Browse reads
+reads = pod5.reads()
+print(f"Found {len(reads)} reads")
+
+# Plot a single read
+reads[0].plot()
+```
+
+### Functional API (Legacy)
+
 ```python
 from squiggy import load_pod5, load_bam, plot_read, get_read_ids
 

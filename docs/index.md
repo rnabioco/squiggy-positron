@@ -23,7 +23,7 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 
 ## System Requirements
 
-- **Positron IDE**: Version 2024.09.0 or later
+- **Positron IDE**: Version 2025.6.0 or later
 - **Operating Systems**: macOS (Intel/Apple Silicon), Linux, Windows
 - **Python**: 3.12 or later
 - **Memory**: 4GB RAM minimum (8GB recommended for large POD5 files)
@@ -42,14 +42,15 @@ Or visit the [OpenVSX marketplace page](https://open-vsx.org/extension/rnabioco/
 
 ### First Time Setup
 
-After installing the extension, a **Setup** panel will appear in the sidebar if the Python package is not detected. The panel provides:
+When you first use Squiggy, it automatically:
 
-- Step-by-step instructions to create a virtual environment
-- Copy-paste commands for installation
-- Direct link to select your Python interpreter
-- Automatic verification of setup completion
+1. Creates a dedicated virtual environment at `~/.venvs/squiggy`
+2. Installs the bundled `squiggy` Python package using `uv`
+3. Configures a background kernel for extension operations
 
-No command-line experience needed—just follow the guided setup!
+**No manual Python package installation required!** The extension handles everything.
+
+> **Note:** The automatic setup requires `uv` to be installed. If `uv` is not found, you'll be prompted to install it.
 
 ### Alternative: Install from VSIX
 

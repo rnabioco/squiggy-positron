@@ -163,7 +163,28 @@ Access via: `Preferences` → `Settings` → search "squiggy"
 
 ## Python API Cheat Sheet
 
-### Basic Operations
+### Object-Oriented API (Recommended)
+
+```python
+from squiggy.api import Pod5File, BamFile, FastaFile
+
+# Load files
+pod5 = Pod5File("data.pod5")
+bam = BamFile("alignments.bam")
+fasta = FastaFile("reference.fa")
+
+# Browse reads
+reads = pod5.reads()
+print(f"Found {len(reads)} reads")
+
+# Plot a read
+reads[0].plot(mode="EVENTALIGN", normalization="ZNORM")
+
+# Search motifs
+matches = fasta.search_motif("DRACH", region="chr1:1000-2000")
+```
+
+### Functional API (Legacy)
 
 ```python
 from squiggy import load_pod5, load_bam, load_fasta
@@ -354,7 +375,7 @@ wc -l file.fasta
 
 ### Extension Won't Load
 
-- [ ] Positron 2024.09.0 or later?
+- [ ] Positron 2025.6.0 or later?
 - [ ] Python 3.12+?
 - [ ] Virtual environment activated?
 - [ ] Reload extension: View → Extensions → Reload

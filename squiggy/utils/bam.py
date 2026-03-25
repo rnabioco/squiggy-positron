@@ -1,5 +1,6 @@
 """BAM file utilities for Squiggy"""
 
+import logging
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ import pod5
 import pysam
 
 from .paths import writable_working_directory
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -65,7 +68,7 @@ class ModelProvenance:
         )
 
 
-def validate_bam_reads_in_pod5(bam_file, pod5_file):
+def validate_bam_reads_in_pod5(bam_file: str | Path, pod5_file: str | Path) -> dict:
     """Validate that all reads in BAM file exist in POD5 file
 
     This is a sanity check to ensure the BAM file corresponds to the POD5 file.
@@ -141,7 +144,7 @@ def get_basecall_data(
 
                     # Extract stride (first element) and moves (remaining elements)
                     # Stride represents the neural network downsampling factor
-                    # Typical values: 5 for DNA models, 10-12 for RNA models
+                    # See constants.DNA_STRIDE (5) and RNA_STRIDE_MIN/MAX (10-12)
                     stride = int(move_table[0])
                     moves = move_table[1:]
 
@@ -158,8 +161,8 @@ def get_basecall_data(
 
         bam.close()
 
-    except Exception:
-        pass
+    except (ValueError, KeyError, OSError) as e:
+        logger.debug("Failed to extract basecall data for read %s: %s", read_id, e)
 
     return None, None
 
@@ -223,7 +226,7 @@ def parse_region(region_str: str) -> tuple[str | None, int | None, int | None]:
         return region_str.strip(), None, None
 
 
-def index_bam_file(bam_file):
+def index_bam_file(bam_file: str | Path) -> None:
     """Generate BAM index file (.bai)
 
     Creates a .bai index file for the given BAM file using pysam.
@@ -281,9 +284,8 @@ def get_bam_references(bam_file: Path) -> list[dict]:
                         # Count mapped reads for this reference
                         count = bam.count(ref_name)
                         ref_info["read_count"] = count
-                    except Exception:
-                        # If counting fails, leave as None
-                        pass
+                    except (ValueError, OSError) as e:
+                        logger.debug("Failed to count reads for %s: %s", ref_name, e)
 
                 # Only include references that have reads
                 # If read_count is None (no index), include it
@@ -297,7 +299,9 @@ def get_bam_references(bam_file: Path) -> list[dict]:
     return references
 
 
-def get_read_to_reference_mapping(bam_file, pod5_read_ids):
+def get_read_to_reference_mapping(
+    bam_file: str | Path, pod5_read_ids: set | list
+) -> dict[str, str]:
     """Get mapping of read IDs to their reference sequences from BAM file
 
     Args:
@@ -335,8 +339,8 @@ def get_read_to_reference_mapping(bam_file, pod5_read_ids):
                 ref_name = bam.get_reference_name(read.reference_id)
                 read_to_ref[read_id] = ref_name
 
-    except Exception:
-        # If there's an error reading BAM, return empty mapping
+    except (ValueError, OSError) as e:
+        logger.debug("Failed to read BAM for reference mapping: %s", e)
         return {}
 
     return read_to_ref
@@ -433,7 +437,9 @@ def reverse_complement(seq: str) -> str:
     return "".join(complement.get(base, base) for base in reversed(seq))
 
 
-def get_reference_sequence_for_read(bam_file, read_id):
+def get_reference_sequence_for_read(
+    bam_file: str | Path, read_id: str
+) -> tuple[str | None, int | None, object | None]:
     """
     Extract the reference sequence for a given aligned read.
 
@@ -543,9 +549,10 @@ def get_reference_sequence_from_fasta(
             reference_sequence = fasta.fetch(reference_name, start, end)
             fasta.close()
             return reference_sequence
-        except Exception:
-            # FASTA fetch failed, will try BAM fallback
-            pass
+        except (ValueError, KeyError, OSError) as e:
+            logger.debug(
+                "FASTA fetch failed for %s:%d-%d: %s", reference_name, start, end, e
+            )
 
     # Fallback to BAM reconstruction if FASTA unavailable
     if not reference_sequence and bam_file and read_id:
@@ -558,14 +565,13 @@ def get_reference_sequence_from_fasta(
                 region_start = max(0, start - ref_start)
                 region_end = min(len(ref_seq), end - ref_start)
                 reference_sequence = ref_seq[region_start:region_end]
-        except Exception:
-            # BAM fallback failed, return empty string
-            pass
+        except (ValueError, KeyError, OSError) as e:
+            logger.debug("BAM fallback failed for read %s: %s", read_id, e)
 
     return reference_sequence
 
 
-def get_available_reads_for_reference(bam_file, reference_name):
+def get_available_reads_for_reference(bam_file: str | Path, reference_name: str) -> int:
     """Count total reads available for a reference in a BAM file
 
     Uses BAM index for O(log n) lookup instead of O(n) full scan.
@@ -667,9 +673,12 @@ def extract_reads_for_reference(
                     if aligned_read:
                         modifications = aligned_read.modifications
                         primer_regions = aligned_read.primer_regions
-                except Exception:
-                    # Modifications/primers are optional, don't fail if extraction fails
-                    pass
+                except (ImportError, ValueError, KeyError) as e:
+                    logger.debug(
+                        "Failed to extract modifications for read %s: %s",
+                        read.query_name,
+                        e,
+                    )
 
                 # Calculate soft-clipped bases at the start and end of the read
                 # This tells us how many bases in the raw signal to skip
@@ -813,9 +822,8 @@ def extract_model_provenance(bam_file: str) -> ModelProvenance:
                     if "DS" in pg:
                         provenance.flow_cell_kit = pg["DS"]
 
-    except Exception:
-        # Return partial provenance if there's an error
-        pass
+    except (ValueError, KeyError, OSError) as e:
+        logger.debug("Failed to extract model provenance: %s", e)
 
     return provenance
 
@@ -949,9 +957,12 @@ def extract_alignments_for_reference(
                     aligned_read = _parse_alignment(read)
                     if aligned_read:
                         modifications = aligned_read.modifications
-                except Exception:
-                    # Modifications are optional, don't fail if extraction fails
-                    pass
+                except (ImportError, ValueError, KeyError) as e:
+                    logger.debug(
+                        "Failed to extract modifications for read %s: %s",
+                        read.query_name,
+                        e,
+                    )
 
                 # Build query_pos -> ref_pos mapping from aligned pairs
                 aligned_pairs = {}

@@ -7,6 +7,7 @@ represents genomic coordinates, allowing direct comparison of ionic current
 profiles across reads at the same reference location.
 """
 
+import logging
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,8 @@ from bokeh.resources import CDN
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
 from ..rendering import BaseAnnotationRenderer, ReferenceTrackRenderer, ThemeManager
 from .base import PlotStrategy
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -587,5 +590,6 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
             ref_fig.min_border_right = 5
 
             return ref_fig
-        except Exception:
+        except (ValueError, KeyError, IndexError) as e:
+            logger.debug("Reference track creation failed: %s", e)
             return None

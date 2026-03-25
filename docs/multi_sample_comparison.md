@@ -296,15 +296,15 @@ print(f"{len(unique_b)} reads only in B")
 
 ### Signal Distribution Comparison
 
-Compare statistical properties:
+Compare statistical properties using the `compare_samples` function:
 
 ```python
-from squiggy import compare_signal_distributions
+from squiggy import compare_samples
 
-dist = compare_signal_distributions(signal_a, signal_b)
-print(f"Mean A: {dist['mean_a']:.2f} pA")
-print(f"Mean B: {dist['mean_b']:.2f} pA")
-print(f"Difference: {dist['mean_a'] - dist['mean_b']:.2f} pA")
+comp = compare_samples(["sample_a", "sample_b"])
+print(f"Common reads: {len(comp['common_reads'])}")
+print(f"Unique to A: {len(comp['unique_to_a'])}")
+print(f"Unique to B: {len(comp['unique_to_b'])}")
 ```
 
 ### Batch Comparison Workflow

@@ -56,11 +56,8 @@ export const SamplesCore: React.FC = () => {
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
-            console.log('SamplesCore received message:', message);
-
             switch (message.type) {
                 case 'updateSamples': {
-                    console.log('Updating samples:', message.samples);
                     setState((prev) => {
                         const samples = (message as any).samples as SampleItem[];
                         const newColors = new Map(prev.sampleColors);
@@ -82,9 +79,6 @@ export const SamplesCore: React.FC = () => {
                                     );
                                     if (matchingNewSample) {
                                         // Migrate the color to the new sample name
-                                        console.log(
-                                            `[SamplesCore] Migrating color for renamed sample: ${oldName} → ${matchingNewSample.name}`
-                                        );
                                         newColors.delete(oldName);
                                         newColors.set(matchingNewSample.name, oldColor);
                                     }
@@ -124,10 +118,6 @@ export const SamplesCore: React.FC = () => {
 
                         // Sync auto-selected samples with extension state (Issue #121)
                         if (newlySelectedSamples.length > 0) {
-                            console.log(
-                                '[SamplesCore] Auto-selecting samples in extension:',
-                                newlySelectedSamples
-                            );
                             setTimeout(() => {
                                 newlySelectedSamples.forEach((name) => {
                                     vscode.postMessage({
@@ -149,7 +139,6 @@ export const SamplesCore: React.FC = () => {
                 }
 
                 case 'clearSamples':
-                    console.log('Clearing samples');
                     setState({
                         samples: [],
                         sessionFastaPath: null,
@@ -162,7 +151,6 @@ export const SamplesCore: React.FC = () => {
                     break;
 
                 case 'updateSessionFasta':
-                    console.log('Updating session FASTA:', message.fastaPath);
                     setState((prev) => ({
                         ...prev,
                         sessionFastaPath: message.fastaPath,
@@ -170,10 +158,6 @@ export const SamplesCore: React.FC = () => {
                     break;
 
                 case 'updateVisualizationSelection':
-                    console.log(
-                        '[SamplesCore] Updating visualization selection from extension:',
-                        message.selectedSamples
-                    );
                     setState((prev) => ({
                         ...prev,
                         selectedSamplesForVisualization: new Set(message.selectedSamples),
@@ -181,20 +165,18 @@ export const SamplesCore: React.FC = () => {
                     break;
 
                 default:
-                    console.log('Unknown message type:', message.type);
+                    break;
             }
         };
 
         window.addEventListener('message', handleMessage);
         // Request initial state
-        console.log('SamplesCore sending ready message');
         vscode.postMessage({ type: 'ready' });
 
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
     const handleUnloadSample = (sampleName: string) => {
-        console.log('Requesting unload of sample:', sampleName);
         vscode.postMessage({
             type: 'unloadSample',
             sampleName,
@@ -225,7 +207,6 @@ export const SamplesCore: React.FC = () => {
     };
 
     const _handleLoadSamplesClick = () => {
-        console.log('🎯 DEBUG: Load Samples button clicked');
         vscode.postMessage({
             type: 'requestLoadSamples',
         });
