@@ -89,7 +89,7 @@ export const SessionCore: React.FC = () => {
                 {isDemoExpanded && (
                     <>
                         <p className="demo-description">
-                            Explore 180 yeast tRNA reads with base annotations
+                            Compare E. coli tRNA signals: WT vs TruB mutant (pseudouridine)
                         </p>
                         <button className="btn btn-primary btn-full" onClick={handleLoadDemo}>
                             <span className="icon">▶</span> Load Demo Session

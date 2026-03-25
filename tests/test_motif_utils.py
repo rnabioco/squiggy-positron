@@ -10,9 +10,9 @@ from squiggy.utils import align_reads_to_motif_center, extract_reads_for_motif
 def test_data_paths(test_data_dir):
     """Paths to test data files"""
     return {
-        "pod5": test_data_dir / "yeast_trna_reads.pod5",
-        "bam": test_data_dir / "yeast_trna_mappings.bam",
-        "fasta": test_data_dir / "yeast_trna.fa",
+        "pod5": test_data_dir / "ecoli_trna_wt_reads.pod5",
+        "bam": test_data_dir / "ecoli_trna_wt_mappings.bam",
+        "fasta": test_data_dir / "ecoli_trna.fa",
     }
 
 

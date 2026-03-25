@@ -134,9 +134,9 @@ export function registerFileCommands(
                 const getPathsCode = `
 import squiggy
 paths = {
-    'pod5': squiggy.get_test_data_path('yeast_trna_reads.pod5'),
-    'bam': squiggy.get_test_data_path('yeast_trna_mappings.bam'),
-    'fasta': squiggy.get_test_data_path('yeast_trna.fa')
+    'pod5': squiggy.get_test_data_path('ecoli_trna_wt_reads.pod5'),
+    'bam': squiggy.get_test_data_path('ecoli_trna_wt_mappings.bam'),
+    'fasta': squiggy.get_test_data_path('ecoli_trna.fa')
 }
                 `.trim();
 
@@ -1043,9 +1043,9 @@ async function loadTestMultiReadDataset(
         const getPathsCode = `
 import squiggy
 paths = {
-    'pod5': squiggy.get_test_data_path('yeast_trna_reads.pod5'),
-    'bam': squiggy.get_test_data_path('yeast_trna_mappings.bam'),
-    'fasta': squiggy.get_test_data_path('yeast_trna.fa')
+    'pod5': squiggy.get_test_data_path('ecoli_trna_wt_reads.pod5'),
+    'bam': squiggy.get_test_data_path('ecoli_trna_wt_mappings.bam'),
+    'fasta': squiggy.get_test_data_path('ecoli_trna.fa')
 }
         `.trim();
 

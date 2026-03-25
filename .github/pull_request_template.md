@@ -27,7 +27,7 @@ List the main changes in this PR:
 
 Describe how you tested these changes:
 
-- [ ] Tested manually with sample data (`squiggy/data/yeast_trna_reads.pod5`)
+- [ ] Tested manually with sample data (`squiggy/data/ecoli_trna_wt_reads.pod5`)
 - [ ] Tested with custom POD5 files
 - [ ] Tested with BAM files
 - [ ] All existing tests pass (`pytest tests/`)

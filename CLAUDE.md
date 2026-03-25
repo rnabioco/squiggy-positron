@@ -671,8 +671,8 @@ Test extension ↔ Python communication:
 ### Manual Testing
 
 Use sample data in `squiggy/data/`:
-- `yeast_trna_reads.pod5` - 180 reads
-- `yeast_trna_mappings.bam` - Corresponding alignments
+- `ecoli_trna_wt_reads.pod5` / `ecoli_trna_tb_reads.pod5` - E. coli tRNA (WT vs TruB)
+- `ecoli_trna_wt_mappings.bam` / `ecoli_trna_tb_mappings.bam` - Corresponding alignments
 
 ## Common Tasks
 

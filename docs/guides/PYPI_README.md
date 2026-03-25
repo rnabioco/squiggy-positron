@@ -74,7 +74,7 @@ import squiggy
 print(f"Squiggy version: {squiggy.__version__}")
 
 # Test 2: Get bundled test data
-pod5_path = squiggy.get_test_data_path('yeast_trna_reads.pod5')
+pod5_path = squiggy.get_test_data_path('ecoli_trna_wt_reads.pod5')
 print(f"Test data: {pod5_path}")
 
 # Test 3: Load POD5 file

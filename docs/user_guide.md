@@ -49,8 +49,8 @@ Once setup is complete, click the **Squiggy icon** in the Activity Bar (left sid
 
 Squiggy includes sample data for testing and learning:
 
-- **POD5 file**: `yeast_trna_reads.pod5` (180 reads from yeast tRNA sequencing)
-- **BAM file**: `yeast_trna_mappings.bam` (corresponding alignments with base calls)
+- **POD5 files**: `ecoli_trna_wt_reads.pod5` and `ecoli_trna_tb_reads.pod5` (E. coli tRNA, WT vs TruB mutant)
+- **BAM files**: `ecoli_trna_wt_mappings.bam` and `ecoli_trna_tb_mappings.bam` (alignments with modifications)
 
 **To load sample data:**
 1. Open Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`)

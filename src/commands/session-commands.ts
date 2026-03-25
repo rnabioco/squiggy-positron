@@ -282,7 +282,7 @@ export async function loadDemoSessionCommand(
     extensionState: ExtensionState,
     context: vscode.ExtensionContext
 ): Promise<void> {
-    logger.info('Loading demo session (yeast tRNA dataset)');
+    logger.info('Loading demo session (E. coli tRNA WT vs TruB dataset)');
 
     try {
         // Check for unsaved changes

@@ -582,9 +582,9 @@ Use the sample data in `squiggy/data/`:
 # In Extension Development Host:
 # 1. Open Command Palette
 # 2. Squiggy: Open POD5 File
-# 3. Select squiggy/data/yeast_trna_reads.pod5
+# 3. Select squiggy/data/ecoli_trna_wt_reads.pod5
 # 4. Squiggy: Open BAM File
-# 5. Select squiggy/data/yeast_trna_mappings.bam
+# 5. Select squiggy/data/ecoli_trna_wt_mappings.bam
 # 6. Click a read in the Reads panel
 ```
 

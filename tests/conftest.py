@@ -37,10 +37,10 @@ def test_data_dir():
 def sample_pod5_file(test_data_dir):
     """Return the path to a sample POD5 file.
 
-    Uses yeast_trna_reads.pod5 as the standard test data file.
+    Uses ecoli_trna_wt_reads.pod5 as the standard test data file.
     """
-    # Use yeast_trna_reads.pod5 as the standard test file
-    pod5_path = test_data_dir / "yeast_trna_reads.pod5"
+    # Use ecoli_trna_wt_reads.pod5 as the standard test file
+    pod5_path = test_data_dir / "ecoli_trna_wt_reads.pod5"
     if pod5_path.exists():
         return pod5_path
 
@@ -57,10 +57,10 @@ def sample_pod5_file(test_data_dir):
 def sample_bam_file(test_data_dir):
     """Return the path to a sample BAM file.
 
-    Uses yeast_trna_mappings.bam as the standard test data file.
+    Uses ecoli_trna_wt_mappings.bam as the standard test data file.
     """
-    # Use yeast_trna_mappings.bam as the standard test file
-    bam_path = test_data_dir / "yeast_trna_mappings.bam"
+    # Use ecoli_trna_wt_mappings.bam as the standard test file
+    bam_path = test_data_dir / "ecoli_trna_wt_mappings.bam"
     if bam_path.exists():
         return bam_path
 

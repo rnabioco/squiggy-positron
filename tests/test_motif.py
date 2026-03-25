@@ -181,7 +181,7 @@ class TestSearchMotif:
     @pytest.fixture
     def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return test_data_dir / "yeast_trna.fa"
+        return test_data_dir / "ecoli_trna.fa"
 
     def test_file_not_found(self):
         """Test that missing file raises error"""
@@ -209,24 +209,22 @@ class TestSearchMotif:
 
     def test_search_with_region_filter(self, fasta_file):
         """Test search with region filter"""
-        # Search only in tRNA-Ala-AGC-1-1-uncharged
-        matches = list(
-            search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged")
-        )
+        # Search only in host-tRNA-Ala-TGC-1-1
+        matches = list(search_motif(fasta_file, "GGG", region="host-tRNA-Ala-TGC-1-1"))
 
         assert len(matches) > 0
         for match in matches:
-            assert match.chrom == "tRNA-Ala-AGC-1-1-uncharged"
+            assert match.chrom == "host-tRNA-Ala-TGC-1-1"
 
     def test_search_with_position_range(self, fasta_file):
         """Test search with position range"""
         # Search in specific region
         matches = list(
-            search_motif(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged:1-50")
+            search_motif(fasta_file, "GGG", region="host-tRNA-Ala-TGC-1-1:1-50")
         )
 
         for match in matches:
-            assert match.chrom == "tRNA-Ala-AGC-1-1-uncharged"
+            assert match.chrom == "host-tRNA-Ala-TGC-1-1"
             # match.position is 0-based
             assert match.position < 50
 
@@ -313,7 +311,7 @@ class TestCountMotifs:
     @pytest.fixture
     def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return test_data_dir / "yeast_trna.fa"
+        return test_data_dir / "ecoli_trna.fa"
 
     def test_count_matches_search(self, fasta_file):
         """Test that count matches search results"""
@@ -324,7 +322,7 @@ class TestCountMotifs:
 
     def test_count_with_region(self, fasta_file):
         """Test counting with region filter"""
-        count = count_motifs(fasta_file, "GGG", region="tRNA-Ala-AGC-1-1-uncharged")
+        count = count_motifs(fasta_file, "GGG", region="host-tRNA-Ala-TGC-1-1")
         assert count > 0
 
     def test_count_with_strand(self, fasta_file):
@@ -344,7 +342,7 @@ class TestFastaFileIntegration:
     @pytest.fixture
     def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return test_data_dir / "yeast_trna.fa"
+        return test_data_dir / "ecoli_trna.fa"
 
     def test_fasta_file_class(self, fasta_file):
         """Test FastaFile class"""
@@ -353,10 +351,10 @@ class TestFastaFileIntegration:
         with FastaFile(fasta_file) as fasta:
             # Check references
             assert len(fasta.references) > 0
-            assert "tRNA-Ala-AGC-1-1-uncharged" in fasta.references
+            assert "host-tRNA-Ala-TGC-1-1" in fasta.references
 
             # Test fetch
-            seq = fasta.fetch("tRNA-Ala-AGC-1-1-uncharged", 0, 10)
+            seq = fasta.fetch("host-tRNA-Ala-TGC-1-1", 0, 10)
             assert len(seq) == 10
 
             # Test motif search
@@ -391,12 +389,12 @@ class TestBamFileMotifIntegration:
     @pytest.fixture
     def fasta_file(self, test_data_dir):
         """Path to test FASTA file"""
-        return test_data_dir / "yeast_trna.fa"
+        return test_data_dir / "ecoli_trna.fa"
 
     @pytest.fixture
     def bam_file(self, test_data_dir):
         """Path to test BAM file"""
-        return test_data_dir / "yeast_trna_mappings.bam"
+        return test_data_dir / "ecoli_trna_wt_mappings.bam"
 
     def test_get_reads_overlapping_motif(self, fasta_file, bam_file):
         """Test finding reads overlapping motif positions"""
@@ -405,7 +403,7 @@ class TestBamFileMotifIntegration:
         with FastaFile(fasta_file) as fasta, BamFile(bam_file) as bam:
             # Find reads overlapping GGG motifs
             overlaps = bam.get_reads_overlapping_motif(
-                fasta, "GGG", region="tRNA-Ala-AGC-1-1-uncharged"
+                fasta, "GGG", region="host-tRNA-Ala-TGC-1-1"
             )
 
             # Should find some overlapping reads
@@ -417,7 +415,7 @@ class TestBamFileMotifIntegration:
                 # Position key format: "chrom:position:strand"
                 parts = position_key.split(":")
                 assert len(parts) == 3
-                assert parts[0] == "tRNA-Ala-AGC-1-1-uncharged"
+                assert parts[0] == "host-tRNA-Ala-TGC-1-1"
 
                 # Should have list of reads
                 assert isinstance(reads, list)
@@ -430,7 +428,7 @@ class TestBamFileMotifIntegration:
         with BamFile(bam_file) as bam:
             # Pass path as string
             overlaps = bam.get_reads_overlapping_motif(
-                str(fasta_file), "GGG", region="tRNA-Ala-AGC-1-1-uncharged"
+                str(fasta_file), "GGG", region="host-tRNA-Ala-TGC-1-1"
             )
 
             assert isinstance(overlaps, dict)

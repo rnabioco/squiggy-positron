@@ -98,7 +98,7 @@ export interface LoadedItem {
     // ========== For Samples Only ==========
 
     /**
-     * Human-readable sample name (e.g., "Sample1", "Yeast tRNA")
+     * Human-readable sample name (e.g., "Sample1", "Ecoli_WT")
      * Defined only when type === 'sample'
      */
     sampleName?: string;

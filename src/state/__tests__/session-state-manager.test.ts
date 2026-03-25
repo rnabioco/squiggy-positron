@@ -304,8 +304,9 @@ describe('SessionStateManager', () => {
 
             expect(demoSession.isDemo).toBe(true);
             expect(demoSession.sessionName).toContain('Demo');
-            expect(demoSession.samples.Yeast_tRNA).toBeDefined();
-            expect(demoSession.samples.Yeast_tRNA.pod5Paths[0]).toContain('<package:squiggy>');
+            expect(demoSession.samples.Ecoli_WT).toBeDefined();
+            expect(demoSession.samples.Ecoli_WT.pod5Paths[0]).toContain('<package:squiggy>');
+            expect(demoSession.samples.Ecoli_TruB).toBeDefined();
         });
 
         it('should use EVENTALIGN mode for demo', () => {
@@ -318,7 +319,8 @@ describe('SessionStateManager', () => {
         it('should have expanded UI state for demo sample', () => {
             const demoSession = SessionStateManager.getDemoSession(mockExtensionUri);
 
-            expect(demoSession.ui?.expandedSamples).toContain('Yeast_tRNA');
+            expect(demoSession.ui?.expandedSamples).toContain('Ecoli_WT');
+            expect(demoSession.ui?.expandedSamples).toContain('Ecoli_TruB');
         });
     });
 

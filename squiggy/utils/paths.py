@@ -151,7 +151,7 @@ def get_sample_data_path():
     directory to allow the pod5 library to perform format migration if needed.
 
     Returns:
-        Path: Path to yeast_trna_reads.pod5 file (may be in temp directory)
+        Path: Path to ecoli_trna_wt_reads.pod5 file (may be in temp directory)
 
     Raises:
         FileNotFoundError: If sample data cannot be found
@@ -159,7 +159,7 @@ def get_sample_data_path():
     # Create temp directory for sample data
     temp_dir = Path(tempfile.gettempdir()) / "squiggy_data"
     temp_dir.mkdir(exist_ok=True)
-    temp_file = temp_dir / "yeast_trna_reads.pod5"
+    temp_file = temp_dir / "ecoli_trna_wt_reads.pod5"
 
     try:
         # Find the bundled sample data
@@ -168,7 +168,7 @@ def get_sample_data_path():
         import importlib.resources as resources
 
         files = resources.files("squiggy")
-        sample_path = files / "data" / "yeast_trna_reads.pod5"
+        sample_path = files / "data" / "ecoli_trna_wt_reads.pod5"
 
         # If it's a regular file path, use it directly as source
         if hasattr(sample_path, "as_posix"):
@@ -205,7 +205,7 @@ def get_sample_data_path():
 
         # Last resort: look in package directory
         package_dir = Path(__file__).parent.parent
-        sample_path = package_dir / "data" / "yeast_trna_reads.pod5"
+        sample_path = package_dir / "data" / "ecoli_trna_wt_reads.pod5"
 
         if sample_path.exists():
             # Always copy when running from PyInstaller bundle
@@ -233,11 +233,9 @@ def get_test_data_path():
     """Get the path to the bundled test data directory
 
     Returns the path to the squiggy/data directory which contains test/demo files:
-    - yeast_trna_reads.pod5
-    - yeast_trna_mappings.bam
-    - yeast_trna_mappings.bam.bai
-    - yeast_trna.fa
-    - yeast_trna.fa.fai
+    - ecoli_trna_wt_reads.pod5 / ecoli_trna_tb_reads.pod5
+    - ecoli_trna_wt_mappings.bam / ecoli_trna_tb_mappings.bam
+    - ecoli_trna.fa (shared reference FASTA)
 
     Returns:
         str: Path to the squiggy/data directory
@@ -248,7 +246,7 @@ def get_test_data_path():
     Examples:
         >>> from pathlib import Path
         >>> data_dir = Path(get_test_data_path())
-        >>> pod5_file = data_dir / 'yeast_trna_reads.pod5'
+        >>> pod5_file = data_dir / 'ecoli_trna_wt_reads.pod5'
     """
     import importlib.util
 
@@ -279,15 +277,15 @@ def get_sample_bam_path():
     writable temporary directory.
 
     Returns:
-        Path: Path to yeast_trna_mappings.bam file (may be in temp directory)
+        Path: Path to ecoli_trna_wt_mappings.bam file (may be in temp directory)
         Returns None if BAM file not found
 
     """
     # Create temp directory for sample data
     temp_dir = Path(tempfile.gettempdir()) / "squiggy_data"
     temp_dir.mkdir(exist_ok=True)
-    temp_bam = temp_dir / "yeast_trna_mappings.bam"
-    temp_bai = temp_dir / "yeast_trna_mappings.bam.bai"
+    temp_bam = temp_dir / "ecoli_trna_wt_mappings.bam"
+    temp_bai = temp_dir / "ecoli_trna_wt_mappings.bam.bai"
 
     try:
         # Find the bundled sample BAM file
@@ -297,8 +295,8 @@ def get_sample_bam_path():
         import importlib.resources as resources
 
         files = resources.files("squiggy")
-        sample_bam_path = files / "data" / "yeast_trna_mappings.bam"
-        sample_bai_path = files / "data" / "yeast_trna_mappings.bam.bai"
+        sample_bam_path = files / "data" / "ecoli_trna_wt_mappings.bam"
+        sample_bai_path = files / "data" / "ecoli_trna_wt_mappings.bam.bai"
 
         # If it's a regular file path, use it directly as source
         if hasattr(sample_bam_path, "as_posix"):
@@ -349,8 +347,8 @@ def get_sample_bam_path():
 
         # Last resort: look in package directory
         package_dir = Path(__file__).parent.parent
-        sample_bam = package_dir / "data" / "yeast_trna_mappings.bam"
-        sample_bai = package_dir / "data" / "yeast_trna_mappings.bam.bai"
+        sample_bam = package_dir / "data" / "ecoli_trna_wt_mappings.bam"
+        sample_bai = package_dir / "data" / "ecoli_trna_wt_mappings.bam.bai"
 
         if sample_bam.exists():
             # Always copy when running from PyInstaller bundle

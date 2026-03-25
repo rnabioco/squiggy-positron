@@ -137,8 +137,8 @@ python3.12 -m ruff check squiggy/ tests/
 ### Sample Data
 
 Located in `squiggy/data/`:
-- `yeast_trna_reads.pod5` - POD5 file with 180 reads
-- `yeast_trna_mappings.bam` - BAM file with alignments
+- `ecoli_trna_wt_reads.pod5` / `ecoli_trna_tb_reads.pod5` - E. coli tRNA POD5 files (WT vs TruB)
+- `ecoli_trna_wt_mappings.bam` / `ecoli_trna_tb_mappings.bam` - BAM files with modifications
 
 ## Key Context for Claude
 

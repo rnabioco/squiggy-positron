@@ -12,8 +12,10 @@ Before starting tests:
 5. Open the test data folder: `tests/data/`
 
 ### Test Data Files
-- `yeast_trna_reads.pod5` - 180 reads POD5 file
-- `yeast_trna_mappings.bam` - Corresponding BAM file (alignments)
+- `ecoli_trna_wt_reads.pod5` - WT E. coli tRNA POD5 file (180 reads)
+- `ecoli_trna_wt_mappings.bam` - Corresponding BAM file (alignments with modifications)
+- `ecoli_trna_tb_reads.pod5` - TruB mutant POD5 file (180 reads)
+- `ecoli_trna_tb_mappings.bam` - Corresponding BAM file
 
 ---
 
@@ -30,12 +32,12 @@ Before starting tests:
 2. **Open POD5 File**
    - Command Palette (Cmd+Shift+P)
    - Type: `Squiggy: Open POD5 File`
-   - Select: `tests/data/yeast_trna_reads.pod5`
+   - Select: `tests/data/ecoli_trna_wt_reads.pod5`
    - Click "Open"
 
 3. **Verify File Panel Updated**
    - ✅ File Panel should show:
-     - Filename: `yeast_trna_reads.pod5`
+     - Filename: `ecoli_trna_wt_reads.pod5`
      - Type: `POD5`
      - Number of reads: `180`
      - File size: Should display (e.g., "1.2 MB")
@@ -99,7 +101,7 @@ Before starting tests:
 
 ### Prerequisites
 - Complete Test 1 (POD5 loaded)
-- Have BAM file available: `tests/data/yeast_trna_mappings.bam`
+- Have BAM file available: `tests/data/ecoli_trna_wt_mappings.bam`
 
 ### Steps
 
@@ -109,7 +111,7 @@ Before starting tests:
 
 2. **Load BAM File**
    - Command Palette → `Squiggy: Open BAM File`
-   - Select: `tests/data/yeast_trna_mappings.bam`
+   - Select: `tests/data/ecoli_trna_wt_mappings.bam`
    - Click "Open"
 
 3. **Verify File Panel Updated**

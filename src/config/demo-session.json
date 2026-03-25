@@ -1,15 +1,22 @@
 {
   "version": "1.0.0",
   "timestamp": "2025-01-01T00:00:00.000Z",
-  "sessionName": "Demo: Yeast tRNA Reads",
+  "sessionName": "Demo: E. coli tRNA (WT vs TruB)",
   "isDemo": true,
   "samples": {
-    "Yeast_tRNA": {
+    "Ecoli_WT": {
       "pod5Paths": [
-        "<package:squiggy>/data/yeast_trna_reads.pod5"
+        "<package:squiggy>/data/ecoli_trna_wt_reads.pod5"
       ],
-      "bamPath": "<package:squiggy>/data/yeast_trna_mappings.bam",
-      "fastaPath": "<package:squiggy>/data/yeast_trna.fa"
+      "bamPath": "<package:squiggy>/data/ecoli_trna_wt_mappings.bam",
+      "fastaPath": "<package:squiggy>/data/ecoli_trna.fa"
+    },
+    "Ecoli_TruB": {
+      "pod5Paths": [
+        "<package:squiggy>/data/ecoli_trna_tb_reads.pod5"
+      ],
+      "bamPath": "<package:squiggy>/data/ecoli_trna_tb_mappings.bam",
+      "fastaPath": "<package:squiggy>/data/ecoli_trna.fa"
     }
   },
   "plotOptions": {
@@ -22,7 +29,8 @@
     "showSignalPoints": false
   },
   "ui": {
-    "expandedSamples": ["Yeast_tRNA"],
-    "selectedSamplesForComparison": []
+    "expandedSamples": ["Ecoli_WT", "Ecoli_TruB"],
+    "selectedSamplesForComparison": [],
+    "selectedReadExplorerSample": "Ecoli_WT"
   }
 }

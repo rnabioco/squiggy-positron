@@ -189,21 +189,28 @@ export class SessionStateManager {
         // Use placeholder paths - these will be resolved by Python at runtime
         // The format is: <package:squiggy>/data/filename
         // This gets resolved by the extension when loading the session
-        const pod5Path = '<package:squiggy>/data/yeast_trna_reads.pod5';
-        const bamPath = '<package:squiggy>/data/yeast_trna_mappings.bam';
-        const fastaPath = '<package:squiggy>/data/yeast_trna.fa';
+        const wtPod5 = '<package:squiggy>/data/ecoli_trna_wt_reads.pod5';
+        const wtBam = '<package:squiggy>/data/ecoli_trna_wt_mappings.bam';
+        const tbPod5 = '<package:squiggy>/data/ecoli_trna_tb_reads.pod5';
+        const tbBam = '<package:squiggy>/data/ecoli_trna_tb_mappings.bam';
+        const fastaPath = '<package:squiggy>/data/ecoli_trna.fa';
 
         return {
             version: SESSION_VERSION,
             timestamp: new Date().toISOString(),
-            sessionName: 'Demo: Yeast tRNA Reads',
+            sessionName: 'Demo: E. coli tRNA (WT vs TruB)',
             isDemo: true,
 
-            // Single demo sample
+            // Two demo samples: WT (has Ψ55) vs TruB mutant (lacks Ψ55)
             samples: {
-                Yeast_tRNA: {
-                    pod5Paths: [pod5Path],
-                    bamPath: bamPath,
+                Ecoli_WT: {
+                    pod5Paths: [wtPod5],
+                    bamPath: wtBam,
+                    fastaPath: fastaPath,
+                },
+                Ecoli_TruB: {
+                    pod5Paths: [tbPod5],
+                    bamPath: tbBam,
                     fastaPath: fastaPath,
                 },
             },
@@ -219,14 +226,14 @@ export class SessionStateManager {
                 showSignalPoints: false,
             },
 
-            // No modification filters for demo (yeast data doesn't have mods)
+            // No modification filters for demo (let user explore)
             modificationFilters: undefined,
 
             // UI state
             ui: {
-                expandedSamples: ['Yeast_tRNA'],
+                expandedSamples: ['Ecoli_WT', 'Ecoli_TruB'],
                 selectedSamplesForComparison: [],
-                selectedReadExplorerSample: 'Yeast_tRNA', // Auto-select the demo sample
+                selectedReadExplorerSample: 'Ecoli_WT', // Auto-select WT sample
             },
         };
     }

@@ -2,49 +2,62 @@
 
 This directory contains demo data files bundled with the squiggy Python package.
 
+## Biological Context
+
+E. coli tRNA data comparing wildtype (WT) vs TruB mutant at 15 minutes (control condition). TruB catalyzes pseudouridine (Ψ) at position 55 in the T-loop of tRNAs. The TruB mutant lacks this modification, providing a clear biological comparison for demonstrating modification visualization.
+
+**Source**: 2026 phage infection experiment, charged-only reads from `wt-15-ctl-01` and `tb-15-ctl-01`.
+
 ## Files
 
-- **yeast_trna_reads.pod5** (1.7 MB) - 180 Oxford Nanopore reads from yeast tRNA
-- **yeast_trna_mappings.bam** (113 KB) - Alignments of the reads to reference
-- **yeast_trna_mappings.bam.bai** (1.5 KB) - BAM index file
-- **yeast_trna.fa** (507 bytes) - Reference sequence (yeast tRNA)
-- **yeast_trna.fa.fai** (129 bytes) - FASTA index file
+### WT Sample (wildtype, has Ψ55)
+- **ecoli_trna_wt_reads.pod5** (1.5 MB) - 180 reads (60 per reference)
+- **ecoli_trna_wt_mappings.bam** (102 KB) - Alignments with modifications
+- **ecoli_trna_wt_mappings.bam.bai** - BAM index
+
+### TruB Sample (TruB mutant, lacks Ψ55)
+- **ecoli_trna_tb_reads.pod5** (1.4 MB) - 180 reads (60 per reference)
+- **ecoli_trna_tb_mappings.bam** (93 KB) - Alignments with modifications
+- **ecoli_trna_tb_mappings.bam.bai** - BAM index
+
+### Shared Reference
+- **ecoli_trna.fa** - Reference FASTA (3 tRNA sequences with adapters)
+- **ecoli_trna.fa.fai** - FASTA index
+
+## References Included
+
+| Reference | Length | Description |
+|-----------|--------|-------------|
+| host-tRNA-Arg-ACG-1-1 | 141 bp | Arginine tRNA |
+| host-tRNA-Gly-GCC-1-1 | 140 bp | Glycine tRNA |
+| host-tRNA-Ala-TGC-1-1 | 140 bp | Alanine tRNA |
+
+## BAM Tags
+
+All reads include:
+- `mv` - Move table (signal-to-base alignment)
+- `ts` - Trim start offset
+- `MM`/`ML` - Base modification calls (8 types: A+17596, A+69426, A+a, C+19228, C+m, G+19229, T+17802, T+19227)
+- `PT` - Adapter boundary positions
 
 ## Usage
 
 ### From Positron Extension
 
-The Squiggy extension provides a **"Load Demo Session"** button that automatically loads these files for quick exploration.
+The Squiggy extension provides a **"Load Demo Session"** button that loads both WT and TruB samples for side-by-side comparison.
 
 ### From Python
 
 ```python
 import squiggy
-import importlib.util
-import os
 
-# Find the package location
-spec = importlib.util.find_spec('squiggy')
-package_dir = os.path.dirname(spec.origin)
-data_dir = os.path.join(package_dir, 'data')
+data_dir = squiggy.get_test_data_path()
 
-# Load demo files
-pod5_path = os.path.join(data_dir, 'yeast_trna_reads.pod5')
-bam_path = os.path.join(data_dir, 'yeast_trna_mappings.bam')
-
-squiggy.load_pod5(pod5_path)
-squiggy.load_bam(bam_path)
-
-# Plot a read
-plot = squiggy.plot_read('read_001', plot_mode='EVENTALIGN')
+# Load WT sample
+squiggy.load_pod5(f'{data_dir}/ecoli_trna_wt_reads.pod5')
+squiggy.load_bam(f'{data_dir}/ecoli_trna_wt_mappings.bam')
 ```
-
-## Data Source
-
-These files are used for both demos and the squiggy test suite.
 
 ## Size
 
-Total size: ~1.9 MB (includes POD5, BAM, and FASTA files)
-
-These files are included in the Python package to provide users with an instant way to explore squiggy's capabilities without needing to download or provide their own nanopore data.
+Total: ~3.2 MB (2 POD5 + 2 BAM + FASTA files)
