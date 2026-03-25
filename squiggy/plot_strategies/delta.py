@@ -151,6 +151,7 @@ class DeltaPlotStrategy(PlotStrategy):
         delta_std = data["delta_std_signal"]
         sample_a_name = data["sample_a_name"]
         sample_b_name = data["sample_b_name"]
+        reference_name = data.get("reference_name")
         coverage_a = data.get("sample_a_coverage", [1] * len(positions))
         coverage_b = data.get("sample_b_coverage", [1] * len(positions))
 
@@ -174,7 +175,12 @@ class DeltaPlotStrategy(PlotStrategy):
 
         # Create delta signal track
         p_signal = self._create_signal_track(
-            positions, delta_mean, delta_std, sample_a_name, sample_b_name
+            positions,
+            delta_mean,
+            delta_std,
+            sample_a_name,
+            sample_b_name,
+            reference_name=reference_name,
         )
 
         # Create delta stats track
@@ -209,6 +215,7 @@ class DeltaPlotStrategy(PlotStrategy):
         delta_std: np.ndarray,
         sample_a_name: str,
         sample_b_name: str,
+        reference_name: str | None = None,
     ) -> Any:
         """
         Create delta signal track with confidence bands
@@ -224,8 +231,9 @@ class DeltaPlotStrategy(PlotStrategy):
             Bokeh figure object
         """
         # Create figure
+        ref_suffix = self._format_ref_suffix(reference_name) if reference_name else ""
         p = self.theme_manager.create_figure(
-            title=f"Delta Signal: {sample_b_name} - {sample_a_name}",
+            title=f"Delta Signal: {sample_b_name} - {sample_a_name}{ref_suffix}",
             x_label="Position",
             y_label="Δ Signal (pA)",
             width=900,

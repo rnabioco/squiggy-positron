@@ -1429,6 +1429,7 @@ def plot_delta_comparison(
         "sample_b_name": sample_b.name,
         "sample_a_coverage": stats_a.get("coverage", [1] * len(positions)),
         "sample_b_coverage": stats_b.get("coverage", [1] * len(positions)),
+        "reference_name": reference_name,
     }
 
     options = {"normalization": norm_method}
@@ -1668,6 +1669,7 @@ def plot_signal_overlay_comparison(
         "samples": plot_data,
         "reference_sequence": reference_sequence,
         "coverage": coverage_data,
+        "reference_name": reference_name,
     }
 
     options = {"normalization": norm_method}
