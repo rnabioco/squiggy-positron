@@ -458,6 +458,7 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
             // Filter for samples and convert to SampleItem format
             const samples = items
                 .filter((item) => item.type === 'sample')
+                .filter((item) => !item.isDeferred && !item.isLoading)
                 .map((item) => ({
                     name: item.sampleName || '',
                     pod5Path: item.pod5Path || '',

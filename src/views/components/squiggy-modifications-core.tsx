@@ -19,17 +19,35 @@ interface ModificationsState {
 
 // Map common modification codes to names
 const modCodeToName: Record<string, string> = {
-    // Single-letter codes
+    // Single-letter codes (cytosine)
     m: '5-methylcytosine (5mC)',
     h: '5-hydroxymethylcytosine (5hmC)',
+    f: '5-formylcytosine (5fC)',
+    c: '5-carboxylcytosine (5caC)',
+    // Single-letter codes (adenine)
     a: '6-methyladenine (6mA)',
+    // Single-letter codes (guanine)
     o: '8-oxoguanine (8-oxoG)',
-    // ChEBI codes (common RNA modifications)
+    // Single-letter codes (thymine/uracil)
+    g: '5-hydroxymethyluracil (5hmU)',
+    e: '5-formyluracil (5fU)',
+    b: '5-carboxyuracil (5caU)',
+    // ChEBI codes (cytosine)
+    '21839': '4-methylcytosine (4mC)',
+    '19228': "2'-O-methylcytosine (Cm)",
+    // ChEBI codes (adenine)
     '17596': 'Inosine (I)',
+    '69426': "2'-O-methyladenine (Am)",
+    // ChEBI codes (guanine)
+    '19229': "2'-O-methylguanine (Gm)",
+    // ChEBI codes (thymine/uracil)
+    '17802': 'Pseudouridine (Ψ)',
+    '16450': 'Deoxyuridine (dU)',
+    '19227': "2'-O-methyluracil (Um)",
+    // ChEBI codes (common RNA modifications)
     '28177': '1-methyladenosine (m1A)',
     '21863': '1-methylguanosine (m1G)',
     '28527': '7-methylguanosine (m7G)',
-    '17802': 'Pseudouridine (Ψ)',
     '27301': '5-methyluridine (m5U)',
     '18421': 'Dihydrouridine (D)',
 };
@@ -41,19 +59,25 @@ const modificationColors: Record<string, string> = {
     h: '#E6D835',
     f: '#DCC728',
     c: '#FFF78A',
+    '21839': '#FFFC9E',
+    '19228': '#D4BC1F',
     C: '#F0E442',
     // Adenine modifications (green family)
     a: '#009E73',
     '17596': '#00C490',
+    '69426': '#007A57',
     A: '#009E73',
     // Guanine modifications (blue family)
     o: '#0072B2',
+    '19229': '#4DA6E0',
     G: '#0072B2',
     // Thymine/Uracil modifications (orange family)
     g: '#D55E00',
     e: '#FF7518',
     b: '#B34C00',
     '17802': '#FF9447',
+    '16450': '#8F3D00',
+    '19227': '#FFB880',
     T: '#D55E00',
     // Default
     default: '#999999',
