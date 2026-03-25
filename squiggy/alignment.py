@@ -257,6 +257,13 @@ def _parse_alignment(alignment) -> AlignedRead | None:
     )
 
 
+def has_both_adapters(primer_regions: list[PrimerRegion]) -> bool:
+    """Check if primer regions include both 5' and 3' adapters."""
+    has_5p = any("5p" in r.name for r in primer_regions)
+    has_3p = any("3p" in r.name for r in primer_regions)
+    return has_5p and has_3p
+
+
 def trim_primers(
     aligned_read: AlignedRead,
     signal: np.ndarray,

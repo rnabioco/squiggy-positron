@@ -976,8 +976,9 @@ async function loadSampleForComparison(
                 fileSizeFormatted: metadata.fileSizeFormatted,
                 hasAlignments: !!bamPath,
                 hasReference: !!fastaPath,
-                hasMods: false, // Will be populated if BAM has mods
-                hasEvents: false, // Will be populated if BAM has event alignment
+                hasMods: loadResult.bamInfo?.hasModifications ?? false,
+                hasEvents: loadResult.bamInfo?.hasEventAlignment ?? false,
+                hasPrimers: loadResult.bamInfo?.hasPrimers ?? false,
             };
 
             // Add to unified state (triggers onLoadedItemsChanged event)
@@ -1141,8 +1142,9 @@ paths = {
                         fileSizeFormatted: metadata.fileSizeFormatted,
                         hasAlignments: !!sample.bamPath,
                         hasReference: !!sample.fastaPath,
-                        hasMods: false, // Will be populated if BAM has mods
-                        hasEvents: false, // Will be populated if BAM has event alignment
+                        hasMods: loadResult.bamInfo?.hasModifications ?? false,
+                        hasEvents: loadResult.bamInfo?.hasEventAlignment ?? false,
+                        hasPrimers: loadResult.bamInfo?.hasPrimers ?? false,
                     };
 
                     // Add to unified state (triggers onLoadedItemsChanged event)

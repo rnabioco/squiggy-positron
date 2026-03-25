@@ -801,7 +801,8 @@ async function plotAggregateComparison(
                 params.maxReads || null,
                 normalization,
                 theme,
-                Object.keys(sampleColors).length > 0 ? sampleColors : undefined
+                Object.keys(sampleColors).length > 0 ? sampleColors : undefined,
+                options?.trimPrimers ?? true
             );
         },
         ErrorContext.PLOT_GENERATE,

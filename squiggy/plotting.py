@@ -718,6 +718,49 @@ def plot_aggregate(
         )
 
     num_reads = len(reads_data)
+    total_reads = None  # Set when primer filtering reduces the count
+    primer_trim_bounds = None  # (start_ref_pos, end_ref_pos) for x-axis clipping
+
+    # Primer trimming: filter to reads with both adapters and compute
+    # consensus tRNA body boundaries for x-axis clipping.
+    if trim_primers:
+        from .alignment import has_both_adapters
+
+        total_reads = num_reads
+        reads_data = [
+            rd for rd in reads_data
+            if has_both_adapters(rd.get("primer_regions", []))
+        ]
+        num_reads = len(reads_data)
+        if not reads_data:
+            raise ValueError(
+                f"No reads with both adapters found for '{reference_name}'. "
+                "Uncheck 'Show primers/adapters' to include all reads."
+            )
+
+        # Compute consensus tRNA body bounds from primer boundaries
+        # Map each read's primer end/start to reference coordinates
+        body_starts = []  # ref pos of first non-primer base per read
+        body_ends = []  # ref pos of last non-primer base per read
+        for rd in reads_data:
+            q2r = rd.get("query_to_ref", {})
+            for region in rd.get("primer_regions", []):
+                if region.start == 0:
+                    # 5' adapter: first non-primer base is at region.end
+                    rpos = q2r.get(region.end)
+                    if rpos is not None:
+                        body_starts.append(rpos)
+                else:
+                    # 3' adapter: last non-primer base is at region.start - 1
+                    rpos = q2r.get(region.start - 1)
+                    if rpos is not None:
+                        body_ends.append(rpos)
+
+        if body_starts and body_ends:
+            primer_trim_bounds = (
+                int(np.median(body_starts)),
+                int(np.median(body_ends)),
+            )
 
     # Calculate aggregate statistics
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
@@ -829,6 +872,13 @@ def plot_aggregate(
                 old = list(dwell_stats["positions"])
                 dwell_stats["positions"] = np.array([int(p) - offset for p in old])
 
+            # Transform primer_trim_bounds
+            if primer_trim_bounds is not None:
+                primer_trim_bounds = (
+                    primer_trim_bounds[0] - offset,
+                    primer_trim_bounds[1] - offset,
+                )
+
     # Prepare data for AggregatePlotStrategy
     data = {
         "aggregate_stats": aggregate_stats,
@@ -838,6 +888,8 @@ def plot_aggregate(
         "dwell_stats": dwell_stats,
         "reference_name": reference_name,
         "num_reads": num_reads,
+        "total_reads": total_reads,  # Non-None when primer filtering reduced count
+        "primer_trim_bounds": primer_trim_bounds,  # (start, end) for x-axis clipping
         "transformation_info": transformation_info,  # Diagnostic info
         "sample_name": sample_name,  # Optional sample name for multi-sample mode
     }
@@ -1690,6 +1742,7 @@ def plot_aggregate_comparison(
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
     sample_colors: dict[str, str] | None = None,
+    trim_primers: bool = True,
 ) -> str:
     """
     Generate aggregate comparison plot for multiple samples
@@ -1833,6 +1886,45 @@ def plot_aggregate_comparison(
             raise ValueError(
                 f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
             )
+
+        # Apply per-read primer trimming
+        if trim_primers:
+            from .alignment import has_both_adapters
+
+            reads = [
+                rd for rd in reads
+                if has_both_adapters(rd.get("primer_regions", []))
+            ]
+            if not reads:
+                raise ValueError(
+                    f"No reads with both adapters found for sample '{sample.name}' "
+                    f"on reference '{reference_name}'. "
+                    "Uncheck 'Show primers/adapters' to include all reads."
+                )
+            for rd in reads:
+                q2r = rd.get("query_to_ref", {})
+                for region in rd.get("primer_regions", []):
+                    if region.start == 0:
+                        rd["query_start_offset"] = max(
+                            rd.get("query_start_offset", 0), region.end
+                        )
+                        first_non_primer = q2r.get(region.end)
+                        if first_non_primer is not None:
+                            rd["reference_start"] = max(
+                                rd["reference_start"], first_non_primer
+                            )
+                    else:
+                        seq_len = len(rd.get("sequence", "")) or 0
+                        primer_end_count = seq_len - region.start
+                        if primer_end_count > 0:
+                            rd["query_end_offset"] = max(
+                                rd.get("query_end_offset", 0), primer_end_count
+                            )
+                        last_non_primer = q2r.get(region.start - 1) if region.start > 0 else None
+                        if last_non_primer is not None:
+                            rd["reference_end"] = min(
+                                rd["reference_end"], last_non_primer + 1
+                            )
 
         # Calculate statistics based on requested metrics
         sample_stats = {"name": sample.name}

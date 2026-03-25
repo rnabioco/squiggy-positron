@@ -150,6 +150,7 @@ export const PlotOptionsCore: React.FC = () => {
                         showQuality: message.options.showQuality ?? prev.showQuality,
                         showCoverage: message.options.showCoverage ?? prev.showCoverage,
                         rnaMode: message.options.rnaMode ?? prev.rnaMode,
+                        trimPrimers: message.options.trimPrimers ?? prev.trimPrimers,
                     }));
                     break;
                 case 'updatePod5Status':

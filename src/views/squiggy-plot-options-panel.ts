@@ -380,6 +380,7 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
                 showSignal: this._showSignal,
                 showQuality: this._showQuality,
                 rnaMode: this._rnaMode,
+                trimPrimers: this._trimPrimers,
             },
         };
         this.postMessage(updateMessage);

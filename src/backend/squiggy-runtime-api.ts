@@ -1342,7 +1342,8 @@ squiggy.plot_delta_comparison(
         maxReads?: number | null,
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT',
-        sampleColors?: Record<string, string>
+        sampleColors?: Record<string, string>,
+        trimPrimers: boolean = true
     ): Promise<void> {
         // Validate input
         if (!sampleNames || sampleNames.length < 2) {
@@ -1379,7 +1380,8 @@ squiggy.plot_aggregate_comparison(
     reference_name='${escapedRefName}',
     metrics=${metricsJson},
     normalization='${normalization}',
-    theme='${theme}'${maxReadsParam}${sampleColorsParam}
+    theme='${theme}',
+    trim_primers=${trimPrimers ? 'True' : 'False'}${maxReadsParam}${sampleColorsParam}
 )
 `;
 

@@ -150,6 +150,9 @@ def _load_sample_files(
             "modification_types": metadata["modification_types"],
             "has_probabilities": metadata["has_probabilities"],
             "has_event_alignment": metadata["has_event_alignment"],
+            "has_primers": metadata.get("has_primers", False),
+            "basecall_model": metadata.get("basecall_model"),
+            "is_rna": metadata.get("is_rna", False),
             "ref_counts": metadata["ref_counts"],
             "ref_mapping": metadata["ref_mapping"],
         }

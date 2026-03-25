@@ -165,6 +165,8 @@ class AggregatePlotStrategy(PlotStrategy):
         dwell_stats = data.get("dwell_stats")
         reference_name = data["reference_name"]
         num_reads = data["num_reads"]
+        total_reads = data.get("total_reads")  # Non-None when primer filtering reduced count
+        primer_trim_bounds = data.get("primer_trim_bounds")  # (start, end) for x-axis clipping
         transformation_info = data.get("transformation_info", "")
         sample_name = data.get("sample_name")
 
@@ -190,6 +192,7 @@ class AggregatePlotStrategy(PlotStrategy):
             reference_name=reference_name,
             num_reads=num_reads,
             sample_name=sample_name,
+            total_reads=total_reads,
         )
         panels.append([header])
         # Note: Don't add to all_figs - Div doesn't have x_range
@@ -264,35 +267,40 @@ class AggregatePlotStrategy(PlotStrategy):
                     import numpy as np
                     from bokeh.models import Range1d
 
-                    # Find consensus region: positions with >50% of maximum coverage
-                    # This filters out sparse regions where only a few reads align
-                    max_coverage = np.max(coverage)
-                    coverage_threshold = max_coverage * 0.5
-
-                    # Find positions that meet the threshold
-                    high_coverage_mask = np.array(coverage) >= coverage_threshold
-                    high_coverage_positions = np.array(all_positions)[
-                        high_coverage_mask
-                    ]
-
-                    if len(high_coverage_positions) > 0:
-                        # Check if coordinates were transformed to be reference-anchored
-                        is_transformed = bool(transformation_info)
-
-                        if is_transformed:
-                            # For transformed coordinates: always start at position 1
-                            # Position 1 represents the first base of the reference sequence
-                            start_pos = 1
-                        else:
-                            # For genomic coordinates: use original high-coverage clipping
-                            start_pos = high_coverage_positions[0]
-
-                        # End position: clip to last high-coverage position (both modes)
-                        end_pos = high_coverage_positions[-1]
+                    if primer_trim_bounds is not None:
+                        # Use primer-derived consensus body bounds as x-axis
+                        start_pos = primer_trim_bounds[0]
+                        end_pos = primer_trim_bounds[1]
                     else:
-                        # Fallback to all positions if threshold filters everything
-                        start_pos = all_positions[0]
-                        end_pos = all_positions[-1]
+                        # Find consensus region: positions with >50% of maximum coverage
+                        # This filters out sparse regions where only a few reads align
+                        max_coverage = np.max(coverage)
+                        coverage_threshold = max_coverage * 0.5
+
+                        # Find positions that meet the threshold
+                        high_coverage_mask = np.array(coverage) >= coverage_threshold
+                        high_coverage_positions = np.array(all_positions)[
+                            high_coverage_mask
+                        ]
+
+                        if len(high_coverage_positions) > 0:
+                            # Check if coordinates were transformed to be reference-anchored
+                            is_transformed = bool(transformation_info)
+
+                            if is_transformed:
+                                # For transformed coordinates: always start at position 1
+                                # Position 1 represents the first base of the reference sequence
+                                start_pos = 1
+                            else:
+                                # For genomic coordinates: use original high-coverage clipping
+                                start_pos = high_coverage_positions[0]
+
+                            # End position: clip to last high-coverage position (both modes)
+                            end_pos = high_coverage_positions[-1]
+                        else:
+                            # Fallback to all positions if threshold filters everything
+                            start_pos = all_positions[0]
+                            end_pos = all_positions[-1]
 
                     # Add 0.5 padding to prevent bars from being cut off
                     base_x_range = Range1d(start=start_pos - 0.5, end=end_pos + 0.5)
@@ -331,18 +339,25 @@ class AggregatePlotStrategy(PlotStrategy):
         reference_name: str,
         num_reads: int,
         sample_name: str | None = None,
+        total_reads: int | None = None,
     ):
         """Create a compact header displaying sample and reference information"""
         text_color = self.theme_manager.get_color("title_text")
         bg_color = self.theme_manager.get_color("plot_bg")
 
+        # Build reads label, showing filter info when primer trimming reduced count
+        if total_reads is not None:
+            reads_label = f"{num_reads:,}/{total_reads:,} reads, primer-trimmed"
+        else:
+            reads_label = f"{num_reads:,} reads"
+
         # Build header text with optional sample name
         if sample_name:
             header_text = (
-                f"<b>{sample_name}</b> · {reference_name} ({num_reads:,} reads)"
+                f"<b>{sample_name}</b> · {reference_name} ({reads_label})"
             )
         else:
-            header_text = f"<b>{reference_name}</b> ({num_reads:,} reads)"
+            header_text = f"<b>{reference_name}</b> ({reads_label})"
 
         header = Div(
             text=header_text,
