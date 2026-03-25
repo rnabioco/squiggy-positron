@@ -657,16 +657,18 @@ def extract_reads_for_reference(
                     np.array(read.query_qualities) if read.query_qualities else None
                 )
 
-                # Extract modifications using _parse_alignment
+                # Extract modifications and primer regions using _parse_alignment
                 modifications = []
+                primer_regions = []
                 try:
                     from ..alignment import _parse_alignment
 
                     aligned_read = _parse_alignment(read)
                     if aligned_read:
                         modifications = aligned_read.modifications
+                        primer_regions = aligned_read.primer_regions
                 except Exception:
-                    # Modifications are optional, don't fail if extraction fails
+                    # Modifications/primers are optional, don't fail if extraction fails
                     pass
 
                 # Calculate soft-clipped bases at the start and end of the read
@@ -700,6 +702,7 @@ def extract_reads_for_reference(
                         "stride": stride,
                         "quality_scores": quality_scores,
                         "modifications": modifications,
+                        "primer_regions": primer_regions,
                         "query_start_offset": query_start_offset,  # Soft-clipped bases at start
                         "query_end_offset": query_end_offset,  # Soft-clipped bases at end
                         "query_to_ref": query_to_ref,  # Query pos -> Ref pos mapping (handles indels)

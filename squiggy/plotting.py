@@ -621,6 +621,8 @@ def plot_aggregate(
     rna_mode: bool = False,
     sample_name: str | None = None,
     trim_primers: bool = True,
+    primer_5p: str | None = None,
+    adapter_3p: str | None = None,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -718,6 +720,35 @@ def plot_aggregate(
         )
 
     num_reads = len(reads_data)
+    total_reads = None  # Set when primer filtering reduces the count
+    primer_trim_bounds = None  # (start_ref_pos, end_ref_pos) for x-axis clipping
+
+    # Primer trimming: derive body bounds from FASTA reference and optionally
+    # filter to reads with both adapters detected.
+    if trim_primers:
+        # Derive body bounds from FASTA primer/adapter sequences
+        if fasta_path:
+            from .alignment import find_body_bounds
+
+            bounds_kwargs = {}
+            if primer_5p is not None:
+                bounds_kwargs["primer_5p"] = primer_5p
+            if adapter_3p is not None:
+                bounds_kwargs["adapter_3p"] = adapter_3p
+            primer_trim_bounds = find_body_bounds(
+                fasta_path, reference_name, **bounds_kwargs
+            )
+
+        # Filter to reads with both adapters if PT tags are available
+        from .alignment import has_both_adapters
+
+        reads_with_adapters = [
+            rd for rd in reads_data if has_both_adapters(rd.get("primer_regions", []))
+        ]
+        if reads_with_adapters:
+            total_reads = num_reads
+            reads_data = reads_with_adapters
+            num_reads = len(reads_data)
 
     # Calculate aggregate statistics
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
@@ -742,12 +773,11 @@ def plot_aggregate(
     transformation_info = ""
 
     if transform_coordinates:
-        # Anchor to first base of reference sequence (from pileup reference_bases)
-        # This ensures x-axis position 1 = first base of the reference sequence
-        reference_bases = pileup_stats.get("reference_bases", {})
-
-        if reference_bases:
-            # Use first position from reference_bases as anchor
+        if primer_trim_bounds is not None:
+            # When primer-trimmed, anchor to body start so position 1 = first body base
+            min_pos = primer_trim_bounds[0]
+        elif reference_bases := pileup_stats.get("reference_bases", {}):
+            # Anchor to first base of reference sequence
             min_pos = min(reference_bases.keys())
         else:
             # Fallback: find minimum position across all tracks
@@ -767,7 +797,10 @@ def plot_aggregate(
         if min_pos is not None:
             offset = min_pos - 1  # Offset to make positions 1-based
 
-            transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
+            if primer_trim_bounds is not None:
+                transformation_info = f"Body-anchored (genomic pos {min_pos}→1)"
+            else:
+                transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
 
             # Transform aggregate_stats
             if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
@@ -829,6 +862,13 @@ def plot_aggregate(
                 old = list(dwell_stats["positions"])
                 dwell_stats["positions"] = np.array([int(p) - offset for p in old])
 
+            # Transform primer_trim_bounds
+            if primer_trim_bounds is not None:
+                primer_trim_bounds = (
+                    primer_trim_bounds[0] - offset,
+                    primer_trim_bounds[1] - offset,
+                )
+
     # Prepare data for AggregatePlotStrategy
     data = {
         "aggregate_stats": aggregate_stats,
@@ -838,6 +878,8 @@ def plot_aggregate(
         "dwell_stats": dwell_stats,
         "reference_name": reference_name,
         "num_reads": num_reads,
+        "total_reads": total_reads,  # Non-None when primer filtering reduced count
+        "primer_trim_bounds": primer_trim_bounds,  # (start, end) for x-axis clipping
         "transformation_info": transformation_info,  # Diagnostic info
         "sample_name": sample_name,  # Optional sample name for multi-sample mode
     }
@@ -1690,6 +1732,7 @@ def plot_aggregate_comparison(
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
     sample_colors: dict[str, str] | None = None,
+    trim_primers: bool = True,
 ) -> str:
     """
     Generate aggregate comparison plot for multiple samples
@@ -1816,6 +1859,16 @@ def plot_aggregate_comparison(
         )
         max_reads = min(max_reads, 100)  # Cap at 100 for performance
 
+    # Compute body bounds from FASTA if primer trimming requested
+    primer_trim_bounds = None
+    if trim_primers:
+        # Use the first sample's FASTA (all samples should share the same reference)
+        fasta_path = samples[0]._fasta_path if samples else None
+        if fasta_path:
+            from .alignment import find_body_bounds
+
+            primer_trim_bounds = find_body_bounds(fasta_path, reference_name)
+
     # Extract and calculate statistics for each sample
     sample_data = []
 
@@ -1833,6 +1886,16 @@ def plot_aggregate_comparison(
             raise ValueError(
                 f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
             )
+
+        # Apply primer trimming: filter reads and derive body bounds from FASTA
+        if trim_primers:
+            from .alignment import has_both_adapters
+
+            reads_with_adapters = [
+                rd for rd in reads if has_both_adapters(rd.get("primer_regions", []))
+            ]
+            if reads_with_adapters:
+                reads = reads_with_adapters
 
         # Calculate statistics based on requested metrics
         sample_stats = {"name": sample.name}
@@ -1873,6 +1936,7 @@ def plot_aggregate_comparison(
         "samples": sample_data,
         "reference_name": reference_name,
         "enabled_metrics": metrics,
+        "primer_trim_bounds": primer_trim_bounds,
     }
 
     options = {"normalization": norm_method}

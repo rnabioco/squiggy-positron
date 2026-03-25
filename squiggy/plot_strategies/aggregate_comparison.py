@@ -546,9 +546,18 @@ class AggregateComparisonStrategy(PlotStrategy):
         if not tracks:
             raise ValueError("No tracks could be created with the provided data")
 
-        # Link x-axes for synchronized zoom/pan
-        # All tracks share the x_range from the first track
-        if tracks:
+        # Apply primer trim bounds to clip x-axis if available
+        primer_trim_bounds = data.get("primer_trim_bounds")
+        if primer_trim_bounds is not None and tracks:
+            from bokeh.models import Range1d
+
+            start_pos, end_pos = primer_trim_bounds
+            base_x_range = Range1d(start=start_pos - 0.5, end=end_pos + 0.5)
+            for track in tracks:
+                track.x_range = base_x_range
+        elif tracks:
+            # Link x-axes for synchronized zoom/pan
+            # All tracks share the x_range from the first track
             base_x_range = tracks[0].x_range
             for track in tracks[1:]:
                 track.x_range = base_x_range
