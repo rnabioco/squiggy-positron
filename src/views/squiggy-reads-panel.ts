@@ -97,12 +97,24 @@ export class ReadsViewPane extends BaseWebviewProvider {
 
         // Always send update message (even if empty, to clear the view)
         if (this._hasReferences && this._referenceToReads) {
-            this.postMessage({
-                type: 'updateReads',
-                reads: this._readItems,
-                groupedByReference: true,
-                referenceToReads: Array.from(this._referenceToReads.entries()),
-            });
+            if (this._referenceToReads.size === 0) {
+                // Lazy-loading mode: send setReferencesOnly so React component
+                // correctly computes totalReadCount from reference headers
+                const references = (this._readItems as ReferenceGroupItem[])
+                    .filter((item) => item.type === 'reference')
+                    .map((item) => ({
+                        referenceName: item.referenceName,
+                        readCount: item.readCount,
+                    }));
+                this.postMessage({ type: 'setReferencesOnly', references });
+            } else {
+                this.postMessage({
+                    type: 'updateReads',
+                    reads: this._readItems,
+                    groupedByReference: true,
+                    referenceToReads: Array.from(this._referenceToReads.entries()),
+                });
+            }
         } else {
             // Send update even if empty - this clears the webview
             this.postMessage({
@@ -174,11 +186,7 @@ export class ReadsViewPane extends BaseWebviewProvider {
         }
         this._readItems = items;
 
-        // Send specific message for initial load, but also update persistent state
-        this.postMessage({
-            type: 'setReferencesOnly',
-            references,
-        });
+        this.updateView();
     }
 
     /**

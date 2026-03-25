@@ -1110,10 +1110,28 @@ squiggy.close_fasta()
             let resolvedPath = pod5PathItem;
 
             if (pod5PathItem.startsWith('<package:')) {
-                resolvedPath = await PathResolver.resolvePythonPackagePath(
+                // Try extension-relative resolution first (no kernel dependency)
+                const extResolved = PathResolver.resolvePackagePathFromExtension(
                     pod5PathItem,
-                    pathResolverClient
+                    extensionUri
                 );
+                if (extResolved) {
+                    try {
+                        await fs.access(extResolved);
+                        resolvedPath = extResolved;
+                    } catch {
+                        // Fall back to Python kernel resolution
+                        resolvedPath = await PathResolver.resolvePythonPackagePath(
+                            pod5PathItem,
+                            pathResolverClient
+                        );
+                    }
+                } else {
+                    resolvedPath = await PathResolver.resolvePythonPackagePath(
+                        pod5PathItem,
+                        pathResolverClient
+                    );
+                }
             } else if (pod5PathItem.includes('${extensionPath}')) {
                 resolvedPath = PathResolver.resolveExtensionPath(pod5PathItem, extensionUri);
             }
@@ -1134,10 +1152,26 @@ squiggy.close_fasta()
 
             let resolvedPath = sampleData.bamPath;
             if (sampleData.bamPath.startsWith('<package:')) {
-                resolvedPath = await PathResolver.resolvePythonPackagePath(
+                const extResolved = PathResolver.resolvePackagePathFromExtension(
                     sampleData.bamPath,
-                    pathResolverClient
+                    extensionUri
                 );
+                if (extResolved) {
+                    try {
+                        await fs.access(extResolved);
+                        resolvedPath = extResolved;
+                    } catch {
+                        resolvedPath = await PathResolver.resolvePythonPackagePath(
+                            sampleData.bamPath,
+                            pathResolverClient
+                        );
+                    }
+                } else {
+                    resolvedPath = await PathResolver.resolvePythonPackagePath(
+                        sampleData.bamPath,
+                        pathResolverClient
+                    );
+                }
             } else if (sampleData.bamPath.includes('${extensionPath}')) {
                 resolvedPath = PathResolver.resolveExtensionPath(sampleData.bamPath, extensionUri);
             }
@@ -1156,10 +1190,26 @@ squiggy.close_fasta()
         if (sampleData.fastaPath) {
             let resolvedPath = sampleData.fastaPath;
             if (sampleData.fastaPath.startsWith('<package:')) {
-                resolvedPath = await PathResolver.resolvePythonPackagePath(
+                const extResolved = PathResolver.resolvePackagePathFromExtension(
                     sampleData.fastaPath,
-                    pathResolverClient
+                    extensionUri
                 );
+                if (extResolved) {
+                    try {
+                        await fs.access(extResolved);
+                        resolvedPath = extResolved;
+                    } catch {
+                        resolvedPath = await PathResolver.resolvePythonPackagePath(
+                            sampleData.fastaPath,
+                            pathResolverClient
+                        );
+                    }
+                } else {
+                    resolvedPath = await PathResolver.resolvePythonPackagePath(
+                        sampleData.fastaPath,
+                        pathResolverClient
+                    );
+                }
             } else if (sampleData.fastaPath.includes('${extensionPath}')) {
                 resolvedPath = PathResolver.resolveExtensionPath(
                     sampleData.fastaPath,

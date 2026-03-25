@@ -11,6 +11,28 @@ import { logger } from '../utils/logger';
 
 export class PathResolver {
     /**
+     * Resolve package path using extension URI (no Python dependency)
+     *
+     * Converts paths like "<package:squiggy>/data/file.pod5" to
+     * "${extensionUri}/squiggy/data/file.pod5". This avoids depending
+     * on the Python kernel being ready for path resolution.
+     *
+     * @param filePath Path to resolve (may contain <package:name> placeholder)
+     * @param extensionUri Extension URI for resolving paths
+     * @returns Absolute file path or null if not a package path
+     */
+    static resolvePackagePathFromExtension(
+        filePath: string,
+        extensionUri: vscode.Uri
+    ): string | null {
+        const packageMatch = filePath.match(/^<package:([^>]+)>\/(.+)$/);
+        if (!packageMatch) return null;
+
+        const [, packageName, relativePath] = packageMatch;
+        return vscode.Uri.joinPath(extensionUri, packageName, relativePath).fsPath;
+    }
+
+    /**
      * Resolve Python package paths
      *
      * Converts paths like "<package:squiggy>/data/file.pod5"
