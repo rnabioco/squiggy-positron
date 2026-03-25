@@ -1246,13 +1246,13 @@ squiggy.close_fasta()
             logger.debug(
                 `[restoreSampleWithProgress] Loading sample '${sampleName}' into registry`
             );
-            const sampleResult = await api.loadSample(
+            const sampleMeta = await api.loadSample(
                 sampleName,
                 resolvedPod5Paths[0],
                 resolvedBamPath,
                 resolvedFastaPath
             );
-            numReads = sampleResult.numReads;
+            numReads = sampleMeta.num_reads;
             logger.debug(
                 `[restoreSampleWithProgress] Sample '${sampleName}' loaded: ${numReads} reads`
             );

@@ -190,15 +190,32 @@ describe('SquiggyRuntimeAPI', () => {
     describe('Sample Management', () => {
         describe('loadSample', () => {
             it('should load sample with POD5', async () => {
-                mockClient.getVariable.mockResolvedValue(150);
+                mockClient.getVariable.mockResolvedValue({
+                    num_reads: 150,
+                    has_bam: false,
+                    has_fasta: false,
+                });
 
                 const result = await api.loadSample('sample1', '/path/file.pod5');
 
-                expect(result.numReads).toBe(150);
+                expect(result.num_reads).toBe(150);
+                expect(result.has_bam).toBe(false);
             });
 
             it('should load sample with BAM and FASTA', async () => {
-                mockClient.getVariable.mockResolvedValue(200);
+                mockClient.getVariable.mockResolvedValue({
+                    num_reads: 200,
+                    has_bam: true,
+                    has_fasta: true,
+                    bam_info: {
+                        num_reads: 180,
+                        has_modifications: true,
+                        modification_types: ['5mC'],
+                        has_probabilities: true,
+                        has_event_alignment: true,
+                        is_rna: false,
+                    },
+                });
 
                 const result = await api.loadSample(
                     'sample1',
@@ -207,7 +224,9 @@ describe('SquiggyRuntimeAPI', () => {
                     '/path/ref.fasta'
                 );
 
-                expect(result.numReads).toBe(200);
+                expect(result.num_reads).toBe(200);
+                expect(result.has_bam).toBe(true);
+                expect(result.bam_info?.has_modifications).toBe(true);
             });
         });
 

@@ -1227,26 +1227,32 @@ async function loadSamplesFromDropped(
         skipped: 0,
     };
 
-    for (let i = 0; i < fileQueue.length; i++) {
-        const { pod5Path, bamPath, sampleName } = fileQueue[i];
-        const progressMsg = `Loading sample ${i + 1} of ${fileQueue.length}: ${sampleName}...`;
+    // Use a single persistent notification for the entire loading process
+    await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: `Loading ${fileQueue.length} sample${fileQueue.length !== 1 ? 's' : ''}`,
+            cancellable: false,
+        },
+        async (progress) => {
+            let firstSampleName: string | undefined;
 
-        try {
-            logger.debug(
-                `[loadSamplesFromDropped] Starting load for sample: '${sampleName}' (${i + 1}/${fileQueue.length})`
-            );
-            await safeExecuteWithProgress(
-                async () => {
+            for (let i = 0; i < fileQueue.length; i++) {
+                const { pod5Path, bamPath, sampleName } = fileQueue[i];
+                const prefix = fileQueue.length > 1 ? `[${i + 1}/${fileQueue.length}] ` : '';
+
+                try {
                     logger.debug(
-                        `[loadSamplesFromDropped] Inside safeExecuteWithProgress callback for '${sampleName}'`
+                        `[loadSamplesFromDropped] Starting load for sample: '${sampleName}' (${i + 1}/${fileQueue.length})`
                     );
+
                     // Validate files exist
+                    progress.report({ message: `${prefix}${sampleName}: Checking files...` });
                     try {
                         await fs.access(pod5Path);
                     } catch {
                         throw new Error(`POD5 file not found: ${pod5Path}`);
                     }
-
                     if (bamPath) {
                         try {
                             await fs.access(bamPath);
@@ -1255,21 +1261,24 @@ async function loadSamplesFromDropped(
                         }
                     }
 
-                    // Use FileLoadingService to load sample into multi-sample registry
-                    // This enables multi-sample comparisons by storing samples in the Python registry
-                    logger.debug(
-                        `[loadSamplesFromDropped] About to create FileLoadingService for sample '${sampleName}'`
-                    );
-                    const service = new FileLoadingService(state);
-                    logger.debug(
-                        `[loadSamplesFromDropped] FileLoadingService created, calling loadSampleIntoRegistry...`
-                    );
-                    const sampleResult = await service.loadSampleIntoRegistry(
+                    // Show what's about to happen
+                    const loadMsg = bamPath
+                        ? `${prefix}${sampleName}: Loading POD5 + scanning BAM alignments...`
+                        : `${prefix}${sampleName}: Loading POD5...`;
+                    progress.report({ message: loadMsg });
+
+                    // Load sample into registry — returns all metadata in one round-trip
+                    const api = await state.ensureKernel();
+                    const meta = await api.loadSample(
                         sampleName,
                         pod5Path,
                         bamPath,
                         state.sessionFastaPath || undefined
                     );
+
+                    progress.report({
+                        message: `${prefix}${sampleName}: Registering sample...`,
+                    });
 
                     // Create LoadedItem for unified state
                     const item: LoadedItem = {
@@ -1279,13 +1288,13 @@ async function loadSamplesFromDropped(
                         pod5Path,
                         bamPath,
                         fastaPath: state.sessionFastaPath || undefined,
-                        readCount: sampleResult.numReads,
-                        fileSize: 0, // File size metadata not available from registry
+                        readCount: meta.num_reads,
+                        fileSize: 0,
                         fileSizeFormatted: 'Unknown',
-                        hasAlignments: sampleResult.hasBAM ?? false,
-                        hasReference: sampleResult.hasFASTA ?? false,
-                        hasMods: sampleResult.bamInfo?.hasModifications ?? false,
-                        hasEvents: sampleResult.bamInfo?.hasEventAlignment ?? false,
+                        hasAlignments: meta.has_bam,
+                        hasReference: meta.has_fasta,
+                        hasMods: meta.bam_info?.has_modifications ?? false,
+                        hasEvents: meta.bam_info?.has_event_alignment ?? false,
                     };
 
                     // Add to unified state (triggers onLoadedItemsChanged event)
@@ -1298,9 +1307,9 @@ async function loadSamplesFromDropped(
                         pod5Path,
                         bamPath,
                         fastaPath: state.sessionFastaPath || undefined,
-                        readCount: sampleResult.numReads,
-                        hasBam: !!bamPath,
-                        hasFasta: !!state.sessionFastaPath,
+                        readCount: meta.num_reads,
+                        hasBam: meta.has_bam,
+                        hasFasta: meta.has_fasta,
                         isLoaded: true,
                         metadata: {
                             autoDetected: false,
@@ -1308,43 +1317,43 @@ async function loadSamplesFromDropped(
                         },
                     });
 
-                    // Auto-select newly loaded sample for visualization (Issue #124 fix)
+                    // Auto-select newly loaded sample for visualization
                     state.addSampleToVisualization(sampleName);
 
-                    // Auto-select and load reads in Read Explorer for first sample
-                    // or on user's first interaction (state.selectedReadExplorerSample will be set later)
-                    if (!state.selectedReadExplorerSample) {
-                        state.selectedReadExplorerSample = sampleName;
-                        // Delay to ensure sample is fully registered in Python registry
-                        // (the loadSample() call is async and may not complete immediately)
-                        setTimeout(() => {
-                            logger.debug(
-                                `[loadSamplesFromDropped] Auto-loading reads for first sample: '${sampleName}'`
-                            );
-                            Promise.resolve(
-                                vscode.commands.executeCommand(
-                                    'squiggy.internal.loadReadsForSample',
-                                    sampleName
-                                )
-                            ).catch((err: unknown) => {
-                                logger.error(
-                                    `Failed to auto-load reads for sample '${sampleName}':`,
-                                    err
-                                );
-                            });
-                        }, 1500); // Wait 1.5s to ensure sample is registered
+                    // Track first sample for auto-loading reads
+                    if (!firstSampleName) {
+                        firstSampleName = sampleName;
                     }
 
                     results.successful++;
-                },
-                ErrorContext.POD5_LOAD,
-                progressMsg
-            );
-        } catch (error) {
-            logger.error(`[loadSamplesFromDropped] Error loading ${sampleName}:`, error);
-            results.failed++;
+                } catch (error) {
+                    logger.error(
+                        `[loadSamplesFromDropped] Error loading ${sampleName}:`,
+                        error
+                    );
+                    results.failed++;
+                }
+            }
+
+            // Auto-load reads for first sample (no artificial delay — samples are
+            // already registered in Python by the time loadSample() returns)
+            if (firstSampleName && !state.selectedReadExplorerSample) {
+                state.selectedReadExplorerSample = firstSampleName;
+                progress.report({ message: `Loading reads for ${firstSampleName}...` });
+                try {
+                    await vscode.commands.executeCommand(
+                        'squiggy.internal.loadReadsForSample',
+                        firstSampleName
+                    );
+                } catch (err) {
+                    logger.error(
+                        `Failed to auto-load reads for sample '${firstSampleName}':`,
+                        err
+                    );
+                }
+            }
         }
-    }
+    );
 
     // Samples panel already subscribed to unified state, so no manual refresh needed
     // But for safety during transition, we can still call refresh if it exists

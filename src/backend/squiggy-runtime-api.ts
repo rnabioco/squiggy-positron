@@ -58,6 +58,25 @@ export interface SampleLoadResult {
 }
 
 /**
+ * Metadata returned from Python load_sample() in a single round-trip.
+ * Matches the _sample_meta dict built in loadSample().
+ */
+export interface SampleLoadMetadata {
+    num_reads: number;
+    has_bam: boolean;
+    has_fasta: boolean;
+    bam_info?: {
+        num_reads: number;
+        has_modifications: boolean;
+        modification_types: string[];
+        has_probabilities: boolean;
+        has_event_alignment: boolean;
+        basecall_model?: string;
+        is_rna: boolean;
+    };
+}
+
+/**
  * High-level API for squiggy operations in the Python kernel
  *
  * Can work with either:
@@ -746,16 +765,17 @@ squiggy.plot_motif_aggregate_all(
         pod5Path: string,
         bamPath?: string,
         fastaPath?: string
-    ): Promise<POD5KernelResult> {
+    ): Promise<SampleLoadMetadata> {
         // Escape single quotes in paths
         const escapedSampleName = sampleName.replace(/'/g, "\\'");
         const escapedPod5Path = pod5Path.replace(/'/g, "\\'");
         const escapedBamPath = bamPath ? bamPath.replace(/'/g, "\\'") : null;
         const escapedFastaPath = fastaPath ? fastaPath.replace(/'/g, "\\'") : null;
 
-        // Build Python code to load sample
+        // Build Python code to load sample AND return all metadata in one call
         let code = `
 import squiggy
+import json as _json
 
 # Load sample with custom name
 squiggy.load_sample(
@@ -769,7 +789,27 @@ squiggy.load_sample(
             code += `,\n    fasta_path='${escapedFastaPath}'`;
         }
 
-        code += `\n)`;
+        code += `\n)
+
+# Return all metadata in one shot to avoid multiple round-trips
+_s = squiggy.squiggy_kernel.get_sample('${escapedSampleName}')
+_sample_meta = {
+    'num_reads': len(_s._read_ids),
+    'has_bam': _s._bam_path is not None,
+    'has_fasta': _s._fasta_path is not None,
+}
+if _s._bam_info:
+    _sample_meta['bam_info'] = {
+        'num_reads': _s._bam_info.get('num_reads', 0),
+        'has_modifications': _s._bam_info.get('has_modifications', False),
+        'modification_types': _s._bam_info.get('modification_types', []),
+        'has_probabilities': _s._bam_info.get('has_probabilities', False),
+        'has_event_alignment': _s._bam_info.get('has_event_alignment', False),
+        'basecall_model': _s._bam_info.get('basecall_model'),
+        'is_rna': _s._bam_info.get('is_rna', False),
+    }
+del _s
+`;
 
         try {
             logger.debug(
@@ -777,25 +817,22 @@ squiggy.load_sample(
             );
             const startTime = Date.now();
 
-            // Load sample silently
-            logger.debug(`[loadSample] Executing Python code to load sample...`);
+            // Load sample and populate metadata variable in one execution
             await this._client.executeSilent(code);
-            const executeSilentTime = Date.now();
+            const loadTime = Date.now();
             logger.debug(
-                `[loadSample] executeSilent completed in ${executeSilentTime - startTime}ms`
+                `[loadSample] Python load completed in ${loadTime - startTime}ms`
             );
 
-            // Get read count for this sample
-            logger.debug(`[loadSample] Querying read count for sample '${sampleName}'...`);
-            const numReads = await this._client.getVariable(
-                `len(squiggy.squiggy_kernel.get_sample('${escapedSampleName}')._read_ids)`
-            );
-            const queryTime = Date.now();
+            // Single round-trip to get all metadata
+            const meta = (await this._client.getVariable('_sample_meta')) as SampleLoadMetadata;
+            await this._client.executeSilent('del _sample_meta');
+            const totalTime = Date.now();
             logger.debug(
-                `[loadSample] Got ${numReads} reads in ${queryTime - executeSilentTime}ms (total: ${queryTime - startTime}ms)`
+                `[loadSample] Got metadata in ${totalTime - loadTime}ms (total: ${totalTime - startTime}ms)`
             );
 
-            return { numReads: numReads as number };
+            return meta;
         } catch (error) {
             logger.error(`[loadSample] Error loading sample '${sampleName}'`, error);
             const errorMessage = error instanceof Error ? error.message : String(error);

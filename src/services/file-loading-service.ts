@@ -123,22 +123,22 @@ export class FileLoadingService {
         logger.debug(`[loadSampleIntoRegistry] Squiggy kernel API ready, calling loadSample()...`);
 
         try {
-            // Load sample into registry (using dedicated kernel)
-            logger.debug(`[loadSampleIntoRegistry] About to call backgroundAPI.loadSample()`);
-            const pod5Result = await api.loadSample(sampleName, pod5Path, bamPath, fastaPath);
+            // Load sample into registry — returns all metadata in one round-trip
+            const meta = await api.loadSample(sampleName, pod5Path, bamPath, fastaPath);
             logger.debug(
-                `[loadSampleIntoRegistry] loadSample returned successfully with ${pod5Result.numReads} reads`
+                `[loadSampleIntoRegistry] loadSample returned successfully with ${meta.num_reads} reads`
             );
 
-            // Return comprehensive sample metadata
-            // We have all needed info: POD5 read count, whether BAM/FASTA provided
-            // Detailed BAM metadata will be loaded separately if needed
             return {
-                numReads: pod5Result.numReads,
-                hasBAM: !!bamPath,
-                hasFASTA: !!fastaPath,
-                bamNumReads: undefined, // Will be populated if BAM was loaded
-                bamInfo: undefined, // Will be populated if BAM was loaded
+                numReads: meta.num_reads,
+                hasBAM: meta.has_bam,
+                hasFASTA: meta.has_fasta,
+                bamInfo: meta.bam_info
+                    ? {
+                          hasModifications: meta.bam_info.has_modifications,
+                          hasEventAlignment: meta.bam_info.has_event_alignment,
+                      }
+                    : undefined,
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
