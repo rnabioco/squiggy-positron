@@ -1,5 +1,14 @@
 # Squiggy Release Notes
 
+## v0.1.31-alpha (2026-03-25)
+
+Fix modification type display for newer dorado outputs and filter unloaded samples from plot comparison UI.
+
+### Fixes
+
+- **Modification Type Names**: ChEBI numeric codes from newer dorado versions (e.g., 19227, 19228, 69426) now display human-readable names (Um, Cm, Am, etc.) in the Modifications panel instead of raw numbers
+- **Samples to Compare**: Plot Options panel now only shows fully-loaded samples, hiding deferred or still-loading samples
+
 ## v0.1.30-alpha (2026-03-25)
 
 Replace demo data with E. coli tRNA dataset for WT vs TruB mutant comparison.
