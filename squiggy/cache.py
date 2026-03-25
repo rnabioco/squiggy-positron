@@ -29,12 +29,9 @@ class SquiggyCache:
 
     Examples:
         >>> cache = SquiggyCache()
-        >>> # Try to load cached index
-        >>> index = cache.load_pod5_index(Path('file.pod5'))
-        >>> if index is None:
-        ...     # Build index fresh
-        ...     index = build_index()
-        ...     cache.save_pod5_index(Path('file.pod5'), index)
+        >>> metadata = cache.load_bam_metadata(Path('alignments.bam'))
+        >>> if metadata:
+        ...     print(f"Loaded {metadata['num_reads']} reads from cache")
     """
 
     def __init__(self, cache_dir: Path | None = None, enabled: bool = True):
@@ -94,69 +91,6 @@ class SquiggyCache:
         with open(file_path, "rb") as f:
             hasher.update(f.read(chunk_size))
         return hasher.hexdigest()
-
-    def load_pod5_index(self, file_path: Path) -> dict[str, int] | None:
-        """
-        Load POD5 read index from cache
-
-        Args:
-            file_path: Path to POD5 file
-
-        Returns:
-            Dict mapping read_id to file position, or None if cache miss/invalid
-        """
-        if not self.enabled:
-            return None
-
-        cache_path = self._get_cache_path(file_path, ".pod5.cache")
-        if not cache_path.exists():
-            return None
-
-        try:
-            with open(cache_path, "rb") as f:
-                cached = pickle.load(f)
-
-            # Validate file hasn't changed
-            current_hash = self._file_hash(file_path)
-            if cached["file_hash"] != current_hash:
-                return None
-
-            return cached["index"]
-
-        except (FileNotFoundError, pickle.UnpicklingError, KeyError):
-            return None
-
-    def save_pod5_index(
-        self, file_path: Path, index: dict[str, int], num_reads: int | None = None
-    ) -> None:
-        """
-        Save POD5 read index to cache
-
-        Args:
-            file_path: Path to POD5 file
-            index: Dict mapping read_id to file position
-            num_reads: Total number of reads (optional, for metadata)
-        """
-        if not self.enabled:
-            return
-
-        cache_path = self._get_cache_path(file_path, ".pod5.cache")
-
-        try:
-            cached = {
-                "file_path": str(file_path),
-                "file_hash": self._file_hash(file_path),
-                "file_size": file_path.stat().st_size,
-                "num_reads": num_reads or len(index),
-                "index": index,
-                "cached_at": datetime.now().isoformat(),
-            }
-
-            with open(cache_path, "wb") as f:
-                pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        except (OSError, pickle.PicklingError):
-            pass
 
     def load_pod5_read_ids(self, file_path: Path) -> list[str] | None:
         """

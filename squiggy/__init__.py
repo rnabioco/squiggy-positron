@@ -40,7 +40,6 @@ from .constants import (
 # I/O functions
 from .io import (
     LazyReadList,
-    Pod5Index,
     Sample,
     SquiggyKernel,
     close_all_samples,
@@ -165,7 +164,6 @@ __all__ = [
     "Sample",
     # Performance optimization classes
     "LazyReadList",
-    "Pod5Index",
     "get_reads_batch",
     "get_read_by_id",
     "get_reads_for_reference_paginated",

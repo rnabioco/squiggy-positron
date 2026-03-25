@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pod5
 
-from .performance import LazyReadList, Pod5Index
+from .performance import LazyReadList
 from .samples import Sample, _load_sample_files
 
 
@@ -53,9 +53,6 @@ class SquiggyKernel:
         self._ref_mapping: dict[str, list[str]] | None = None
         self._fasta_path: str | None = None
         self._fasta_info: dict | None = None
-
-        # Performance optimization attributes (NEW) - INTERNAL
-        self._pod5_index: Pod5Index | None = None
 
         # Cache integration (NEW) - PUBLIC
         from ..cache import SquiggyCache
@@ -221,7 +218,6 @@ class SquiggyKernel:
             self._reader = None
         self._pod5_path = None
         self._read_ids = []
-        self._pod5_index = None  # Clear index
 
     def close_bam(self):
         """Clear BAM state (backward compat mode)"""

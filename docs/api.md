@@ -87,8 +87,6 @@ html = plot_read(read_ids[0])
 
 ::: squiggy.io.LazyReadList
 
-::: squiggy.io.Pod5Index
-
 ::: squiggy.get_reads_batch
 
 ::: squiggy.get_read_by_id

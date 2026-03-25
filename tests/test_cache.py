@@ -144,96 +144,6 @@ class TestFileHash:
         assert isinstance(hash2, str)
 
 
-class TestPOD5IndexCache:
-    """Tests for POD5 index caching"""
-
-    def test_save_and_load_pod5_index(self, tmp_path, sample_pod5_file):
-        """Test saving and loading POD5 index"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path)
-        test_index = {"read1": 0, "read2": 100, "read3": 200}
-
-        # Save index
-        cache.save_pod5_index(sample_pod5_file, test_index)
-
-        # Load index
-        loaded = cache.load_pod5_index(sample_pod5_file)
-
-        assert loaded == test_index
-
-    def test_load_pod5_index_cache_miss(self, tmp_path):
-        """Test loading when no cache exists"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path)
-        fake_file = Path("/nonexistent/file.pod5")
-
-        result = cache.load_pod5_index(fake_file)
-
-        assert result is None
-
-    def test_load_pod5_index_disabled_cache(self, tmp_path, sample_pod5_file):
-        """Test loading with cache disabled"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path, enabled=False)
-
-        result = cache.load_pod5_index(sample_pod5_file)
-
-        assert result is None
-
-    def test_save_pod5_index_disabled_cache(self, tmp_path, sample_pod5_file):
-        """Test saving with cache disabled does nothing"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path, enabled=False)
-        test_index = {"read1": 0}
-
-        cache.save_pod5_index(sample_pod5_file, test_index)
-
-        # Should not create any cache files
-        assert len(list(tmp_path.glob("*.cache"))) == 0
-
-    def test_pod5_index_invalidation_on_file_change(self, tmp_path):
-        """Test that cache is invalidated when file changes"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path)
-
-        # Create a test file
-        test_file = tmp_path / "test.pod5"
-        test_file.write_bytes(b"original content")
-
-        # Save index
-        test_index = {"read1": 0}
-        cache.save_pod5_index(test_file, test_index)
-
-        # Verify it loads
-        loaded = cache.load_pod5_index(test_file)
-        assert loaded == test_index
-
-        # Modify the file
-        test_file.write_bytes(b"modified content")
-
-        # Should return None due to hash mismatch
-        loaded = cache.load_pod5_index(test_file)
-        assert loaded is None
-
-    def test_pod5_index_with_num_reads(self, tmp_path, sample_pod5_file):
-        """Test saving index with explicit num_reads"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path)
-        test_index = {"read1": 0, "read2": 100}
-
-        cache.save_pod5_index(sample_pod5_file, test_index, num_reads=2)
-
-        # Should still load correctly
-        loaded = cache.load_pod5_index(sample_pod5_file)
-        assert loaded == test_index
-
-
 class TestPOD5ReadIDsCache:
     """Tests for POD5 read IDs caching"""
 
@@ -494,8 +404,11 @@ class TestClearCache:
         cache = SquiggyCache(cache_dir=tmp_path)
 
         # Create multiple cache files
-        cache.save_pod5_index(sample_pod5_file, {"read1": 0})
-        cache.save_pod5_read_ids(sample_pod5_file, ["read1"])
+        cache.save_pod5_read_ids(sample_pod5_file, ["read1", "read2"])
+        # Create a second cache file via BAM ref mapping
+        bam_file = tmp_path / "test.bam"
+        bam_file.write_bytes(b"fake bam content")
+        cache.save_bam_ref_mapping(bam_file, {"chr1": ["read1"]})
 
         # Verify files exist
         assert len(list(tmp_path.glob("*.cache"))) >= 2
@@ -542,21 +455,6 @@ class TestClearCache:
 class TestCacheCorruption:
     """Tests for handling corrupted cache files"""
 
-    def test_load_pod5_index_corrupted_pickle(self, tmp_path, sample_pod5_file):
-        """Test loading POD5 index with corrupted cache file"""
-        from squiggy.cache import SquiggyCache
-
-        cache = SquiggyCache(cache_dir=tmp_path)
-
-        # Create a corrupted cache file
-        cache_path = cache._get_cache_path(sample_pod5_file, ".pod5.cache")
-        cache_path.write_bytes(b"corrupted data")
-
-        # Should return None on corruption
-        result = cache.load_pod5_index(sample_pod5_file)
-
-        assert result is None
-
     def test_load_pod5_read_ids_missing_keys(self, tmp_path, sample_pod5_file):
         """Test loading read IDs with malformed cache data"""
         from squiggy.cache import SquiggyCache
@@ -593,30 +491,30 @@ class TestCacheIntegration:
     """Integration tests for cache workflow"""
 
     def test_full_pod5_workflow(self, tmp_path, sample_pod5_file):
-        """Test complete POD5 caching workflow"""
+        """Test complete POD5 read IDs caching workflow"""
         from squiggy.cache import SquiggyCache
 
         cache = SquiggyCache(cache_dir=tmp_path)
 
         # Initial load should be cache miss
-        index = cache.load_pod5_index(sample_pod5_file)
-        assert index is None
+        read_ids = cache.load_pod5_read_ids(sample_pod5_file)
+        assert read_ids is None
 
-        # Save index
-        test_index = {"read1": 0, "read2": 100}
-        cache.save_pod5_index(sample_pod5_file, test_index)
+        # Save read IDs
+        test_ids = ["read1", "read2"]
+        cache.save_pod5_read_ids(sample_pod5_file, test_ids)
 
         # Second load should hit cache
-        index = cache.load_pod5_index(sample_pod5_file)
-        assert index == test_index
+        read_ids = cache.load_pod5_read_ids(sample_pod5_file)
+        assert read_ids == test_ids
 
         # Clear and verify
         count = cache.clear_cache()
         assert count >= 1
 
         # After clear, should be cache miss again
-        index = cache.load_pod5_index(sample_pod5_file)
-        assert index is None
+        read_ids = cache.load_pod5_read_ids(sample_pod5_file)
+        assert read_ids is None
 
     def test_full_bam_workflow(self, tmp_path, sample_bam_file):
         """Test complete BAM caching workflow"""
@@ -651,18 +549,18 @@ class TestCacheIntegration:
         cache = SquiggyCache(cache_dir=tmp_path)
 
         # Cache POD5 data
-        pod5_index = {"read1": 0}
-        cache.save_pod5_index(sample_pod5_file, pod5_index)
+        pod5_ids = ["read1", "read2"]
+        cache.save_pod5_read_ids(sample_pod5_file, pod5_ids)
 
         # Cache BAM data
         bam_mapping = {"chr1": ["read1"]}
         cache.save_bam_ref_mapping(sample_bam_file, bam_mapping)
 
         # Both should load independently
-        loaded_pod5 = cache.load_pod5_index(sample_pod5_file)
+        loaded_pod5 = cache.load_pod5_read_ids(sample_pod5_file)
         loaded_bam = cache.load_bam_ref_mapping(sample_bam_file)
 
-        assert loaded_pod5 == pod5_index
+        assert loaded_pod5 == pod5_ids
         assert loaded_bam == bam_mapping
 
         # Clear should remove both

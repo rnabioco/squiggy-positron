@@ -9,7 +9,7 @@ import pod5
 import pysam
 
 from .kernel import squiggy_kernel
-from .performance import LazyReadList, Pod5Index
+from .performance import LazyReadList
 from .samples import Sample
 
 # Configure module logger
@@ -114,8 +114,7 @@ def get_read_by_id(
     """
     Get a single read by ID using index if available
 
-    Uses Pod5Index for O(1) lookup if index is built, otherwise falls back
-    to linear scan.
+    Uses pod5's native indexed selection for O(1) lookup.
 
     Args:
         read_id: Read ID to fetch
@@ -156,22 +155,19 @@ def get_read_by_id(
     return None
 
 
-def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) -> None:
+def load_pod5(file_path: str) -> None:
     """
-    Load a POD5 file into the global kernel session (OPTIMIZED)
+    Load a POD5 file into the global kernel session
 
     This function mutates the global squiggy_kernel object, making
     POD5 data available for subsequent plotting and analysis calls.
 
-    Performance optimizations:
-    - Lazy read ID loading (O(1) memory vs. O(n))
-    - Optional index building for O(1) lookups
-    - Persistent caching for instant subsequent loads
+    Uses pod5.Reader.num_reads (O(1)) and reader.read_ids (Arrow metadata)
+    for instant loading regardless of file size. No iteration over reads
+    or signal decompression is performed.
 
     Args:
         file_path: Path to POD5 file
-        build_index: Whether to build read ID index (default: True)
-        use_cache: Whether to use persistent cache (default: True)
 
     Returns:
         None (mutates global squiggy_kernel)
@@ -196,32 +192,9 @@ def load_pod5(file_path: str, build_index: bool = True, use_cache: bool = True) 
     # Open new reader
     reader = pod5.Reader(str(abs_path))
 
-    # Create lazy read list (O(1) memory overhead)
+    # Create lazy read list (uses reader.num_reads and reader.read_ids
+    # internally - O(1) count, Arrow metadata for ID access)
     lazy_read_list = LazyReadList(reader)
-
-    # Try to load index from cache
-    cached_index = None
-    if use_cache and squiggy_kernel.cache:
-        cached_index = squiggy_kernel.cache.load_pod5_index(abs_path)
-
-    # Build or restore index
-    if build_index:
-        if cached_index:
-            # Restore from cache
-            pod5_index = Pod5Index()
-            pod5_index._index = cached_index
-        else:
-            # Build fresh
-            pod5_index = Pod5Index()
-            pod5_index.build(reader)
-
-            # Save to cache for next time
-            if use_cache and squiggy_kernel.cache:
-                squiggy_kernel.cache.save_pod5_index(abs_path, pod5_index._index)
-
-        squiggy_kernel._pod5_index = pod5_index
-    else:
-        squiggy_kernel._pod5_index = None
 
     # Store state in session
     squiggy_kernel._reader = reader

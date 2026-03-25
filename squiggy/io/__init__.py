@@ -5,7 +5,7 @@ This module provides:
 - File loading functions (load_pod5, load_bam, load_fasta)
 - Kernel state management (SquiggyKernel, squiggy_kernel)
 - Multi-sample workflow support (Sample, load_sample, get_sample)
-- Performance optimization classes (LazyReadList, Pod5Index)
+- Performance optimization classes (LazyReadList)
 - Comparison functions (get_common_reads, get_unique_reads, compare_samples)
 """
 
@@ -48,7 +48,7 @@ from .core import (
 
 # Kernel state management
 from .kernel import SquiggyKernel, squiggy_kernel
-from .performance import LazyReadList, Pod5Index
+from .performance import LazyReadList
 
 # Sample management
 from .samples import Sample
@@ -56,7 +56,6 @@ from .samples import Sample
 __all__ = [
     # Performance classes
     "LazyReadList",
-    "Pod5Index",
     # Sample management
     "Sample",
     # Kernel state
