@@ -54,49 +54,46 @@ class PlotStrategy(ABC):
         self.theme = theme
 
     @abstractmethod
+    def create_figure(
+        self, data: dict[str, Any], options: dict[str, Any]
+    ) -> Any:
+        """
+        Generate Bokeh figure/layout without HTML serialization
+
+        This is the main method that strategies must implement. It takes prepared
+        data and options, generates a Bokeh visualization, and returns the figure.
+
+        The returned figure is not attached to any Bokeh document, so it can be
+        used with ``bokeh.plotting.show()`` or further customized.
+
+        Args:
+            data: Plot data dictionary (keys depend on plot type)
+            options: Plot options dictionary
+
+        Returns:
+            Bokeh Figure, Column, Row, or GridPlot object
+
+        Raises:
+            ValueError: If required data is missing (checked by validate_data)
+        """
+        pass
+
     def create_plot(
         self, data: dict[str, Any], options: dict[str, Any]
     ) -> tuple[str, Any]:
         """
         Generate Bokeh plot HTML and figure
 
-        This is the main method that strategies must implement. It takes prepared
-        data and options, generates a Bokeh visualization, and returns both HTML
-        and the figure object.
-
-        Args:
-            data: Plot data dictionary containing:
-                - Required keys depend on plot type (validated by validate_data)
-                - Common keys: signal, read_id, sample_rate
-                - Optional keys: sequence, seq_to_sig_map, modifications, etc.
-
-            options: Plot options dictionary containing:
-                - normalization: NormalizationMethod enum
-                - downsample: Downsampling factor (int)
-                - show_dwell_time: Whether to color by dwell time (bool)
-                - show_labels: Whether to show base labels (bool)
-                - scale_dwell_time: Whether to scale x-axis by dwell time (bool)
-                - min_mod_probability: Minimum probability for mods (float)
-                - enabled_mod_types: List of modification types to show
-                - show_signal_points: Whether to show individual points (bool)
-                - Other plot-specific options
+        Convenience method that calls ``create_figure()`` then serializes
+        to HTML. The returned figure will be attached to a Bokeh document
+        and cannot be used with ``show()``.
 
         Returns:
             Tuple of (html_string, bokeh_figure_or_layout)
-                - html_string: Complete HTML document with embedded Bokeh plot
-                - figure: Bokeh Figure, Column, Row, or GridPlot object
-
-        Raises:
-            ValueError: If required data is missing (checked by validate_data)
-
-        Examples:
-            >>> data = {'signal': signal_array, 'read_id': 'read_001', 'sample_rate': 4000}
-            >>> options = {'normalization': NormalizationMethod.ZNORM, 'downsample': 1}
-            >>> html, fig = strategy.create_plot(data, options)
-            >>> # html can be displayed in webview or saved to file
-            >>> # fig can be further customized if needed
         """
-        pass
+        fig = self.create_figure(data, options)
+        html = self._figure_to_html(fig)
+        return html, fig
 
     @abstractmethod
     def validate_data(self, data: dict[str, Any]) -> None:

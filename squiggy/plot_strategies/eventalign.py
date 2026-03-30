@@ -6,9 +6,7 @@ with base annotations.
 """
 
 import numpy as np
-from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
-from bokeh.resources import CDN
 
 from ..constants import (
     DEFAULT_POSITION_LABEL_INTERVAL,
@@ -106,7 +104,7 @@ class EventAlignPlotStrategy(PlotStrategy):
             if not hasattr(aligned_read, "bases"):
                 raise ValueError(f"Aligned read {idx} must have 'bases' attribute")
 
-    def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
+    def create_figure(self, data: dict, options: dict) -> any:
         """
         Generate Bokeh plot HTML and figure for event-aligned reads
 
@@ -286,9 +284,6 @@ class EventAlignPlotStrategy(PlotStrategy):
                 # If reference track creation fails, continue without it
                 ref_fig = None
 
-        # Generate HTML
-        html_title = self._format_html_title(reads_data)
-
         if ref_fig is not None:
             # Create column layout with reference track above signal
             from bokeh.layouts import column
@@ -307,12 +302,10 @@ class EventAlignPlotStrategy(PlotStrategy):
             # Store reference to main plot
             object.__setattr__(layout, "main_plot", fig)
 
-            html = file_html(layout, CDN, title=html_title)
-            return html, layout
+            return layout
         else:
             # No reference track - return single plot
-            html = file_html(fig, CDN, title=html_title)
-            return html, fig
+            return fig
 
     # =========================================================================
     # Private Methods: Signal Processing

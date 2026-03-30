@@ -143,9 +143,9 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
             if sample_name not in coverage:
                 raise ValueError(f"Missing coverage data for sample '{sample_name}'")
 
-    def create_plot(
+    def create_figure(
         self, data: dict[str, Any], options: dict[str, Any]
-    ) -> tuple[str, Any]:
+    ) -> Any:
         """
         Generate signal overlay comparison plot
 
@@ -234,10 +234,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
             "background-color": self.theme_manager.get_color("plot_bg")
         }
 
-        # Convert to HTML
-        html = self._figure_to_html(layout_obj)
-
-        return html, layout_obj
+        return layout_obj
 
     def _create_signal_track(
         self, plot_data: list[dict[str, Any]], reference_sequence: str

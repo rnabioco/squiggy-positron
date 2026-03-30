@@ -490,9 +490,9 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
-    def create_plot(
+    def create_figure(
         self, data: dict[str, Any], options: dict[str, Any]
-    ) -> tuple[str, Any]:
+    ) -> Any:
         """
         Generate aggregate comparison plot
 
@@ -509,9 +509,6 @@ class AggregateComparisonStrategy(PlotStrategy):
         Returns:
             Tuple of (html_string, bokeh_gridplot)
         """
-        from bokeh.embed import file_html
-        from bokeh.resources import CDN
-
         self.validate_data(data)
 
         samples = data["samples"]
@@ -572,7 +569,4 @@ class AggregateComparisonStrategy(PlotStrategy):
         # Apply theme background to gridplot container
         grid.styles = {"background-color": self.theme_manager.get_color("plot_bg")}
 
-        # Generate HTML
-        html = file_html(grid, CDN, title=f"Aggregate Comparison - {reference_name}")
-
-        return html, grid
+        return grid

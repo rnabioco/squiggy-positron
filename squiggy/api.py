@@ -343,9 +343,7 @@ class Read:
             )
 
         strategy = create_plot_strategy(plot_mode, theme_enum)
-        _, fig = strategy.create_plot(data, options)
-
-        return fig
+        return strategy.create_figure(data, options)
 
     def __repr__(self) -> str:
         return f"Read(read_id='{self.read_id}', signal_length={len(self.signal)})"
@@ -388,9 +386,10 @@ class BamFile:
         # Open BAM file
         self._bam = pysam.AlignmentFile(self.path, "rb", check_sq=False)
 
-        # Cache references
+        # Cache references and metadata
         self._references: list[str] | None = None
         self._mod_info: dict | None = None
+        self._info: dict | None = None
 
     @property
     def references(self) -> list[str]:
@@ -400,6 +399,46 @@ class BamFile:
                 list(self._bam.references) if self._bam.references else []
             )
         return self._references
+
+    @property
+    def info(self) -> dict:
+        """Lazily computed BAM metadata (references, modifications, event alignment, etc.)
+
+        Returns dict with keys: references, has_modifications, modification_types,
+        has_probabilities, has_event_alignment, has_primers, ref_mapping, ref_counts,
+        num_reads, basecall_model, is_rna
+        """
+        if self._info is None:
+            from .io.core import _collect_bam_metadata_single_pass
+
+            self._info = _collect_bam_metadata_single_pass(Path(self.path))
+        return self._info
+
+    @property
+    def ref_mapping(self) -> dict[str, list[str]]:
+        """Reference name → list of read IDs mapping"""
+        return self.info.get("ref_mapping", {})
+
+    def get_reads_for_reference(
+        self,
+        reference_name: str,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> list[str]:
+        """Get paginated read IDs for a reference sequence
+
+        Args:
+            reference_name: Reference name from BAM
+            offset: Starting index (0-based)
+            limit: Maximum number of read IDs to return (None = all)
+
+        Returns:
+            List of read IDs mapped to this reference
+        """
+        read_ids = self.ref_mapping.get(reference_name, [])
+        if limit is None:
+            return read_ids[offset:]
+        return read_ids[offset : offset + limit]
 
     def get_alignment(self, read_id: str) -> AlignedRead | None:
         """
@@ -463,8 +502,7 @@ class BamFile:
         if self._mod_info is not None:
             return self._mod_info
 
-        # Import here to avoid circular dependency
-        from .io import get_bam_modification_info
+        from .io.core import get_bam_modification_info
 
         self._mod_info = get_bam_modification_info(self.path)
         return self._mod_info
@@ -689,6 +727,74 @@ class FastaFile:
         return f"FastaFile(path='{self.path}', num_references={num_refs})"
 
 
+class Sample:
+    """A named sample consisting of POD5 + optional BAM + optional FASTA files
+
+    Wraps OO file objects for multi-sample comparison workflows.
+    Supports context manager protocol for automatic cleanup.
+
+    Args:
+        name: Unique identifier for this sample
+        pod5_path: Path to POD5 file
+        bam_path: Path to BAM file (optional)
+        fasta_path: Path to FASTA file (optional)
+
+    Examples:
+        >>> wt = Sample('wildtype', 'wt.pod5', 'wt.bam', 'ref.fa')
+        >>> trub = Sample('trub', 'trub.pod5', 'trub.bam', 'ref.fa')
+        >>> # Use with comparison plotting functions
+        >>> fig = plot_delta_comparison([wt, trub])
+    """
+
+    def __init__(
+        self,
+        name: str,
+        pod5_path: str | Path,
+        bam_path: str | Path | None = None,
+        fasta_path: str | Path | None = None,
+    ):
+        self.name = name
+        self.pod5 = Pod5File(pod5_path)
+        self.bam = BamFile(bam_path) if bam_path else None
+        self.fasta = FastaFile(fasta_path) if fasta_path else None
+
+    @property
+    def read_ids(self) -> list[str]:
+        """Read IDs from the POD5 file"""
+        return self.pod5.read_ids
+
+    @property
+    def references(self) -> list[str]:
+        """Reference names from the BAM file"""
+        if self.bam is None:
+            return []
+        return self.bam.references
+
+    def close(self):
+        """Close all file handles"""
+        self.pod5.close()
+        if self.bam:
+            self.bam.close()
+        if self.fasta:
+            self.fasta.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def __repr__(self) -> str:
+        parts = [f"Sample(name='{self.name}'"]
+        parts.append(f"pod5='{self.pod5.path}'")
+        if self.bam:
+            parts.append(f"bam='{self.bam.path}'")
+        if self.fasta:
+            parts.append(f"fasta='{self.fasta.path}'")
+        return ", ".join(parts) + ")"
+
+
 def figure_to_html(fig: BokehFigure, title: str = "Squiggy Plot") -> str:
     """
     Convert Bokeh Figure to HTML string
@@ -720,5 +826,6 @@ __all__ = [
     "Read",
     "BamFile",
     "FastaFile",
+    "Sample",
     "figure_to_html",
 ]

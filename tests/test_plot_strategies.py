@@ -13,16 +13,14 @@ from squiggy.plot_strategies.base import PlotStrategy
 class ConcreteTestStrategy(PlotStrategy):
     """Concrete implementation of PlotStrategy for testing"""
 
-    def create_plot(self, data, options):
-        """Test implementation that creates a simple plot"""
+    def create_figure(self, data, options):
+        """Test implementation that creates a simple figure"""
         self.validate_data(data)
 
-        # Create a simple figure
         fig = figure(width=800, height=400, title=data.get("title", "Test Plot"))
         fig.line([1, 2, 3], [1, 4, 9], color="blue")
 
-        html = self._figure_to_html(fig)
-        return html, fig
+        return fig
 
     def validate_data(self, data):
         """Test validation requiring 'signal' key"""
@@ -180,10 +178,14 @@ class TestPlotStrategyDocumentation:
         assert PlotStrategy.__doc__ is not None
         assert len(PlotStrategy.__doc__) > 100
 
+    def test_create_figure_has_docstring(self):
+        """Test that create_figure has detailed docstring"""
+        assert PlotStrategy.create_figure.__doc__ is not None
+        assert "Returns:" in PlotStrategy.create_figure.__doc__
+
     def test_create_plot_has_docstring(self):
         """Test that create_plot has detailed docstring"""
         assert PlotStrategy.create_plot.__doc__ is not None
-        assert "Args:" in PlotStrategy.create_plot.__doc__
         assert "Returns:" in PlotStrategy.create_plot.__doc__
 
     def test_validate_data_has_docstring(self):

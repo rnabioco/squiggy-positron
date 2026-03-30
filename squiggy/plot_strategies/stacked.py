@@ -6,9 +6,7 @@ vertically with offsets.
 """
 
 import numpy as np
-from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
-from bokeh.resources import CDN
 
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
 from ..rendering import ThemeManager
@@ -75,7 +73,7 @@ class StackedPlotStrategy(PlotStrategy):
         reads = data["reads"]
         self._validate_read_tuples(reads)
 
-    def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
+    def create_figure(self, data: dict, options: dict) -> any:
         """
         Generate Bokeh plot HTML and figure for stacked reads
 
@@ -296,10 +294,7 @@ class StackedPlotStrategy(PlotStrategy):
         # Configure legend
         self.theme_manager.configure_legend(fig)
 
-        # Generate HTML
-        html_title = self._format_html_title(reads_data)
-        html = file_html(fig, CDN, title=html_title)
-        return html, fig
+        return fig
 
     # =========================================================================
     # Private Methods: Signal Processing

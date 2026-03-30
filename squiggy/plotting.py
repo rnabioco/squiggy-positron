@@ -1,9 +1,13 @@
 """
 Plotting functions for Squiggy
 
-This module contains all the high-level plotting functions for generating
-Bokeh visualizations of nanopore signal data.
+All plotting functions accept OO API objects (Pod5File, BamFile, FastaFile, Sample)
+as explicit parameters and return Bokeh figure objects.
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -14,11 +18,9 @@ from .constants import (
     DEFAULT_POSITION_LABEL_INTERVAL,
     PlotMode,
 )
-from .io import get_read_by_id, squiggy_kernel
 from .motif import search_motif
 from .plot_factory import create_plot_strategy
 from .utils import (
-    _route_to_plots_pane,
     calculate_aggregate_signal,
     calculate_base_pileup,
     calculate_base_pileup_from_alignments,
@@ -36,9 +38,15 @@ from .utils import (
     parse_plot_parameters,
 )
 
+if TYPE_CHECKING:
+    from .api import BamFile, FastaFile, Pod5File, Sample
+
 
 def plot_read(
     read_id: str,
+    pod5_file: Pod5File,
+    bam_file: BamFile | None = None,
+    fasta_file: FastaFile | None = None,
     mode: str = "SINGLE",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
@@ -51,15 +59,17 @@ def plot_read(
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
     clip_x_to_alignment: bool = True,
-    sample_name: str | None = None,
     coordinate_space: str = "signal",
     trim_primers: bool = True,
-) -> str:
+):
     """
-    Generate a Bokeh HTML plot for a single read
+    Generate a Bokeh plot for a single read
 
     Args:
         read_id: Read ID to plot
+        pod5_file: Pod5File object containing the read
+        bam_file: BamFile object (required for EVENTALIGN and sequence coordinate space)
+        fasta_file: FastaFile object (optional, for reference sequence display)
         mode: Plot mode (SINGLE, EVENTALIGN)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
@@ -72,36 +82,18 @@ def plot_read(
         enabled_mod_types: List of modification type codes to display (None = all)
         show_signal_points: Show individual signal points as circles
         clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
-                             If False, x-axis extends to include soft-clipped regions.
-        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
-                     plots from that specific sample instead of the global session.
         coordinate_space: X-axis coordinate system ('signal' or 'sequence').
-                         'signal' uses sample indices, 'sequence' uses genomic positions (requires BAM).
         trim_primers: If True (default), trim primer/adapter regions identified by PT tag.
 
     Returns:
-        Bokeh HTML string
+        Bokeh figure object
 
     Examples:
-        >>> html = plot_read('read_001', mode='EVENTALIGN')
-        >>> # Extension displays this automatically
-        >>> # Or save to file:
-        >>> with open('plot.html', 'w') as f:
-        >>>     f.write(html)
+        >>> pod5 = squiggy.Pod5File('data.pod5')
+        >>> bam = squiggy.BamFile('alignments.bam')
+        >>> fig = squiggy.plot_read(pod5.read_ids[0], pod5_file=pod5, bam_file=bam)
+        >>> show(fig)
     """
-
-    # Determine which POD5 reader to use
-    if sample_name:
-        # Multi-sample mode: get reader from specific sample
-        sample = squiggy_kernel.get_sample(sample_name)
-        if not sample or sample._pod5_reader is None:
-            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
-        reader = sample._pod5_reader
-    else:
-        # Single-file mode: use global reader
-        reader = squiggy_kernel._reader
-        if reader is None:
-            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
 
     # Apply defaults if not specified
     if downsample is None:
@@ -109,8 +101,14 @@ def plot_read(
     if position_label_interval is None:
         position_label_interval = DEFAULT_POSITION_LABEL_INTERVAL
 
-    # Get read data (optimized with index if available)
-    read_obj = get_read_by_id(read_id, sample_name=sample_name)
+    # Get read data from POD5
+    read_obj = None
+    try:
+        for r in pod5_file._reader.reads(selection=[read_id]):
+            read_obj = r
+            break
+    except RuntimeError:
+        pass
 
     if read_obj is None:
         raise ValueError(f"Read not found: {read_id}")
@@ -132,20 +130,14 @@ def plot_read(
 
         # If sequence coordinate space requested, get alignment data
         if coordinate_space == "sequence":
-            if sample_name:
-                sample = squiggy_kernel.get_sample(sample_name)
-                bam_path = sample._bam_path if sample else None
-            else:
-                bam_path = squiggy_kernel._bam_path
-
-            if bam_path is None:
+            if bam_file is None:
                 raise ValueError(
-                    "Sequence coordinate space requires a BAM file. Call load_bam() first or use coordinate_space='signal'."
+                    "Sequence coordinate space requires a bam_file parameter."
                 )
 
             from .alignment import extract_alignment_from_bam
 
-            aligned_read = extract_alignment_from_bam(bam_path, read_id)
+            aligned_read = extract_alignment_from_bam(bam_file.path, read_id)
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
 
@@ -171,18 +163,11 @@ def plot_read(
 
     elif plot_mode == PlotMode.EVENTALIGN:
         # Event-aligned mode: requires alignment
-        if sample_name:
-            sample = squiggy_kernel.get_sample(sample_name)
-            bam_path = sample._bam_path if sample else None
-            fasta_path = sample._fasta_path if sample else None
-        else:
-            bam_path = squiggy_kernel._bam_path
-            fasta_path = squiggy_kernel._fasta_path
+        if bam_file is None:
+            raise ValueError("EVENTALIGN mode requires a bam_file parameter.")
 
-        if bam_path is None:
-            raise ValueError(
-                "EVENTALIGN mode requires a BAM file. Call load_bam() first."
-            )
+        bam_path = bam_file.path
+        fasta_path = fasta_file.path if fasta_file else None
 
         from .alignment import extract_alignment_from_bam
         from .utils import get_reference_sequence_from_fasta
@@ -238,16 +223,16 @@ def plot_read(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(plot_mode, theme_enum)
-    html, fig = strategy.create_plot(data, options)
+    fig = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(fig)
-
-    return html
+    return fig
 
 
 def plot_reads(
     read_ids: list,
+    pod5_file: Pod5File,
+    bam_file: BamFile | None = None,
+    fasta_file: FastaFile | None = None,
     mode: str = "OVERLAY",
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
@@ -258,18 +243,19 @@ def plot_reads(
     min_mod_probability: float = 0.5,
     enabled_mod_types: list = None,
     show_signal_points: bool = False,
-    sample_name: str | None = None,
-    read_sample_map: dict[str, str] | None = None,
     read_colors: dict[str, str] | None = None,
     coordinate_space: str = "signal",
     trim_primers: bool = True,
-) -> str:
+):
     """
-    Generate a Bokeh HTML plot for multiple reads
+    Generate a Bokeh plot for multiple reads
 
     Args:
         read_ids: List of read IDs to plot
-        mode: Plot mode (OVERLAY, STACKED, EVENTALIGN)
+        pod5_file: Pod5File object containing the reads
+        bam_file: BamFile object (required for EVENTALIGN, REFERENCE_OVERLAY, and sequence space)
+        fasta_file: FastaFile object (optional, for reference sequence display)
+        mode: Plot mode (OVERLAY, STACKED, EVENTALIGN, REFERENCE_OVERLAY)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
         downsample: Downsampling factor (1 = no downsampling, 10 = every 10th point)
@@ -279,30 +265,18 @@ def plot_reads(
         min_mod_probability: Minimum probability threshold for displaying modifications
         enabled_mod_types: List of modification type codes to display
         show_signal_points: Show individual signal points as circles
-        sample_name: (Single-sample mode) Name of the sample to plot from. If provided,
-                     plots from that specific sample instead of the global session.
-        read_sample_map: (Multi-sample mode) Dict mapping read_id → sample_name.
-                         If provided, reads are loaded from their respective samples.
-                         Takes precedence over sample_name parameter.
-        read_colors: (Multi-sample mode) Dict mapping read_id → color hex string.
-                     If provided, each read uses its specified color instead of
-                     the default color cycling. Useful for sample-based coloring.
-        coordinate_space: Coordinate system for x-axis ('signal' or 'sequence').
-                          'signal' uses raw sample points, 'sequence' uses BAM alignment positions.
+        read_colors: Dict mapping read_id → color hex string (optional)
+        coordinate_space: Coordinate system for x-axis ('signal' or 'sequence')
         trim_primers: If True (default), trim primer/adapter regions identified by PT tag.
 
     Returns:
-        Bokeh HTML string
+        Bokeh figure object
 
     Examples:
-        >>> # Single sample
-        >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY')
-        >>>
-        >>> # Multi-sample with custom colors
-        >>> read_map = {'read_001': 'sample_A', 'read_002': 'sample_B'}
-        >>> colors = {'read_001': '#E69F00', 'read_002': '#56B4E9'}
-        >>> html = plot_reads(['read_001', 'read_002'], mode='OVERLAY',
-        ...                   read_sample_map=read_map, read_colors=colors)
+        >>> pod5 = squiggy.Pod5File('data.pod5')
+        >>> bam = squiggy.BamFile('alignments.bam')
+        >>> fig = squiggy.plot_reads(pod5.read_ids[:3], pod5_file=pod5, bam_file=bam)
+        >>> show(fig)
     """
 
     if not read_ids:
@@ -318,24 +292,10 @@ def plot_reads(
     norm_method = params["normalization"]
     theme_enum = params["theme"]
 
-    # Collect read data - use multi-sample fetching if read_sample_map provided
-    if read_sample_map:
-        # Multi-sample mode: fetch reads from different samples
-        from .io import get_reads_batch_multi_sample
-
-        read_objs = get_reads_batch_multi_sample(read_sample_map)
-    elif sample_name:
-        # Single-sample mode: fetch from specified sample
-        from .io import get_reads_batch
-
-        read_objs = get_reads_batch(read_ids, sample_name=sample_name)
-    else:
-        # Legacy mode: fetch from global session
-        from .io import get_reads_batch
-
-        if squiggy_kernel._reader is None:
-            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-        read_objs = get_reads_batch(read_ids, sample_name=None)
+    # Fetch reads from POD5
+    read_objs = {}
+    for read in pod5_file._reader.reads(selection=read_ids, missing_ok=True):
+        read_objs[str(read.read_id)] = read
 
     # Verify all reads were found
     missing = set(read_ids) - set(read_objs.keys())
@@ -357,60 +317,21 @@ def plot_reads(
 
         # If using sequence space, we need BAM alignments
         if coordinate_space == "sequence":
-            # Determine which BAM file(s) to use
-            if read_sample_map:
-                # Multi-sample mode: each read may come from a different BAM
-                from .alignment import extract_alignment_from_bam
+            if bam_file is None:
+                raise ValueError(
+                    "Sequence coordinate space requires a bam_file parameter."
+                )
 
-                aligned_reads = []
-                for read_id in read_ids:
-                    sample_name_for_read = read_sample_map[read_id]
-                    sample = squiggy_kernel.get_sample(sample_name_for_read)
-                    if not sample or not sample._bam_path:
-                        raise ValueError(
-                            f"Sequence space requires BAM files. Sample '{sample_name_for_read}' has no BAM file loaded."
-                        )
-                    aligned_read = extract_alignment_from_bam(sample._bam_path, read_id)
-                    if aligned_read is None:
-                        raise ValueError(
-                            f"No alignment found for read {read_id} in sample '{sample_name_for_read}'."
-                        )
-                    aligned_reads.append(aligned_read)
-            elif sample_name:
-                # Single-sample mode: use sample's BAM file
-                from .alignment import extract_alignment_from_bam
+            from .alignment import extract_alignment_from_bam
 
-                sample = squiggy_kernel.get_sample(sample_name)
-                if not sample or not sample._bam_path:
+            aligned_reads = []
+            for read_id in read_ids:
+                aligned_read = extract_alignment_from_bam(bam_file.path, read_id)
+                if aligned_read is None:
                     raise ValueError(
-                        f"Sequence space requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
+                        f"No alignment found for read {read_id} in BAM file."
                     )
-                aligned_reads = []
-                for read_id in read_ids:
-                    aligned_read = extract_alignment_from_bam(sample._bam_path, read_id)
-                    if aligned_read is None:
-                        raise ValueError(
-                            f"No alignment found for read {read_id} in BAM file."
-                        )
-                    aligned_reads.append(aligned_read)
-            else:
-                # Legacy mode: use global BAM file
-                from .alignment import extract_alignment_from_bam
-
-                if squiggy_kernel._bam_path is None:
-                    raise ValueError(
-                        "Sequence space requires a BAM file. Call load_bam() first."
-                    )
-                aligned_reads = []
-                for read_id in read_ids:
-                    aligned_read = extract_alignment_from_bam(
-                        squiggy_kernel._bam_path, read_id
-                    )
-                    if aligned_read is None:
-                        raise ValueError(
-                            f"No alignment found for read {read_id} in BAM file."
-                        )
-                    aligned_reads.append(aligned_read)
+                aligned_reads.append(aligned_read)
 
             # Apply primer trimming if requested
             if trim_primers:
@@ -436,34 +357,18 @@ def plot_reads(
             "show_signal_points": show_signal_points,
             "coordinate_space": coordinate_space,
         }
-        # Add read colors if provided (for multi-sample coloring)
         if read_colors:
             options["read_colors"] = read_colors
 
     elif plot_mode == PlotMode.EVENTALIGN:
-        # Event-aligned mode for multiple reads
-        # Determine which BAM file to use
-        if sample_name:
-            # Multi-sample mode: use sample's BAM file
-            sample = squiggy_kernel.get_sample(sample_name)
-            if not sample or not sample._bam_path:
-                raise ValueError(
-                    f"EVENTALIGN mode requires a BAM file. Sample '{sample_name}' has no BAM file loaded."
-                )
-            bam_path = sample._bam_path
-        else:
-            # Single-file mode: use global BAM file
-            if squiggy_kernel._bam_path is None:
-                raise ValueError(
-                    "EVENTALIGN mode requires a BAM file. Call load_bam() first."
-                )
-            bam_path = squiggy_kernel._bam_path
+        if bam_file is None:
+            raise ValueError("EVENTALIGN mode requires a bam_file parameter.")
 
         from .alignment import extract_alignment_from_bam
 
         aligned_reads = []
         for read_id in read_ids:
-            aligned_read = extract_alignment_from_bam(bam_path, read_id)
+            aligned_read = extract_alignment_from_bam(bam_file.path, read_id)
             if aligned_read is None:
                 raise ValueError(f"No alignment found for read {read_id} in BAM file.")
             aligned_reads.append(aligned_read)
@@ -497,63 +402,17 @@ def plot_reads(
         }
 
     elif plot_mode == PlotMode.REFERENCE_OVERLAY:
-        # Reference overlay mode — BAM extraction with multi-sample support
-        if read_sample_map:
-            # Multi-sample mode: each read may come from a different BAM
-            from .alignment import extract_alignment_from_bam
+        if bam_file is None:
+            raise ValueError("REFERENCE_OVERLAY mode requires a bam_file parameter.")
 
-            aligned_reads = []
-            for read_id in read_ids:
-                sample_name_for_read = read_sample_map[read_id]
-                sample = squiggy_kernel.get_sample(sample_name_for_read)
-                if not sample or not sample._bam_path:
-                    raise ValueError(
-                        f"REFERENCE_OVERLAY mode requires BAM files. "
-                        f"Sample '{sample_name_for_read}' has no BAM file loaded."
-                    )
-                aligned_read = extract_alignment_from_bam(sample._bam_path, read_id)
-                if aligned_read is None:
-                    raise ValueError(
-                        f"No alignment found for read {read_id} "
-                        f"in sample '{sample_name_for_read}'."
-                    )
-                aligned_reads.append(aligned_read)
-        elif sample_name:
-            sample = squiggy_kernel.get_sample(sample_name)
-            if not sample or not sample._bam_path:
-                raise ValueError(
-                    f"REFERENCE_OVERLAY mode requires a BAM file. "
-                    f"Sample '{sample_name}' has no BAM file loaded."
-                )
-            bam_path = sample._bam_path
+        from .alignment import extract_alignment_from_bam
 
-            from .alignment import extract_alignment_from_bam
-
-            aligned_reads = []
-            for read_id in read_ids:
-                aligned_read = extract_alignment_from_bam(bam_path, read_id)
-                if aligned_read is None:
-                    raise ValueError(
-                        f"No alignment found for read {read_id} in BAM file."
-                    )
-                aligned_reads.append(aligned_read)
-        else:
-            if squiggy_kernel._bam_path is None:
-                raise ValueError(
-                    "REFERENCE_OVERLAY mode requires a BAM file. Call load_bam() first."
-                )
-            bam_path = squiggy_kernel._bam_path
-
-            from .alignment import extract_alignment_from_bam
-
-            aligned_reads = []
-            for read_id in read_ids:
-                aligned_read = extract_alignment_from_bam(bam_path, read_id)
-                if aligned_read is None:
-                    raise ValueError(
-                        f"No alignment found for read {read_id} in BAM file."
-                    )
-                aligned_reads.append(aligned_read)
+        aligned_reads = []
+        for read_id in read_ids:
+            aligned_read = extract_alignment_from_bam(bam_file.path, read_id)
+            if aligned_read is None:
+                raise ValueError(f"No alignment found for read {read_id} in BAM file.")
+            aligned_reads.append(aligned_read)
 
         # Apply primer trimming if requested
         if trim_primers:
@@ -583,8 +442,6 @@ def plot_reads(
         }
         if read_colors:
             options["read_colors"] = read_colors
-        if read_sample_map:
-            options["read_sample_map"] = read_sample_map
 
     else:
         raise ValueError(
@@ -594,16 +451,16 @@ def plot_reads(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(plot_mode, theme_enum)
-    html, fig = strategy.create_plot(data, options)
+    fig = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(fig)
-
-    return html
+    return fig
 
 
 def plot_aggregate(
     reference_name: str,
+    pod5_file: Pod5File,
+    bam_file: BamFile,
+    fasta_file: FastaFile | None = None,
     max_reads: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
@@ -619,11 +476,10 @@ def plot_aggregate(
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
     rna_mode: bool = False,
-    sample_name: str | None = None,
     trim_primers: bool = True,
     primer_5p: str | None = None,
     adapter_3p: str | None = None,
-) -> str:
+):
     """
     Generate aggregate multi-read visualization for a reference sequence
 
@@ -637,69 +493,41 @@ def plot_aggregate(
 
     Args:
         reference_name: Name of reference sequence from BAM file
+        pod5_file: Pod5File object containing signal data
+        bam_file: BamFile object containing alignments
+        fasta_file: FastaFile object (optional, for reference sequence display)
         max_reads: Maximum number of reads to sample for aggregation (default 100)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
         show_modifications: Show modifications heatmap panel (default True)
-        mod_filter: Dictionary mapping modification codes to minimum probability thresholds
-                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications shown.
-        min_mod_frequency: Minimum fraction of reads that must be modified at a position (0.0-1.0).
-                          Positions with lower modification frequency are excluded (default 0.0).
-        min_modified_reads: Minimum number of reads that must have the modification at a position.
-                           Positions with fewer modified reads are excluded (default 1).
+        mod_filter: Dict mapping modification codes to min probability thresholds
+        min_mod_frequency: Min fraction of reads modified at a position (0.0-1.0)
+        min_modified_reads: Min number of reads modified at a position
         show_pileup: Show base pileup panel (default True)
         show_dwell_time: Show dwell time panel (default True)
         show_signal: Show signal panel (default True)
         show_quality: Show quality panel (default True)
         show_coverage: Show coverage depth panel (default True)
-        clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
-                             If False, x-axis extends to include soft-clipped regions.
-        transform_coordinates: If True, transform to 1-based coordinates anchored to first
-                               reference base (default True). If False, use raw genomic coordinates.
-        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
-                     plots from that specific sample instead of the global session.
-        trim_primers: If True (default), trim primer/adapter regions identified by PT tag.
+        clip_x_to_alignment: If True, x-axis shows only aligned region
+        transform_coordinates: If True, transform to 1-based coordinates
+        rna_mode: If True, use RNA-specific display
+        trim_primers: If True, trim primer/adapter regions identified by PT tag
+        primer_5p: Optional 5' primer sequence override
+        adapter_3p: Optional 3' adapter sequence override
 
     Returns:
-        Bokeh HTML string with synchronized tracks
+        Bokeh figure object with synchronized tracks
 
     Examples:
-        >>> import squiggy
-        >>> squiggy.load_pod5('data.pod5')
-        >>> squiggy.load_bam('alignments.bam')
-        >>> html = squiggy.plot_aggregate('chr1', max_reads=50)
-        >>> # Filter modifications by type and probability
-        >>> html = squiggy.plot_aggregate('chr1', mod_filter={'m': 0.8, 'a': 0.7})
-        >>> # Extension displays this automatically
-
-    Raises:
-        ValueError: If POD5 or BAM files not loaded
+        >>> pod5 = squiggy.Pod5File('data.pod5')
+        >>> bam = squiggy.BamFile('alignments.bam')
+        >>> fig = squiggy.plot_aggregate('chr1', pod5_file=pod5, bam_file=bam)
+        >>> show(fig)
     """
 
-    # Determine which sample to use
-    if sample_name:
-        # Multi-sample mode: use sample-specific paths
-        sample = squiggy_kernel.get_sample(sample_name)
-        if not sample or sample._pod5_path is None:
-            raise ValueError(f"Sample '{sample_name}' not loaded or has no POD5 file.")
-        if not sample._bam_path:
-            raise ValueError(
-                f"Sample '{sample_name}' has no BAM file loaded. Aggregate plots require alignments."
-            )
-        pod5_path = sample._pod5_path
-        bam_path = sample._bam_path
-        fasta_path = sample._fasta_path
-    else:
-        # Single-file mode: use global session paths
-        if squiggy_kernel._reader is None:
-            raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-        if squiggy_kernel._bam_path is None:
-            raise ValueError(
-                "No BAM file loaded. Aggregate plots require alignments. Call load_bam() first."
-            )
-        pod5_path = squiggy_kernel._pod5_path
-        bam_path = squiggy_kernel._bam_path
-        fasta_path = squiggy_kernel._fasta_path
+    pod5_path = pod5_file.path
+    bam_path = bam_file.path
+    fasta_path = fasta_file.path if fasta_file else None
 
     # Parse parameters
     params = parse_plot_parameters(normalization=normalization, theme=theme)
@@ -881,7 +709,6 @@ def plot_aggregate(
         "total_reads": total_reads,  # Non-None when primer filtering reduced count
         "primer_trim_bounds": primer_trim_bounds,  # (start, end) for x-axis clipping
         "transformation_info": transformation_info,  # Diagnostic info
-        "sample_name": sample_name,  # Optional sample name for multi-sample mode
     }
 
     options = {
@@ -898,16 +725,15 @@ def plot_aggregate(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
-    html, grid = strategy.create_plot(data, options)
+    grid = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(grid)
-
-    return html
+    return grid
 
 
 def plot_pileup(
     reference_name: str,
+    bam_file: BamFile,
+    fasta_file: FastaFile | None = None,
     max_reads: int = 100,
     theme: str = "LIGHT",
     show_modifications: bool = True,
@@ -920,14 +746,9 @@ def plot_pileup(
     clip_x_to_alignment: bool = True,
     transform_coordinates: bool = True,
     rna_mode: bool = False,
-    sample_name: str | None = None,
-) -> str:
+):
     """
-    Generate pileup-only visualization for BAM files without move tables
-
-    This function creates a visualization that works with BAM files that lack
-    the move table (mv tag). Unlike plot_aggregate(), it does NOT require POD5
-    files or signal-to-base mapping.
+    Generate pileup-only visualization (BAM only, no POD5 needed)
 
     Creates up to four synchronized tracks:
     1. Modifications heatmap (optional, if BAM has MM/ML tags)
@@ -937,63 +758,32 @@ def plot_pileup(
 
     Args:
         reference_name: Name of reference sequence from BAM file
-        max_reads: Maximum number of reads to sample for aggregation (default 100)
+        bam_file: BamFile object containing alignments
+        fasta_file: FastaFile object (optional, for reference sequence display)
+        max_reads: Maximum number of reads to sample (default 100)
         theme: Color theme (LIGHT, DARK)
-        show_modifications: Show modifications heatmap panel (default True)
-        mod_filter: Dictionary mapping modification codes to minimum probability thresholds
-                   (e.g., {'m': 0.8, 'a': 0.7}). If None, all modifications shown.
-        min_mod_frequency: Minimum fraction of reads that must be modified at a position (0.0-1.0).
-                          Positions with lower modification frequency are excluded (default 0.0).
-        min_modified_reads: Minimum number of reads that must have the modification at a position.
-                           Positions with fewer modified reads are excluded (default 1).
-        show_pileup: Show base pileup panel (default True)
-        show_quality: Show quality panel (default True)
-        show_coverage: Show coverage depth panel (default True)
-        clip_x_to_alignment: If True, x-axis shows only aligned region (default True).
-                             If False, x-axis extends to include soft-clipped regions.
-        transform_coordinates: If True, transform to 1-based coordinates anchored to first
-                               reference base (default True). If False, use raw genomic coordinates.
-        sample_name: (Multi-sample mode) Name of the sample to plot from. If provided,
-                     plots from that specific sample instead of the global session.
+        show_modifications: Show modifications heatmap panel
+        mod_filter: Dict mapping modification codes to min probability thresholds
+        min_mod_frequency: Min fraction of reads modified at a position
+        min_modified_reads: Min number of reads modified at a position
+        show_pileup: Show base pileup panel
+        show_quality: Show quality panel
+        show_coverage: Show coverage depth panel
+        clip_x_to_alignment: If True, x-axis shows only aligned region
+        transform_coordinates: If True, transform to 1-based coordinates
+        rna_mode: If True, use RNA-specific display
 
     Returns:
-        Bokeh HTML string with synchronized tracks
+        Bokeh figure object with synchronized tracks
 
     Examples:
-        >>> import squiggy
-        >>> # Works with BAM-only (no POD5 required!)
-        >>> squiggy.load_bam('alignments.bam')
-        >>> html = squiggy.plot_pileup('chr1', max_reads=50)
-
-        >>> # With modification filtering
-        >>> html = squiggy.plot_pileup('chr1', mod_filter={'m': 0.8, 'a': 0.7})
-
-    Raises:
-        ValueError: If BAM file not loaded
-
-    Note:
-        This function does NOT require:
-        - POD5 files (signal data)
-        - Move tables (mv tag)
-        - Signal-to-base mapping
-
-        It only uses alignment information from BAM files.
+        >>> bam = squiggy.BamFile('alignments.bam')
+        >>> fig = squiggy.plot_pileup('chr1', bam_file=bam)
+        >>> show(fig)
     """
 
-    # Determine which sample to use
-    if sample_name:
-        # Multi-sample mode: use sample-specific paths
-        sample = squiggy_kernel.get_sample(sample_name)
-        if not sample or sample._bam_path is None:
-            raise ValueError(f"Sample '{sample_name}' not loaded or has no BAM file.")
-        bam_path = sample._bam_path
-        fasta_path = sample._fasta_path
-    else:
-        # Single-file mode: use global session paths
-        if squiggy_kernel._bam_path is None:
-            raise ValueError("No BAM file loaded. Call load_bam() first.")
-        bam_path = squiggy_kernel._bam_path
-        fasta_path = squiggy_kernel._fasta_path
+    bam_path = bam_file.path
+    fasta_path = fasta_file.path if fasta_file else None
 
     # Parse parameters
     params = parse_plot_parameters(theme=theme)
@@ -1127,7 +917,6 @@ def plot_pileup(
         "reference_name": reference_name,
         "num_reads": num_reads,
         "transformation_info": transformation_info,
-        "sample_name": sample_name,
     }
 
     options = {
@@ -1144,62 +933,53 @@ def plot_pileup(
 
     # Create strategy and generate plot (reuse AggregatePlotStrategy)
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
-    html, grid = strategy.create_plot(data, options)
+    grid = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(grid)
-
-    return html
+    return grid
 
 
 def plot_motif_aggregate_all(
-    fasta_file: str,
     motif: str,
+    pod5_file: Pod5File,
+    bam_file: BamFile,
+    fasta_file: FastaFile,
     upstream: int = None,
     downstream: int = None,
     max_reads_per_motif: int = 100,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
     strand: str = "both",
-) -> str:
+):
     """
     Generate aggregate multi-read visualization across ALL motif matches
 
     Creates a three-track plot showing aggregate statistics from reads aligned
-    to ALL instances of the motif in the genome. The x-axis is centered on the
-    motif position with configurable upstream/downstream windows.
-
-    This function combines reads from all motif matches into one aggregate view,
-    providing a genome-wide perspective on signal patterns around the motif.
+    to ALL instances of the motif. The x-axis is centered on the motif position
+    with configurable upstream/downstream windows.
 
     Args:
-        fasta_file: Path to indexed FASTA file (.fai required)
         motif: IUPAC nucleotide pattern (e.g., "DRACH", "YGCY")
-        upstream: Number of bases upstream (5') of motif center (default=10)
-        downstream: Number of bases downstream (3') of motif center (default=10)
+        pod5_file: Pod5File object containing signal data
+        bam_file: BamFile object containing alignments
+        fasta_file: FastaFile object containing reference sequences
+        upstream: Bases upstream of motif center (default=10)
+        downstream: Bases downstream of motif center (default=10)
         max_reads_per_motif: Maximum reads per motif match (default=100)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
         strand: Which strand to search ('+', '-', or 'both')
 
     Returns:
-        Bokeh HTML string with three synchronized tracks showing aggregate
-        statistics across all motif instances
+        Bokeh figure object with aggregate tracks
 
     Examples:
-        >>> import squiggy
-        >>> squiggy.load_pod5('data.pod5')
-        >>> squiggy.load_bam('alignments.bam')
-        >>> html = squiggy.plot_motif_aggregate_all(
-        ...     fasta_file='genome.fa',
-        ...     motif='DRACH',
-        ...     upstream=20,
-        ...     downstream=50
+        >>> pod5 = squiggy.Pod5File('data.pod5')
+        >>> bam = squiggy.BamFile('alignments.bam')
+        >>> fasta = squiggy.FastaFile('genome.fa')
+        >>> fig = squiggy.plot_motif_aggregate_all(
+        ...     'DRACH', pod5_file=pod5, bam_file=bam, fasta_file=fasta
         ... )
-        >>> # Extension displays this automatically
-
-    Raises:
-        ValueError: If POD5/BAM not loaded or no motif matches found
+        >>> show(fig)
     """
 
     # Apply defaults if not specified
@@ -1208,22 +988,13 @@ def plot_motif_aggregate_all(
     if downstream is None:
         downstream = DEFAULT_MOTIF_WINDOW_DOWNSTREAM
 
-    # Validate state
-    if squiggy_kernel._reader is None:
-        raise ValueError("No POD5 file loaded. Call load_pod5() first.")
-    if squiggy_kernel._bam_path is None:
-        raise ValueError(
-            "No BAM file loaded. Motif aggregate plots require alignments. "
-            "Call load_bam() first."
-        )
-
     # Parse parameters
     params = parse_plot_parameters(normalization=normalization, theme=theme)
     norm_method = params["normalization"]
     theme_enum = params["theme"]
 
     # Search for all motif matches
-    matches = list(search_motif(fasta_file, motif, strand=strand))
+    matches = list(search_motif(fasta_file.path, motif, strand=strand))
 
     if not matches:
         raise ValueError(f"No matches found for motif '{motif}' in FASTA file")
@@ -1236,9 +1007,9 @@ def plot_motif_aggregate_all(
         try:
             # Extract reads for this motif match
             reads_data, _ = extract_reads_for_motif(
-                pod5_file=squiggy_kernel._pod5_path,
-                bam_file=squiggy_kernel._bam_path,
-                fasta_file=fasta_file,
+                pod5_file=pod5_file.path,
+                bam_file=bam_file.path,
+                fasta_file=fasta_file.path,
                 motif=motif,
                 match_index=match_index,
                 upstream=upstream,
@@ -1272,7 +1043,7 @@ def plot_motif_aggregate_all(
         all_aligned_reads,
         bam_file=None,  # Reads are in motif-relative coordinates
         reference_name=None,
-        fasta_file=fasta_file,  # Use FASTA for accurate reference sequence
+        fasta_file=fasta_file.path,  # Use FASTA for accurate reference sequence
     )
 
     # Add motif sequence as reference bases for display
@@ -1314,78 +1085,55 @@ def plot_motif_aggregate_all(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE, theme_enum)
-    html, grid = strategy.create_plot(data, options)
+    grid = strategy.create_figure(data, options)
 
-    # Update x-axis title to reflect motif-relative coordinates
-    # The aggregate plot strategy already handles the coordinate system,
-    # but we can add a note about the window in the title
-
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(grid)
-
-    return html
+    return grid
 
 
 def plot_delta_comparison(
-    sample_names: list[str],
-    reference_name: str = "Default",
+    samples: list[Sample],
+    reference_name: str | None = None,
     normalization: str = "NONE",
     theme: str = "LIGHT",
     max_reads: int | None = None,
-) -> str:
+):
     """
-    Generate delta comparison plot between two or more samples
+    Generate delta comparison plot between two samples
 
-    Creates a visualization showing differences in aggregate statistics
-    between samples. Shows:
+    Shows:
     1. Delta Signal Track: Mean signal differences (B - A)
     2. Delta Stats Track: Coverage comparisons
 
     Args:
-        sample_names: List of sample names to compare (minimum 2 required)
-        reference_name: Optional reference name for plot title (default: "Default")
+        samples: List of Sample objects (minimum 2 required)
+        reference_name: Reference name (auto-detected from first sample's BAM if None)
         normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
-        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
+        max_reads: Maximum reads per sample (default: min available, capped at 100)
 
     Returns:
-        Bokeh HTML string with delta comparison visualization
+        Bokeh figure object
 
     Examples:
-        >>> import squiggy
-        >>> squiggy.load_sample('v4.2', 'data_v4.2.pod5', 'align_v4.2.bam')
-        >>> squiggy.load_sample('v5.0', 'data_v5.0.pod5', 'align_v5.0.bam')
-        >>> html = squiggy.plot_delta_comparison(['v4.2', 'v5.0'])
-        >>> # Extension displays this automatically
-
-    Raises:
-        ValueError: If fewer than 2 samples provided or samples not found
+        >>> wt = squiggy.Sample('wt', 'wt.pod5', 'wt.bam')
+        >>> trub = squiggy.Sample('trub', 'trub.pod5', 'trub.bam')
+        >>> fig = squiggy.plot_delta_comparison([wt, trub])
+        >>> show(fig)
     """
 
-    # Validate input
-    if len(sample_names) < 2:
+    if len(samples) < 2:
         raise ValueError("Delta comparison requires at least 2 samples")
 
-    # Get samples
-    samples = []
-    for name in sample_names:
-        sample = squiggy_kernel.get_sample(name)
-        if sample is None:
-            raise ValueError(f"Sample '{name}' not found")
-        samples.append(sample)
-
-    # For now, use first two samples for comparison (A vs B)
     sample_a = samples[0]
     sample_b = samples[1]
 
-    # Validate both samples have POD5 and BAM loaded
-    if sample_a._pod5_reader is None or sample_b._pod5_reader is None:
+    # Validate both samples have POD5 and BAM
+    if sample_a.pod5._reader is None or sample_b.pod5._reader is None:
         raise ValueError("Both samples must have POD5 files loaded")
 
-    if sample_a._bam_path is None or sample_b._bam_path is None:
+    if sample_a.bam is None or sample_b.bam is None:
         raise ValueError(
-            "Both samples must have BAM files loaded for delta comparison. "
-            "BAM files are required to align signals to reference positions."
+            "Both samples must have BAM files loaded for delta comparison."
         )
 
     # Parse parameters
@@ -1393,51 +1141,43 @@ def plot_delta_comparison(
     norm_method = params["normalization"]
     theme_enum = params["theme"]
 
-    # Get first reference from sample A's BAM
-    # (assumes both samples have the same reference genome)
-    if not sample_a._bam_info or "references" not in sample_a._bam_info:
-        raise ValueError("BAM file must be loaded with reference information")
-
-    references = sample_a._bam_info["references"]
-    if not references:
-        raise ValueError("No references found in BAM file")
-
-    reference_name = references[0]["name"]
+    # Auto-detect reference name from first sample's BAM
+    if reference_name is None:
+        bam_info = sample_a.bam.info
+        references = bam_info.get("references", [])
+        if not references:
+            raise ValueError("No references found in BAM file")
+        reference_name = references[0]["name"]
 
     # Determine max_reads if not provided
     if max_reads is None:
-        # Calculate available reads per sample and use minimum
-
         available_reads_per_sample = []
         for sample in [sample_a, sample_b]:
             try:
                 available = get_available_reads_for_reference(
-                    bam_file=sample._bam_path,
+                    bam_file=sample.bam.path,
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
             except Exception:
-                available_reads_per_sample.append(100)  # Fallback
+                available_reads_per_sample.append(100)
 
-        # Use minimum available, capped at 100
         max_reads = (
             min(available_reads_per_sample) if available_reads_per_sample else 100
         )
-        max_reads = min(max_reads, 100)  # Cap at 100 for performance
-
-    # Extract aligned reads from both samples using the proper utility function
+        max_reads = min(max_reads, 100)
 
     reads_a = extract_reads_for_reference(
-        pod5_file=sample_a._pod5_path,
-        bam_file=sample_a._bam_path,
+        pod5_file=sample_a.pod5.path,
+        bam_file=sample_a.bam.path,
         reference_name=reference_name,
         max_reads=max_reads,
         random_sample=True,
     )
 
     reads_b = extract_reads_for_reference(
-        pod5_file=sample_b._pod5_path,
-        bam_file=sample_b._bam_path,
+        pod5_file=sample_b.pod5.path,
+        bam_file=sample_b.bam.path,
         reference_name=reference_name,
         max_reads=max_reads,
         random_sample=True,
@@ -1477,77 +1217,52 @@ def plot_delta_comparison(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.DELTA, theme_enum)
-    html, grid = strategy.create_plot(data, options)
+    grid = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(grid)
-
-    return html
+    return grid
 
 
 def plot_signal_overlay_comparison(
-    sample_names: list[str],
+    samples: list[Sample],
     reference_name: str | None = None,
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
     max_reads: int | None = None,
-) -> str:
+):
     """
     Generate signal overlay comparison plot for multiple samples
 
     Creates a visualization overlaying raw signals from 2+ samples, each with
-    distinct color from Okabe-Ito palette. Includes:
-    1. Signal Overlay Track: All sample signals overlaid with color per sample
-    2. Coverage Track: Read count per position for each sample
-    3. Reference Display: Nucleotide sequence annotations below signal track
+    distinct color from Okabe-Ito palette.
 
     Args:
-        sample_names: List of sample names to compare (minimum 2 required)
-        reference_name: Optional reference name (auto-detected from first sample's BAM)
-        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD) - default ZNORM
+        samples: List of Sample objects (minimum 2 required)
+        reference_name: Reference name (auto-detected from first sample's BAM if None)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
-        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
+        max_reads: Maximum reads per sample (default: min available, capped at 100)
 
     Returns:
-        Bokeh HTML string with signal overlay comparison visualization
+        Bokeh figure object
 
     Examples:
-        >>> import squiggy
-        >>> squiggy.load_sample('alanine', 'ala_subset.pod5', 'ala_subset.aln.bam')
-        >>> squiggy.load_sample('arginine', 'arg_subset.pod5', 'arg_subset.aln.bam')
-        >>> html = squiggy.plot_signal_overlay_comparison(
-        ...     ['alanine', 'arginine'],
-        ...     normalization='ZNORM'
-        ... )
-        >>> # Extension displays this automatically
-
-    Raises:
-        ValueError: If fewer than 2 samples provided, samples not found, or missing BAM files
+        >>> wt = squiggy.Sample('wt', 'wt.pod5', 'wt.bam')
+        >>> trub = squiggy.Sample('trub', 'trub.pod5', 'trub.bam')
+        >>> fig = squiggy.plot_signal_overlay_comparison([wt, trub])
+        >>> show(fig)
     """
 
-    # Validate input
-    if len(sample_names) < 2:
+    if len(samples) < 2:
         raise ValueError(
-            f"Signal overlay comparison requires at least 2 samples, got {len(sample_names)}"
+            f"Signal overlay comparison requires at least 2 samples, got {len(samples)}"
         )
 
-    # Get samples
-    samples = []
-    for name in sample_names:
-        sample = squiggy_kernel.get_sample(name)
-        if sample is None:
-            raise ValueError(f"Sample '{name}' not found")
-        samples.append(sample)
-
-    # Validate all samples have POD5 and BAM loaded
+    # Validate all samples have POD5 and BAM
     for sample in samples:
-        if sample._pod5_reader is None:
+        if sample.pod5._reader is None:
             raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
-        if sample._bam_path is None:
-            raise ValueError(
-                f"Sample '{sample.name}' must have BAM file loaded. "
-                "BAM files are required to align signals to reference positions."
-            )
+        if sample.bam is None:
+            raise ValueError(f"Sample '{sample.name}' must have BAM file loaded.")
 
     # Parse parameters
     params = parse_plot_parameters(normalization=normalization, theme=theme)
@@ -1556,24 +1271,17 @@ def plot_signal_overlay_comparison(
 
     # Determine reference name
     if reference_name is None:
-        # Get first reference from first sample's BAM
-        if not samples[0]._bam_info or "references" not in samples[0]._bam_info:
-            raise ValueError("BAM file must contain reference information")
-
-        references = samples[0]._bam_info["references"]
+        bam_info = samples[0].bam.info
+        references = bam_info.get("references", [])
         if not references:
             raise ValueError("No references found in BAM file")
-
         reference_name = references[0]["name"]
 
-    # Validate all samples have same reference (Issue #121)
+    # Validate all samples have same reference
     samples_missing_reference = []
     for sample in samples:
-        if not sample._bam_info or "references" not in sample._bam_info:
-            samples_missing_reference.append((sample.name, "no BAM metadata"))
-            continue
-
-        refs = sample._bam_info["references"]
+        bam_info = sample.bam.info
+        refs = bam_info.get("references", [])
         ref_names = [r["name"] for r in refs]
 
         if reference_name not in ref_names:
@@ -1604,24 +1312,21 @@ def plot_signal_overlay_comparison(
 
     # Determine max_reads if not provided
     if max_reads is None:
-        # Calculate available reads per sample and use minimum
-
         available_reads_per_sample = []
         for sample in samples:
             try:
                 available = get_available_reads_for_reference(
-                    bam_file=sample._bam_path,
+                    bam_file=sample.bam.path,
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
             except Exception:
-                available_reads_per_sample.append(100)  # Fallback
+                available_reads_per_sample.append(100)
 
-        # Use minimum available, capped at 100
         max_reads = (
             min(available_reads_per_sample) if available_reads_per_sample else 100
         )
-        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+        max_reads = min(max_reads, 100)
 
     # Extract aligned reads for each sample
     plot_data = []
@@ -1629,8 +1334,8 @@ def plot_signal_overlay_comparison(
 
     for sample in samples:
         reads = extract_reads_for_reference(
-            pod5_file=sample._pod5_path,
-            bam_file=sample._bam_path,
+            pod5_file=sample.pod5.path,
+            bam_file=sample.bam.path,
             reference_name=reference_name,
             max_reads=max_reads,
             random_sample=True,
@@ -1675,25 +1380,20 @@ def plot_signal_overlay_comparison(
 
             # Try FASTA first (most accurate and complete)
             first_sample = samples[0]
-            if first_sample._fasta_path:
+            if first_sample.fasta:
                 try:
-                    import pysam
-
-                    fasta = pysam.FastaFile(first_sample._fasta_path)
-                    reference_sequence = fasta.fetch(
+                    reference_sequence = first_sample.fasta.fetch(
                         reference_name, min_pos, max_pos + 1
                     )
-                    fasta.close()
                 except Exception:
-                    # FASTA fetch failed, will fall back to BAM
                     pass
 
             # Fallback to BAM reconstruction if FASTA unavailable
             if not reference_sequence:
                 try:
                     reads = extract_reads_for_reference(
-                        pod5_file=first_sample._pod5_path,
-                        bam_file=first_sample._bam_path,
+                        pod5_file=first_sample.pod5.path,
+                        bam_file=first_sample.bam.path,
                         reference_name=reference_name,
                         max_reads=1,
                     )
@@ -1716,16 +1416,13 @@ def plot_signal_overlay_comparison(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.SIGNAL_OVERLAY_COMPARISON, theme_enum)
-    html, grid = strategy.create_plot(data, options)
+    grid = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(grid)
-
-    return html
+    return grid
 
 
 def plot_aggregate_comparison(
-    sample_names: list[str],
+    samples: list[Sample],
     reference_name: str,
     metrics: list[str] | None = None,
     max_reads: int | None = None,
@@ -1733,87 +1430,58 @@ def plot_aggregate_comparison(
     theme: str = "LIGHT",
     sample_colors: dict[str, str] | None = None,
     trim_primers: bool = True,
-) -> str:
+):
     """
     Generate aggregate comparison plot for multiple samples
 
-    Creates a visualization comparing aggregate statistics (signal, dwell time,
-    quality) from 2+ samples overlaid on the same axes. Each sample is color-coded
-    for easy comparison. Includes:
-    1. Signal Statistics Track: Mean signal ± std for each sample
-    2. Dwell Time Statistics Track: Mean dwell time ± std for each sample (optional)
-    3. Quality Statistics Track: Mean quality ± std for each sample (optional)
-    4. Coverage Track: Read count per position for each sample
+    Compares aggregate statistics (signal, dwell time, quality) from 2+ samples
+    overlaid on the same axes.
 
     Args:
-        sample_names: List of sample names to compare (minimum 2 required)
+        samples: List of Sample objects (minimum 2 required)
         reference_name: Name of reference sequence from BAM files
-        metrics: List of metrics to display: 'signal', 'dwell_time', 'quality'.
-                 If None, displays all available metrics (default)
-        max_reads: Maximum reads per sample to load (default: min of available reads, capped at 100)
-        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD) - default ZNORM
+        metrics: List of metrics: 'signal', 'dwell_time', 'quality' (default: all)
+        max_reads: Maximum reads per sample (default: min available, capped at 100)
+        normalization: Normalization method (NONE, ZNORM, MEDIAN, MAD)
         theme: Color theme (LIGHT, DARK)
-        sample_colors: Optional dict mapping sample names to hex colors.
-                       If None, uses Okabe-Ito palette (default)
+        sample_colors: Dict mapping sample names to hex colors (optional)
+        trim_primers: If True, trim primer/adapter regions
 
     Returns:
-        Bokeh HTML string with aggregate comparison visualization
+        Bokeh figure object
 
-    Example:
-        >>> import squiggy
-        >>> squiggy.load_sample('control', 'control.pod5', 'control.bam')
-        >>> squiggy.load_sample('treatment', 'treatment.pod5', 'treatment.bam')
-        >>> html = squiggy.plot_aggregate_comparison(
-        ...     ['control', 'treatment'],
-        ...     reference_name='chr1',
-        ...     metrics=['signal', 'dwell_time', 'quality']
+    Examples:
+        >>> wt = squiggy.Sample('wt', 'wt.pod5', 'wt.bam', 'ref.fa')
+        >>> trub = squiggy.Sample('trub', 'trub.pod5', 'trub.bam', 'ref.fa')
+        >>> fig = squiggy.plot_aggregate_comparison(
+        ...     [wt, trub], reference_name='chr1'
         ... )
-        >>> # Extension displays this automatically
-
-    Raises:
-        ValueError: If fewer than 2 samples provided or samples not found
+        >>> show(fig)
     """
     from .constants import MULTI_READ_COLORS, NormalizationMethod, Theme
 
-    # Validate input
-    if len(sample_names) < 2:
+    if len(samples) < 2:
         raise ValueError("Aggregate comparison requires at least 2 samples")
 
-    # Get samples
-    samples = []
-    for name in sample_names:
-        sample = squiggy_kernel.get_sample(name)
-        if sample is None:
-            raise ValueError(f"Sample '{name}' not found")
-        samples.append(sample)
-
-    # Validate all samples have POD5 and BAM loaded
+    # Validate all samples have POD5 and BAM
     for sample in samples:
-        if sample._pod5_reader is None:
+        if sample.pod5._reader is None:
             raise ValueError(f"Sample '{sample.name}' must have POD5 file loaded")
-        if sample._bam_path is None:
-            raise ValueError(
-                f"Sample '{sample.name}' must have BAM file loaded for aggregate comparison. "
-                "BAM files are required to align signals to reference positions."
-            )
+        if sample.bam is None:
+            raise ValueError(f"Sample '{sample.name}' must have BAM file loaded.")
 
     # Parse parameters
     norm_method = NormalizationMethod[normalization.upper()]
     theme_enum = Theme[theme.upper()]
 
-    # Determine which metrics to display
     if metrics is None:
         metrics = ["signal", "dwell_time", "quality"]
 
-    # Validate that all samples have the requested reference (Issue #121)
+    # Validate all samples have the requested reference
     samples_missing_reference = []
     for sample in samples:
-        if sample._bam_info is None or "references" not in sample._bam_info:
-            samples_missing_reference.append((sample.name, "no BAM metadata"))
-            continue
-
-        # Check if reference exists in this sample's BAM
-        ref_names = [ref["name"] for ref in sample._bam_info.get("references", [])]
+        bam_info = sample.bam.info
+        ref_names = [ref["name"] for ref in bam_info.get("references", [])]
         if reference_name not in ref_names:
             available_refs = ", ".join(ref_names[:3])
             if len(ref_names) > 3:
@@ -1846,37 +1514,34 @@ def plot_aggregate_comparison(
         for sample in samples:
             try:
                 available = get_available_reads_for_reference(
-                    bam_file=sample._bam_path,
+                    bam_file=sample.bam.path,
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
             except Exception:
-                available_reads_per_sample.append(100)  # Fallback
+                available_reads_per_sample.append(100)
 
-        # Use minimum available, capped at 100
         max_reads = (
             min(available_reads_per_sample) if available_reads_per_sample else 100
         )
-        max_reads = min(max_reads, 100)  # Cap at 100 for performance
+        max_reads = min(max_reads, 100)
 
     # Compute body bounds from FASTA if primer trimming requested
     primer_trim_bounds = None
     if trim_primers:
-        # Use the first sample's FASTA (all samples should share the same reference)
-        fasta_path = samples[0]._fasta_path if samples else None
-        if fasta_path:
+        fasta = samples[0].fasta if samples else None
+        if fasta:
             from .alignment import find_body_bounds
 
-            primer_trim_bounds = find_body_bounds(fasta_path, reference_name)
+            primer_trim_bounds = find_body_bounds(fasta.path, reference_name)
 
     # Extract and calculate statistics for each sample
     sample_data = []
 
     for i, sample in enumerate(samples):
-        # Extract aligned reads for this sample
         reads = extract_reads_for_reference(
-            pod5_file=sample._pod5_path,
-            bam_file=sample._bam_path,
+            pod5_file=sample.pod5.path,
+            bam_file=sample.bam.path,
             reference_name=reference_name,
             max_reads=max_reads,
             random_sample=True,
@@ -1943,9 +1608,6 @@ def plot_aggregate_comparison(
 
     # Create strategy and generate plot
     strategy = create_plot_strategy(PlotMode.AGGREGATE_COMPARISON, theme_enum)
-    html, grid = strategy.create_plot(data, options)
+    grid = strategy.create_figure(data, options)
 
-    # Route to Positron Plots pane if running in Positron
-    _route_to_plots_pane(grid)
-
-    return html
+    return grid

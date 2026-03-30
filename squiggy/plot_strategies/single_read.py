@@ -5,10 +5,8 @@ This module implements the Strategy Pattern for single nanopore read visualizati
 """
 
 import numpy as np
-from bokeh.embed import file_html
 from bokeh.layouts import column
 from bokeh.models import ColorBar, ColumnDataSource, HoverTool
-from bokeh.resources import CDN
 
 from ..constants import NormalizationMethod, Theme
 from ..rendering import BaseAnnotationRenderer, ModificationTrackBuilder, ThemeManager
@@ -92,7 +90,7 @@ class SingleReadPlotStrategy(PlotStrategy):
         if not isinstance(data["sample_rate"], (int, float)):
             raise ValueError("sample_rate must be a number")
 
-    def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
+    def create_figure(self, data: dict, options: dict) -> any:
         """
         Generate Bokeh plot HTML and figure for a single read
 
@@ -256,12 +254,10 @@ class SingleReadPlotStrategy(PlotStrategy):
             # Store reference to main plot
             object.__setattr__(layout, "main_plot", fig)
 
-            html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
-            return html, layout
+            return layout
         else:
             # No modifications - return single plot
-            html = file_html(fig, CDN, title=f"Squiggy: {read_id}")
-            return html, fig
+            return fig
 
     # =========================================================================
     # Private Methods: Signal Processing

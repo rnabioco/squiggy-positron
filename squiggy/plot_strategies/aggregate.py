@@ -5,10 +5,8 @@ This module implements the Strategy Pattern for aggregate multi-read visualizati
 with synchronized tracks showing signal statistics, base pileup, and quality.
 """
 
-from bokeh.embed import file_html
 from bokeh.layouts import gridplot
 from bokeh.models import Band, ColumnDataSource, Div, FactorRange, HoverTool, Range1d
-from bokeh.resources import CDN
 
 from ..constants import (
     MODIFICATION_CODES,
@@ -123,7 +121,7 @@ class AggregatePlotStrategy(PlotStrategy):
         if missing_quality:
             raise ValueError(f"quality_stats missing keys: {missing_quality}")
 
-    def create_plot(self, data: dict, options: dict) -> tuple[str, any]:
+    def create_figure(self, data: dict, options: dict) -> any:
         """
         Generate Bokeh gridplot HTML and layout for aggregate visualization
 
@@ -329,10 +327,7 @@ class AggregatePlotStrategy(PlotStrategy):
         # Apply theme background to gridplot container
         grid.styles = {"background-color": self.theme_manager.get_color("plot_bg")}
 
-        # Generate HTML
-        html_title = f"Squiggy Aggregate: {reference_name} ({num_reads} reads)"
-        html = file_html(grid, CDN, title=html_title)
-        return html, grid
+        return grid
 
     # =========================================================================
     # Private Methods: Track Creation

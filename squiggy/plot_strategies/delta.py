@@ -127,9 +127,9 @@ class DeltaPlotStrategy(PlotStrategy):
         if not isinstance(data["sample_b_name"], str):
             raise ValueError("sample_b_name must be a string")
 
-    def create_plot(
+    def create_figure(
         self, data: dict[str, Any], options: dict[str, Any]
-    ) -> tuple[str, Any]:
+    ) -> Any:
         """
         Generate delta comparison plot
 
@@ -197,10 +197,7 @@ class DeltaPlotStrategy(PlotStrategy):
             "background-color": self.theme_manager.get_color("plot_bg")
         }
 
-        # Convert to HTML
-        html = self._figure_to_html(layout_obj)
-
-        return html, layout_obj
+        return layout_obj
 
     def _create_signal_track(
         self,

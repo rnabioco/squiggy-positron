@@ -12,9 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
-from bokeh.resources import CDN
 
 from ..constants import MULTI_READ_COLORS, NormalizationMethod, Theme
 from ..rendering import BaseAnnotationRenderer, ReferenceTrackRenderer, ThemeManager
@@ -114,9 +112,9 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                 f"All reads must map to the same chromosome, got: {sorted(chromosomes)}"
             )
 
-    def create_plot(
+    def create_figure(
         self, data: dict[str, Any], options: dict[str, Any]
-    ) -> tuple[str, Any]:
+    ) -> Any:
         """
         Generate reference-aligned signal overlay plot
 
@@ -312,9 +310,6 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                 fig, reference_sequence, aligned_reads
             )
 
-        # Generate HTML
-        html_title = self._build_html_title("Reference Overlay", f"{num_reads} reads")
-
         if ref_fig is not None:
             from bokeh.layouts import column
 
@@ -329,11 +324,9 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                 spacing=0,
             )
             object.__setattr__(layout, "main_plot", fig)
-            html = file_html(layout, CDN, title=html_title)
-            return html, layout
+            return layout
         else:
-            html = file_html(fig, CDN, title=html_title)
-            return html, fig
+            return fig
 
     # =========================================================================
     # Private Methods: Coordinate Building
