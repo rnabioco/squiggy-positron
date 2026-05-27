@@ -100,8 +100,7 @@ export class SquiggyRuntimeAPI {
     /**
      * Load a POD5 file
      *
-     * Executes squiggy.load_pod5() in the kernel. The session object is stored
-     * in squiggy_kernel kernel variable accessible from console/notebooks.
+     * Creates a Pod5File object (_sq_pod5) in the kernel.
      *
      * Does NOT preload read IDs - use getReadIds() to fetch them on-demand.
      * @throws POD5Error if loading fails
@@ -117,18 +116,17 @@ export class SquiggyRuntimeAPI {
             const escapedPath = filePath.replace(/'/g, "\\'");
 
             // Load file silently (no console output)
-            // This populates the global squiggy_kernel in Python
+            // This creates a Pod5File object in the kernel
             await this._client.executeSilent(
                 `
 import squiggy
-from squiggy.io import squiggy_kernel
-squiggy.load_pod5('${escapedPath}')
+_sq_pod5 = squiggy.Pod5File('${escapedPath}')
 `,
                 true // Enable retry for transient failures
             );
 
-            // Get read count by reading from session object (no print needed)
-            const numReads = await this._client.getVariable('len(squiggy_kernel._read_ids)');
+            // Get read count by reading from OO API (no print needed)
+            const numReads = await this._client.getVariable('len(_sq_pod5.read_ids)');
 
             return { numReads: numReads as number };
         } catch (error) {
@@ -152,8 +150,8 @@ squiggy.load_pod5('${escapedPath}')
     async getReadIds(offset: number = 0, limit?: number): Promise<string[]> {
         const sliceStr = limit ? `[${offset}:${offset + limit}]` : `[${offset}:]`;
 
-        // Read from session object (no print needed)
-        const readIds = await this._client.getVariable(`squiggy_kernel._read_ids${sliceStr}`);
+        // Read from OO API (no print needed)
+        const readIds = await this._client.getVariable(`_sq_pod5.read_ids${sliceStr}`);
 
         return readIds as string[];
     }
@@ -175,41 +173,35 @@ squiggy.load_pod5('${escapedPath}')
             const escapedPath = filePath.replace(/'/g, "\\'");
 
             // Load BAM silently (no console output)
-            // This populates squiggy_kernel._bam_info and .bam_path
+            // This creates a BamFile object in the kernel
             await this._client.executeSilent(
                 `
 import squiggy
-from squiggy.io import squiggy_kernel
-squiggy.load_bam('${escapedPath}')
-squiggy.get_read_to_reference_mapping()
+_sq_bam = squiggy.BamFile('${escapedPath}')
 `,
                 true // Enable retry for transient failures
             );
 
-            // Read metadata directly from session object (no print needed)
-            const numReads = await this._client.getVariable(
-                "squiggy_kernel._bam_info['num_reads']"
-            );
+            // Read metadata directly from OO API (no print needed)
+            const numReads = await this._client.getVariable("_sq_bam.info['num_reads']");
             const hasModifications = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('has_modifications', False)"
+                "_sq_bam.info.get('has_modifications', False)"
             );
             const modificationTypes = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('modification_types', [])"
+                "_sq_bam.info.get('modification_types', [])"
             );
             const hasProbabilities = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('has_probabilities', False)"
+                "_sq_bam.info.get('has_probabilities', False)"
             );
             const hasEventAlignment = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('has_event_alignment', False)"
+                "_sq_bam.info.get('has_event_alignment', False)"
             );
             const basecallModel = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('basecall_model', None)"
+                "_sq_bam.info.get('basecall_model', None)"
             );
-            const isRna = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('is_rna', False)"
-            );
+            const isRna = await this._client.getVariable("_sq_bam.info.get('is_rna', False)");
             const hasPrimers = await this._client.getVariable(
-                "squiggy_kernel._bam_info.get('has_primers', False)"
+                "_sq_bam.info.get('has_primers', False)"
             );
 
             return {
@@ -238,9 +230,9 @@ squiggy.get_read_to_reference_mapping()
      * Get list of reference names from loaded BAM file
      */
     async getReferences(): Promise<string[]> {
-        // Read keys directly from session object (no print needed)
+        // Read keys directly from OO API (no print needed)
         const references = await this._client.getVariable(
-            'list(squiggy_kernel._ref_mapping.keys()) if squiggy_kernel._ref_mapping else []'
+            'list(_sq_bam.ref_mapping.keys()) if _sq_bam.ref_mapping else []'
         );
         return references as string[];
     }
@@ -256,14 +248,14 @@ squiggy.get_read_to_reference_mapping()
     ): Promise<{ readIds: string[]; totalCount: number }> {
         const escapedRef = referenceName.replace(/'/g, "\\'");
 
-        // Get paginated reads using the new Python function
+        // Get paginated reads using the OO API
         const readIds = await this._client.getVariable(
-            `squiggy.get_reads_for_reference_paginated('${escapedRef}', offset=${offset}, limit=${limit === null ? 'None' : limit})`
+            `_sq_bam.get_reads_for_reference('${escapedRef}', offset=${offset}, limit=${limit === null ? 'None' : limit})`
         );
 
         // Get total count for this reference
         const totalCount = await this._client.getVariable(
-            `len(squiggy.io.squiggy_kernel._ref_mapping.get('${escapedRef}', []))`
+            `len(_sq_bam.ref_mapping.get('${escapedRef}', []))`
         );
 
         return { readIds: readIds as string[], totalCount: totalCount as number };
@@ -306,8 +298,13 @@ squiggy.get_read_to_reference_mapping()
             const readIdsJson = JSON.stringify(readIds);
             const enabledModTypesJson = JSON.stringify(enabledModTypes);
 
-            // Build sample name parameter if in multi-sample mode
-            const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+            // Build pod5_file/bam_file parameters based on sample mode
+            const pod5Param = sampleName
+                ? `, pod5_file=_sq_samples['${sampleName}'].pod5`
+                : ', pod5_file=_sq_pod5';
+            const bamParam = sampleName
+                ? `, bam_file=_sq_samples['${sampleName}'].bam`
+                : ', bam_file=_sq_bam if "_sq_bam" in dir() else None';
 
             // Build coordinate space parameter if specified
             const coordinateSpaceParam = coordinateSpace
@@ -329,7 +326,7 @@ squiggy.get_read_to_reference_mapping()
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
     show_signal_points=${showSignalPoints ? 'True' : 'False'},
-    trim_primers=${trimPrimers ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
+    trim_primers=${trimPrimers ? 'True' : 'False'}${pod5Param}${bamParam}${coordinateSpaceParam}
 )`
                     : `squiggy.plot_reads(
     ${readIdsJson},
@@ -343,7 +340,7 @@ squiggy.get_read_to_reference_mapping()
     enabled_mod_types=${enabledModTypesJson},
     downsample=${downsample},
     show_signal_points=${showSignalPoints ? 'True' : 'False'},
-    trim_primers=${trimPrimers ? 'True' : 'False'}${sampleNameParam}${coordinateSpaceParam}
+    trim_primers=${trimPrimers ? 'True' : 'False'}${pod5Param}${bamParam}${coordinateSpaceParam}
 )`;
 
             const code = `
@@ -355,8 +352,10 @@ import traceback
 _squiggy_plot_error = None
 
 try:
-    # Generate plot - will be automatically routed to Plots pane via webbrowser.open()
-    ${plotCall}
+    # Generate plot and route to Plots pane
+    _sq_fig = ${plotCall}
+    from bokeh.io import show as _bokeh_show
+    _bokeh_show(_sq_fig)
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
     print(f"ERROR generating plot: {_squiggy_plot_error}", file=sys.stderr)
@@ -437,9 +436,18 @@ if '_squiggy_plot_error' in globals():
         coordinateSpace: 'signal' | 'sequence' = 'signal'
     ): Promise<void> {
         const readIdsJson = JSON.stringify(readIds);
-        const readSampleMapJson = JSON.stringify(readSampleMap);
         const readColorsJson = JSON.stringify(readColors);
         const enabledModTypesJson = JSON.stringify(enabledModTypes);
+
+        // For multi-sample plots, use the first sample's pod5 as the pod5_file
+        // (all reads must be from loaded samples)
+        const firstSampleName = Object.values(readSampleMap)[0];
+        const pod5FileExpr = firstSampleName
+            ? `_sq_samples['${firstSampleName}'].pod5`
+            : '_sq_pod5';
+        const bamFileExpr = firstSampleName
+            ? `_sq_samples['${firstSampleName}'].bam`
+            : '_sq_bam if "_sq_bam" in dir() else None';
 
         const code = `
 import sys
@@ -451,7 +459,7 @@ _squiggy_plot_error = None
 
 try:
     # Generate multi-sample plot
-    squiggy.plot_reads(
+    _sq_fig = squiggy.plot_reads(
         ${readIdsJson},
         mode='${mode}',
         normalization='${normalization}',
@@ -463,10 +471,13 @@ try:
         enabled_mod_types=${enabledModTypesJson},
         downsample=${downsample},
         show_signal_points=${showSignalPoints ? 'True' : 'False'},
-        read_sample_map=${readSampleMapJson},
         read_colors=${readColorsJson},
-        coordinate_space='${coordinateSpace}'
+        coordinate_space='${coordinateSpace}',
+        pod5_file=${pod5FileExpr},
+        bam_file=${bamFileExpr}
     )
+    from bokeh.io import show as _bokeh_show
+    _bokeh_show(_sq_fig)
 except Exception as e:
     _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
     print(f"ERROR generating multi-sample plot: {_squiggy_plot_error}", file=sys.stderr)
@@ -575,8 +586,16 @@ if '_squiggy_plot_error' in globals():
                     ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
                     : 'None';
 
-            // Build sample name parameter if in multi-sample mode
-            const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+            // Build pod5_file/bam_file/fasta_file parameters based on sample mode
+            const pod5Param = sampleName
+                ? `pod5_file=_sq_samples['${escapedSampleName}'].pod5`
+                : 'pod5_file=_sq_pod5';
+            const bamParam = sampleName
+                ? `bam_file=_sq_samples['${escapedSampleName}'].bam`
+                : 'bam_file=_sq_bam if "_sq_bam" in dir() else None';
+            const fastaParam = sampleName
+                ? `fasta_file=_sq_samples['${escapedSampleName}'].fasta`
+                : 'fasta_file=_sq_fasta if "_sq_fasta" in dir() else None';
 
             // Build optional primer sequence parameters
             const primerParams =
@@ -592,8 +611,8 @@ if '_squiggy_plot_error' in globals():
                 ? `
 import squiggy
 
-# Generate pileup-only plot (no mv tag required) - will be automatically routed to Plots pane
-squiggy.plot_pileup(
+# Generate pileup-only plot (no mv tag required)
+_sq_fig = squiggy.plot_pileup(
     reference_name='${escapedRefName}',
     max_reads=${maxReads},
     theme='${theme}',
@@ -606,14 +625,18 @@ squiggy.plot_pileup(
     show_coverage=${showCoverage ? 'True' : 'False'},
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'},
-    rna_mode=${rnaMode ? 'True' : 'False'}${sampleNameParam}
+    rna_mode=${rnaMode ? 'True' : 'False'},
+    ${bamParam},
+    ${fastaParam}
 )
+from bokeh.io import show as _bokeh_show
+_bokeh_show(_sq_fig)
 `
                 : `
 import squiggy
 
-# Generate aggregate plot - will be automatically routed to Plots pane
-squiggy.plot_aggregate(
+# Generate aggregate plot
+_sq_fig = squiggy.plot_aggregate(
     reference_name='${escapedRefName}',
     max_reads=${maxReads},
     normalization='${normalization}',
@@ -630,8 +653,13 @@ squiggy.plot_aggregate(
     clip_x_to_alignment=${clipXAxisToAlignment ? 'True' : 'False'},
     transform_coordinates=${transformCoordinates ? 'True' : 'False'},
     rna_mode=${rnaMode ? 'True' : 'False'},
-    trim_primers=${trimPrimers ? 'True' : 'False'}${primerParams}${sampleNameParam}
+    trim_primers=${trimPrimers ? 'True' : 'False'}${primerParams},
+    ${pod5Param},
+    ${bamParam},
+    ${fastaParam}
 )
+from bokeh.io import show as _bokeh_show
+_bokeh_show(_sq_fig)
 `;
 
             // Execute silently - plot will appear in Plots pane automatically
@@ -662,9 +690,8 @@ squiggy.plot_aggregate(
             const code = `
 import squiggy
 
-# Load FASTA file using squiggy.load_fasta()
-# This populates squiggy_kernel._fasta_path and squiggy_kernel._fasta_info
-squiggy.load_fasta('${escapedPath}')
+# Load FASTA file using OO API
+_sq_fasta = squiggy.FastaFile('${escapedPath}')
 `;
 
             await this._client.executeSilent(code, true); // Enable retry
@@ -697,7 +724,7 @@ squiggy.load_fasta('${escapedPath}')
 import squiggy
 
 _squiggy_motif_matches = list(squiggy.search_motif(
-    fasta_file='${escapedFastaPath}',
+    fasta_file=squiggy.FastaFile('${escapedFastaPath}'),
     motif='${escapedMotif}',
     region=${escapedRegion ? `'${escapedRegion}'` : 'None'},
     strand='${strand}'
@@ -752,15 +779,19 @@ if '_squiggy_motif_matches_json' in globals():
 import squiggy
 
 # Generate aggregate plot across all motif matches
-squiggy.plot_motif_aggregate_all(
-    fasta_file='${escapedFastaPath}',
+_sq_fig = squiggy.plot_motif_aggregate_all(
     motif='${escapedMotif}',
+    pod5_file=_sq_pod5,
+    bam_file=_sq_bam if '_sq_bam' in dir() else None,
+    fasta_file=squiggy.FastaFile('${escapedFastaPath}'),
     upstream=${upstream},
     downstream=${downstream},
     max_reads_per_motif=${maxReadsPerMotif},
     normalization='${normalization}',
     theme='${theme}'
 )
+from bokeh.io import show as _bokeh_show
+_bokeh_show(_sq_fig)
 `;
 
         try {
@@ -797,8 +828,8 @@ squiggy.plot_motif_aggregate_all(
 import squiggy
 import json as _json
 
-# Load sample with custom name
-squiggy.load_sample(
+# Load sample with OO API
+_sq_samples['${escapedSampleName}'] = squiggy.Sample(
     '${escapedSampleName}',
     '${escapedPod5Path}'`;
 
@@ -812,22 +843,22 @@ squiggy.load_sample(
         code += `\n)
 
 # Return all metadata in one shot to avoid multiple round-trips
-_s = squiggy.squiggy_kernel.get_sample('${escapedSampleName}')
+_s = _sq_samples['${escapedSampleName}']
 _sample_meta = {
-    'num_reads': len(_s._read_ids),
-    'has_bam': _s._bam_path is not None,
-    'has_fasta': _s._fasta_path is not None,
+    'num_reads': len(_s.read_ids),
+    'has_bam': _s.bam is not None,
+    'has_fasta': _s.fasta is not None,
 }
-if _s._bam_info:
+if _s.bam and _s.bam.info:
     _sample_meta['bam_info'] = {
-        'num_reads': _s._bam_info.get('num_reads', 0),
-        'has_modifications': _s._bam_info.get('has_modifications', False),
-        'modification_types': _s._bam_info.get('modification_types', []),
-        'has_probabilities': _s._bam_info.get('has_probabilities', False),
-        'has_event_alignment': _s._bam_info.get('has_event_alignment', False),
-        'has_primers': _s._bam_info.get('has_primers', False),
-        'basecall_model': _s._bam_info.get('basecall_model'),
-        'is_rna': _s._bam_info.get('is_rna', False),
+        'num_reads': _s.bam.info.get('num_reads', 0),
+        'has_modifications': _s.bam.info.get('has_modifications', False),
+        'modification_types': _s.bam.info.get('modification_types', []),
+        'has_probabilities': _s.bam.info.get('has_probabilities', False),
+        'has_event_alignment': _s.bam.info.get('has_event_alignment', False),
+        'has_primers': _s.bam.info.get('has_primers', False),
+        'basecall_model': _s.bam.info.get('basecall_model'),
+        'is_rna': _s.bam.info.get('is_rna', False),
     }
 del _s
 `;
@@ -866,9 +897,7 @@ del _s
      */
     async listSamples(): Promise<string[]> {
         try {
-            const sampleNames = await this._client.getVariable(
-                'squiggy.squiggy_kernel.list_samples()'
-            );
+            const sampleNames = await this._client.getVariable('list(_sq_samples.keys())');
             return (sampleNames as string[]) || [];
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -884,19 +913,18 @@ del _s
 
         try {
             const code = `
-from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = _sq_samples.get('${escapedName}')
 if _sample:
     _sample_info = {
         'name': _sample.name,
-        'read_count': len(_sample._read_ids),
-        'pod5_path': _sample.pod5_path,
-        'has_bam': _sample.bam_path is not None,
-        'has_fasta': _sample.fasta_path is not None
+        'read_count': len(_sample.read_ids),
+        'pod5_path': _sample.pod5.path if _sample.pod5 else None,
+        'has_bam': _sample.bam is not None,
+        'has_fasta': _sample.fasta is not None
     }
     # Add reference information if BAM is loaded
-    if _sample._bam_info and 'references' in _sample._bam_info:
-        _sample_info['references'] = _sample._bam_info['references']
+    if _sample.bam and _sample.bam.info and 'references' in _sample.bam.info:
+        _sample_info['references'] = _sample.bam.info['references']
 else:
     _sample_info = None
 `;
@@ -934,8 +962,8 @@ if '_sample_info' in globals():
 
         try {
             const code = `
-import squiggy
-squiggy.remove_sample('${escapedName}')
+_sq_samples['${escapedName}'].close()
+del _sq_samples['${escapedName}']
 `;
             await this._client.executeSilent(code);
         } catch (error) {
@@ -968,12 +996,11 @@ squiggy.remove_sample('${escapedName}')
             // Execute setup code first to create variables
             // Uses ref_counts (reference → read count) which is built once during sample load
             const setupCode = `
-from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = _sq_samples.get('${escapedName}')
 if _sample:
-    _read_ids = _sample._read_ids
-    if _sample._bam_info and 'ref_counts' in _sample._bam_info:
-        _refs = list(_sample._bam_info['ref_counts'].keys())
+    _read_ids = _sample.read_ids
+    if _sample.bam and _sample.bam.info and 'ref_counts' in _sample.bam.info:
+        _refs = list(_sample.bam.info['ref_counts'].keys())
     else:
         _refs = []
 else:
@@ -1052,9 +1079,8 @@ if '_result' in globals():
             const tempVar = '_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
-from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
-${tempVar} = _sample._read_ids${sliceStr} if _sample else []
+_sample = _sq_samples.get('${escapedName}')
+${tempVar} = _sample.read_ids${sliceStr} if _sample else []
 `);
 
             // Now read the temp variable as a single expression
@@ -1103,10 +1129,9 @@ if '_sample' in globals():
             const tempVar = '_squiggy_temp_refs_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
-from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
-if _sample and _sample._bam_info and 'ref_mapping' in _sample._bam_info:
-    ${tempVar} = list(_sample._bam_info['ref_mapping'].keys())
+_sample = _sq_samples.get('${escapedName}')
+if _sample and _sample.bam and _sample.bam.ref_mapping:
+    ${tempVar} = list(_sample.bam.ref_mapping.keys())
 else:
     ${tempVar} = []
 `);
@@ -1152,10 +1177,9 @@ if '_sample' in globals():
         try {
             // Execute setup code first to create variables
             const setupCode = `
-from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
-if _sample and _sample._bam_info and 'ref_counts' in _sample._bam_info:
-    _counts = _sample._bam_info['ref_counts']
+_sample = _sq_samples.get('${escapedName}')
+if _sample and _sample.bam and _sample.bam.info and 'ref_counts' in _sample.bam.info:
+    _counts = _sample.bam.info['ref_counts']
 else:
     _counts = {}
 `;
@@ -1198,10 +1222,9 @@ if '_counts' in globals():
         try {
             // Execute setup code first to create variables
             const setupCode = `
-from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
-if _sample and _sample._bam_info and 'ref_mapping' in _sample._bam_info:
-    _reads = _sample._bam_info['ref_mapping'].get('${escapedRef}', [])
+_sample = _sq_samples.get('${escapedName}')
+if _sample and _sample.bam and _sample.bam.ref_mapping:
+    _reads = _sample.bam.ref_mapping.get('${escapedRef}', [])
 else:
     _reads = []
 `;
@@ -1249,22 +1272,26 @@ if '_reads' in globals():
             throw new Error('Signal overlay comparison requires at least 2 samples');
         }
 
-        // Convert sample names to JSON for safe Python serialization
-        const sampleNamesJson = JSON.stringify(sampleNames);
-
         // Build maxReads parameter if provided
         const maxReadsParam =
             maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
 
+        // Build list of Sample objects from _sq_samples dict
+        const sampleListExpr = sampleNames
+            .map((name) => `_sq_samples['${name.replace(/'/g, "\\'")}']`)
+            .join(', ');
+
         const code = `
 import squiggy
 
-# Generate signal overlay comparison plot - will be automatically routed to Plots pane
-squiggy.plot_signal_overlay_comparison(
-    sample_names=${sampleNamesJson},
+# Generate signal overlay comparison plot
+_sq_fig = squiggy.plot_signal_overlay_comparison(
+    [${sampleListExpr}],
     normalization='${normalization}',
     theme='${theme}'${maxReadsParam}
 )
+from bokeh.io import show as _bokeh_show
+_bokeh_show(_sq_fig)
 `;
 
         try {
@@ -1298,9 +1325,6 @@ squiggy.plot_signal_overlay_comparison(
             throw new Error('Delta comparison requires at least 2 samples');
         }
 
-        // Convert sample names to JSON for safe Python serialization
-        const sampleNamesJson = JSON.stringify(sampleNames);
-
         // Escape single quotes in reference name for Python strings
         const escapedRefName = referenceName.replace(/'/g, "\\'");
 
@@ -1308,16 +1332,23 @@ squiggy.plot_signal_overlay_comparison(
         const maxReadsParam =
             maxReads !== undefined && maxReads !== null ? `, max_reads=${maxReads}` : '';
 
+        // Build list of Sample objects from _sq_samples dict
+        const sampleListExpr = sampleNames
+            .map((name) => `_sq_samples['${name.replace(/'/g, "\\'")}']`)
+            .join(', ');
+
         const code = `
 import squiggy
 
-# Generate delta comparison plot - will be automatically routed to Plots pane
-squiggy.plot_delta_comparison(
-    sample_names=${sampleNamesJson},
+# Generate delta comparison plot
+_sq_fig = squiggy.plot_delta_comparison(
+    [${sampleListExpr}],
     reference_name='${escapedRefName}',
     normalization='${normalization}',
     theme='${theme}'${maxReadsParam}
 )
+from bokeh.io import show as _bokeh_show
+_bokeh_show(_sq_fig)
 `;
 
         try {
@@ -1364,7 +1395,6 @@ squiggy.plot_delta_comparison(
         }
 
         // Convert arrays and objects to JSON for safe Python serialization
-        const sampleNamesJson = JSON.stringify(sampleNames);
         const metricsJson = JSON.stringify(metrics);
 
         // Build maxReads parameter if provided
@@ -1379,18 +1409,25 @@ squiggy.plot_delta_comparison(
         // Escape single quotes in reference name
         const escapedRefName = referenceName.replace(/'/g, "\\'");
 
+        // Build list of Sample objects from _sq_samples dict
+        const sampleListExpr = sampleNames
+            .map((name) => `_sq_samples['${name.replace(/'/g, "\\'")}']`)
+            .join(', ');
+
         const code = `
 import squiggy
 
-# Generate aggregate comparison plot - will be automatically routed to Plots pane
-squiggy.plot_aggregate_comparison(
-    sample_names=${sampleNamesJson},
+# Generate aggregate comparison plot
+_sq_fig = squiggy.plot_aggregate_comparison(
+    [${sampleListExpr}],
     reference_name='${escapedRefName}',
     metrics=${metricsJson},
     normalization='${normalization}',
     theme='${theme}',
     trim_primers=${trimPrimers ? 'True' : 'False'}${maxReadsParam}${sampleColorsParam}
 )
+from bokeh.io import show as _bokeh_show
+_bokeh_show(_sq_fig)
 `;
 
         try {

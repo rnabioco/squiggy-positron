@@ -95,12 +95,12 @@ export class FileLoadingService {
     /**
      * Load a sample into the multi-sample registry (for comparisons)
      *
-     * This method uses the Python squiggy.load_sample() API to properly register
-     * samples in the squiggy_kernel.samples dictionary, enabling multi-sample
+     * This method uses the Python Sample() OO API to properly register
+     * samples in the _sq_samples dictionary, enabling multi-sample
      * comparisons via plot_signal_overlay_comparison() and similar functions.
      *
      * CRITICAL: Must be called via squiggyAPI.loadSample() to sync with Python registry.
-     * This is different from loadSample() which loads into the global session.
+     * This is different from loadSample() which loads files individually.
      *
      * @param sampleName - Unique sample identifier (e.g., 'model_v4.2')
      * @param pod5Path - Required POD5 file path

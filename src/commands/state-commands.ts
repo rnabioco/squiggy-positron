@@ -42,7 +42,7 @@ export function registerStateCommands(
 
 /**
  * Refresh reads list by querying Python backend
- * Re-fetches data from squiggy_kernel instead of using cached data
+ * Re-fetches data from the kernel instead of using cached data
  */
 async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
     if (!state.kernelManager) {
@@ -58,7 +58,9 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
         const api = await state.ensureKernel();
 
         // Check if POD5 is loaded in Python session
-        const hasPod5 = await api.client.getVariable('squiggy_kernel._reader is not None');
+        const hasPod5 = await api.client.getVariable(
+            '"_sq_pod5" in dir() and _sq_pod5 is not None'
+        );
 
         if (!hasPod5) {
             statusBarMessenger.show('No POD5', 'warning');
@@ -67,7 +69,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
         }
 
         // Check if BAM is loaded
-        const hasBAM = await api.client.getVariable('squiggy_kernel._bam_path is not None');
+        const hasBAM = await api.client.getVariable('"_sq_bam" in dir() and _sq_bam is not None');
 
         if (hasBAM) {
             // BAM mode: grouped by reference with lazy loading
@@ -93,7 +95,7 @@ async function refreshPOD5Only(state: ExtensionState): Promise<void> {
     const api = await state.ensureKernel();
 
     // Get total read count
-    const totalReads = await api.client.getVariable('len(squiggy_kernel._read_ids)');
+    const totalReads = await api.client.getVariable('len(_sq_pod5.read_ids)');
 
     // Reset pagination context
     state.pod5LoadContext = {
@@ -124,7 +126,7 @@ async function refreshWithBAM(state: ExtensionState): Promise<void> {
 
     for (const ref of references) {
         const readCount = await api.client.getVariable(
-            `len(squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+            `len(_sq_bam.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
         );
         referenceList.push({
             referenceName: ref,
@@ -145,7 +147,7 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
         const api = await state.ensureKernel();
 
         // Check if BAM is loaded in Python
-        const hasBAM = await api.client.getVariable('squiggy_kernel._bam_path is not None');
+        const hasBAM = await api.client.getVariable('"_sq_bam" in dir() and _sq_bam is not None');
 
         if (!hasBAM) {
             statusBarMessenger.show('No BAM loaded', 'warning');
@@ -154,7 +156,7 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
         }
 
         // Get BAM info
-        const bamInfo = await api.client.getVariable('squiggy_kernel._bam_info');
+        const bamInfo = await api.client.getVariable('_sq_bam.info');
 
         if (!bamInfo || typeof bamInfo !== 'object') {
             vscode.window.showWarningMessage('BAM loaded but no metadata found');

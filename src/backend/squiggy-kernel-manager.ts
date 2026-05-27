@@ -371,9 +371,13 @@ for _key in _to_remove:
 
 # Now import fresh from disk
 import squiggy
-assert hasattr(squiggy, 'load_pod5'), "squiggy.load_pod5 not found"
-assert hasattr(squiggy, 'load_bam'), "squiggy.load_bam not found"
+assert hasattr(squiggy, 'Pod5File'), "squiggy.Pod5File not found"
+assert hasattr(squiggy, 'BamFile'), "squiggy.BamFile not found"
 assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
+
+# Initialize OO state variables if not already present
+if '_sq_samples' not in dir():
+    _sq_samples = {}
 `,
                 false,
                 true,
@@ -637,9 +641,12 @@ for _key in _to_remove:
 
 # Now import fresh from disk
 import squiggy
-assert hasattr(squiggy, 'load_pod5'), "squiggy.load_pod5 not found"
-assert hasattr(squiggy, 'load_bam'), "squiggy.load_bam not found"
+assert hasattr(squiggy, 'Pod5File'), "squiggy.Pod5File not found"
+assert hasattr(squiggy, 'BamFile'), "squiggy.BamFile not found"
 assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
+
+# Initialize OO state variables
+_sq_samples = {}
 `);
             logger.info('Squiggy package verified in dedicated kernel');
         } catch (error) {

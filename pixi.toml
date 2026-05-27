@@ -46,6 +46,7 @@ pillow = ">=10.0.0"
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 ruff = ">=0.1.0"
+nbqa = ">=1.9.0,<2"
 
 [pypi-dependencies]
 # PyPI-only packages

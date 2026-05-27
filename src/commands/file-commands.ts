@@ -324,7 +324,7 @@ async function loadMoreReads(state: ExtensionState): Promise<void> {
     // Track POD5 pagination context
     if (!state.pod5LoadContext) {
         // Initialize context if not present
-        const totalReads = await api.client.getVariable('len(squiggy.io.squiggy_kernel._read_ids)');
+        const totalReads = await api.client.getVariable('len(_sq_pod5.read_ids)');
         state.pod5LoadContext = {
             currentOffset: 1000, // Initial load was 1000
             pageSize: 500,
@@ -497,7 +497,7 @@ async function loadReadsForSample(sampleName: string, state: ExtensionState): Pr
  * With the automatic venv setup at ~/.venvs/squiggy, squiggy is always installed.
  * This function now just returns true for Positron mode since the venv guarantees
  * squiggy availability. This avoids importing squiggy in the foreground kernel
- * which would pollute the user's Variables pane with squiggy_kernel.
+ * which would pollute the user's Variables pane with squiggy state.
  */
 async function ensureSquiggyAvailable(_state: ExtensionState): Promise<boolean> {
     // Squiggy is guaranteed to be installed in the venv
@@ -634,7 +634,7 @@ async function openBAMFile(filePath: string, state: ExtensionState): Promise<voi
             const refNames = await api.getReferences();
             for (const ref of refNames) {
                 const readCount = await api.client.getVariable(
-                    `len(squiggy.io.squiggy_kernel._ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
+                    `len(_sq_bam.ref_mapping.get('${ref.replace(/'/g, "\\'")}', []))`
                 );
                 referenceToReads[ref] = new Array(readCount as number);
             }
@@ -698,8 +698,9 @@ async function closePOD5File(state: ExtensionState): Promise<void> {
         if (state.kernelManager) {
             const api = await state.ensureKernel();
             await api.client.executeSilent(`
-import squiggy
-squiggy.close_pod5()
+if '_sq_pod5' in dir():
+    _sq_pod5.close()
+    del _sq_pod5
 `);
         }
 
@@ -731,8 +732,8 @@ async function closeBAMFile(state: ExtensionState): Promise<void> {
         if (state.kernelManager) {
             const api = await state.ensureKernel();
             await api.client.executeSilent(`
-import squiggy
-squiggy.close_bam()
+if '_sq_bam' in dir():
+    del _sq_bam
 `);
         }
 
@@ -840,8 +841,8 @@ async function closeFASTAFile(state: ExtensionState): Promise<void> {
         if (state.kernelManager) {
             const api = await state.ensureKernel();
             await api.client.executeSilent(`
-import squiggy
-squiggy.close_fasta()
+if '_sq_fasta' in dir():
+    del _sq_fasta
 `);
         }
 
@@ -1506,16 +1507,16 @@ async function updateSampleFiles(
 
                 // Query BAM info from Python kernel for this sample
                 const hasMods = await api.client.getVariable(
-                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('has_modifications', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
+                    `_sq_samples['${sampleName}'].bam.info.get('has_modifications', False) if _sq_samples.get('${sampleName}') and _sq_samples['${sampleName}'].bam and _sq_samples['${sampleName}'].bam.info else False`
                 );
                 const hasEvents = await api.client.getVariable(
-                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('has_event_alignment', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
+                    `_sq_samples['${sampleName}'].bam.info.get('has_event_alignment', False) if _sq_samples.get('${sampleName}') and _sq_samples['${sampleName}'].bam and _sq_samples['${sampleName}'].bam.info else False`
                 );
                 const basecallModel = await api.client.getVariable(
-                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('basecall_model', None) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else None`
+                    `_sq_samples['${sampleName}'].bam.info.get('basecall_model', None) if _sq_samples.get('${sampleName}') and _sq_samples['${sampleName}'].bam and _sq_samples['${sampleName}'].bam.info else None`
                 );
                 const isRna = await api.client.getVariable(
-                    `squiggy_kernel.get_sample('${sampleName}')._bam_info.get('is_rna', False) if squiggy_kernel.get_sample('${sampleName}') and squiggy_kernel.get_sample('${sampleName}')._bam_info else False`
+                    `_sq_samples['${sampleName}'].bam.info.get('is_rna', False) if _sq_samples.get('${sampleName}') and _sq_samples['${sampleName}'].bam and _sq_samples['${sampleName}'].bam.info else False`
                 );
 
                 logger.debug(

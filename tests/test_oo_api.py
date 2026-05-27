@@ -582,28 +582,17 @@ class TestIntegrationWorkflows:
         bam.close()
         pytest.skip("No aligned reads with move table found")
 
-    def test_workflow_multiple_files_no_global_state(
+    def test_workflow_multiple_files_independent(
         self, sample_pod5_file, indexed_bam_file
     ):
-        """Test that OO API doesn't pollute global state"""
+        """Test that multiple OO instances are independent"""
         from squiggy import BamFile, Pod5File
-        from squiggy import io as squiggy_io
 
-        # Verify no global state before
-        assert squiggy_io.squiggy_kernel._reader is None
-        assert squiggy_io.squiggy_kernel._bam_path is None
-
-        # Use OO API
         pod5 = Pod5File(sample_pod5_file)
         bam = BamFile(indexed_bam_file)
 
-        # Access data
-        _ = pod5.read_ids
-        _ = bam.references
-
-        # Verify global state is still None (OO API doesn't touch it)
-        assert squiggy_io.squiggy_kernel._reader is None
-        assert squiggy_io.squiggy_kernel._bam_path is None
+        assert len(pod5.read_ids) > 0
+        assert len(bam.references) > 0
 
         pod5.close()
         bam.close()

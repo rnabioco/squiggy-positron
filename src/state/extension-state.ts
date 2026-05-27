@@ -225,14 +225,18 @@ export class ExtensionState {
             try {
                 const api = await this.ensureKernel();
                 await api.client.executeSilent(`
-import squiggy
-from squiggy.io import squiggy_kernel
-# Close all resources via session
-squiggy_kernel.close_all()
-# Also call module-level cleanup functions
-squiggy.close_pod5()
-squiggy.close_bam()
-squiggy.close_fasta()
+# Close all OO API resources
+if '_sq_pod5' in dir():
+    _sq_pod5.close()
+    del _sq_pod5
+if '_sq_bam' in dir():
+    del _sq_bam
+if '_sq_fasta' in dir():
+    del _sq_fasta
+if '_sq_samples' in dir():
+    for _name in list(_sq_samples.keys()):
+        _sq_samples[_name].close()
+    _sq_samples.clear()
 `);
             } catch (_error) {
                 // Ignore errors if kernel is not running
@@ -1362,7 +1366,7 @@ squiggy.close_fasta()
     private async batchGetReferenceCounts(api: SquiggyRuntimeAPI): Promise<Record<string, number>> {
         try {
             const counts = (await api.client.getVariable(
-                `{ref: len(reads) for ref, reads in squiggy.io.squiggy_kernel._ref_mapping.items()}`
+                `{ref: len(reads) for ref, reads in _sq_bam.ref_mapping.items()}`
             )) as Record<string, number>;
             return counts ?? {};
         } catch (error) {
