@@ -330,7 +330,7 @@ describe('PositronRuntimeClient', () => {
             expect(result).toEqual([1, 2, 3]);
             expect(positron.runtime.evaluateCode).toHaveBeenCalledWith(
                 'python',
-                expect.stringContaining('my_list'),
+                expect.stringContaining('my_list')
             );
         });
 

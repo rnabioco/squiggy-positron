@@ -528,18 +528,11 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
         const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
 
         try {
-            await this.executeSilent(
-                `import json\n${tempVar} = json.dumps(${varName})`
-            );
+            await this.executeSilent(`import json\n${tempVar} = json.dumps(${varName})`);
 
-            const [[variable]] = await positron.runtime.getSessionVariables(
-                sessionId,
-                [[tempVar]]
-            );
+            const [[variable]] = await positron.runtime.getSessionVariables(sessionId, [[tempVar]]);
 
-            await this.executeSilent(
-                `if '${tempVar}' in globals(): del ${tempVar}`
-            );
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`);
 
             if (!variable) {
                 throw new Error(`Variable ${varName} not found`);
@@ -548,9 +541,9 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             const cleaned = variable.display_value.replace(/^['"]|['"]$/g, '');
             return JSON.parse(cleaned);
         } catch (error) {
-            await this.executeSilent(
-                `if '${tempVar}' in globals(): del ${tempVar}`
-            ).catch(() => {});
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`).catch(
+                () => {}
+            );
             throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }

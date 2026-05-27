@@ -310,8 +310,7 @@ export class PositronRuntimeClient implements RuntimeClient {
     private supportsEvaluateCode(): boolean {
         if (this._hasEvaluateCode === null) {
             try {
-                this._hasEvaluateCode =
-                    typeof positron.runtime.evaluateCode === 'function';
+                this._hasEvaluateCode = typeof positron.runtime.evaluateCode === 'function';
             } catch {
                 this._hasEvaluateCode = false;
             }
@@ -363,10 +362,7 @@ export class PositronRuntimeClient implements RuntimeClient {
                 [[tempVar]]
             );
 
-            await this.executeSilent(
-                `if '${tempVar}' in globals(): del ${tempVar}`,
-                false
-            );
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`, false);
 
             if (!variable) {
                 throw new Error(`Variable ${varName} not found`);
@@ -375,9 +371,9 @@ export class PositronRuntimeClient implements RuntimeClient {
             const cleaned = variable.display_value.replace(/^['"]|['"]$/g, '');
             return JSON.parse(cleaned);
         } catch (error) {
-            await this.executeSilent(
-                `if '${tempVar}' in globals(): del ${tempVar}`
-            ).catch(() => {});
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`).catch(
+                () => {}
+            );
             throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }

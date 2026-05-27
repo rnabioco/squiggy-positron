@@ -246,9 +246,7 @@ declare module 'positron' {
             sessionId: string
         ): Thenable<BaseLanguageRuntimeSession | undefined>;
 
-        export function registerClientHandler(
-            handler: RuntimeClientHandler
-        ): vscode.Disposable;
+        export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
 
         export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
 
