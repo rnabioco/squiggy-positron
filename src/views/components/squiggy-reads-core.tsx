@@ -49,7 +49,7 @@ export const ReadsCore: React.FC = () => {
 
     // Debounced search
     const [debouncedSearchText, setDebouncedSearchText] = React.useState('');
-    const searchTimeoutRef = React.useRef<number | undefined>();
+    const searchTimeoutRef = React.useRef<number | undefined>(undefined);
 
     // Store reference to reads data (for expansion)
     const referenceToReadsRef = React.useRef<Map<string, ReadItem[]>>(new Map());
