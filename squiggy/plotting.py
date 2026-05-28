@@ -1733,6 +1733,8 @@ def plot_aggregate_comparison(
     theme: str = "LIGHT",
     sample_colors: dict[str, str] | None = None,
     trim_primers: bool = True,
+    show_pileup: bool = True,
+    rna_mode: bool = False,
 ) -> str:
     """
     Generate aggregate comparison plot for multiple samples
@@ -1755,6 +1757,9 @@ def plot_aggregate_comparison(
         theme: Color theme (LIGHT, DARK)
         sample_colors: Optional dict mapping sample names to hex colors.
                        If None, uses Okabe-Ito palette (default)
+        trim_primers: Trim primer/adapter regions using FASTA body bounds (default True)
+        show_pileup: Add one base-call pileup track per sample (default True)
+        rna_mode: Display U instead of T in pileup tracks for RNA sequences (default False)
 
     Returns:
         Bokeh HTML string with aggregate comparison visualization
@@ -1929,6 +1934,15 @@ def plot_aggregate_comparison(
             quality_stats = calculate_quality_by_position(reads)
             sample_stats["quality_stats"] = quality_stats
 
+        # Calculate base-call pileup (rendered as one track per sample)
+        if show_pileup:
+            sample_stats["pileup_stats"] = calculate_base_pileup(
+                reads,
+                bam_file=sample._bam_path,
+                reference_name=reference_name,
+                fasta_file=sample._fasta_path,
+            )
+
         sample_data.append(sample_stats)
 
     # Prepare data for AggregateComparisonStrategy
@@ -1937,6 +1951,8 @@ def plot_aggregate_comparison(
         "reference_name": reference_name,
         "enabled_metrics": metrics,
         "primer_trim_bounds": primer_trim_bounds,
+        "show_pileup": show_pileup,
+        "rna_mode": rna_mode,
     }
 
     options = {"normalization": norm_method}
