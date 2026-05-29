@@ -1,5 +1,19 @@
 # Squiggy Release Notes
 
+## v0.1.32-alpha (2026-03-25)
+
+Primer trimming for aggregate plots clips x-axis to the tRNA body region using FASTA-derived primer/adapter boundaries.
+
+### Features
+
+- **Aggregate Primer Trimming**: Aggregate plots now clip x-axis to the tRNA body region (~76-77 nt) when primer trimming is enabled, with body bounds derived from FASTA reference primer/adapter sequences instead of noisy PT tag positions
+- **Configurable Primer Sequences**: Collapsible "Primer sequences" section in the Plotting panel allows editing 5' primer and 3' adapter sequences for custom protocols
+- **Primer Detection**: `hasPrimers` flag propagated through BAM metadata, sample loading, and session restore for proper UI toggle visibility
+
+### Fixes
+
+- **Demo Data Quality**: Re-extracted demo BAM files requiring both 5' and 3' PT tags for all reads, improving primer trimming reliability
+
 ## v0.1.31-alpha (2026-03-25)
 
 Fix modification type display for newer dorado outputs and filter unloaded samples from plot comparison UI.

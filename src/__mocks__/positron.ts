@@ -7,12 +7,15 @@
 export const runtime = {
     getForegroundSession: jest.fn(),
     executeCode: jest.fn(),
+    evaluateCode: jest.fn(),
     getSessionVariables: jest.fn(),
 };
 
 export enum RuntimeCodeExecutionMode {
-    Silent = 'silent',
     Interactive = 'interactive',
+    NonInteractive = 'non-interactive',
+    Transient = 'transient',
+    Silent = 'silent',
 }
 
 export enum RuntimeErrorBehavior {
@@ -20,8 +23,14 @@ export enum RuntimeErrorBehavior {
     Continue = 'continue',
 }
 
-export interface RuntimeCodeExecutionObserver {
-    onResult?: (result: any) => void;
-    onError?: (error: any) => void;
-    onOutput?: (output: string) => void;
+export interface ExecutionObserver {
+    token?: any;
+    onStarted?: () => void;
+    onOutput?: (message: string) => void;
+    onError?: (message: string) => void;
+    onPlot?: (plotData: string) => void;
+    onData?: (data: any) => void;
+    onCompleted?: (result: Record<string, any>) => void;
+    onFailed?: (error: Error) => void;
+    onFinished?: () => void;
 }

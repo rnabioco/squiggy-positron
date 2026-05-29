@@ -1,8 +1,79 @@
 """Aggregate statistics utilities for Squiggy"""
 
+import logging
+
 import numpy as np
 
 from .signal import get_aligned_move_indices_from_read, iter_aligned_bases
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_reference_bases(
+    positions: list,
+    reference_name: str | None,
+    reads_data: list[dict],
+    fasta_file=None,
+    bam_file=None,
+) -> dict[int, str]:
+    """Extract reference bases for given positions using FASTA-first, BAM-fallback pattern.
+
+    Args:
+        positions: Sorted list of reference positions to look up.
+        reference_name: Name of reference sequence.
+        reads_data: List of read dicts (used for BAM fallback).
+        fasta_file: Path to FASTA reference file (preferred source).
+        bam_file: Path to BAM file (fallback source via MD tag reconstruction).
+
+    Returns:
+        Dict mapping position -> reference base character.
+    """
+    import pysam
+
+    from .bam import get_reference_sequence_for_read
+
+    if not reference_name or not reads_data or not positions:
+        return {}
+
+    reference_bases: dict[int, str] = {}
+
+    # Try FASTA first (most accurate)
+    if fasta_file:
+        try:
+            fasta = pysam.FastaFile(str(fasta_file))
+            min_pos = int(min(positions))
+            max_pos = int(max(positions))
+            ref_seq = fasta.fetch(reference_name, min_pos, max_pos + 1)
+            for pos in positions:
+                idx = int(pos) - min_pos
+                if 0 <= idx < len(ref_seq):
+                    reference_bases[pos] = ref_seq[idx].upper()
+            fasta.close()
+            if reference_bases:
+                return reference_bases
+        except (ValueError, KeyError, OSError) as e:
+            logger.debug("FASTA reference fetch failed for %s: %s", reference_name, e)
+
+    # Fall back to BAM file (uses MD tag or query sequence)
+    if bam_file and not reference_bases:
+        try:
+            for read in reads_data:
+                ref_seq, ref_start, _aligned_read = get_reference_sequence_for_read(
+                    bam_file, read["read_id"]
+                )
+                if ref_seq and ref_start is not None:
+                    for pos in positions:
+                        if pos in reference_bases:
+                            continue
+                        idx = pos - ref_start
+                        if 0 <= idx < len(ref_seq):
+                            reference_bases[pos] = ref_seq[idx].upper()
+                if len(reference_bases) >= len(positions):
+                    break
+        except (ValueError, KeyError, OSError) as e:
+            logger.debug("BAM reference fallback failed for %s: %s", reference_name, e)
+
+    return reference_bases
 
 
 def calculate_modification_statistics(
@@ -353,10 +424,6 @@ def calculate_base_pileup(
                      e.g., {pos: {'A': 10, 'C': 2, 'G': 5, 'T': 8}}
             - reference_bases: Dict mapping position to reference base (from FASTA or BAM)
     """
-    import pysam
-
-    from .bam import get_reference_sequence_for_read
-
     position_bases = {}
 
     for read in reads_data:
@@ -383,64 +450,12 @@ def calculate_base_pileup(
         "counts": {pos: position_bases[pos] for pos in positions},
     }
 
-    # Extract reference bases from FASTA (preferred) or BAM
-    if reference_name and reads_data and positions:
-        reference_bases = {}
-
-        # Try FASTA first (most accurate)
-        if fasta_file:
-            try:
-                fasta = pysam.FastaFile(str(fasta_file))
-                # Get the range of positions we need
-                min_pos = int(min(positions))
-                max_pos = int(max(positions))
-
-                # Fetch reference sequence for the region
-                ref_seq = fasta.fetch(reference_name, min_pos, max_pos + 1)
-
-                # Map each position to its reference base
-                for pos in positions:
-                    idx = int(pos) - min_pos
-                    if 0 <= idx < len(ref_seq):
-                        reference_bases[pos] = ref_seq[idx].upper()
-
-                fasta.close()
-
-                if reference_bases:
-                    result["reference_bases"] = reference_bases
-                    return result
-            except Exception:
-                # FASTA failed, fall back to BAM
-                pass
-
-        # Fall back to BAM file (uses MD tag or query sequence)
-        # Iterate through all reads to build complete reference coverage
-        if bam_file and not reference_bases:
-            try:
-                for read in reads_data:
-                    ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
-                        bam_file, read["read_id"]
-                    )
-
-                    if ref_seq and ref_start is not None:
-                        # Add reference bases from this read's alignment
-                        for pos in positions:
-                            if pos in reference_bases:
-                                continue  # Already have this position
-                            # Calculate index in reference sequence
-                            idx = pos - ref_start
-                            if 0 <= idx < len(ref_seq):
-                                reference_bases[pos] = ref_seq[idx].upper()
-
-                    # Stop early if we've covered all positions
-                    if len(reference_bases) >= len(positions):
-                        break
-
-                if reference_bases:
-                    result["reference_bases"] = reference_bases
-            except Exception:
-                # If we can't get reference sequence, just skip it
-                pass
+    # Extract reference bases using shared FASTA-first, BAM-fallback pattern
+    reference_bases = _extract_reference_bases(
+        positions, reference_name, reads_data, fasta_file=fasta_file, bam_file=bam_file
+    )
+    if reference_bases:
+        result["reference_bases"] = reference_bases
 
     return result
 
@@ -542,10 +557,6 @@ def calculate_base_pileup_from_alignments(
                      e.g., {pos: {'A': 10, 'C': 2, 'G': 5, 'T': 8}}
             - reference_bases: Dict mapping position to reference base (from FASTA or BAM)
     """
-    import pysam
-
-    from .bam import get_reference_sequence_for_read
-
     position_bases = {}
 
     for read in reads_data:
@@ -572,64 +583,12 @@ def calculate_base_pileup_from_alignments(
         "counts": {pos: position_bases[pos] for pos in positions},
     }
 
-    # Extract reference bases from FASTA (preferred) or BAM
-    if reference_name and reads_data and positions:
-        reference_bases = {}
-
-        # Try FASTA first (most accurate)
-        if fasta_file:
-            try:
-                fasta = pysam.FastaFile(str(fasta_file))
-                # Get the range of positions we need
-                min_pos = int(min(positions))
-                max_pos = int(max(positions))
-
-                # Fetch reference sequence for the region
-                ref_seq = fasta.fetch(reference_name, min_pos, max_pos + 1)
-
-                # Map each position to its reference base
-                for pos in positions:
-                    idx = int(pos) - min_pos
-                    if 0 <= idx < len(ref_seq):
-                        reference_bases[pos] = ref_seq[idx].upper()
-
-                fasta.close()
-
-                if reference_bases:
-                    result["reference_bases"] = reference_bases
-                    return result
-            except Exception:
-                # FASTA failed, fall back to BAM
-                pass
-
-        # Fall back to BAM file (uses MD tag or query sequence)
-        # Iterate through all reads to build complete reference coverage
-        if bam_file and not reference_bases:
-            try:
-                for read in reads_data:
-                    ref_seq, ref_start, aligned_read = get_reference_sequence_for_read(
-                        bam_file, read["read_id"]
-                    )
-
-                    if ref_seq and ref_start is not None:
-                        # Add reference bases from this read's alignment
-                        for pos in positions:
-                            if pos in reference_bases:
-                                continue  # Already have this position
-                            # Calculate index in reference sequence
-                            idx = pos - ref_start
-                            if 0 <= idx < len(ref_seq):
-                                reference_bases[pos] = ref_seq[idx].upper()
-
-                    # Stop early if we've covered all positions
-                    if len(reference_bases) >= len(positions):
-                        break
-
-                if reference_bases:
-                    result["reference_bases"] = reference_bases
-            except Exception:
-                # If we can't get reference sequence, just skip it
-                pass
+    # Extract reference bases using shared FASTA-first, BAM-fallback pattern
+    reference_bases = _extract_reference_bases(
+        positions, reference_name, reads_data, fasta_file=fasta_file, bam_file=bam_file
+    )
+    if reference_bases:
+        result["reference_bases"] = reference_bases
 
     return result
 

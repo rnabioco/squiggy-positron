@@ -25,7 +25,7 @@ def _route_to_plots_pane(fig) -> None:
         from bokeh.io import show
 
         show(fig)  # Positron intercepts this and routes to Plots pane
-    except Exception:
+    except (ImportError, RuntimeError):
         # Silently fail if bokeh.io not available or not in Positron
         pass
 

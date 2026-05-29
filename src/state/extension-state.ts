@@ -1345,6 +1345,12 @@ squiggy.close_fasta()
             loadingMessage: undefined,
         });
 
+        // Auto-select restored sample for visualization so plot options
+        // can compute feature flags (hasPrimers, hasEvents, hasMods)
+        if (sampleName !== 'Default') {
+            this.addSampleToVisualization(sampleName);
+        }
+
         logger.info(`[restoreSampleWithProgress] Sample '${sampleName}' restore complete`);
     }
 

@@ -13,7 +13,8 @@ from pathlib import Path
 # Cache schema version - bump this when cache format changes
 # v1: Initial schema
 # v2: Added basecall_model and is_rna fields to BAM metadata
-CACHE_VERSION = 2
+# v3: Added has_primers field to BAM metadata
+CACHE_VERSION = 3
 
 
 class SquiggyCache:

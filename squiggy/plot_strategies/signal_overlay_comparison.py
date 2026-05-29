@@ -6,6 +6,7 @@ with each sample color-coded using the Okabe-Ito colorblind-friendly palette.
 Includes reference nucleotide sequence annotation.
 """
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -21,6 +22,8 @@ from ..normalization import normalize_signal
 from ..rendering.base_annotation_renderer import BaseAnnotationRenderer
 from ..rendering.theme_manager import ThemeManager
 from .base import PlotStrategy
+
+logger = logging.getLogger(__name__)
 
 
 class SignalOverlayComparisonStrategy(PlotStrategy):
@@ -302,9 +305,8 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
                     signal_min=signal_min,
                     signal_max=signal_max,
                 )
-            except Exception:
-                # Silently skip base annotation rendering if it fails
-                pass
+            except (ValueError, KeyError, IndexError) as e:
+                logger.debug("Base annotation rendering failed: %s", e)
 
         # Configure legend
         p.legend.click_policy = "hide"  # Interactive legend

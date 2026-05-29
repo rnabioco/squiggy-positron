@@ -5,6 +5,8 @@ This module contains all the high-level plotting functions for generating
 Bokeh visualizations of nanopore signal data.
 """
 
+import logging
+
 import numpy as np
 
 from .constants import (
@@ -35,6 +37,8 @@ from .utils import (
     get_available_reads_for_reference,
     parse_plot_parameters,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def plot_read(
@@ -621,6 +625,8 @@ def plot_aggregate(
     rna_mode: bool = False,
     sample_name: str | None = None,
     trim_primers: bool = True,
+    primer_5p: str | None = None,
+    adapter_3p: str | None = None,
 ) -> str:
     """
     Generate aggregate multi-read visualization for a reference sequence
@@ -718,6 +724,35 @@ def plot_aggregate(
         )
 
     num_reads = len(reads_data)
+    total_reads = None  # Set when primer filtering reduces the count
+    primer_trim_bounds = None  # (start_ref_pos, end_ref_pos) for x-axis clipping
+
+    # Primer trimming: derive body bounds from FASTA reference and optionally
+    # filter to reads with both adapters detected.
+    if trim_primers:
+        # Derive body bounds from FASTA primer/adapter sequences
+        if fasta_path:
+            from .alignment import find_body_bounds
+
+            bounds_kwargs = {}
+            if primer_5p is not None:
+                bounds_kwargs["primer_5p"] = primer_5p
+            if adapter_3p is not None:
+                bounds_kwargs["adapter_3p"] = adapter_3p
+            primer_trim_bounds = find_body_bounds(
+                fasta_path, reference_name, **bounds_kwargs
+            )
+
+        # Filter to reads with both adapters if PT tags are available
+        from .alignment import has_both_adapters
+
+        reads_with_adapters = [
+            rd for rd in reads_data if has_both_adapters(rd.get("primer_regions", []))
+        ]
+        if reads_with_adapters:
+            total_reads = num_reads
+            reads_data = reads_with_adapters
+            num_reads = len(reads_data)
 
     # Calculate aggregate statistics
     aggregate_stats = calculate_aggregate_signal(reads_data, norm_method)
@@ -742,12 +777,11 @@ def plot_aggregate(
     transformation_info = ""
 
     if transform_coordinates:
-        # Anchor to first base of reference sequence (from pileup reference_bases)
-        # This ensures x-axis position 1 = first base of the reference sequence
-        reference_bases = pileup_stats.get("reference_bases", {})
-
-        if reference_bases:
-            # Use first position from reference_bases as anchor
+        if primer_trim_bounds is not None:
+            # When primer-trimmed, anchor to body start so position 1 = first body base
+            min_pos = primer_trim_bounds[0]
+        elif reference_bases := pileup_stats.get("reference_bases", {}):
+            # Anchor to first base of reference sequence
             min_pos = min(reference_bases.keys())
         else:
             # Fallback: find minimum position across all tracks
@@ -767,7 +801,10 @@ def plot_aggregate(
         if min_pos is not None:
             offset = min_pos - 1  # Offset to make positions 1-based
 
-            transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
+            if primer_trim_bounds is not None:
+                transformation_info = f"Body-anchored (genomic pos {min_pos}→1)"
+            else:
+                transformation_info = f"Ref-anchored (genomic pos {min_pos}→1)"
 
             # Transform aggregate_stats
             if "positions" in aggregate_stats and len(aggregate_stats["positions"]) > 0:
@@ -829,6 +866,13 @@ def plot_aggregate(
                 old = list(dwell_stats["positions"])
                 dwell_stats["positions"] = np.array([int(p) - offset for p in old])
 
+            # Transform primer_trim_bounds
+            if primer_trim_bounds is not None:
+                primer_trim_bounds = (
+                    primer_trim_bounds[0] - offset,
+                    primer_trim_bounds[1] - offset,
+                )
+
     # Prepare data for AggregatePlotStrategy
     data = {
         "aggregate_stats": aggregate_stats,
@@ -838,6 +882,8 @@ def plot_aggregate(
         "dwell_stats": dwell_stats,
         "reference_name": reference_name,
         "num_reads": num_reads,
+        "total_reads": total_reads,  # Non-None when primer filtering reduced count
+        "primer_trim_bounds": primer_trim_bounds,  # (start, end) for x-axis clipping
         "transformation_info": transformation_info,  # Diagnostic info
         "sample_name": sample_name,  # Optional sample name for multi-sample mode
     }
@@ -1209,8 +1255,8 @@ def plot_motif_aggregate_all(
                 all_aligned_reads.extend(reads_data)
                 num_matches_with_reads += 1
 
-        except Exception:
-            # Skip motif matches that fail (e.g., no reads, edge of chromosome)
+        except (ValueError, KeyError, OSError) as e:
+            logger.debug("Skipping motif match that failed: %s", e)
             continue
 
     if not all_aligned_reads:
@@ -1374,7 +1420,8 @@ def plot_delta_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception:
+            except (ValueError, OSError) as e:
+                logger.debug("Failed to count reads for reference: %s", e)
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1573,7 +1620,8 @@ def plot_signal_overlay_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception:
+            except (ValueError, OSError) as e:
+                logger.debug("Failed to count reads for reference: %s", e)
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1643,9 +1691,8 @@ def plot_signal_overlay_comparison(
                         reference_name, min_pos, max_pos + 1
                     )
                     fasta.close()
-                except Exception:
-                    # FASTA fetch failed, will fall back to BAM
-                    pass
+                except (ValueError, KeyError, OSError) as e:
+                    logger.debug("FASTA fetch failed, falling back to BAM: %s", e)
 
             # Fallback to BAM reconstruction if FASTA unavailable
             if not reference_sequence:
@@ -1660,9 +1707,8 @@ def plot_signal_overlay_comparison(
                         reference_sequence = (
                             reads[0].get("reference_sequence", "") or ""
                         )
-                except Exception:
-                    # If we can't get reference sequence, continue without it
-                    pass
+                except (ValueError, KeyError, OSError) as e:
+                    logger.debug("BAM reference extraction failed: %s", e)
 
     # Prepare data for plot strategy
     data = {
@@ -1692,6 +1738,9 @@ def plot_aggregate_comparison(
     normalization: str = "ZNORM",
     theme: str = "LIGHT",
     sample_colors: dict[str, str] | None = None,
+    trim_primers: bool = True,
+    show_pileup: bool = True,
+    rna_mode: bool = False,
 ) -> str:
     """
     Generate aggregate comparison plot for multiple samples
@@ -1714,6 +1763,9 @@ def plot_aggregate_comparison(
         theme: Color theme (LIGHT, DARK)
         sample_colors: Optional dict mapping sample names to hex colors.
                        If None, uses Okabe-Ito palette (default)
+        trim_primers: Trim primer/adapter regions using FASTA body bounds (default True)
+        show_pileup: Add one base-call pileup track per sample (default True)
+        rna_mode: Display U instead of T in pileup tracks for RNA sequences (default False)
 
     Returns:
         Bokeh HTML string with aggregate comparison visualization
@@ -1809,7 +1861,8 @@ def plot_aggregate_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception:
+            except (ValueError, OSError) as e:
+                logger.debug("Failed to count reads for reference: %s", e)
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1817,6 +1870,16 @@ def plot_aggregate_comparison(
             min(available_reads_per_sample) if available_reads_per_sample else 100
         )
         max_reads = min(max_reads, 100)  # Cap at 100 for performance
+
+    # Compute body bounds from FASTA if primer trimming requested
+    primer_trim_bounds = None
+    if trim_primers:
+        # Use the first sample's FASTA (all samples should share the same reference)
+        fasta_path = samples[0]._fasta_path if samples else None
+        if fasta_path:
+            from .alignment import find_body_bounds
+
+            primer_trim_bounds = find_body_bounds(fasta_path, reference_name)
 
     # Extract and calculate statistics for each sample
     sample_data = []
@@ -1835,6 +1898,16 @@ def plot_aggregate_comparison(
             raise ValueError(
                 f"No reads found for sample '{sample.name}' on reference '{reference_name}'"
             )
+
+        # Apply primer trimming: filter reads and derive body bounds from FASTA
+        if trim_primers:
+            from .alignment import has_both_adapters
+
+            reads_with_adapters = [
+                rd for rd in reads if has_both_adapters(rd.get("primer_regions", []))
+            ]
+            if reads_with_adapters:
+                reads = reads_with_adapters
 
         # Calculate statistics based on requested metrics
         sample_stats = {"name": sample.name}
@@ -1868,6 +1941,15 @@ def plot_aggregate_comparison(
             quality_stats = calculate_quality_by_position(reads)
             sample_stats["quality_stats"] = quality_stats
 
+        # Calculate base-call pileup (rendered as one track per sample)
+        if show_pileup:
+            sample_stats["pileup_stats"] = calculate_base_pileup(
+                reads,
+                bam_file=sample._bam_path,
+                reference_name=reference_name,
+                fasta_file=sample._fasta_path,
+            )
+
         sample_data.append(sample_stats)
 
     # Prepare data for AggregateComparisonStrategy
@@ -1875,6 +1957,9 @@ def plot_aggregate_comparison(
         "samples": sample_data,
         "reference_name": reference_name,
         "enabled_metrics": metrics,
+        "primer_trim_bounds": primer_trim_bounds,
+        "show_pileup": show_pileup,
+        "rna_mode": rna_mode,
     }
 
     options = {"normalization": norm_method}

@@ -83,11 +83,51 @@ def parse_args():
         default=42,
         help="Random seed for reproducibility (default: 42)",
     )
+    parser.add_argument(
+        "--require-both-pt",
+        action="store_true",
+        default=True,
+        help="Require both 5' and 3' PT (primer trim) tags (default: True)",
+    )
+    parser.add_argument(
+        "--no-require-both-pt",
+        action="store_false",
+        dest="require_both_pt",
+        help="Disable PT tag requirement",
+    )
 
     return parser.parse_args()
 
 
-def collect_candidate_reads(bam_path, target_refs, min_mapq, min_length):
+def _has_both_pt_tags(read):
+    """
+    Check if a BAM read has both 5' and 3' PT (primer trim) tags.
+
+    Returns:
+        True if both 5p and 3p adapter regions are present in PT/pt tag.
+    """
+    pt_val = None
+    if read.has_tag("PT"):
+        pt_val = read.get_tag("PT")
+    elif read.has_tag("pt"):
+        pt_val = read.get_tag("pt")
+
+    if not pt_val:
+        return False
+
+    regions = pt_val.split("|")
+    names = []
+    for region in regions:
+        parts = region.split(";")
+        if len(parts) >= 4:
+            names.append(parts[3])
+
+    has_5p = any("5p" in name for name in names)
+    has_3p = any("3p" in name for name in names)
+    return has_5p and has_3p
+
+
+def collect_candidate_reads(bam_path, target_refs, min_mapq, min_length, require_both_pt):
     """
     Collect candidate reads mapping to target references.
 
@@ -96,14 +136,20 @@ def collect_candidate_reads(bam_path, target_refs, min_mapq, min_length):
         target_refs: Set of reference names to extract
         min_mapq: Minimum mapping quality
         min_length: Minimum alignment length
+        require_both_pt: Require both 5' and 3' PT tags
 
     Returns:
         Dict mapping reference names to lists of read names
     """
     candidates = defaultdict(list)
 
+    # Track skip reasons
+    skipped = defaultdict(int)
+
     print(f"Scanning BAM file: {bam_path}")
     print(f"Target references: {', '.join(sorted(target_refs))}")
+    print(f"Filters: MAPQ >= {min_mapq}, length >= {min_length}, "
+          f"require mv tag, require both PT: {require_both_pt}")
 
     with pysam.AlignmentFile(str(bam_path), "rb", check_sq=False) as bam:
         for read in bam.fetch(until_eof=True):
@@ -117,17 +163,22 @@ def collect_candidate_reads(bam_path, target_refs, min_mapq, min_length):
 
             # Check quality filters
             if read.mapping_quality < min_mapq:
+                skipped["low_mapq"] += 1
                 continue
 
             aln_length = read.reference_end - read.reference_start
             if aln_length < min_length:
+                skipped["short_alignment"] += 1
                 continue
 
             # Check for move table
             if not read.has_tag("mv"):
-                print(
-                    f"Warning: Read {read.query_name} has no move table, skipping"
-                )
+                skipped["no_mv"] += 1
+                continue
+
+            # Check for both 5' and 3' PT tags
+            if require_both_pt and not _has_both_pt_tags(read):
+                skipped["missing_pt"] += 1
                 continue
 
             candidates[read.reference_name].append(read.query_name)
@@ -136,6 +187,11 @@ def collect_candidate_reads(bam_path, target_refs, min_mapq, min_length):
     print(f"\nFound candidate reads:")
     for ref in sorted(candidates.keys()):
         print(f"  {ref}: {len(candidates[ref])} reads")
+
+    if skipped:
+        print(f"\nSkipped reads (mapped to target refs):")
+        for reason, count in sorted(skipped.items()):
+            print(f"  {reason}: {count}")
 
     return candidates
 
@@ -365,6 +421,7 @@ def main():
     print(f"Reads per ref:    {args.reads_per_ref}")
     print(f"Min MAPQ:         {args.min_mapq}")
     print(f"Min length:       {args.min_length}")
+    print(f"Require both PT:  {args.require_both_pt}")
     print(f"Random seed:      {args.seed}")
     print(f"Output POD5:      {output_pod5}")
     print(f"Output BAM:       {output_bam}")
@@ -372,7 +429,8 @@ def main():
 
     # Step 1: Collect candidate reads
     candidates = collect_candidate_reads(
-        args.input_bam, target_refs, args.min_mapq, args.min_length
+        args.input_bam, target_refs, args.min_mapq, args.min_length,
+        args.require_both_pt,
     )
 
     if not candidates:

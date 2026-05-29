@@ -4,6 +4,8 @@ Tests for ReferenceOverlayPlotStrategy
 
 import numpy as np
 import pytest
+from bokeh.models import GlyphRenderer
+from bokeh.models.glyphs import Text
 from bokeh.models.plots import Plot
 
 from squiggy.constants import NormalizationMethod, Theme
@@ -425,6 +427,55 @@ class TestReferenceTrack:
         data = make_data(num_reads=1)
         _, fig = strategy.create_plot(data, {})
         assert isinstance(fig, Plot)
+
+
+# =============================================================================
+# Test: Consensus Base Letters
+# =============================================================================
+
+
+def _collect_letter_texts(fig) -> list[str]:
+    """Collect text values from all Text glyph renderers on a figure."""
+    texts: list[str] = []
+    for r in fig.renderers:
+        if isinstance(r, GlyphRenderer) and isinstance(r.glyph, Text):
+            texts.extend(list(r.data_source.data.get("text", [])))
+    return texts
+
+
+class TestConsensusBaseLetters:
+    def test_letters_rendered_when_show_labels(self):
+        """Consensus base letters appear inline when show_labels is True."""
+        strategy = ReferenceOverlayPlotStrategy(Theme.LIGHT)
+        data = make_data(num_reads=3, sequence="ACGT")
+        _, fig = strategy.create_plot(data, {"show_labels": True})
+        assert _collect_letter_texts(fig) == ["A", "C", "G", "T"]
+
+    def test_letters_rendered_with_dwell_scaling(self):
+        """Letters still render (one per position) when x is dwell-scaled."""
+        strategy = ReferenceOverlayPlotStrategy(Theme.LIGHT)
+        data = make_data(num_reads=3, sequence="ACGT")
+        _, fig = strategy.create_plot(
+            data, {"show_labels": True, "scale_x_by_dwell": True}
+        )
+        assert _collect_letter_texts(fig) == ["A", "C", "G", "T"]
+
+    def test_no_letters_when_show_labels_false(self):
+        """No base letters are drawn when show_labels is False."""
+        strategy = ReferenceOverlayPlotStrategy(Theme.LIGHT)
+        data = make_data(num_reads=3, sequence="ACGT")
+        _, fig = strategy.create_plot(data, {"show_labels": False})
+        assert _collect_letter_texts(fig) == []
+
+    def test_no_inline_letters_when_reference_track_present(self):
+        """A FASTA reference track suppresses inline consensus letters."""
+        strategy = ReferenceOverlayPlotStrategy(Theme.LIGHT)
+        data = make_data(num_reads=2, genomic_start=0)
+        data["reference_sequence"] = "ACGTACGTACGTACGT" * 100
+        _, layout = strategy.create_plot(data, {"show_labels": True})
+        # Inline letters live on the main figure; it must carry no Text glyphs.
+        main_fig = layout.main_plot
+        assert _collect_letter_texts(main_fig) == []
 
 
 # =============================================================================

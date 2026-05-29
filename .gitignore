@@ -54,6 +54,7 @@ test-workspace/
 # Claude planning files
 .claude-*.md
 *-planning.md
+.claude/plans
 
 # Build artifacts
 htmlcov/

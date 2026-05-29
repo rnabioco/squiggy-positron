@@ -549,6 +549,12 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                             if (plotOptionsProvider) {
                                 plotOptionsProvider.updateReferences(uniqueRefs);
                             }
+                        })
+                        .catch((error) => {
+                            logger.error(
+                                '[extension.ts] Failed to fetch references from samples:',
+                                error
+                            );
                         });
                 }
             }
@@ -632,7 +638,9 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
                         modFilters.minFrequency,
                         modFilters.minModifiedReads,
                         options.rnaMode,
-                        options.trimPrimers ?? true
+                        options.trimPrimers ?? true,
+                        options.primer5p,
+                        options.adapter3p
                     );
 
                     statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');

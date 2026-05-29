@@ -402,6 +402,40 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
+    def _create_pileup_tracks(
+        self, samples: list[dict], rna_mode: bool = False
+    ) -> list:
+        """
+        Create one base-call pileup track per sample
+
+        Reuses the single-sample pileup renderer from AggregatePlotStrategy so the
+        stacked-base appearance matches the single-sample composite plot. Each track
+        is titled with its sample name.
+
+        Args:
+            samples: List of sample data dicts, each optionally with 'pileup_stats'
+            rna_mode: If True, display U instead of T for RNA sequences
+
+        Returns:
+            List of Bokeh figures (one per sample with pileup data); may be empty
+        """
+        # Local import avoids a circular import between the two strategy modules
+        from .aggregate import AggregatePlotStrategy
+
+        agg = AggregatePlotStrategy(self.theme)
+
+        tracks = []
+        for sample in samples:
+            pileup_stats = sample.get("pileup_stats")
+            if not pileup_stats or len(pileup_stats.get("positions", [])) == 0:
+                continue
+
+            fig = agg._create_pileup_track(pileup_stats, rna_mode=rna_mode)
+            fig.title.text = f"Base Call Pileup — {sample['name']}"
+            tracks.append(fig)
+
+        return tracks
+
     def _create_coverage_track(self, samples: list[dict], reference_name: str):
         """
         Create coverage comparison track
@@ -528,6 +562,14 @@ class AggregateComparisonStrategy(PlotStrategy):
             if signal_track:
                 tracks.append(signal_track)
 
+        # Per-sample base-call pileup tracks (the most important comparison panel)
+        if data.get("show_pileup"):
+            tracks.extend(
+                self._create_pileup_tracks(
+                    samples, rna_mode=data.get("rna_mode", False)
+                )
+            )
+
         if "dwell_time" in enabled_metrics:
             dwell_track = self._create_dwell_track(samples, reference_name)
             if dwell_track:
@@ -546,9 +588,18 @@ class AggregateComparisonStrategy(PlotStrategy):
         if not tracks:
             raise ValueError("No tracks could be created with the provided data")
 
-        # Link x-axes for synchronized zoom/pan
-        # All tracks share the x_range from the first track
-        if tracks:
+        # Apply primer trim bounds to clip x-axis if available
+        primer_trim_bounds = data.get("primer_trim_bounds")
+        if primer_trim_bounds is not None and tracks:
+            from bokeh.models import Range1d
+
+            start_pos, end_pos = primer_trim_bounds
+            base_x_range = Range1d(start=start_pos - 0.5, end=end_pos + 0.5)
+            for track in tracks:
+                track.x_range = base_x_range
+        elif tracks:
+            # Link x-axes for synchronized zoom/pan
+            # All tracks share the x_range from the first track
             base_x_range = tracks[0].x_range
             for track in tracks[1:]:
                 track.x_range = base_x_range

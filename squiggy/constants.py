@@ -10,6 +10,11 @@ from enum import Enum
 DEFAULT_DOWNSAMPLE = 5  # Default downsampling factor for all plot functions
 MAX_PLOT_POINTS = 50_000  # Target maximum points per plot for optimal performance
 
+# Move table stride values (neural network downsampling factors)
+DNA_STRIDE = 5  # Typical stride for DNA basecalling models
+RNA_STRIDE_MIN = 10  # Minimum stride for RNA basecalling models
+RNA_STRIDE_MAX = 12  # Maximum stride for RNA basecalling models
+
 # ==============================================================================
 # Base Annotation Settings
 # ==============================================================================

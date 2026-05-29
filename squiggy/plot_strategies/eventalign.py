@@ -5,6 +5,8 @@ This module implements the Strategy Pattern for event-aligned nanopore reads
 with base annotations.
 """
 
+import logging
+
 import numpy as np
 from bokeh.embed import file_html
 from bokeh.models import ColumnDataSource, HoverTool
@@ -18,6 +20,8 @@ from ..constants import (
 )
 from ..rendering import BaseAnnotationRenderer, ReferenceTrackRenderer, ThemeManager
 from .base import PlotStrategy
+
+logger = logging.getLogger(__name__)
 
 
 class EventAlignPlotStrategy(PlotStrategy):
@@ -284,8 +288,8 @@ class EventAlignPlotStrategy(PlotStrategy):
                 ref_fig.min_border_left = 5
                 ref_fig.min_border_right = 5
 
-            except Exception:
-                # If reference track creation fails, continue without it
+            except (ValueError, KeyError, IndexError) as e:
+                logger.debug("Reference track creation failed: %s", e)
                 ref_fig = None
 
         # Generate HTML

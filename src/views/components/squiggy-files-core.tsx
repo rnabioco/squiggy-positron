@@ -19,8 +19,6 @@ import { vscode } from './vscode-api';
 import './squiggy-files-core.css';
 
 export const FilesCore: React.FC = () => {
-    console.log('FilesCore component mounted');
-
     // State
     const [state, setState] = React.useState<FilesViewState>({
         files: [],
@@ -30,10 +28,7 @@ export const FilesCore: React.FC = () => {
 
     // Handle messages from extension
     React.useEffect(() => {
-        console.log('FilesCore: Setting up message listener');
-
         const messageHandler = (event: MessageEvent) => {
-            console.log('FilesCore: Received message:', event.data);
             const message = event.data;
 
             switch (message.type) {
@@ -46,14 +41,12 @@ export const FilesCore: React.FC = () => {
         window.addEventListener('message', messageHandler);
 
         // Notify extension that webview is ready
-        console.log('FilesCore: Sending ready message');
         vscode.postMessage({ type: 'ready' });
 
         return () => window.removeEventListener('message', messageHandler);
     }, []);
 
     const handleUpdateFiles = (files: FileItem[]) => {
-        console.log('FilesCore: Received updateFiles with', files.length, 'files:', files);
         setState((prev) => ({
             ...prev,
             files: sortFiles(files, prev.sortColumn, prev.sortDirection),
@@ -81,9 +74,7 @@ export const FilesCore: React.FC = () => {
 
     const handleOpenPOD5 = () => {
         // New workflow: open file picker for POD5/BAM files
-        console.log('[FilesCore] handleOpenPOD5 clicked, sending addFiles message');
         vscode.postMessage({ type: 'addFiles' });
-        console.log('[FilesCore] addFiles message sent');
     };
 
     const handleOpenBAM = () => {
