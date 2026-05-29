@@ -177,7 +177,9 @@ class SingleReadPlotStrategy(PlotStrategy):
             )
 
         # Create main figure
-        title = self._format_title(read_id, normalization, downsample)
+        title = self._format_title(
+            read_id, normalization, downsample, aligned_read=aligned_read
+        )
         fig = self.theme_manager.create_figure(
             title=title,
             x_label=x_label,
@@ -256,11 +258,29 @@ class SingleReadPlotStrategy(PlotStrategy):
             # Store reference to main plot
             object.__setattr__(layout, "main_plot", fig)
 
-            html = file_html(layout, CDN, title=f"Squiggy: {read_id}")
+            ref_suffix = ""
+            if aligned_read and hasattr(aligned_read, "chromosome"):
+                ref_suffix = self._format_ref_suffix(
+                    aligned_read.chromosome,
+                    getattr(aligned_read, "genomic_start", None),
+                    getattr(aligned_read, "genomic_end", None),
+                )
+            html = file_html(
+                layout, CDN, title=f"Squiggy: {read_id}{ref_suffix}"
+            )
             return html, layout
         else:
             # No modifications - return single plot
-            html = file_html(fig, CDN, title=f"Squiggy: {read_id}")
+            ref_suffix = ""
+            if aligned_read and hasattr(aligned_read, "chromosome"):
+                ref_suffix = self._format_ref_suffix(
+                    aligned_read.chromosome,
+                    getattr(aligned_read, "genomic_start", None),
+                    getattr(aligned_read, "genomic_end", None),
+                )
+            html = file_html(
+                fig, CDN, title=f"Squiggy: {read_id}{ref_suffix}"
+            )
             return html, fig
 
     # =========================================================================
@@ -591,6 +611,16 @@ class SingleReadPlotStrategy(PlotStrategy):
         read_id: str,
         normalization: NormalizationMethod,
         downsample: int,
+        aligned_read=None,
     ) -> str:
-        """Format plot title"""
-        return self._build_title(f"Single Read: {read_id}", normalization, downsample)
+        """Format plot title with optional reference info"""
+        ref_suffix = ""
+        if aligned_read and hasattr(aligned_read, "chromosome"):
+            ref_suffix = self._format_ref_suffix(
+                aligned_read.chromosome,
+                getattr(aligned_read, "genomic_start", None),
+                getattr(aligned_read, "genomic_end", None),
+            )
+        return self._build_title(
+            f"Single Read: {read_id}{ref_suffix}", normalization, downsample
+        )

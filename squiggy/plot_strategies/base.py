@@ -317,3 +317,25 @@ class PlotStrategy(ABC):
             "Squiggy Overlay: 5 reads"
         """
         return f"Squiggy {mode_name}: {description}"
+
+    def _format_ref_suffix(
+        self,
+        chromosome: str | None,
+        start: int | None = None,
+        end: int | None = None,
+    ) -> str:
+        """Format reference location suffix for titles.
+
+        Args:
+            chromosome: Reference/chromosome name
+            start: Genomic start position (optional)
+            end: Genomic end position (optional)
+
+        Returns:
+            Formatted suffix string, e.g. " (chr1:100-200)" or " (chr1)" or ""
+        """
+        if not chromosome:
+            return ""
+        if start is not None and end is not None:
+            return f" ({chromosome}:{start:,}-{end:,})"
+        return f" ({chromosome})"

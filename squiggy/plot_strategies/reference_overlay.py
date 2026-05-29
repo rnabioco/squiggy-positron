@@ -185,8 +185,12 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
 
         # Create figure
         x_label = "Dwell-Scaled Genomic Position" if x_map else "Genomic Position"
+        chromosome = getattr(aligned_reads[0], "chromosome", None)
+        ref_suffix = self._format_ref_suffix(chromosome)
         title = self._build_title(
-            f"Reference Overlay: {num_reads} reads", normalization, downsample
+            f"Reference Overlay: {num_reads} reads{ref_suffix}",
+            normalization,
+            downsample,
         )
         fig = self.theme_manager.create_figure(
             title=title,
@@ -324,7 +328,9 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
             )
 
         # Generate HTML
-        html_title = self._build_html_title("Reference Overlay", f"{num_reads} reads")
+        html_title = self._build_html_title(
+            "Reference Overlay", f"{num_reads} reads{ref_suffix}"
+        )
 
         if ref_fig is not None:
             from bokeh.layouts import column

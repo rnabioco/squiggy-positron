@@ -168,6 +168,7 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
         samples = data["samples"]
         reference_sequence = data["reference_sequence"]
         coverage_data = data["coverage"]
+        reference_name = data.get("reference_name")
         normalization = options.get("normalization", NormalizationMethod.NONE)
         downsample = options.get("downsample", 1)
 
@@ -215,7 +216,9 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
                 positions = sample_positions
 
         # Create signal overlay track
-        p_signal = self._create_signal_track(plot_data, reference_sequence)
+        p_signal = self._create_signal_track(
+            plot_data, reference_sequence, reference_name=reference_name
+        )
 
         # Create coverage track (use downsampled coverage data)
         p_coverage = self._create_coverage_track(
@@ -243,7 +246,10 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
         return html, layout_obj
 
     def _create_signal_track(
-        self, plot_data: list[dict[str, Any]], reference_sequence: str
+        self,
+        plot_data: list[dict[str, Any]],
+        reference_sequence: str,
+        reference_name: str | None = None,
     ) -> Any:
         """
         Create signal overlay track with reference nucleotide display
@@ -256,8 +262,9 @@ class SignalOverlayComparisonStrategy(PlotStrategy):
             Bokeh figure object
         """
         # Create figure
+        ref_suffix = self._format_ref_suffix(reference_name) if reference_name else ""
         p = self.theme_manager.create_figure(
-            title="Signal Overlay Comparison",
+            title=f"Signal Overlay Comparison{ref_suffix}",
             x_label="Position",
             y_label="Signal (pA)",
             width=1000,

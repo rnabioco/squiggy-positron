@@ -156,7 +156,9 @@ class EventAlignPlotStrategy(PlotStrategy):
         base_offset = options.get("base_offset", 1)
 
         # Create figure
-        title = self._format_title(reads_data, normalization, downsample)
+        title = self._format_title(
+            reads_data, normalization, downsample, aligned_reads=aligned_reads
+        )
         x_label = "Time (ms)" if show_dwell_time else "Base Position"
         fig = self.theme_manager.create_figure(
             title=title,
@@ -291,7 +293,9 @@ class EventAlignPlotStrategy(PlotStrategy):
                 ref_fig = None
 
         # Generate HTML
-        html_title = self._format_html_title(reads_data)
+        html_title = self._format_html_title(
+            reads_data, aligned_reads=aligned_reads
+        )
 
         if ref_fig is not None:
             # Create column layout with reference track above signal
@@ -489,12 +493,27 @@ class EventAlignPlotStrategy(PlotStrategy):
         reads_data: list,
         normalization: NormalizationMethod,
         downsample: int,
+        aligned_reads=None,
     ) -> str:
-        """Format plot title"""
+        """Format plot title with optional reference info"""
+        ref_suffix = ""
+        if aligned_reads:
+            chromosome = getattr(aligned_reads[0], "chromosome", None)
+            ref_suffix = self._format_ref_suffix(chromosome)
         return self._build_title(
-            f"Event-Aligned: {len(reads_data)} reads", normalization, downsample
+            f"Event-Aligned: {len(reads_data)} reads{ref_suffix}",
+            normalization,
+            downsample,
         )
 
-    def _format_html_title(self, reads_data: list) -> str:
-        """Format HTML page title"""
-        return self._build_html_title("Event-Aligned", f"{len(reads_data)} reads")
+    def _format_html_title(
+        self, reads_data: list, aligned_reads=None
+    ) -> str:
+        """Format HTML page title with optional reference info"""
+        ref_suffix = ""
+        if aligned_reads:
+            chromosome = getattr(aligned_reads[0], "chromosome", None)
+            ref_suffix = self._format_ref_suffix(chromosome)
+        return self._build_html_title(
+            "Event-Aligned", f"{len(reads_data)} reads{ref_suffix}"
+        )

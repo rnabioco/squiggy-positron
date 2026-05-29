@@ -132,7 +132,9 @@ class OverlayPlotStrategy(PlotStrategy):
             alpha = max(0.3, 1.0 / (num_reads**0.5))  # sqrt scaling with floor
 
         # Create figure
-        title = self._format_title(reads_data, normalization, downsample)
+        title = self._format_title(
+            reads_data, normalization, downsample, aligned_reads=aligned_reads
+        )
         x_label = "Reference Position" if coordinate_space == "sequence" else "Sample"
         fig = self.theme_manager.create_figure(
             title=title,
@@ -303,7 +305,9 @@ class OverlayPlotStrategy(PlotStrategy):
         self.theme_manager.configure_legend(fig)
 
         # Generate HTML
-        html_title = self._format_html_title(reads_data)
+        html_title = self._format_html_title(
+            reads_data, aligned_reads=aligned_reads
+        )
         html = file_html(fig, CDN, title=html_title)
         return html, fig
 
@@ -363,12 +367,25 @@ class OverlayPlotStrategy(PlotStrategy):
         reads_data: list,
         normalization: NormalizationMethod,
         downsample: int,
+        aligned_reads=None,
     ) -> str:
-        """Format plot title"""
+        """Format plot title with optional reference info"""
+        ref_suffix = ""
+        if aligned_reads:
+            chromosome = getattr(aligned_reads[0], "chromosome", None)
+            ref_suffix = self._format_ref_suffix(chromosome)
         return self._build_title(
-            f"Overlay: {len(reads_data)} reads", normalization, downsample
+            f"Overlay: {len(reads_data)} reads{ref_suffix}",
+            normalization,
+            downsample,
         )
 
-    def _format_html_title(self, reads_data: list) -> str:
-        """Format HTML page title"""
-        return self._build_html_title("Overlay", f"{len(reads_data)} reads")
+    def _format_html_title(self, reads_data: list, aligned_reads=None) -> str:
+        """Format HTML page title with optional reference info"""
+        ref_suffix = ""
+        if aligned_reads:
+            chromosome = getattr(aligned_reads[0], "chromosome", None)
+            ref_suffix = self._format_ref_suffix(chromosome)
+        return self._build_html_title(
+            "Overlay", f"{len(reads_data)} reads{ref_suffix}"
+        )
