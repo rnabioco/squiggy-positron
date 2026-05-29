@@ -293,9 +293,7 @@ class EventAlignPlotStrategy(PlotStrategy):
                 ref_fig = None
 
         # Generate HTML
-        html_title = self._format_html_title(
-            reads_data, aligned_reads=aligned_reads
-        )
+        html_title = self._format_html_title(reads_data, aligned_reads=aligned_reads)
 
         if ref_fig is not None:
             # Create column layout with reference track above signal
@@ -506,9 +504,7 @@ class EventAlignPlotStrategy(PlotStrategy):
             downsample,
         )
 
-    def _format_html_title(
-        self, reads_data: list, aligned_reads=None
-    ) -> str:
+    def _format_html_title(self, reads_data: list, aligned_reads=None) -> str:
         """Format HTML page title with optional reference info"""
         ref_suffix = ""
         if aligned_reads:

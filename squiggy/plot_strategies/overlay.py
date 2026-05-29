@@ -305,9 +305,7 @@ class OverlayPlotStrategy(PlotStrategy):
         self.theme_manager.configure_legend(fig)
 
         # Generate HTML
-        html_title = self._format_html_title(
-            reads_data, aligned_reads=aligned_reads
-        )
+        html_title = self._format_html_title(reads_data, aligned_reads=aligned_reads)
         html = file_html(fig, CDN, title=html_title)
         return html, fig
 
@@ -386,6 +384,4 @@ class OverlayPlotStrategy(PlotStrategy):
         if aligned_reads:
             chromosome = getattr(aligned_reads[0], "chromosome", None)
             ref_suffix = self._format_ref_suffix(chromosome)
-        return self._build_html_title(
-            "Overlay", f"{len(reads_data)} reads{ref_suffix}"
-        )
+        return self._build_html_title("Overlay", f"{len(reads_data)} reads{ref_suffix}")

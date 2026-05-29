@@ -506,9 +506,7 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
         consensus_seq = "".join(consensus_map[p] for p in positions)
 
         if x_map:
-            letter_x = [
-                x_map[p].center if p in x_map else float(p) for p in positions
-            ]
+            letter_x = [x_map[p].center if p in x_map else float(p) for p in positions]
         else:
             letter_x = [float(p) for p in positions]
 

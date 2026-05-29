@@ -265,9 +265,7 @@ class SingleReadPlotStrategy(PlotStrategy):
                     getattr(aligned_read, "genomic_start", None),
                     getattr(aligned_read, "genomic_end", None),
                 )
-            html = file_html(
-                layout, CDN, title=f"Squiggy: {read_id}{ref_suffix}"
-            )
+            html = file_html(layout, CDN, title=f"Squiggy: {read_id}{ref_suffix}")
             return html, layout
         else:
             # No modifications - return single plot
@@ -278,9 +276,7 @@ class SingleReadPlotStrategy(PlotStrategy):
                     getattr(aligned_read, "genomic_start", None),
                     getattr(aligned_read, "genomic_end", None),
                 )
-            html = file_html(
-                fig, CDN, title=f"Squiggy: {read_id}{ref_suffix}"
-            )
+            html = file_html(fig, CDN, title=f"Squiggy: {read_id}{ref_suffix}")
             return html, fig
 
     # =========================================================================
