@@ -1,5 +1,24 @@
 # Squiggy Release Notes
 
+## v0.1.33-alpha (2026-05-29)
+
+Per-sample pileups and consensus base letters in composite/overlay plots, plus a Positron API sync to React 19 and build fixes.
+
+### Features
+
+- **Per-Sample Base-Call Pileup**: Multi-sample composite plots now render a per-sample base-call pileup track for direct cross-sample comparison
+- **Consensus Base Letters**: Reference overlay plots now display consensus base letters atop the overlay
+- **Positron API Sync**: Synced to the latest Positron API with `evaluateCode`, upgraded to React 19, and fixed Jest OOM and demo loading issues
+
+### Fixes
+
+- **Plot Titles**: Plot titles now include reference information
+- **Webpack Build**: Fixed broken webpack build (tsconfig scope and React 19 `useRef`)
+
+### Improvements
+
+- **Code Audit Cleanup**: Code audit cleanup across Python, TypeScript, and docs
+
 ## v0.1.32-alpha (2026-03-25)
 
 Primer trimming for aggregate plots clips x-axis to the tRNA body region using FASTA-derived primer/adapter boundaries.
