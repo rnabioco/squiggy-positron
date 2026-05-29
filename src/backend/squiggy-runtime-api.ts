@@ -1342,6 +1342,8 @@ squiggy.plot_delta_comparison(
      * @param normalization - Normalization method (ZNORM, MAD, MEDIAN, NONE)
      * @param theme - Color theme (LIGHT or DARK)
      * @param sampleColors - Optional object mapping sample names to hex colors
+     * @param showPileup - Add one base-call pileup track per sample (default true)
+     * @param rnaMode - Display U instead of T in pileup tracks (default false)
      */
     async generateAggregateComparison(
         sampleNames: string[],
@@ -1351,7 +1353,9 @@ squiggy.plot_delta_comparison(
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT',
         sampleColors?: Record<string, string>,
-        trimPrimers: boolean = true
+        trimPrimers: boolean = true,
+        showPileup: boolean = true,
+        rnaMode: boolean = false
     ): Promise<void> {
         // Validate input
         if (!sampleNames || sampleNames.length < 2) {
@@ -1389,7 +1393,9 @@ squiggy.plot_aggregate_comparison(
     metrics=${metricsJson},
     normalization='${normalization}',
     theme='${theme}',
-    trim_primers=${trimPrimers ? 'True' : 'False'}${maxReadsParam}${sampleColorsParam}
+    trim_primers=${trimPrimers ? 'True' : 'False'},
+    show_pileup=${showPileup ? 'True' : 'False'},
+    rna_mode=${rnaMode ? 'True' : 'False'}${maxReadsParam}${sampleColorsParam}
 )
 `;
 

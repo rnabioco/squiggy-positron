@@ -8,24 +8,18 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
     '^vscode$': '<rootDir>/src/__mocks__/vscode.ts',
+    '^positron$': '<rootDir>/src/__mocks__/positron.ts',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',
-        target: 'ES2020',
-        lib: ['ES2020', 'DOM'],
-        jsx: 'react',
-        strict: true,
-        esModuleInterop: true,
-        skipLibCheck: true,
-        resolveJsonModule: true,
-        types: ['node', 'jest', '@testing-library/jest-dom']
-      }
+      tsconfig: 'tsconfig.jest.json'
     }]
   },
   verbose: true,
   // Silence console output globally during tests
-  silent: true
+  silent: true,
+  // Prevent worker OOM crashes from listener/mock accumulation
+  maxWorkers: '50%',
+  workerIdleMemoryLimit: '256MB',
 };

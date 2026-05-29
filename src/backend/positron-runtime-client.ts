@@ -22,6 +22,7 @@ import { RuntimeClient } from './runtime-client-interface';
 export class PositronRuntimeClient implements RuntimeClient {
     private kernelReadyCache: { ready: boolean; timestamp: number } | null = null;
     private readonly KERNEL_CACHE_TTL = 1000; // 1 second - kernel state is fairly stable
+    private _hasEvaluateCode: boolean | null = null;
 
     /**
      * Check if Positron runtime is available
@@ -187,7 +188,7 @@ export class PositronRuntimeClient implements RuntimeClient {
         focus: boolean = false,
         allowIncomplete: boolean = true,
         mode: positron.RuntimeCodeExecutionMode = positron.RuntimeCodeExecutionMode.Silent,
-        observer?: positron.RuntimeCodeExecutionObserver,
+        observer?: positron.ExecutionObserver,
         enableRetry: boolean = false
     ): Promise<Record<string, unknown>> {
         if (!this.isAvailable()) {
@@ -304,30 +305,55 @@ export class PositronRuntimeClient implements RuntimeClient {
     }
 
     /**
+     * Check if Positron supports evaluateCode (not available in all versions).
+     */
+    private supportsEvaluateCode(): boolean {
+        if (this._hasEvaluateCode === null) {
+            try {
+                this._hasEvaluateCode = typeof positron.runtime.evaluateCode === 'function';
+            } catch {
+                this._hasEvaluateCode = false;
+            }
+        }
+        return this._hasEvaluateCode;
+    }
+
+    /**
      * Get a Python variable value directly from the kernel
      *
-     * Uses Positron's getSessionVariables API to read kernel memory directly
-     * without polluting the console with print() statements.
+     * Uses evaluateCode() when available (single round-trip), otherwise
+     * falls back to the 3-step getSessionVariables approach.
      *
      * @param varName Python variable name (can include indexing like 'var[0:10]')
      * @param enableRetry Whether to retry on transient failures (default: false)
      * @returns Promise that resolves with the variable value
      */
     async getVariable(varName: string, enableRetry: boolean = false): Promise<unknown> {
+        await this.ensureKernelReady();
+
+        if (this.supportsEvaluateCode()) {
+            try {
+                const result = await positron.runtime.evaluateCode(
+                    'python',
+                    `__import__('json').dumps(${varName})`
+                );
+                return JSON.parse(result.result);
+            } catch (error) {
+                throw new Error(`Failed to get variable ${varName}: ${error}`);
+            }
+        }
+
+        // Legacy fallback for older Positron versions
         const session = await positron.runtime.getForegroundSession();
         if (!session || session.runtimeMetadata.languageId !== 'python') {
             throw new Error('No active Python session');
         }
 
-        // Convert the Python value to JSON in Python, then read that
         const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
 
         try {
             await this.executeSilent(
-                `
-import json
-${tempVar} = json.dumps(${varName})
-`,
+                `import json\n${tempVar} = json.dumps(${varName})`,
                 enableRetry
             );
 
@@ -336,36 +362,18 @@ ${tempVar} = json.dumps(${varName})
                 [[tempVar]]
             );
 
-            // Clean up temp variable
-            await this.executeSilent(
-                `
-if '${tempVar}' in globals():
-    del ${tempVar}
-`,
-                false // Don't retry cleanup
-            );
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`, false);
 
             if (!variable) {
                 throw new Error(`Variable ${varName} not found`);
             }
 
-            // display_value contains the JSON string (as a Python string repr)
-            // We need to parse it: Python repr -> actual string -> JSON parse
-            // e.g., "'[1,2,3]'" -> "[1,2,3]" -> [1,2,3]
-            const jsonString = variable.display_value;
-
-            // Remove outer quotes if present (Python string repr)
-            const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
-
+            const cleaned = variable.display_value.replace(/^['"]|['"]$/g, '');
             return JSON.parse(cleaned);
         } catch (error) {
-            // Clean up temp variable on error
-            await this.executeSilent(
-                `
-if '${tempVar}' in globals():
-    del ${tempVar}
-`
-            ).catch(() => {}); // Ignore cleanup errors
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`).catch(
+                () => {}
+            );
             throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }

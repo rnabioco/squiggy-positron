@@ -284,6 +284,14 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
                 fig, consensus_map, signal_min, signal_max, x_map=x_map
             )
 
+            # Draw consensus base letters inline at the top of the plot.
+            # Skipped when a dedicated FASTA reference track is rendered below
+            # (see _create_reference_track) to avoid duplicating the sequence.
+            if consensus_map and not reference_sequence:
+                self._add_consensus_base_letters(
+                    fig, consensus_map, signal_min, signal_max, x_map=x_map
+                )
+
         # Add hover tool
         if all_renderers:
             hover = HoverTool(
@@ -471,6 +479,46 @@ class ReferenceOverlayPlotStrategy(PlotStrategy):
             show_labels=False,
         )
         renderer._add_base_type_patches(fig, base_regions)
+
+    def _add_consensus_base_letters(
+        self,
+        fig,
+        consensus_map: dict[int, str],
+        signal_min: float,
+        signal_max: float,
+        x_map: dict[int, DwellXCoord] | None = None,
+    ) -> None:
+        """
+        Draw consensus base letters in a band above the signal, colored by base.
+
+        Mirrors the composite (aggregate) plot's inline base track. Extends the
+        figure y-range to make headroom so letters are not clipped.
+        """
+        from bokeh.models import Range1d
+
+        positions = sorted(consensus_map.keys())
+        consensus_seq = "".join(consensus_map[p] for p in positions)
+
+        if x_map:
+            letter_x = [
+                x_map[p].center if p in x_map else float(p) for p in positions
+            ]
+        else:
+            letter_x = [float(p) for p in positions]
+
+        span = signal_max - signal_min
+        if span == 0:
+            span = 1.0
+        letter_y = signal_max + span * 0.02
+
+        fig.y_range = Range1d(
+            start=signal_min - span * 0.05, end=signal_max + span * 0.12
+        )
+
+        ref_renderer = ReferenceTrackRenderer(self.theme_manager)
+        ref_renderer.add_reference_labels_to_plot(
+            fig, consensus_seq, letter_x, y_position=letter_y
+        )
 
     # =========================================================================
     # Private Methods: Dwell Scaling

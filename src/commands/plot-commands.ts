@@ -778,6 +778,8 @@ async function plotAggregateComparison(
             // Get plot options
             const options = state.plotOptionsProvider?.getOptions();
             const normalization = options?.normalization || 'ZNORM';
+            const showPileup = options?.showPileup ?? true;
+            const rnaMode = options?.rnaMode ?? false;
 
             // Detect theme from VSCode settings
             const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
@@ -802,7 +804,9 @@ async function plotAggregateComparison(
                 normalization,
                 theme,
                 Object.keys(sampleColors).length > 0 ? sampleColors : undefined,
-                options?.trimPrimers ?? true
+                options?.trimPrimers ?? true,
+                showPileup,
+                rnaMode
             );
         },
         ErrorContext.PLOT_GENERATE,
