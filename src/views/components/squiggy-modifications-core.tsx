@@ -98,10 +98,8 @@ export const ModificationsCore: React.FC = () => {
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
-            console.log('ModificationsCore received message:', message);
             switch (message.type) {
                 case 'updateModInfo':
-                    console.log('Updating mod info:', message);
                     setState({
                         hasModifications: message.hasModifications,
                         modificationTypes: message.modificationTypes,
@@ -113,7 +111,6 @@ export const ModificationsCore: React.FC = () => {
                     });
                     break;
                 case 'clearMods':
-                    console.log('Clearing mods');
                     setState({
                         hasModifications: false,
                         modificationTypes: [],
@@ -125,13 +122,12 @@ export const ModificationsCore: React.FC = () => {
                     });
                     break;
                 default:
-                    console.log('Unknown message type:', message.type);
+                    break;
             }
         };
 
         window.addEventListener('message', handleMessage);
         // Request initial state
-        console.log('ModificationsCore sending ready message');
         vscode.postMessage({ type: 'ready' });
 
         return () => window.removeEventListener('message', handleMessage);

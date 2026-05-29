@@ -5,6 +5,8 @@ This module contains all the high-level plotting functions for generating
 Bokeh visualizations of nanopore signal data.
 """
 
+import logging
+
 import numpy as np
 
 from .constants import (
@@ -35,6 +37,8 @@ from .utils import (
     get_available_reads_for_reference,
     parse_plot_parameters,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def plot_read(
@@ -1251,8 +1255,8 @@ def plot_motif_aggregate_all(
                 all_aligned_reads.extend(reads_data)
                 num_matches_with_reads += 1
 
-        except Exception:
-            # Skip motif matches that fail (e.g., no reads, edge of chromosome)
+        except (ValueError, KeyError, OSError) as e:
+            logger.debug("Skipping motif match that failed: %s", e)
             continue
 
     if not all_aligned_reads:
@@ -1416,7 +1420,8 @@ def plot_delta_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception:
+            except (ValueError, OSError) as e:
+                logger.debug("Failed to count reads for reference: %s", e)
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1614,7 +1619,8 @@ def plot_signal_overlay_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception:
+            except (ValueError, OSError) as e:
+                logger.debug("Failed to count reads for reference: %s", e)
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100
@@ -1684,9 +1690,8 @@ def plot_signal_overlay_comparison(
                         reference_name, min_pos, max_pos + 1
                     )
                     fasta.close()
-                except Exception:
-                    # FASTA fetch failed, will fall back to BAM
-                    pass
+                except (ValueError, KeyError, OSError) as e:
+                    logger.debug("FASTA fetch failed, falling back to BAM: %s", e)
 
             # Fallback to BAM reconstruction if FASTA unavailable
             if not reference_sequence:
@@ -1701,9 +1706,8 @@ def plot_signal_overlay_comparison(
                         reference_sequence = (
                             reads[0].get("reference_sequence", "") or ""
                         )
-                except Exception:
-                    # If we can't get reference sequence, continue without it
-                    pass
+                except (ValueError, KeyError, OSError) as e:
+                    logger.debug("BAM reference extraction failed: %s", e)
 
     # Prepare data for plot strategy
     data = {
@@ -1855,7 +1859,8 @@ def plot_aggregate_comparison(
                     reference_name=reference_name,
                 )
                 available_reads_per_sample.append(available)
-            except Exception:
+            except (ValueError, OSError) as e:
+                logger.debug("Failed to count reads for reference: %s", e)
                 available_reads_per_sample.append(100)  # Fallback
 
         # Use minimum available, capped at 100

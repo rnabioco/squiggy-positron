@@ -1,5 +1,6 @@
 """Path and file location utilities for Squiggy"""
 
+import logging
 import os
 import platform
 import shutil
@@ -7,6 +8,8 @@ import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -86,8 +89,8 @@ def get_icon_path():
             path = Path(str(icon_path))
             if path.exists():
                 return path
-    except Exception:
-        pass
+    except (ImportError, TypeError, FileNotFoundError, OSError) as e:
+        logger.debug("Resource lookup failed: %s", e)
 
     # 3. Development location (relative to package)
     package_dir = Path(__file__).parent.parent
@@ -126,8 +129,8 @@ def get_logo_path():
             path = Path(str(logo_path))
             if path.exists():
                 return path
-    except Exception:
-        pass
+    except (ImportError, TypeError, FileNotFoundError, OSError) as e:
+        logger.debug("Resource lookup failed: %s", e)
 
     # 3. Development location
     package_dir = Path(__file__).parent.parent
@@ -311,8 +314,8 @@ def get_sample_bam_path():
                 try:
                     with resources.as_file(sample_bai_path) as f:
                         shutil.copy(f, temp_bai)
-                except Exception:
-                    pass  # BAI file optional
+                except (FileNotFoundError, OSError) as e:
+                    logger.debug("BAI copy failed (optional): %s", e)
             return temp_bam
 
         # If we got a source path, check if it's in a read-only location
@@ -377,5 +380,6 @@ def get_sample_bam_path():
 
         return None  # BAM file is optional
 
-    except Exception:
+    except (ImportError, FileNotFoundError, OSError) as e:
+        logger.debug("BAM file lookup failed (optional): %s", e)
         return None  # BAM file is optional

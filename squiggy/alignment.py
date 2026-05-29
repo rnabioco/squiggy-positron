@@ -1,10 +1,13 @@
 """Alignment handling for event-aligned squiggle visualization"""
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import pysam
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -62,9 +65,8 @@ def extract_alignment_from_bam(bam_path: Path, read_id: str) -> AlignedRead | No
             for alignment in bam.fetch(until_eof=True):
                 if alignment.query_name == read_id:
                     return _parse_alignment(alignment)
-    except Exception:
-        # Error reading BAM file - return None
-        pass
+    except (ValueError, KeyError, OSError) as e:
+        logger.debug("Failed to read BAM file %s for read %s: %s", bam_path, read_id, e)
 
     return None
 
@@ -148,7 +150,7 @@ def _parse_alignment(alignment) -> AlignedRead | None:
 
     # Extract stride (first element) and moves (remaining elements)
     # Stride represents the neural network downsampling factor
-    # Typical values: 5 for DNA models, 10-12 for RNA models
+    # See constants.DNA_STRIDE (5) and RNA_STRIDE_MIN/MAX (10-12)
     stride = int(move_table[0])
     moves = move_table[1:]
 
@@ -236,9 +238,10 @@ def _parse_alignment(alignment) -> AlignedRead | None:
         from .modifications import extract_modifications_from_alignment
 
         modifications = extract_modifications_from_alignment(alignment, bases)
-    except Exception:
-        # Modifications are optional, don't fail if extraction fails
-        pass
+    except (ImportError, ValueError, KeyError) as e:
+        logger.debug(
+            "Failed to extract modifications for read %s: %s", alignment.query_name, e
+        )
 
     # Extract primer/adapter regions from PT tag
     primer_regions = _parse_pt_tag(alignment)

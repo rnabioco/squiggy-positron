@@ -696,7 +696,7 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             case positron.RuntimeState.Offline:
                 this.setState(SquiggyKernelState.Error);
                 logger.error(`Dedicated kernel exited unexpectedly (state: ${state})`);
-                // TODO: Implement auto-restart logic
+                // Auto-restart not implemented: users can restart via squiggy.restartBackgroundKernel command
                 break;
         }
     }

@@ -66,18 +66,22 @@ export class SessionPanelProvider extends BaseWebviewProvider {
         const hasSamples = Object.keys(currentState.samples).length > 0;
 
         // Check if there's a saved session
-        SessionStateManager.loadSession(this.context).then((savedSession) => {
-            const hasSavedSession = savedSession !== null;
+        SessionStateManager.loadSession(this.context)
+            .then((savedSession) => {
+                const hasSavedSession = savedSession !== null;
 
-            const message: UpdateSessionMessage = {
-                type: 'updateSession',
-                hasSamples,
-                hasSavedSession,
-                sampleCount: Object.keys(currentState.samples).length,
-                sampleNames: Object.keys(currentState.samples),
-            };
+                const message: UpdateSessionMessage = {
+                    type: 'updateSession',
+                    hasSamples,
+                    hasSavedSession,
+                    sampleCount: Object.keys(currentState.samples).length,
+                    sampleNames: Object.keys(currentState.samples),
+                };
 
-            this.postMessage(message);
-        });
+                this.postMessage(message);
+            })
+            .catch(() => {
+                // Session load failure is non-critical; panel will show default state
+            });
     }
 }

@@ -126,7 +126,6 @@ export const PlotOptionsCore: React.FC = () => {
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
-            console.log('[PlotOptions React] Received message:', message.type, message);
             switch (message.type) {
                 case 'updatePlotOptions':
                     setOptions((prev) => ({
@@ -160,14 +159,12 @@ export const PlotOptionsCore: React.FC = () => {
                     }));
                     break;
                 case 'updatePod5Status':
-                    console.log('[PlotOptions React] Updating hasPod5:', message.hasPod5);
                     setOptions((prev) => ({
                         ...prev,
                         hasPod5: message.hasPod5,
                     }));
                     break;
                 case 'updateBamStatus':
-                    console.log('[PlotOptions React] Updating hasBam:', message.hasBam);
                     setOptions((prev) => ({
                         ...prev,
                         hasBam: message.hasBam,
@@ -180,7 +177,6 @@ export const PlotOptionsCore: React.FC = () => {
                     }
                     break;
                 case 'updateFastaStatus':
-                    console.log('[PlotOptions React] Updating hasFasta:', message.hasFasta);
                     setOptions((prev) => ({
                         ...prev,
                         hasFasta: message.hasFasta,
@@ -195,11 +191,6 @@ export const PlotOptionsCore: React.FC = () => {
                     }));
                     break;
                 case 'updateLoadedSamples':
-                    console.log(
-                        '[PlotOptions React] Updating loadedSamples:',
-                        message.samples.length,
-                        'samples'
-                    );
                     setOptions((prev) => {
                         // Don't auto-select samples here - visualization selection is managed
                         // by the Sample Manager (eye icons) and synced via updateSelectedSamples message
@@ -230,10 +221,6 @@ export const PlotOptionsCore: React.FC = () => {
                     });
                     break;
                 case 'updateSelectedSamples':
-                    console.log(
-                        '[PlotOptions React] Updating selectedSamples from extension:',
-                        message.selectedSamples
-                    );
                     setOptions((prev) => {
                         // Recompute hasEvents/hasMods/hasPrimers based on new selection
                         const selectedSampleData = prev.loadedSamples.filter((s) =>
@@ -321,7 +308,6 @@ export const PlotOptionsCore: React.FC = () => {
     // Generate handlers for each plot type
     const handleGenerateAggregate = () => {
         // Unified handler: works for 1+ samples
-        console.log('[PlotOptions] Generating aggregate with samples:', options.selectedSamples);
         // Send effective values - if hasEvents is false, signal/dwell are forced off
         // This triggers plot_pileup() instead of plot_aggregate() for BAMs without mv tags
         const effectiveShowDwellTime = options.showDwellTime && options.hasEvents;

@@ -14,11 +14,14 @@ References:
 - modkit: https://github.com/nanoporetech/modkit
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pysam
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -200,7 +203,9 @@ def detect_modification_provenance(bam_file: Path) -> dict[str, Any]:
                     result["unknown"] = False
                     break
 
-    except Exception:
-        pass
+    except (ValueError, KeyError, OSError) as e:
+        logger.debug(
+            "Failed to detect modification provenance from %s: %s", bam_file, e
+        )
 
     return result

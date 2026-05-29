@@ -578,7 +578,7 @@ For complete API documentation, see the **[API Reference](api.md)**.
 ## System Requirements
 
 **Software:**
-- **Positron IDE** 2024.09.0 or later
+- **Positron IDE** 2025.6.0 or later
 - **Python** 3.12 or later
 - **Operating Systems**: macOS (Intel/Apple Silicon), Linux, Windows
 

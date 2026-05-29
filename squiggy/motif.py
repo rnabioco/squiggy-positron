@@ -263,6 +263,11 @@ def search_motif(
     regex_pattern = iupac_to_regex(motif)
     regex = re.compile(regex_pattern, re.IGNORECASE)
 
+    # Pre-compile reverse complement regex once (doesn't change per chromosome)
+    rc_motif = reverse_complement(motif)
+    rc_regex_pattern = iupac_to_regex(rc_motif)
+    rc_regex = re.compile(rc_regex_pattern, re.IGNORECASE)
+
     # Parse region if provided
     target_chrom = None
     target_start = None
@@ -307,9 +312,6 @@ def search_motif(
             # Search reverse strand
             if strand in ("-", "both"):
                 rc_seq = reverse_complement(seq)
-                rc_motif = reverse_complement(motif)
-                rc_regex_pattern = iupac_to_regex(rc_motif)
-                rc_regex = re.compile(rc_regex_pattern, re.IGNORECASE)
 
                 for match in rc_regex.finditer(rc_seq):
                     # Convert position back to forward strand coordinates
