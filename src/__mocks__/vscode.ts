@@ -28,7 +28,14 @@ export class EventEmitter<T> {
     get event() {
         return (listener: (e: T) => void) => {
             this.listeners.push(listener);
-            return { dispose: () => {} };
+            return {
+                dispose: () => {
+                    const index = this.listeners.indexOf(listener);
+                    if (index > -1) {
+                        this.listeners.splice(index, 1);
+                    }
+                },
+            };
         };
     }
 

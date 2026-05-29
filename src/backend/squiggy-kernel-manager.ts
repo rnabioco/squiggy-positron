@@ -485,7 +485,22 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
     }
 
     /**
+     * Check if Positron supports evaluateCode.
+     */
+    private supportsEvaluateCode(): boolean {
+        try {
+            return typeof positron.runtime.evaluateCode === 'function';
+        } catch {
+            return false;
+        }
+    }
+
+    /**
      * Get a variable value from the dedicated kernel
+     *
+     * Uses evaluateCode() when available (single round-trip), otherwise
+     * falls back to the 3-step getSessionVariables approach.
+     *
      * @param varName Python variable name or expression
      * @param _enableRetry Ignored (for RuntimeClient interface compatibility)
      */
@@ -495,35 +510,40 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             throw new Error('Dedicated kernel not started');
         }
 
+        if (this.supportsEvaluateCode()) {
+            try {
+                const result = await positron.runtime.evaluateCode(
+                    'python',
+                    `__import__('json').dumps(${varName})`,
+                    undefined,
+                    sessionId
+                );
+                return JSON.parse(result.result);
+            } catch (error) {
+                throw new Error(`Failed to get variable ${varName}: ${error}`);
+            }
+        }
+
+        // Legacy fallback for older Positron versions
         const tempVar = '_squiggy_temp_' + Math.random().toString(36).substr(2, 9);
 
         try {
-            await this.executeSilent(`
-import json
-${tempVar} = json.dumps(${varName})
-`);
+            await this.executeSilent(`import json\n${tempVar} = json.dumps(${varName})`);
 
             const [[variable]] = await positron.runtime.getSessionVariables(sessionId, [[tempVar]]);
 
-            await this.executeSilent(`
-if '${tempVar}' in globals():
-    del ${tempVar}
-`);
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`);
 
             if (!variable) {
                 throw new Error(`Variable ${varName} not found`);
             }
 
-            const jsonString = variable.display_value;
-            const cleaned = jsonString.replace(/^['"]|['"]$/g, '');
+            const cleaned = variable.display_value.replace(/^['"]|['"]$/g, '');
             return JSON.parse(cleaned);
         } catch (error) {
-            await this.executeSilent(
-                `
-if '${tempVar}' in globals():
-    del ${tempVar}
-`
-            ).catch(() => {});
+            await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`).catch(
+                () => {}
+            );
             throw new Error(`Failed to get variable ${varName}: ${error}`);
         }
     }
