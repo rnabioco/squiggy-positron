@@ -759,3 +759,129 @@ class TestAggregateComparisonIntegration:
 
         assert isinstance(html, str)
         assert isinstance(grid, GridPlot)
+
+
+def _make_pileup_stats(positions, ref_bases=None):
+    """Build a minimal pileup_stats dict in the shape _create_pileup_track expects"""
+    counts = {int(p): {"A": 10, "C": 2, "G": 1, "T": 7} for p in positions}
+    stats = {"positions": np.array(positions), "counts": counts}
+    if ref_bases is not None:
+        stats["reference_bases"] = {int(p): b for p, b in ref_bases.items()}
+    return stats
+
+
+class TestPerSamplePileupTracks:
+    """Tests for per-sample base-call pileup tracks in the comparison plot"""
+
+    @pytest.fixture
+    def data_with_pileup(self):
+        """Two samples with signal + pileup stats"""
+        positions = np.arange(20)
+        return {
+            "samples": [
+                {
+                    "name": "sample_A",
+                    "signal_stats": {
+                        "positions": positions,
+                        "mean_signal": np.random.randn(20),
+                        "std_signal": np.full(20, 0.2),
+                    },
+                    "pileup_stats": _make_pileup_stats(positions),
+                },
+                {
+                    "name": "sample_B",
+                    "signal_stats": {
+                        "positions": positions,
+                        "mean_signal": np.random.randn(20),
+                        "std_signal": np.full(20, 0.2),
+                    },
+                    "pileup_stats": _make_pileup_stats(positions),
+                },
+            ],
+            "reference_name": "chr1:1000-1020",
+            "enabled_metrics": ["signal"],
+            "show_pileup": True,
+            "rna_mode": False,
+        }
+
+    def _pileup_titles(self, grid):
+        return [
+            fig.title.text
+            for fig, _row, _col in grid.children
+            if "Base Call Pileup" in fig.title.text
+        ]
+
+    def test_pileup_track_per_sample_when_enabled(self, data_with_pileup):
+        """One pileup track per sample is added when show_pileup is True"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        _, grid = strategy.create_plot(data_with_pileup, {})
+
+        titles = self._pileup_titles(grid)
+        assert len(titles) == 2
+        assert any("sample_A" in t for t in titles)
+        assert any("sample_B" in t for t in titles)
+
+    def test_no_pileup_tracks_when_disabled(self, data_with_pileup):
+        """No pileup tracks are added when show_pileup is False"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        data_with_pileup["show_pileup"] = False
+        _, grid = strategy.create_plot(data_with_pileup, {})
+
+        assert self._pileup_titles(grid) == []
+
+    def test_no_pileup_tracks_when_flag_absent(self, data_with_pileup):
+        """Backward compatible: absent show_pileup key yields no pileup tracks"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        del data_with_pileup["show_pileup"]
+        _, grid = strategy.create_plot(data_with_pileup, {})
+
+        assert self._pileup_titles(grid) == []
+
+    def test_sample_without_pileup_is_skipped(self, data_with_pileup):
+        """A sample lacking pileup data is skipped, others still rendered"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        data_with_pileup["samples"][1].pop("pileup_stats")
+        _, grid = strategy.create_plot(data_with_pileup, {})
+
+        titles = self._pileup_titles(grid)
+        assert len(titles) == 1
+        assert "sample_A" in titles[0]
+
+    def test_empty_pileup_positions_skipped(self, data_with_pileup):
+        """A sample with empty pileup positions is skipped"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        data_with_pileup["samples"][0]["pileup_stats"] = {
+            "positions": np.array([]),
+            "counts": {},
+        }
+        _, grid = strategy.create_plot(data_with_pileup, {})
+
+        titles = self._pileup_titles(grid)
+        assert len(titles) == 1
+        assert "sample_B" in titles[0]
+
+    def test_pileup_tracks_share_x_range(self, data_with_pileup):
+        """Pileup tracks are x-linked with the rest of the comparison tracks"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        _, grid = strategy.create_plot(data_with_pileup, {})
+
+        figures = [fig for fig, _row, _col in grid.children]
+        first_x_range = figures[0].x_range
+        for fig in figures[1:]:
+            assert fig.x_range is first_x_range
+
+    def test_rna_mode_displays_u(self, data_with_pileup):
+        """RNA mode renders the pileup track with U legend instead of T"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        data_with_pileup["rna_mode"] = True
+        html, _ = strategy.create_plot(data_with_pileup, {})
+
+        assert isinstance(html, str)
+        assert len(html) > 0

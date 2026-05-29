@@ -14,5 +14,6 @@
     "jsx": "react",
     "types": ["node", "vscode", "react", "react-dom"]
   },
-  "exclude": ["node_modules", ".vscode-test", "positron", "ext", "**/__tests__/**", "**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx", "**/*.spec.tsx", "**/__mocks__/**"]
+  "include": ["src"],
+  "exclude": ["node_modules", ".vscode-test", "ext", "positron", "**/__tests__/**", "**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx", "**/*.spec.tsx", "**/__mocks__/**"]
 }
