@@ -48,6 +48,9 @@ build/
 *.vsix
 coverage/
 
+# examples
+examples/*.ipynb
+
 # Test workspace - used for extension development
 test-workspace/
 
