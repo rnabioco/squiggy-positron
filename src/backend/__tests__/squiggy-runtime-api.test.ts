@@ -149,6 +149,42 @@ describe('SquiggyRuntimeAPI', () => {
         });
     });
 
+    describe('generateAggregateComparison', () => {
+        it('should emit show_pileup and rna_mode in the Python call', async () => {
+            await api.generateAggregateComparison(['s1', 's2'], 'chr1');
+
+            expect(mockClient.executeSilent).toHaveBeenCalled();
+            const code = mockClient.executeSilent.mock.calls[0][0] as string;
+            expect(code).toContain('plot_aggregate_comparison(');
+            // Defaults: show_pileup true, rna_mode false
+            expect(code).toContain('show_pileup=True');
+            expect(code).toContain('rna_mode=False');
+        });
+
+        it('should honor showPileup=false and rnaMode=true', async () => {
+            await api.generateAggregateComparison(
+                ['s1', 's2'],
+                'chr1',
+                ['signal'],
+                null,
+                'ZNORM',
+                'LIGHT',
+                undefined,
+                true,
+                false, // showPileup
+                true // rnaMode
+            );
+
+            const code = mockClient.executeSilent.mock.calls[0][0] as string;
+            expect(code).toContain('show_pileup=False');
+            expect(code).toContain('rna_mode=True');
+        });
+
+        it('should throw for fewer than 2 samples', async () => {
+            await expect(api.generateAggregateComparison(['s1'], 'chr1')).rejects.toThrow();
+        });
+    });
+
     describe('loadFASTA', () => {
         it('should load FASTA file', async () => {
             await api.loadFASTA('/path/file.fasta');

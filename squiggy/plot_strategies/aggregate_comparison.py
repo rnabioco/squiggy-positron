@@ -402,6 +402,40 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
+    def _create_pileup_tracks(
+        self, samples: list[dict], rna_mode: bool = False
+    ) -> list:
+        """
+        Create one base-call pileup track per sample
+
+        Reuses the single-sample pileup renderer from AggregatePlotStrategy so the
+        stacked-base appearance matches the single-sample composite plot. Each track
+        is titled with its sample name.
+
+        Args:
+            samples: List of sample data dicts, each optionally with 'pileup_stats'
+            rna_mode: If True, display U instead of T for RNA sequences
+
+        Returns:
+            List of Bokeh figures (one per sample with pileup data); may be empty
+        """
+        # Local import avoids a circular import between the two strategy modules
+        from .aggregate import AggregatePlotStrategy
+
+        agg = AggregatePlotStrategy(self.theme)
+
+        tracks = []
+        for sample in samples:
+            pileup_stats = sample.get("pileup_stats")
+            if not pileup_stats or len(pileup_stats.get("positions", [])) == 0:
+                continue
+
+            fig = agg._create_pileup_track(pileup_stats, rna_mode=rna_mode)
+            fig.title.text = f"Base Call Pileup — {sample['name']}"
+            tracks.append(fig)
+
+        return tracks
+
     def _create_coverage_track(self, samples: list[dict], reference_name: str):
         """
         Create coverage comparison track
@@ -527,6 +561,14 @@ class AggregateComparisonStrategy(PlotStrategy):
             signal_track = self._create_signal_track(samples, reference_name)
             if signal_track:
                 tracks.append(signal_track)
+
+        # Per-sample base-call pileup tracks (the most important comparison panel)
+        if data.get("show_pileup"):
+            tracks.extend(
+                self._create_pileup_tracks(
+                    samples, rna_mode=data.get("rna_mode", False)
+                )
+            )
 
         if "dwell_time" in enabled_metrics:
             dwell_track = self._create_dwell_track(samples, reference_name)
