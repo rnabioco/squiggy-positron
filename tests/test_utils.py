@@ -1501,3 +1501,90 @@ class TestModificationStatisticsFiltering:
         assert "m" not in result["mod_stats"] or 100 not in result["mod_stats"].get(
             "m", {}
         )
+
+
+class TestCalculateAggregateSignal:
+    """Regression tests for calculate_aggregate_signal (Issue #184)
+
+    The aggregate signal track must map signal to reference positions using the
+    same query_to_ref-based logic as the pileup/quality/dwell tracks, so the
+    tracks stay aligned. The previous implementation advanced the reference
+    position on every move=1 (including soft-clipped start bases) and ignored
+    deletions, shifting and drifting the signal track.
+    """
+
+    def test_start_soft_clip_not_shifted(self):
+        """A start soft-clip must not shift the signal track downstream."""
+        from squiggy.constants import NormalizationMethod
+        from squiggy.utils import calculate_aggregate_signal
+
+        # 4 bases at move indices 0, 2, 4, 6; first base soft-clipped.
+        # Aligned bases (seq_idx 1, 2, 3) map to consecutive ref positions.
+        stride = 2
+        read = {
+            "read_id": "r1",
+            "signal": np.arange(20, dtype=float),
+            "move_table": np.array([1, 0, 1, 0, 1, 0, 1]),
+            "stride": stride,
+            "reference_start": 100,
+            "query_start_offset": 1,  # first base soft-clipped
+            "query_end_offset": 0,
+            "query_to_ref": {1: 100, 2: 101, 3: 102},
+        }
+
+        result = calculate_aggregate_signal([read], NormalizationMethod.NONE)
+
+        # Aligned portion starts AT reference_start, not reference_start + 1
+        assert list(result["positions"]) == [100, 101, 102]
+        # Signal sampled at move_idx * stride for the 3 aligned bases (idx 2,4,6)
+        assert list(result["mean_signal"]) == [4.0, 8.0, 12.0]
+
+    def test_deletion_creates_reference_gap(self):
+        """A deletion in query_to_ref must produce a gap in reference positions."""
+        from squiggy.constants import NormalizationMethod
+        from squiggy.utils import calculate_aggregate_signal
+
+        # 3 aligned bases; reference skips position 102 (a deletion).
+        read = {
+            "read_id": "r1",
+            "signal": np.arange(20, dtype=float),
+            "move_table": np.array([1, 0, 1, 0, 1]),
+            "stride": 2,
+            "reference_start": 100,
+            "query_start_offset": 0,
+            "query_end_offset": 0,
+            "query_to_ref": {0: 100, 1: 101, 2: 103},
+        }
+
+        result = calculate_aggregate_signal([read], NormalizationMethod.NONE)
+
+        assert list(result["positions"]) == [100, 101, 103]
+
+    def test_coverage_counts_unique_reads(self):
+        """Coverage at each position counts unique reads, not signal samples."""
+        from squiggy.constants import NormalizationMethod
+        from squiggy.utils import calculate_aggregate_signal
+
+        reads = [
+            {
+                "read_id": "r1",
+                "signal": np.arange(20, dtype=float),
+                "move_table": np.array([1, 0, 1]),
+                "stride": 2,
+                "reference_start": 100,
+                "query_to_ref": {0: 100, 1: 101},
+            },
+            {
+                "read_id": "r2",
+                "signal": np.arange(20, dtype=float) + 100,
+                "move_table": np.array([1, 0, 1]),
+                "stride": 2,
+                "reference_start": 100,
+                "query_to_ref": {0: 100, 1: 101},
+            },
+        ]
+
+        result = calculate_aggregate_signal(reads, NormalizationMethod.NONE)
+
+        assert list(result["positions"]) == [100, 101]
+        assert list(result["coverage"]) == [2, 2]
