@@ -130,36 +130,34 @@ def get_basecall_data(
         return None, None
 
     try:
-        bam = pysam.AlignmentFile(str(bam_file), "rb", check_sq=False)
+        # Context manager closes the handle on every path, including the
+        # early return and any exception (previously leaked on error).
+        with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
+            # Find the read in BAM
+            for read in bam.fetch(until_eof=True):
+                if read.query_name == read_id:
+                    # Get sequence
+                    sequence = read.query_sequence
 
-        # Find the read in BAM
-        for read in bam.fetch(until_eof=True):
-            if read.query_name == read_id:
-                # Get sequence
-                sequence = read.query_sequence
+                    # Get move table from BAM tags
+                    if read.has_tag("mv"):
+                        move_table = np.array(read.get_tag("mv"), dtype=np.uint8)
 
-                # Get move table from BAM tags
-                if read.has_tag("mv"):
-                    move_table = np.array(read.get_tag("mv"), dtype=np.uint8)
+                        # Extract stride (first element) and moves (remaining)
+                        # Stride is the neural network downsampling factor
+                        # See constants.DNA_STRIDE (5) and RNA_STRIDE_MIN/MAX (10-12)
+                        stride = int(move_table[0])
+                        moves = move_table[1:]
 
-                    # Extract stride (first element) and moves (remaining elements)
-                    # Stride represents the neural network downsampling factor
-                    # See constants.DNA_STRIDE (5) and RNA_STRIDE_MIN/MAX (10-12)
-                    stride = int(move_table[0])
-                    moves = move_table[1:]
+                        # Convert move table to signal-to-sequence mapping
+                        seq_to_sig_map = []
+                        sig_pos = 0
+                        for move in moves:
+                            if move == 1:
+                                seq_to_sig_map.append(sig_pos)
+                            sig_pos += stride
 
-                    # Convert move table to signal-to-sequence mapping
-                    seq_to_sig_map = []
-                    sig_pos = 0
-                    for move in moves:
-                        if move == 1:
-                            seq_to_sig_map.append(sig_pos)
-                        sig_pos += stride
-
-                    bam.close()
-                    return sequence, np.array(seq_to_sig_map)
-
-        bam.close()
+                        return sequence, np.array(seq_to_sig_map)
 
     except (ValueError, KeyError, OSError) as e:
         logger.debug("Failed to extract basecall data for read %s: %s", read_id, e)
@@ -935,11 +933,20 @@ def extract_alignments_for_reference(
 
     try:
         with pysam.AlignmentFile(str(bam_file), "rb", check_sq=False) as bam:
-            for read in bam.fetch(until_eof=True):
+            # Use the index for an O(log n) lookup when available; fall back to
+            # a full scan for unindexed BAMs. (extract_reads_for_reference()
+            # already uses indexed fetch — this matches it.)
+            try:
+                read_iter = bam.fetch(reference_name)
+            except (ValueError, OSError):
+                read_iter = bam.fetch(until_eof=True)
+
+            for read in read_iter:
                 if read.is_unmapped:
                     continue
 
-                # Check if read maps to the specified reference
+                # Confirm the reference: a no-op on the indexed path, required
+                # to filter the full-scan fallback.
                 ref_name = bam.get_reference_name(read.reference_id)
                 if ref_name != reference_name:
                     continue
