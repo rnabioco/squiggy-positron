@@ -157,31 +157,9 @@ class OverlayPlotStrategy(PlotStrategy):
                 # Use BAM alignment positions (reference-anchored coordinates)
                 aligned_read = aligned_reads[idx]
 
-                # Build x-coordinates from genomic positions
-                # Handle soft-clipping and insertions by using position from aligned bases
-
-                # First, find the first valid genomic position (skip soft-clipped start)
-                first_genomic_pos = None
-                for base in aligned_read.bases:
-                    if base.genomic_pos is not None:
-                        first_genomic_pos = base.genomic_pos
-                        break
-
-                # Build position array using signal sample indices mapped to genomic coordinates
-                ref_positions = []
-                for base in aligned_read.bases:
-                    num_samples = base.signal_end - base.signal_start
-                    if base.genomic_pos is not None:
-                        # Mapped base - use genomic position
-                        ref_positions.extend([base.genomic_pos] * num_samples)
-                    elif first_genomic_pos is not None:
-                        # Insertion or soft-clip - use interpolated position
-                        # Use the genomic position of the previous mapped base
-                        if ref_positions:
-                            ref_positions.extend([ref_positions[-1]] * num_samples)
-                        else:
-                            # Soft-clipped at start - use first genomic position
-                            ref_positions.extend([first_genomic_pos] * num_samples)
+                # Build x-coordinates from genomic positions (shared helper).
+                # Handles soft-clipping and insertions.
+                ref_positions = self._build_genomic_ref_positions(aligned_read)
 
                 # Check if we got any genomic positions at all
                 if not ref_positions:
@@ -202,62 +180,10 @@ class OverlayPlotStrategy(PlotStrategy):
                     skipped_reads.append(read_id)
                     continue
 
-                # Apply same downsampling to genomic positions as was applied to signal
-                # The signal was downsampled, so we need to downsample positions to match
-                # Convert to float to allow NaN insertion later (for deletions)
-                ref_positions = np.array(ref_positions, dtype=float)
-
-                # Downsample ref_positions if signal was downsampled
-                if downsample > 1 and len(ref_positions) > len(processed_signal):
-                    # Apply same downsampling stride to genomic positions
-                    ref_positions = ref_positions[::downsample]
-
-                # Ensure lengths match after downsampling
-                if len(ref_positions) < len(processed_signal):
-                    # Pad with last position if needed
-                    ref_positions = np.pad(
-                        ref_positions,
-                        (0, len(processed_signal) - len(ref_positions)),
-                        mode="edge",
-                    )
-                elif len(ref_positions) > len(processed_signal):
-                    # Truncate if still too long
-                    ref_positions = ref_positions[: len(processed_signal)]
-
-                # For reference-anchored plots, we need to handle repeated positions
-                # When multiple samples map to same genomic position, Bokeh draws vertical lines
-                # Solution: Keep only unique positions (take mean of signal for each position)
-                unique_positions = []
-                unique_signals = []
-
-                current_pos = ref_positions[0]
-                current_signals = [processed_signal[0]]
-
-                for i in range(1, len(ref_positions)):
-                    if ref_positions[i] == current_pos:
-                        # Same position - accumulate signal values
-                        current_signals.append(processed_signal[i])
-                    else:
-                        # New position - save mean of accumulated signals
-                        unique_positions.append(current_pos)
-                        unique_signals.append(np.mean(current_signals))
-
-                        # Check for deletion (position jump > 1)
-                        if ref_positions[i] - current_pos > 1:
-                            # Insert NaN to break line at deletion
-                            unique_positions.append(np.nan)
-                            unique_signals.append(np.nan)
-
-                        # Start new position
-                        current_pos = ref_positions[i]
-                        current_signals = [processed_signal[i]]
-
-                # Don't forget the last position
-                unique_positions.append(current_pos)
-                unique_signals.append(np.mean(current_signals))
-
-                ref_positions = np.array(unique_positions)
-                processed_signal = np.array(unique_signals)
+                # Collapse repeated positions (mean per position, NaN at deletions)
+                ref_positions, processed_signal = self._collapse_to_genomic_positions(
+                    ref_positions, processed_signal, downsample
+                )
 
                 x = ref_positions
             else:

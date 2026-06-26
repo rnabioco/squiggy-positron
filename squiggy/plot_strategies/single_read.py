@@ -390,83 +390,17 @@ class SingleReadPlotStrategy(PlotStrategy):
         Returns:
             Tuple of (positions, collapsed_signal, label)
         """
-        # Build genomic position array from aligned read
-        ref_positions = []
-
-        # Find first valid genomic position
-        first_genomic_pos = None
-        for base in aligned_read.bases:
-            if base.genomic_pos is not None:
-                first_genomic_pos = base.genomic_pos
-                break
-
-        # Build position array
-        for base in aligned_read.bases:
-            num_samples = base.signal_end - base.signal_start
-            if base.genomic_pos is not None:
-                # Mapped base - use genomic position
-                ref_positions.extend([base.genomic_pos] * num_samples)
-            elif first_genomic_pos is not None:
-                # Insertion or soft-clip - use last valid position
-                if ref_positions:
-                    ref_positions.extend([ref_positions[-1]] * num_samples)
-                else:
-                    ref_positions.extend([first_genomic_pos] * num_samples)
+        # Build genomic position array from aligned read (shared helper)
+        ref_positions = self._build_genomic_ref_positions(aligned_read)
 
         if not ref_positions:
             # Fallback to sample indices if no genomic positions available
             return np.arange(len(signal)), signal, "Sample"
 
-        # Convert to float for NaN support
-        ref_positions = np.array(ref_positions, dtype=float)
-
-        # Downsample if needed
-        if downsample > 1 and len(ref_positions) > len(signal):
-            ref_positions = ref_positions[::downsample]
-
-        # Ensure lengths match
-        if len(ref_positions) < len(signal):
-            ref_positions = np.pad(
-                ref_positions,
-                (0, len(signal) - len(ref_positions)),
-                mode="edge",
-            )
-        elif len(ref_positions) > len(signal):
-            ref_positions = ref_positions[: len(signal)]
-
         # Collapse repeated positions (average signal at each unique position)
-        unique_positions = []
-        unique_signals = []
-
-        current_pos = ref_positions[0]
-        current_signals = [signal[0]]
-
-        for i in range(1, len(ref_positions)):
-            if ref_positions[i] == current_pos:
-                # Same position - accumulate signal values
-                current_signals.append(signal[i])
-            else:
-                # New position - save mean of accumulated signals
-                unique_positions.append(current_pos)
-                unique_signals.append(np.mean(current_signals))
-
-                # Check for deletion (position jump > 1)
-                if ref_positions[i] - current_pos > 1:
-                    # Insert NaN to break line at deletion
-                    unique_positions.append(np.nan)
-                    unique_signals.append(np.nan)
-
-                # Start new position
-                current_pos = ref_positions[i]
-                current_signals = [signal[i]]
-
-        # Don't forget the last position
-        unique_positions.append(current_pos)
-        unique_signals.append(np.mean(current_signals))
-
-        # Convert to arrays
-        collapsed_positions = np.array(unique_positions)
-        collapsed_signal = np.array(unique_signals)
+        collapsed_positions, collapsed_signal = self._collapse_to_genomic_positions(
+            ref_positions, signal, downsample
+        )
 
         return collapsed_positions, collapsed_signal, "Reference Position"
 
