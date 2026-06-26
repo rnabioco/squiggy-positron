@@ -149,8 +149,8 @@ describe('Session Commands', () => {
 
             await saveSessionCommand(mockState, mockContext);
 
-            // Errors now shown via status bar, not pop-up
-            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            // Errors are surfaced via handleError (notification + log)
+            expect(vscode.window.showErrorMessage).toHaveBeenCalled();
         });
     });
 
@@ -206,8 +206,8 @@ describe('Session Commands', () => {
 
             await restoreSessionCommand(mockState, mockContext);
 
-            // Errors now shown via status bar, not pop-up
-            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            // Errors are surfaced via handleError (notification + log)
+            expect(vscode.window.showErrorMessage).toHaveBeenCalled();
         });
     });
 
@@ -285,8 +285,8 @@ describe('Session Commands', () => {
 
             await importSessionCommand(mockState, mockContext);
 
-            // Errors now shown via status bar, not pop-up
-            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            // Errors are surfaced via handleError (notification + log)
+            expect(vscode.window.showErrorMessage).toHaveBeenCalled();
         });
 
         it('should not import when user cancels file dialog', async () => {
@@ -323,8 +323,8 @@ describe('Session Commands', () => {
 
             await clearSessionCommand(mockContext);
 
-            // Errors now shown via status bar, not pop-up
-            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            // Errors are surfaced via handleError (notification + log)
+            expect(vscode.window.showErrorMessage).toHaveBeenCalled();
         });
     });
 
@@ -365,8 +365,8 @@ describe('Session Commands', () => {
 
             await loadDemoSessionCommand(mockState, mockContext);
 
-            // Errors now shown via status bar, not pop-up
-            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            // Errors are surfaced via handleError (notification + log)
+            expect(vscode.window.showErrorMessage).toHaveBeenCalled();
         });
     });
 });

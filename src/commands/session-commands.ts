@@ -20,6 +20,7 @@ import {
 } from '../state/pipeline-session-detector';
 import { logger } from '../utils/logger';
 import { statusBarMessenger } from '../utils/status-bar-messenger';
+import { handleError, ErrorContext } from '../utils/error-handler';
 
 /**
  * Register all session management commands
@@ -85,7 +86,7 @@ export async function saveSessionCommand(
             statusBarMessenger.show('Session saved', 'save');
         }
     } catch (error) {
-        statusBarMessenger.showError(`Save failed: ${error}`);
+        handleError(error, ErrorContext.SESSION_SAVE);
     }
 }
 
@@ -145,7 +146,7 @@ export async function restoreSessionCommand(
             }
         );
     } catch (error) {
-        statusBarMessenger.showError(`Restore failed: ${error}`);
+        handleError(error, ErrorContext.SESSION_RESTORE);
     }
 }
 
@@ -184,7 +185,7 @@ export async function exportSessionCommand(
 
         statusBarMessenger.show('Session exported', 'export');
     } catch (error) {
-        statusBarMessenger.showError(`Export failed: ${error}`);
+        handleError(error, ErrorContext.SESSION_EXPORT);
     }
 }
 
@@ -249,7 +250,7 @@ export async function importSessionCommand(
             }
         );
     } catch (error) {
-        statusBarMessenger.showError(`Import failed: ${error}`);
+        handleError(error, ErrorContext.SESSION_IMPORT);
     }
 }
 
@@ -271,7 +272,7 @@ export async function clearSessionCommand(context: vscode.ExtensionContext): Pro
         await SessionStateManager.clearSession(context);
         statusBarMessenger.show('Session cleared', 'trash');
     } catch (error) {
-        statusBarMessenger.showError(`Clear failed: ${error}`);
+        handleError(error, ErrorContext.SESSION_CLEAR);
     }
 }
 
@@ -317,8 +318,7 @@ export async function loadDemoSessionCommand(
 
         logger.info('Demo session loaded successfully');
     } catch (error) {
-        logger.error('Failed to load demo session', error);
-        statusBarMessenger.showError(`Demo load failed: ${error}`);
+        handleError(error, ErrorContext.DEMO_LOAD);
     }
 }
 
@@ -366,7 +366,7 @@ export async function loadPipelineSessionCommand(
         }
 
         if (!session.session || !sessionDir) {
-            statusBarMessenger.showError('Failed to parse pipeline session');
+            vscode.window.showErrorMessage('Failed to parse pipeline session');
             return;
         }
 
@@ -434,7 +434,6 @@ export async function loadPipelineSessionCommand(
         statusBarMessenger.show(`Loaded: ${sessionName}`, 'folder-library');
         logger.info(`Pipeline session loaded successfully: ${sessionName}`);
     } catch (error) {
-        logger.error('Failed to load pipeline session', error);
-        statusBarMessenger.showError(`Pipeline session load failed: ${error}`);
+        handleError(error, ErrorContext.PIPELINE_SESSION_LOAD);
     }
 }

@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import { ExtensionState } from '../state/extension-state';
 import { statusBarMessenger } from '../utils/status-bar-messenger';
+import { handleError, ErrorContext } from '../utils/error-handler';
 
 /**
  * Register state management commands
@@ -79,7 +80,7 @@ async function refreshReadsFromBackend(state: ExtensionState): Promise<void> {
 
         statusBarMessenger.show('Refreshed', 'refresh');
     } catch (error) {
-        statusBarMessenger.showError(`Refresh failed: ${error}`);
+        handleError(error, ErrorContext.STATE_REFRESH);
     } finally {
         state.readsViewPane?.setLoading(false);
     }
@@ -189,6 +190,6 @@ async function debugModificationsPanel(state: ExtensionState): Promise<void> {
             statusBarMessenger.show('Mods panel visible', 'check');
         }
     } catch (error) {
-        statusBarMessenger.showError(`Debug failed: ${error}`);
+        handleError(error, ErrorContext.STATE_DEBUG);
     }
 }
