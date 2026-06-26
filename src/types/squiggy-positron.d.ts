@@ -4,7 +4,12 @@
  * These are minimal types to allow compilation. The actual 'positron' module
  * is only available when running in Positron's Extension Development Host.
  *
- * Synced with: ext/positron/src/positron-dts/positron.d.ts (2026-03-24)
+ * Synced with: posit-dev/positron src/positron-dts/positron.d.ts
+ * (upstream commit 1212541, 2026-06-26)
+ *
+ * This is intentionally a minimal subset of the upstream API — only the
+ * declarations the extension actually consumes. Add to it when adopting a
+ * new Positron API rather than vendoring the full 3,600-line upstream file.
  */
 
 declare module 'positron' {
@@ -113,9 +118,8 @@ declare module 'positron' {
         };
     }
 
-    export interface LanguageRuntimeSession {
-        metadata: { sessionId: string; sessionName: string; sessionMode: string };
-        runtimeMetadata: { languageId: string };
+    // Upstream models this as `LanguageRuntimeSession extends BaseLanguageRuntimeSession`.
+    export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession {
         onDidChangeRuntimeState: vscode.Event<RuntimeState>;
         onDidEndSession: vscode.Event<any>;
     }
@@ -201,6 +205,9 @@ declare module 'positron' {
             sessionId?: string
         ): Thenable<EvalResult>;
 
+        // Upstream returns BaseLanguageRuntimeSession; deliberately widened to
+        // LanguageRuntimeSession because callers defensively access the optional
+        // onDidChangeRuntimeState event (guarded by typeof checks at runtime).
         export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
 
         export function getNotebookSession(
@@ -234,7 +241,7 @@ declare module 'positron' {
 
         export function interruptSession(sessionId: string): Thenable<void>;
 
-        export function restartSession(sessionId: string): Thenable<void>;
+        export function restartSession(sessionId: string): Thenable<boolean>;
 
         export function focusSession(sessionId: string): void;
 

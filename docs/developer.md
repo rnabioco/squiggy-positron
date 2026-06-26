@@ -240,8 +240,6 @@ squiggy-positron-extension/
 │   │   ├── squiggy-reads-view-pane.ts   # Read list React webview
 │   │   ├── squiggy-plot-options-view.ts # Plot options panel
 │   │   └── squiggy-modifications-panel.ts # Modifications panel
-│   ├── webview/                # Plot display
-│   │   └── squiggy-plot-panel.ts        # Bokeh plot webview
 │   ├── types/                  # TypeScript type definitions
 │   │   └── squiggy-positron.d.ts       # Positron API types
 │   └── __mocks__/              # Test mocks
@@ -521,10 +519,10 @@ Entry point when extension loads:
 
 #### 4. Plot Display
 
-**PlotPanel** (`src/webview/squiggy-plot-panel.ts`):
-- Webview panel for displaying Bokeh plots
-- Receives HTML from Python backend
-- Handles export functionality
+Plots render in Positron's **native Plots pane**, not an extension webview.
+`generatePlot()` runs `squiggy.plot_read(...)` in the kernel; the Python code
+calls `bokeh.io.show()` (via `_route_to_plots_pane`), which Positron intercepts
+and routes to the Plots pane (with history and navigation).
 
 #### 5. Python Backend
 
