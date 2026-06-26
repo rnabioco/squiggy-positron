@@ -211,8 +211,8 @@ describe('State Commands', () => {
 
             await handler!();
 
-            // Errors now shown via status bar, not pop-up
-            expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+            // Errors are surfaced via handleError (notification + log)
+            expect(vscode.window.showErrorMessage).toHaveBeenCalled();
 
             // Should still clear loading state
             expect(mockState.readsViewPane.setLoading).toHaveBeenCalledWith(false);

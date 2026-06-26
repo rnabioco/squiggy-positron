@@ -24,6 +24,15 @@ export enum ErrorContext {
     STATE_CLEAR = 'clearing extension state',
     MOTIF_SEARCH = 'searching for motif matches',
     MOTIF_PLOT = 'generating motif aggregate plot',
+    SESSION_SAVE = 'saving session',
+    SESSION_RESTORE = 'restoring session',
+    SESSION_EXPORT = 'exporting session',
+    SESSION_IMPORT = 'importing session',
+    SESSION_CLEAR = 'clearing session',
+    DEMO_LOAD = 'loading demo session',
+    PIPELINE_SESSION_LOAD = 'loading pipeline session',
+    STATE_REFRESH = 'refreshing session state',
+    STATE_DEBUG = 'inspecting session state',
 }
 
 /**
