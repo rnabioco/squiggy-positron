@@ -115,8 +115,6 @@ squiggy-positron-extension/
 │   │   ├── squiggy-reads-view-pane.ts  # Read list React webview
 │   │   ├── squiggy-plot-options-view.ts # Plot options webview
 │   │   └── squiggy-modifications-panel.ts # Modifications filter webview
-│   ├── webview/
-│   │   └── squiggy-plot-panel.ts       # Bokeh plot display
 │   ├── types/
 │   │   ├── squiggy-positron.d.ts       # Positron API type definitions
 │   │   └── squiggy-reads-types.ts      # Types for reads data
@@ -386,11 +384,21 @@ class MyPanelProvider implements vscode.WebviewViewProvider {
 
 ### Plot Display
 
-**PlotPanel** (`src/webview/squiggy-plot-panel.ts`):
-- Webview panel displaying Bokeh HTML plots
-- Receives HTML from Python backend via kernel execution
-- Handles export to HTML/PNG/SVG formats
-- Supports zoom-level export (captures current view)
+Plots render in Positron's **native Plots pane** — the extension does not host
+a webview for plots. The flow is:
+
+1. `src/commands/plot-commands.ts` calls `SquiggyRuntimeAPI.generatePlot()`
+2. `generatePlot()` executes `squiggy.plot_read(...)` / `plot_reads(...)` silently
+   in the dedicated kernel
+3. The Python plotting code builds a Bokeh figure and calls
+   `squiggy/utils/plotting.py::_route_to_plots_pane()`, which invokes
+   `bokeh.io.show(fig)`
+4. Positron intercepts `bokeh.io.show()` and routes the plot to the Plots pane
+   (with history, navigation, copy, and re-run)
+
+The Python functions also `return` the Bokeh HTML string so they remain usable
+from notebooks / for file export, but the extension relies on the Plots-pane
+routing, not the return value.
 
 ### Python API
 
@@ -555,15 +563,12 @@ Or use the `/test` slash command in Claude Code to run everything.
 TypeScript extension communicates with Python kernel asynchronously:
 
 ```typescript
-// Execute Python code in kernel
-const result = await runtime.execute(`
-    from squiggy import plot_read
-    html = plot_read("read_001", plot_mode="SINGLE")
-    html
+// Execute Python code silently in the dedicated kernel. The plot is routed to
+// Positron's Plots pane by bokeh.io.show() inside plot_read (see Plot Display).
+await client.executeSilent(`
+    import squiggy
+    squiggy.plot_read("read_001", mode="SINGLE")
 `);
-
-// Result contains the Python expression output
-plotPanel.setHtml(result);
 ```
 
 ### Webview Communication
@@ -720,10 +725,11 @@ npm run package
 
 ### Bokeh Plots
 
-- Generate as standalone HTML with CDN resources
-- Use `bokeh.embed.file_html()` with `CDN` resources
-- Plots rendered in webview via `setHtml()`
-- Interactive features (zoom, pan) work in webview
+- Generate as standalone HTML with CDN resources via `bokeh.embed.file_html()`
+  (used for notebook display and file export)
+- For the extension, plots are shown in Positron's Plots pane by calling
+  `bokeh.io.show()` (see `_route_to_plots_pane` and the Plot Display section)
+- Interactive features (zoom, pan) work in the Plots pane
 
 ### POD5 Files
 
