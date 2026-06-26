@@ -139,6 +139,7 @@ describe('SquiggyRuntimeAPI', () => {
 
     describe('generateAggregatePlot', () => {
         it('should generate aggregate plot', async () => {
+            mockClient.getVariable.mockResolvedValue(null); // No plot error
             await api.generateAggregatePlot('chr1');
 
             expect(mockClient.executeSilent).toHaveBeenCalled();
@@ -147,10 +148,19 @@ describe('SquiggyRuntimeAPI', () => {
         it('should throw ValidationError for empty reference', async () => {
             await expect(api.generateAggregatePlot('')).rejects.toThrow(ValidationError);
         });
+
+        it('should surface Python errors instead of failing silently', async () => {
+            // The kernel runs with RuntimeErrorBehavior.Continue, so executeSilent
+            // resolves even on a Python exception. The error is captured in
+            // _squiggy_plot_error and must propagate to the caller.
+            mockClient.getVariable.mockResolvedValue('RuntimeError: boom');
+            await expect(api.generateAggregatePlot('chr1')).rejects.toThrow(PlottingError);
+        });
     });
 
     describe('generateAggregateComparison', () => {
         it('should emit show_pileup and rna_mode in the Python call', async () => {
+            mockClient.getVariable.mockResolvedValue(null); // No plot error
             await api.generateAggregateComparison(['s1', 's2'], 'chr1');
 
             expect(mockClient.executeSilent).toHaveBeenCalled();
@@ -162,6 +172,7 @@ describe('SquiggyRuntimeAPI', () => {
         });
 
         it('should honor showPileup=false and rnaMode=true', async () => {
+            mockClient.getVariable.mockResolvedValue(null); // No plot error
             await api.generateAggregateComparison(
                 ['s1', 's2'],
                 'chr1',
@@ -182,6 +193,15 @@ describe('SquiggyRuntimeAPI', () => {
 
         it('should throw for fewer than 2 samples', async () => {
             await expect(api.generateAggregateComparison(['s1'], 'chr1')).rejects.toThrow();
+        });
+
+        it('should surface a captured Python error', async () => {
+            mockClient.getVariable.mockResolvedValue(
+                "ValueError: Sample 's1' not found\nTraceback..."
+            );
+            await expect(api.generateAggregateComparison(['s1', 's2'], 'chr1')).rejects.toThrow(
+                /not found/
+            );
         });
     });
 
@@ -213,6 +233,7 @@ describe('SquiggyRuntimeAPI', () => {
 
     describe('generateMotifAggregateAllPlot', () => {
         it('should generate motif aggregate plot', async () => {
+            mockClient.getVariable.mockResolvedValue(null); // No plot error
             await api.generateMotifAggregateAllPlot('/path/ref.fasta', 'GGACT');
 
             expect(mockClient.executeSilent).toHaveBeenCalled();
