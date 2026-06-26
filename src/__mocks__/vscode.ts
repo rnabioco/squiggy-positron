@@ -42,6 +42,10 @@ export class EventEmitter<T> {
     fire(data: T) {
         this.listeners.forEach((l) => l(data));
     }
+
+    dispose() {
+        this.listeners = [];
+    }
 }
 
 export class ThemeIcon {
