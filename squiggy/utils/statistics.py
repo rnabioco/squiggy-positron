@@ -338,48 +338,26 @@ def calculate_aggregate_signal(reads_data, normalization_method):
         # Normalize the signal
         signal = normalize_signal(read["signal"], normalization_method)
         stride = read["stride"]
-        moves = np.array(read["move_table"], dtype=np.uint8)
-        ref_start = read["reference_start"]
 
-        # Soft-clipped bases: the move table includes moves for ALL signal samples
-        # We need to skip signal samples corresponding to soft-clipped query bases
-        query_start_offset = read.get("query_start_offset", 0)
-        query_end_offset = read.get("query_end_offset", 0)
-
-        # Find indices in move table where move=1 (these correspond to query bases)
-        query_base_move_indices = np.where(moves == 1)[0]
-
-        if len(query_base_move_indices) == 0:
-            # No aligned bases, skip this read
-            continue
-
-        # The first query_start_offset indices are soft-clipped at the start
-        # The last query_end_offset indices are soft-clipped at the end
-        aligned_query_base_indices = query_base_move_indices[
-            query_start_offset : len(query_base_move_indices) - query_end_offset
-        ]
-        aligned_set = set(aligned_query_base_indices)  # For O(1) lookup
-
-        # Map signal to reference positions using move table
-        # Only process aligned (non-soft-clipped) query bases
-        ref_pos = ref_start
-
-        for move_idx in range(len(moves)):
-            move = moves[move_idx]
+        # Map each aligned base to its reference position with the shared
+        # iter_aligned_bases() helper. It uses the read's query_to_ref mapping
+        # to correctly handle soft-clips, insertions, and deletions — the same
+        # mapping used by the pileup, quality, and dwell-time tracks, so the
+        # signal track stays aligned with them. (The previous hand-rolled
+        # loop advanced ref_pos on every move=1, including soft-clipped start
+        # bases, shifting the track, and ignored deletions entirely.)
+        #
+        # The signal value for each base is sampled at the start of its signal
+        # segment (move_idx * stride).
+        for move_idx, _base_idx, _seq_idx, ref_pos in iter_aligned_bases(read):
             sig_idx = move_idx * stride
-
-            # Only process if this move index corresponds to an aligned query base
-            if move_idx in aligned_set and sig_idx < len(signal):
-                # Add signal value at this reference position
-                if ref_pos not in position_signals:
-                    position_signals[ref_pos] = []
-                    position_reads[ref_pos] = set()
-                position_signals[ref_pos].append(signal[sig_idx])
-                position_reads[ref_pos].add(read_id)
-
-            # Advance reference position only on move=1
-            if move == 1:
-                ref_pos += 1
+            if sig_idx >= len(signal):
+                continue
+            if ref_pos not in position_signals:
+                position_signals[ref_pos] = []
+                position_reads[ref_pos] = set()
+            position_signals[ref_pos].append(signal[sig_idx])
+            position_reads[ref_pos].add(read_id)
 
     # Calculate statistics for each position
     positions = sorted(position_signals.keys())

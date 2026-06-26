@@ -115,6 +115,77 @@ export class SquiggyRuntimeAPI {
     }
 
     /**
+     * Execute plot-generating Python code with error capture across the kernel
+     * boundary.
+     *
+     * The dedicated kernel runs with RuntimeErrorBehavior.Continue, so a plain
+     * executeSilent() resolves even when the Python code raises — meaning plot
+     * failures would otherwise vanish silently. This wraps the body in a
+     * try/except that records the exception into `_squiggy_plot_error`, reads it
+     * back, and rethrows it as a PlottingError so the failure actually reaches
+     * the user.
+     *
+     * @param plotBody Python statements that generate the plot (including imports)
+     * @param label Short description used in the stderr log line
+     * @param retry Whether to enable executeSilent retry for transient failures
+     * @throws PlottingError if the Python code raises
+     */
+    private async runPlotCode(
+        plotBody: string,
+        label: string,
+        retry: boolean = false
+    ): Promise<void> {
+        // Indent the body so it sits inside the `try:` block. Each line is a
+        // complete top-level statement; continuation lines inside parentheses
+        // are unaffected by the extra indentation.
+        const indentedBody = plotBody
+            .split('\n')
+            .map((line) => (line.length > 0 ? `    ${line}` : line))
+            .join('\n');
+
+        const code = `
+import sys
+import traceback
+
+_squiggy_plot_error = None
+
+try:
+${indentedBody}
+except Exception as e:
+    _squiggy_plot_error = f"{type(e).__name__}: {str(e)}\\n{traceback.format_exc()}"
+    print(f"ERROR generating ${label}: {_squiggy_plot_error}", file=sys.stderr)
+`;
+
+        const cleanup = `
+if '_squiggy_plot_error' in globals():
+    del _squiggy_plot_error
+`;
+
+        try {
+            await this._client.executeSilent(code, retry);
+
+            // Check whether the Python code recorded an error. The kernel
+            // returns null when no error occurred (the variable is initialized
+            // to None); a non-null/undefined value is the captured traceback.
+            const plotError = await this._client
+                .getVariable('_squiggy_plot_error')
+                .catch(() => null);
+            if (plotError !== null && plotError !== undefined) {
+                throw new PlottingError(`${plotError}`);
+            }
+
+            await this._client.executeSilent(cleanup).catch(() => {});
+        } catch (error) {
+            await this._client.executeSilent(cleanup).catch(() => {});
+            if (error instanceof PlottingError) {
+                throw error;
+            }
+            const errorMessage = error instanceof Error ? error.message : 'Unknown plotting error';
+            throw new PlottingError(errorMessage);
+        }
+    }
+
+    /**
      * Load a POD5 file
      *
      * Executes squiggy.load_pod5() in the kernel. The session object is stored
@@ -646,8 +717,8 @@ squiggy.plot_aggregate(
 )
 `;
 
-            // Execute silently - plot will appear in Plots pane automatically
-            await this._client.executeSilent(code, true); // Enable retry
+            // Execute with error capture - plot will appear in Plots pane automatically
+            await this.runPlotCode(code, 'aggregate plot', true); // Enable retry
         } catch (error) {
             if (error instanceof ValidationError || error instanceof PlottingError) {
                 throw error;
@@ -767,7 +838,7 @@ squiggy.plot_motif_aggregate_all(
 `;
 
         try {
-            await this._client.executeSilent(code);
+            await this.runPlotCode(code, 'motif aggregate plot');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to generate motif aggregate all plot: ${errorMessage}`);
@@ -1267,8 +1338,8 @@ squiggy.plot_signal_overlay_comparison(
 `;
 
         try {
-            // Execute silently - plot will appear in Plots pane automatically
-            await this.client.executeSilent(code);
+            // Execute with error capture - plot will appear in Plots pane automatically
+            await this.runPlotCode(code, 'signal overlay comparison plot');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -1320,8 +1391,8 @@ squiggy.plot_delta_comparison(
 `;
 
         try {
-            // Execute silently - plot will appear in Plots pane automatically
-            await this._client.executeSilent(code);
+            // Execute with error capture - plot will appear in Plots pane automatically
+            await this.runPlotCode(code, 'delta comparison plot');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to generate delta comparison plot: ${errorMessage}`);
@@ -1399,8 +1470,8 @@ squiggy.plot_aggregate_comparison(
 `;
 
         try {
-            // Execute silently - plot will appear in Plots pane automatically
-            await this._client.executeSilent(code);
+            // Execute with error capture - plot will appear in Plots pane automatically
+            await this.runPlotCode(code, 'aggregate comparison plot');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
 
