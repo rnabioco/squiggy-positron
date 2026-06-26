@@ -48,7 +48,7 @@ The extension provides interactive Bokeh visualizations with support for base an
 - **VSCode Extension API**: Positron-compatible extension framework
 - **Positron Runtime API**: Execute Python code in active kernel
 - **Webview API**: Display interactive Bokeh plots
-- **React 18**: Webview UI components (reads panel)
+- **React 19**: Webview UI components (reads panel)
 - **react-window**: Virtualized list rendering for large datasets
 - **webpack**: Module bundler (dual bundle: extension + webview)
 
@@ -111,7 +111,6 @@ squiggy-positron-extension/
 │   │   │   ├── squiggy-reference-group.tsx # Grouped by reference
 │   │   │   ├── column-resizer.tsx      # Resizable columns
 │   │   │   └── webview-entry.tsx       # React entry point
-│   │   ├── squiggy-file-panel.ts       # File info webview
 │   │   ├── squiggy-reads-view-pane.ts  # Read list React webview
 │   │   ├── squiggy-plot-options-view.ts # Plot options webview
 │   │   └── squiggy-modifications-panel.ts # Modifications filter webview
@@ -340,7 +339,7 @@ export namespace runtime {
 
 ### UI Panels
 
-**FilePanelProvider** - Webview showing POD5/BAM file metadata
+**SamplesPanelProvider** - React webview for unified sample management (POD5/BAM/FASTA file metadata, multi-sample comparison selection). Replaced the legacy FilePanelProvider in the Phase 3 UI consolidation.
 **ReadsViewPane** - React webview with virtualized multi-column table (Read ID, Length, Quality, Reference, Position). Uses react-window for performance with large datasets. Search functionality integrated into UI. Grouped by reference when BAM loaded.
 **PlotOptionsView** - Webview for plot configuration (mode, normalization, x-axis scaling)
 **ModificationsPanelProvider** - Webview for base modification filtering (when BAM has MM/ML tags)
@@ -523,7 +522,7 @@ Or use the `/test` slash command in Claude Code to run everything.
    - Create React components in `src/views/components/`:
      - `my-panel-core.tsx` - Main component logic
      - `my-panel-instance.tsx` - Webview host wrapper
-     - `webview-entry.tsx` - Entry point with React 18 root
+     - `webview-entry.tsx` - Entry point with React 19 root
    - Create provider class in `src/views/my-panel-provider.ts`
    - Add webpack entry in `webpack.config.js` for webview bundle
    - Use TypeScript interfaces in `src/types/` for message passing

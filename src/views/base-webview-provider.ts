@@ -117,7 +117,7 @@ export abstract class BaseWebviewProvider implements vscode.WebviewViewProvider,
      */
     protected sendErrorToWebview(error: Error, context?: string): void {
         const errorMessage: OutgoingWebviewMessage = {
-            command: 'error',
+            type: 'error',
             error: {
                 message: error.message,
                 context: context || (error instanceof SquiggyError ? error.context : undefined),

@@ -579,7 +579,7 @@ export type IncomingWebviewMessage =
  * Common error message sent to any webview
  */
 export interface ErrorOutgoingMessage {
-    command: 'error';
+    type: 'error';
     error: {
         message: string;
         context?: string;
