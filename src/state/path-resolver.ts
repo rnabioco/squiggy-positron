@@ -62,10 +62,10 @@ export class PathResolver {
                 await positronClient.executeSilent(`
 import importlib.util
 import os
-spec = importlib.util.find_spec('${packageName}')
+spec = importlib.util.find_spec(${JSON.stringify(packageName)})
 if spec and spec.origin:
     package_dir = os.path.dirname(spec.origin)
-    ${tempVar} = os.path.join(package_dir, '${relativePath}')
+    ${tempVar} = os.path.join(package_dir, ${JSON.stringify(relativePath)})
 else:
     ${tempVar} = None
 `);

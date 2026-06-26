@@ -19,6 +19,23 @@ import { logger } from '../utils/logger';
 import { MotifMatch } from '../types/motif-types';
 
 /**
+ * Render a JavaScript string as a Python string literal for safe interpolation
+ * into generated Python source.
+ *
+ * JSON string syntax is a subset of Python's string-literal syntax, so
+ * JSON.stringify() yields a valid Python literal (double-quoted, with all
+ * quotes, backslashes, newlines and control characters escaped). This replaces
+ * naive single-quote escaping, which breaks on Windows paths ending in a
+ * backslash and leaves a code-injection surface for crafted paths/names.
+ *
+ * The returned value INCLUDES the surrounding quotes — interpolate it directly,
+ * e.g. `load_pod5(${toPyStr(path)})`, not `load_pod5('${toPyStr(path)}')`.
+ */
+function toPyStr(value: string): string {
+    return JSON.stringify(value);
+}
+
+/**
  * Result from loading a POD5 file via Python kernel
  * (Internal type - FileLoadingService constructs full POD5LoadResult)
  */
@@ -113,16 +130,13 @@ export class SquiggyRuntimeAPI {
                 throw new ValidationError('File path must be a non-empty string', 'filePath');
             }
 
-            // Escape single quotes in path
-            const escapedPath = filePath.replace(/'/g, "\\'");
-
             // Load file silently (no console output)
             // This populates the global squiggy_kernel in Python
             await this._client.executeSilent(
                 `
 import squiggy
 from squiggy.io import squiggy_kernel
-squiggy.load_pod5('${escapedPath}')
+squiggy.load_pod5(${toPyStr(filePath)})
 `,
                 true // Enable retry for transient failures
             );
@@ -172,16 +186,15 @@ squiggy.load_pod5('${escapedPath}')
                 throw new ValidationError('File path must be a non-empty string', 'filePath');
             }
 
-            const escapedPath = filePath.replace(/'/g, "\\'");
-
             // Load BAM silently (no console output)
-            // This populates squiggy_kernel._bam_info and .bam_path
+            // This populates squiggy_kernel._bam_info, .bam_path, and
+            // ._ref_mapping in a single pass (load_bam builds the reference
+            // mapping eagerly by default).
             await this._client.executeSilent(
                 `
 import squiggy
 from squiggy.io import squiggy_kernel
-squiggy.load_bam('${escapedPath}')
-squiggy.get_read_to_reference_mapping()
+squiggy.load_bam(${toPyStr(filePath)})
 `,
                 true // Enable retry for transient failures
             );
@@ -254,16 +267,16 @@ squiggy.get_read_to_reference_mapping()
         offset: number = 0,
         limit: number | null = null
     ): Promise<{ readIds: string[]; totalCount: number }> {
-        const escapedRef = referenceName.replace(/'/g, "\\'");
+        const refLiteral = toPyStr(referenceName);
 
         // Get paginated reads using the new Python function
         const readIds = await this._client.getVariable(
-            `squiggy.get_reads_for_reference_paginated('${escapedRef}', offset=${offset}, limit=${limit === null ? 'None' : limit})`
+            `squiggy.get_reads_for_reference_paginated(${refLiteral}, offset=${offset}, limit=${limit === null ? 'None' : limit})`
         );
 
         // Get total count for this reference
         const totalCount = await this._client.getVariable(
-            `len(squiggy.io.squiggy_kernel._ref_mapping.get('${escapedRef}', []))`
+            `len(squiggy.io.squiggy_kernel._ref_mapping.get(${refLiteral}, []))`
         );
 
         return { readIds: readIds as string[], totalCount: totalCount as number };
@@ -565,23 +578,22 @@ if '_squiggy_plot_error' in globals():
                 throw new ValidationError('Must be at least 1', 'minModifiedReads');
             }
 
-            // Escape single quotes in reference name and sample name for Python strings
-            const escapedRefName = referenceName.replace(/'/g, "\\'");
-            const escapedSampleName = sampleName ? sampleName.replace(/'/g, "\\'") : '';
+            // Render reference name as a Python string literal for safe interpolation
+            const refNameLiteral = toPyStr(referenceName);
 
             // Build modification filter dict if modifications are enabled
             const modFilterDict =
                 enabledModTypes.length > 0
-                    ? `{${enabledModTypes.map((mt) => `'${mt}': ${modificationThreshold}`).join(', ')}}`
+                    ? `{${enabledModTypes.map((mt) => `${toPyStr(mt)}: ${modificationThreshold}`).join(', ')}}`
                     : 'None';
 
             // Build sample name parameter if in multi-sample mode
-            const sampleNameParam = sampleName ? `, sample_name='${escapedSampleName}'` : '';
+            const sampleNameParam = sampleName ? `, sample_name=${toPyStr(sampleName)}` : '';
 
             // Build optional primer sequence parameters
             const primerParams =
                 primer5p || adapter3p
-                    ? `${primer5p ? `,\n    primer_5p='${primer5p.replace(/'/g, "\\'")}'` : ''}${adapter3p ? `,\n    adapter_3p='${adapter3p.replace(/'/g, "\\'")}'` : ''}`
+                    ? `${primer5p ? `,\n    primer_5p=${toPyStr(primer5p)}` : ''}${adapter3p ? `,\n    adapter_3p=${toPyStr(adapter3p)}` : ''}`
                     : '';
 
             // Use plot_pileup() when signal and dwell time are disabled (no mv tag required)
@@ -594,7 +606,7 @@ import squiggy
 
 # Generate pileup-only plot (no mv tag required) - will be automatically routed to Plots pane
 squiggy.plot_pileup(
-    reference_name='${escapedRefName}',
+    reference_name=${refNameLiteral},
     max_reads=${maxReads},
     theme='${theme}',
     show_modifications=${showModifications ? 'True' : 'False'},
@@ -614,7 +626,7 @@ import squiggy
 
 # Generate aggregate plot - will be automatically routed to Plots pane
 squiggy.plot_aggregate(
-    reference_name='${escapedRefName}',
+    reference_name=${refNameLiteral},
     max_reads=${maxReads},
     normalization='${normalization}',
     theme='${theme}',
@@ -657,14 +669,12 @@ squiggy.plot_aggregate(
                 throw new ValidationError('File path must be a non-empty string', 'fastaPath');
             }
 
-            const escapedPath = fastaPath.replace(/'/g, "\\'");
-
             const code = `
 import squiggy
 
 # Load FASTA file using squiggy.load_fasta()
 # This populates squiggy_kernel._fasta_path and squiggy_kernel._fasta_info
-squiggy.load_fasta('${escapedPath}')
+squiggy.load_fasta(${toPyStr(fastaPath)})
 `;
 
             await this._client.executeSilent(code, true); // Enable retry
@@ -689,18 +699,14 @@ squiggy.load_fasta('${escapedPath}')
         region?: string,
         strand: string = 'both'
     ): Promise<MotifMatch[]> {
-        const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
-        const escapedMotif = motif.replace(/'/g, "\\'");
-        const escapedRegion = region ? region.replace(/'/g, "\\'") : null;
-
         const searchCode = `
 import squiggy
 
 _squiggy_motif_matches = list(squiggy.search_motif(
-    fasta_file='${escapedFastaPath}',
-    motif='${escapedMotif}',
-    region=${escapedRegion ? `'${escapedRegion}'` : 'None'},
-    strand='${strand}'
+    fasta_file=${toPyStr(fastaFile)},
+    motif=${toPyStr(motif)},
+    region=${region ? toPyStr(region) : 'None'},
+    strand=${toPyStr(strand)}
 ))
 
 _squiggy_motif_matches_json = [
@@ -745,21 +751,18 @@ if '_squiggy_motif_matches_json' in globals():
         normalization: string = 'ZNORM',
         theme: string = 'LIGHT'
     ): Promise<void> {
-        const escapedFastaPath = fastaFile.replace(/'/g, "\\'");
-        const escapedMotif = motif.replace(/'/g, "\\'");
-
         const code = `
 import squiggy
 
 # Generate aggregate plot across all motif matches
 squiggy.plot_motif_aggregate_all(
-    fasta_file='${escapedFastaPath}',
-    motif='${escapedMotif}',
+    fasta_file=${toPyStr(fastaFile)},
+    motif=${toPyStr(motif)},
     upstream=${upstream},
     downstream=${downstream},
     max_reads_per_motif=${maxReadsPerMotif},
-    normalization='${normalization}',
-    theme='${theme}'
+    normalization=${toPyStr(normalization)},
+    theme=${toPyStr(theme)}
 )
 `;
 
@@ -786,33 +789,29 @@ squiggy.plot_motif_aggregate_all(
         bamPath?: string,
         fastaPath?: string
     ): Promise<SampleLoadMetadata> {
-        // Escape single quotes in paths
-        const escapedSampleName = sampleName.replace(/'/g, "\\'");
-        const escapedPod5Path = pod5Path.replace(/'/g, "\\'");
-        const escapedBamPath = bamPath ? bamPath.replace(/'/g, "\\'") : null;
-        const escapedFastaPath = fastaPath ? fastaPath.replace(/'/g, "\\'") : null;
+        // Render names/paths as Python string literals for safe interpolation
+        const sampleNameLiteral = toPyStr(sampleName);
 
         // Build Python code to load sample AND return all metadata in one call
         let code = `
 import squiggy
-import json as _json
 
 # Load sample with custom name
 squiggy.load_sample(
-    '${escapedSampleName}',
-    '${escapedPod5Path}'`;
+    ${sampleNameLiteral},
+    ${toPyStr(pod5Path)}`;
 
-        if (escapedBamPath) {
-            code += `,\n    bam_path='${escapedBamPath}'`;
+        if (bamPath) {
+            code += `,\n    bam_path=${toPyStr(bamPath)}`;
         }
-        if (escapedFastaPath) {
-            code += `,\n    fasta_path='${escapedFastaPath}'`;
+        if (fastaPath) {
+            code += `,\n    fasta_path=${toPyStr(fastaPath)}`;
         }
 
         code += `\n)
 
 # Return all metadata in one shot to avoid multiple round-trips
-_s = squiggy.squiggy_kernel.get_sample('${escapedSampleName}')
+_s = squiggy.squiggy_kernel.get_sample(${sampleNameLiteral})
 _sample_meta = {
     'num_reads': len(_s._read_ids),
     'has_bam': _s._bam_path is not None,
@@ -880,12 +879,12 @@ del _s
      * Get sample information
      */
     async getSampleInfo(sampleName: string): Promise<any> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
 
         try {
             const code = `
 from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = squiggy_kernel.get_sample(${sampleNameLiteral})
 if _sample:
     _sample_info = {
         'name': _sample.name,
@@ -930,12 +929,12 @@ if '_sample_info' in globals():
      * @param sampleName - Name of the sample to remove
      */
     async removeSample(sampleName: string): Promise<void> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
 
         try {
             const code = `
 import squiggy
-squiggy.remove_sample('${escapedName}')
+squiggy.remove_sample(${sampleNameLiteral})
 `;
             await this._client.executeSilent(code);
         } catch (error) {
@@ -957,7 +956,7 @@ squiggy.remove_sample('${escapedName}')
     async getReadIdsAndReferencesForSample(
         sampleName: string
     ): Promise<{ readIds: string[]; references: string[] }> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
 
         try {
             logger.debug(
@@ -969,7 +968,7 @@ squiggy.remove_sample('${escapedName}')
             // Uses ref_counts (reference → read count) which is built once during sample load
             const setupCode = `
 from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = squiggy_kernel.get_sample(${sampleNameLiteral})
 if _sample:
     _read_ids = _sample._read_ids
     if _sample._bam_info and 'ref_counts' in _sample._bam_info:
@@ -1036,7 +1035,7 @@ if '_result' in globals():
         offset: number = 0,
         limit?: number
     ): Promise<string[]> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
 
         try {
             logger.debug(
@@ -1049,11 +1048,11 @@ if '_result' in globals():
 
             // Two-step approach: execute code to create temp variable, then read it
             // This avoids the syntax error from passing statements to getVariable()
-            const tempVar = '_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
+            const tempVar = '_squiggy_temp_read_ids_' + Math.random().toString(36).substr(2, 9);
 
             await this._client.executeSilent(`
 from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = squiggy_kernel.get_sample(${sampleNameLiteral})
 ${tempVar} = _sample._read_ids${sliceStr} if _sample else []
 `);
 
@@ -1094,7 +1093,7 @@ if '_sample' in globals():
      * as it batches both queries into a single call.
      */
     async getReferencesForSample(sampleName: string): Promise<string[]> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
 
         try {
             // Extract reference names from the sample's BAM without serializing the Sample object
@@ -1104,7 +1103,7 @@ if '_sample' in globals():
 
             await this._client.executeSilent(`
 from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = squiggy_kernel.get_sample(${sampleNameLiteral})
 if _sample and _sample._bam_info and 'ref_mapping' in _sample._bam_info:
     ${tempVar} = list(_sample._bam_info['ref_mapping'].keys())
 else:
@@ -1147,13 +1146,13 @@ if '_sample' in globals():
     async getReadsCountForAllReferencesSample(
         sampleName: string
     ): Promise<{ [referenceName: string]: number }> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
 
         try {
             // Execute setup code first to create variables
             const setupCode = `
 from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = squiggy_kernel.get_sample(${sampleNameLiteral})
 if _sample and _sample._bam_info and 'ref_counts' in _sample._bam_info:
     _counts = _sample._bam_info['ref_counts']
 else:
@@ -1192,16 +1191,16 @@ if '_counts' in globals():
      * as it batches all queries into a single call.
      */
     async getReadsForReferenceSample(sampleName: string, referenceName: string): Promise<string[]> {
-        const escapedName = sampleName.replace(/'/g, "\\'");
-        const escapedRef = referenceName.replace(/'/g, "\\'");
+        const sampleNameLiteral = toPyStr(sampleName);
+        const refLiteral = toPyStr(referenceName);
 
         try {
             // Execute setup code first to create variables
             const setupCode = `
 from squiggy import squiggy_kernel
-_sample = squiggy_kernel.get_sample('${escapedName}')
+_sample = squiggy_kernel.get_sample(${sampleNameLiteral})
 if _sample and _sample._bam_info and 'ref_mapping' in _sample._bam_info:
-    _reads = _sample._bam_info['ref_mapping'].get('${escapedRef}', [])
+    _reads = _sample._bam_info['ref_mapping'].get(${refLiteral}, [])
 else:
     _reads = []
 `;
@@ -1302,7 +1301,7 @@ squiggy.plot_signal_overlay_comparison(
         const sampleNamesJson = JSON.stringify(sampleNames);
 
         // Escape single quotes in reference name for Python strings
-        const escapedRefName = referenceName.replace(/'/g, "\\'");
+        const refNameLiteral = toPyStr(referenceName);
 
         // Build maxReads parameter if provided
         const maxReadsParam =
@@ -1314,7 +1313,7 @@ import squiggy
 # Generate delta comparison plot - will be automatically routed to Plots pane
 squiggy.plot_delta_comparison(
     sample_names=${sampleNamesJson},
-    reference_name='${escapedRefName}',
+    reference_name=${refNameLiteral},
     normalization='${normalization}',
     theme='${theme}'${maxReadsParam}
 )
@@ -1381,7 +1380,7 @@ squiggy.plot_delta_comparison(
             : '';
 
         // Escape single quotes in reference name
-        const escapedRefName = referenceName.replace(/'/g, "\\'");
+        const refNameLiteral = toPyStr(referenceName);
 
         const code = `
 import squiggy
@@ -1389,7 +1388,7 @@ import squiggy
 # Generate aggregate comparison plot - will be automatically routed to Plots pane
 squiggy.plot_aggregate_comparison(
     sample_names=${sampleNamesJson},
-    reference_name='${escapedRefName}',
+    reference_name=${refNameLiteral},
     metrics=${metricsJson},
     normalization='${normalization}',
     theme='${theme}',
