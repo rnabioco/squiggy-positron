@@ -21,6 +21,12 @@ describe('ReadsViewPane', () => {
         mockState = {
             getAllSampleNames: jest.fn().mockReturnValue(['Sample_A', 'Sample_B']),
             selectedReadExplorerSample: 'Sample_A',
+            extensionContext: {
+                workspaceState: {
+                    get: jest.fn(),
+                    update: jest.fn(),
+                },
+            },
         } as any;
 
         provider = new ReadsViewPane(extensionUri, mockState);
@@ -138,6 +144,33 @@ describe('ReadsViewPane', () => {
                 'squiggy.internal.loadReadsForSample',
                 'Sample_B'
             );
+        });
+
+        it('should persist column widths on updateColumnWidths', async () => {
+            const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
+
+            await messageHandler({ type: 'updateColumnWidths', nameWidth: 250, detailsWidth: 120 });
+
+            expect(mockState.extensionContext.workspaceState.update).toHaveBeenCalledWith(
+                'squiggy.reads.columnWidths',
+                { nameWidth: 250, detailsWidth: 120 }
+            );
+        });
+
+        it('should restore saved column widths on ready', async () => {
+            mockState.extensionContext.workspaceState.get.mockReturnValue({
+                nameWidth: 300,
+                detailsWidth: 150,
+            });
+            const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
+
+            await messageHandler({ type: 'ready' });
+
+            expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith({
+                type: 'setColumnWidths',
+                nameWidth: 300,
+                detailsWidth: 150,
+            });
         });
 
         it('should handle ready message and update view', async () => {

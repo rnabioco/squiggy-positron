@@ -16,6 +16,7 @@ import { logger } from '../utils/logger';
 
 export class ReadsViewPane extends BaseWebviewProvider {
     public static readonly viewType = 'squiggyReadList';
+    private static readonly COLUMN_WIDTHS_KEY = 'squiggy.reads.columnWidths';
 
     private _hasReferences: boolean = false;
     private _readItems: ReadListItem[] = [];
@@ -65,10 +66,39 @@ export class ReadsViewPane extends BaseWebviewProvider {
                     message.sampleName
                 );
                 break;
+            case 'updateColumnWidths':
+                // Persist user-adjusted column widths so they survive reloads
+                this.saveColumnWidths(message.nameWidth, message.detailsWidth);
+                break;
             case 'ready':
-                // Webview is ready, send initial state
+                // Webview is ready: restore persisted column widths, then send state
+                this.sendSavedColumnWidths();
                 this.updateView();
                 break;
+        }
+    }
+
+    private get columnWidthsMemento(): vscode.Memento | undefined {
+        return this._state.extensionContext?.workspaceState;
+    }
+
+    private saveColumnWidths(nameWidth: number, detailsWidth: number): void {
+        this.columnWidthsMemento?.update(ReadsViewPane.COLUMN_WIDTHS_KEY, {
+            nameWidth,
+            detailsWidth,
+        });
+    }
+
+    private sendSavedColumnWidths(): void {
+        const saved = this.columnWidthsMemento?.get<{ nameWidth: number; detailsWidth: number }>(
+            ReadsViewPane.COLUMN_WIDTHS_KEY
+        );
+        if (saved) {
+            this.postMessage({
+                type: 'setColumnWidths',
+                nameWidth: saved.nameWidth,
+                detailsWidth: saved.detailsWidth,
+            });
         }
     }
 

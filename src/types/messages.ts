@@ -130,12 +130,27 @@ export interface SetAvailableSamplesMessage extends BaseMessage {
     selectedSample: string | null;
 }
 
+/** Webview → extension: persist user-adjusted column widths */
+export interface UpdateColumnWidthsMessage extends BaseMessage {
+    type: 'updateColumnWidths';
+    nameWidth: number;
+    detailsWidth: number;
+}
+
+/** Extension → webview: restore previously persisted column widths */
+export interface SetColumnWidthsMessage extends BaseMessage {
+    type: 'setColumnWidths';
+    nameWidth: number;
+    detailsWidth: number;
+}
+
 export type ReadsViewIncomingMessage =
     | PlotReadMessage
     | PlotAggregateMessage
     | LoadMoreReadsMessage
     | ExpandReferenceMessage
     | SelectReadExplorerSampleMessage
+    | UpdateColumnWidthsMessage
     | ReadyMessage;
 export type ReadsViewOutgoingMessage =
     | UpdateReadsMessage
@@ -143,7 +158,8 @@ export type ReadsViewOutgoingMessage =
     | AppendReadsMessage
     | SetReadsForReferenceMessage
     | SetLoadingMessage
-    | SetAvailableSamplesMessage;
+    | SetAvailableSamplesMessage
+    | SetColumnWidthsMessage;
 
 // ========== Plot Options Messages ==========
 
