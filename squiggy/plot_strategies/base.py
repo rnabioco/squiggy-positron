@@ -216,6 +216,119 @@ class PlotStrategy(ABC):
 
         return signal, seq_to_sig_map
 
+    def _build_genomic_ref_positions(self, aligned_read) -> list[float]:
+        """
+        Map each signal sample of an aligned read to a genomic position.
+
+        Walks the read's aligned bases and emits one reference position per
+        signal sample. Soft-clipped or inserted bases (genomic_pos is None)
+        reuse the previous mapped position, or the first mapped position when
+        they occur at the very start of the read.
+
+        Args:
+            aligned_read: Aligned read with ``.bases`` (each having
+                ``genomic_pos``, ``signal_start``, ``signal_end``).
+
+        Returns:
+            List of genomic positions, one per signal sample. Empty if the read
+            has no genomic positions at all (e.g. fully unmapped/soft-clipped).
+        """
+        # Find the first valid genomic position (skip soft-clipped start)
+        first_genomic_pos = None
+        for base in aligned_read.bases:
+            if base.genomic_pos is not None:
+                first_genomic_pos = base.genomic_pos
+                break
+
+        ref_positions: list[float] = []
+        for base in aligned_read.bases:
+            num_samples = base.signal_end - base.signal_start
+            if base.genomic_pos is not None:
+                # Mapped base - use genomic position
+                ref_positions.extend([base.genomic_pos] * num_samples)
+            elif first_genomic_pos is not None:
+                # Insertion or soft-clip - reuse the previous (or first) position
+                if ref_positions:
+                    ref_positions.extend([ref_positions[-1]] * num_samples)
+                else:
+                    ref_positions.extend([first_genomic_pos] * num_samples)
+
+        return ref_positions
+
+    def _collapse_to_genomic_positions(
+        self,
+        ref_positions: list[float] | np.ndarray,
+        signal_values: np.ndarray,
+        downsample: int,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Align signal values to genomic positions, collapsing repeats by mean.
+
+        Downsamples/pads ``ref_positions`` to match ``signal_values``, then
+        collapses consecutive samples sharing a genomic position into their
+        mean (so Bokeh draws a point per position instead of a vertical line),
+        inserting NaN breaks at deletions (a genomic-position jump > 1).
+
+        The caller must ensure ``ref_positions`` is non-empty.
+
+        Args:
+            ref_positions: One genomic position per signal sample (from
+                :meth:`_build_genomic_ref_positions`).
+            signal_values: Signal/offset values to collapse, parallel to the
+                un-collapsed signal (e.g. processed signal or y-offset signal).
+            downsample: Downsampling factor already applied to ``signal_values``.
+
+        Returns:
+            Tuple of (collapsed_positions, collapsed_values) as numpy arrays.
+        """
+        # Convert to float to allow NaN insertion later (for deletions)
+        ref_positions = np.array(ref_positions, dtype=float)
+
+        # Apply the same downsampling stride that was applied to the signal
+        if downsample > 1 and len(ref_positions) > len(signal_values):
+            ref_positions = ref_positions[::downsample]
+
+        # Ensure lengths match after downsampling
+        if len(ref_positions) < len(signal_values):
+            ref_positions = np.pad(
+                ref_positions,
+                (0, len(signal_values) - len(ref_positions)),
+                mode="edge",
+            )
+        elif len(ref_positions) > len(signal_values):
+            ref_positions = ref_positions[: len(signal_values)]
+
+        # Collapse repeated positions (mean of accumulated signal values)
+        unique_positions: list[float] = []
+        unique_signals: list[float] = []
+
+        current_pos = ref_positions[0]
+        current_signals = [signal_values[0]]
+
+        for i in range(1, len(ref_positions)):
+            if ref_positions[i] == current_pos:
+                # Same position - accumulate signal values
+                current_signals.append(signal_values[i])
+            else:
+                # New position - save mean of accumulated signals
+                unique_positions.append(current_pos)
+                unique_signals.append(np.mean(current_signals))
+
+                # Check for deletion (position jump > 1) - break line with NaN
+                if ref_positions[i] - current_pos > 1:
+                    unique_positions.append(np.nan)
+                    unique_signals.append(np.nan)
+
+                # Start new position
+                current_pos = ref_positions[i]
+                current_signals = [signal_values[i]]
+
+        # Don't forget the last position
+        unique_positions.append(current_pos)
+        unique_signals.append(np.mean(current_signals))
+
+        return np.array(unique_positions), np.array(unique_signals)
+
     def _validate_read_tuples(self, reads: list) -> None:
         """
         Validate list of read tuples
