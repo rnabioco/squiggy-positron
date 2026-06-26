@@ -93,55 +93,77 @@ class TestGetCachePath:
         assert cache1 != cache2
 
 
-class TestFileHash:
-    """Tests for _file_hash method"""
+class TestFileSignature:
+    """Tests for the mtime+size change-detection signature (Issue #190)"""
 
-    def test_file_hash_consistency(self, tmp_path):
-        """Test that file hash is consistent for same content"""
+    def test_signature_consistency(self, tmp_path):
+        """Same unchanged file yields the same signature"""
         from squiggy.cache import SquiggyCache
 
         cache = SquiggyCache(cache_dir=tmp_path)
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
-        hash1 = cache._file_hash(test_file)
-        hash2 = cache._file_hash(test_file)
+        sig1 = cache._file_signature(test_file)
+        sig2 = cache._file_signature(test_file)
 
-        assert hash1 == hash2
-        assert isinstance(hash1, str)
-        assert len(hash1) == 32  # MD5 hex digest length
+        assert sig1 == sig2
+        mtime, size = sig1
+        assert isinstance(mtime, float)
+        assert size == len("test content")
 
-    def test_file_hash_detects_changes(self, tmp_path):
-        """Test that file hash changes when content changes"""
+    def test_signature_matches_unchanged(self, tmp_path):
+        """_signature_matches is True for an unmodified file"""
         from squiggy.cache import SquiggyCache
 
         cache = SquiggyCache(cache_dir=tmp_path)
         test_file = tmp_path / "test.txt"
+        test_file.write_text("data")
 
-        test_file.write_text("original content")
-        hash1 = cache._file_hash(test_file)
+        mtime, size = cache._file_signature(test_file)
+        assert cache._signature_matches(
+            {"file_mtime": mtime, "file_size": size}, test_file
+        )
 
-        test_file.write_text("modified content")
-        hash2 = cache._file_hash(test_file)
-
-        assert hash1 != hash2
-
-    def test_file_hash_custom_chunk_size(self, tmp_path):
-        """Test file hash with custom chunk size"""
+    def test_signature_detects_size_change(self, tmp_path):
+        """A size change invalidates the signature"""
         from squiggy.cache import SquiggyCache
 
         cache = SquiggyCache(cache_dir=tmp_path)
         test_file = tmp_path / "test.txt"
-        test_file.write_text("x" * 1000)
+        test_file.write_text("short")
+        mtime, size = cache._file_signature(test_file)
+        cached = {"file_mtime": mtime, "file_size": size}
 
-        hash1 = cache._file_hash(test_file, chunk_size=100)
-        hash2 = cache._file_hash(test_file, chunk_size=500)
+        test_file.write_text("a considerably longer content string")
+        assert not cache._signature_matches(cached, test_file)
 
-        # Different chunk sizes produce different hashes since they read
-        # different amounts of the file
-        assert hash1 != hash2
-        assert isinstance(hash1, str)
-        assert isinstance(hash2, str)
+    def test_signature_detects_change_beyond_first_chunk(self, tmp_path):
+        """Regression: an edit that keeps the same size still invalidates.
+
+        The previous implementation hashed only the first 10 MB, so a
+        same-size edit past that point was silently served as a cache hit.
+        mtime catches it. Here we model a same-size edit followed by a later
+        write (newer mtime), which the size check alone could not detect.
+        """
+        import os
+
+        from squiggy.cache import SquiggyCache
+
+        cache = SquiggyCache(cache_dir=tmp_path)
+        test_file = tmp_path / "test.bin"
+        test_file.write_bytes(b"\x00" * 4096)
+        mtime, size = cache._file_signature(test_file)
+        cached = {"file_mtime": mtime, "file_size": size}
+
+        # Same-size content edit, then a deterministically newer mtime
+        edited = bytearray(b"\x00" * 4096)
+        edited[4000] = 1
+        test_file.write_bytes(edited)
+        os.utime(test_file, (mtime + 10, mtime + 10))
+
+        assert size == test_file.stat().st_size  # size unchanged
+        assert not cache._signature_matches(cached, test_file)
 
 
 class TestPOD5ReadIDsCache:
@@ -213,10 +235,10 @@ class TestPOD5ReadIDsCache:
         loaded = cache.load_pod5_read_ids(test_file)
         assert loaded == test_ids
 
-        # Modify the file
-        test_file.write_bytes(b"modified content")
+        # Modify the file (different size guarantees detection)
+        test_file.write_bytes(b"modified content with a different length")
 
-        # Should return None due to hash mismatch
+        # Should return None due to signature mismatch
         loaded = cache.load_pod5_read_ids(test_file)
         assert loaded is None
 
@@ -293,10 +315,10 @@ class TestBAMRefMappingCache:
         loaded = cache.load_bam_ref_mapping(test_file)
         assert loaded == test_mapping
 
-        # Modify the file
-        test_file.write_bytes(b"modified content")
+        # Modify the file (different size guarantees detection)
+        test_file.write_bytes(b"modified content with a different length")
 
-        # Should return None due to hash mismatch
+        # Should return None due to signature mismatch
         loaded = cache.load_bam_ref_mapping(test_file)
         assert loaded is None
 

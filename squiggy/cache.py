@@ -77,21 +77,31 @@ class SquiggyCache:
         path_hash = hashlib.md5(str(file_path).encode()).hexdigest()[:16]
         return self.cache_dir / f"{file_path.stem}_{path_hash}{suffix}"
 
-    def _file_hash(self, file_path: Path, chunk_size: int = 10_000_000) -> str:
+    def _file_signature(self, file_path: Path) -> tuple[float, int]:
         """
-        Fast hash of first chunk of file (enough to detect changes)
+        Cheap change-detection signature for a file: (mtime, size).
+
+        Replaces hashing a fixed-size prefix, which silently missed any change
+        beyond the hashed region (e.g. appended/edited reads past the first
+        10 MB of a POD5/BAM). This matches the scheme already used by
+        load_bam_metadata(). (Issue #190)
 
         Args:
-            file_path: File to hash
-            chunk_size: Bytes to read (default: 10MB)
+            file_path: File to inspect
 
         Returns:
-            MD5 hex digest
+            Tuple of (modification time, size in bytes)
         """
-        hasher = hashlib.md5()
-        with open(file_path, "rb") as f:
-            hasher.update(f.read(chunk_size))
-        return hasher.hexdigest()
+        stat = file_path.stat()
+        return stat.st_mtime, stat.st_size
+
+    def _signature_matches(self, cached: dict, file_path: Path) -> bool:
+        """Return True if the cached (mtime, size) still matches the file."""
+        mtime, size = self._file_signature(file_path)
+        return (
+            abs(cached.get("file_mtime", float("-inf")) - mtime) <= 0.001
+            and cached.get("file_size") == size
+        )
 
     def load_pod5_read_ids(self, file_path: Path) -> list[str] | None:
         """
@@ -114,9 +124,8 @@ class SquiggyCache:
             with open(cache_path, "rb") as f:
                 cached = pickle.load(f)
 
-            # Validate file hasn't changed
-            current_hash = self._file_hash(file_path)
-            if cached["file_hash"] != current_hash:
+            # Validate file hasn't changed (mtime + size)
+            if not self._signature_matches(cached, file_path):
                 return None
 
             return cached["read_ids"]
@@ -138,9 +147,11 @@ class SquiggyCache:
         cache_path = self._get_cache_path(file_path, ".pod5.ids.cache")
 
         try:
+            mtime, size = self._file_signature(file_path)
             cached = {
                 "file_path": str(file_path),
-                "file_hash": self._file_hash(file_path),
+                "file_mtime": mtime,
+                "file_size": size,
                 "num_reads": len(read_ids),
                 "read_ids": read_ids,
                 "cached_at": datetime.now().isoformat(),
@@ -173,9 +184,8 @@ class SquiggyCache:
             with open(cache_path, "rb") as f:
                 cached = pickle.load(f)
 
-            # Validate file hasn't changed
-            current_hash = self._file_hash(file_path)
-            if cached["file_hash"] != current_hash:
+            # Validate file hasn't changed (mtime + size)
+            if not self._signature_matches(cached, file_path):
                 return None
 
             return cached["ref_mapping"]
@@ -200,9 +210,11 @@ class SquiggyCache:
 
         try:
             total_reads = sum(len(reads) for reads in ref_mapping.values())
+            mtime, size = self._file_signature(file_path)
             cached = {
                 "file_path": str(file_path),
-                "file_hash": self._file_hash(file_path),
+                "file_mtime": mtime,
+                "file_size": size,
                 "num_references": len(ref_mapping),
                 "num_reads": total_reads,
                 "ref_mapping": ref_mapping,
