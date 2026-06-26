@@ -6,12 +6,82 @@
  */
 
 import * as React from 'react';
-import { FixedSizeList as List } from 'react-window';
-import { ReadsInstanceProps, CONSTANTS, ReferenceGroupItem } from '../../types/squiggy-reads-types';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import {
+    ReadsInstanceProps,
+    CONSTANTS,
+    ReadListItem,
+    ReferenceGroupItem,
+} from '../../types/squiggy-reads-types';
 import { ReadItemComponent } from './squiggy-read-item';
 import { ReferenceGroupComponent } from './squiggy-reference-group';
 import { ColumnResizer } from './column-resizer';
 import './squiggy-reads-instance.css';
+
+/**
+ * Data passed to each virtualized row via react-window's `itemData`.
+ * Keeping the row renderer module-level (instead of nested in ReadsInstance)
+ * means its component identity is stable across renders, so react-window does
+ * not unmount/remount every visible row on each parent render (scroll, resize,
+ * sort). All per-render values flow through this object instead.
+ */
+interface ReadRowData {
+    items: ReadListItem[];
+    focusedIndex: number | null;
+    selectedReadIds: Set<string>;
+    nameColumnWidth: number;
+    detailsColumnWidth: number;
+    onPlotRead: (readId: string) => void;
+    onSelectRead: (readId: string, multiSelect: boolean) => void;
+    onToggleReference: (referenceName: string) => void;
+}
+
+const ReadRow = React.memo(function ReadRow({
+    index,
+    style,
+    data,
+}: ListChildComponentProps<ReadRowData>) {
+    const {
+        items,
+        focusedIndex,
+        selectedReadIds,
+        nameColumnWidth,
+        detailsColumnWidth,
+        onPlotRead,
+        onSelectRead,
+        onToggleReference,
+    } = data;
+    const item = items[index];
+    const isFocused = index === focusedIndex;
+
+    if (item.type === 'reference') {
+        return (
+            <div style={style}>
+                <ReferenceGroupComponent
+                    item={item}
+                    isEvenRow={index % 2 === 0}
+                    nameColumnWidth={nameColumnWidth}
+                    detailsColumnWidth={detailsColumnWidth}
+                    onToggle={onToggleReference}
+                />
+            </div>
+        );
+    }
+    return (
+        <div style={style}>
+            <ReadItemComponent
+                item={item}
+                isSelected={selectedReadIds.has(item.readId)}
+                isFocused={isFocused}
+                isEvenRow={index % 2 === 0}
+                nameColumnWidth={nameColumnWidth}
+                detailsColumnWidth={detailsColumnWidth}
+                onPlotRead={onPlotRead}
+                onClick={onSelectRead}
+            />
+        </div>
+    );
+});
 
 export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     items,
@@ -227,40 +297,29 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [localFocusedIndex, items, onPlotRead, onToggleReference]);
 
-    // Row renderer for react-window (memoized for performance)
-    const Row = React.memo(({ index, style }: { index: number; style: React.CSSProperties }) => {
-        const item = items[index];
-        const isFocused = index === localFocusedIndex;
-
-        if (item.type === 'reference') {
-            return (
-                <div style={style}>
-                    <ReferenceGroupComponent
-                        item={item}
-                        isEvenRow={index % 2 === 0}
-                        nameColumnWidth={nameColumnWidth}
-                        detailsColumnWidth={detailsColumnWidth}
-                        onToggle={onToggleReference}
-                    />
-                </div>
-            );
-        } else {
-            return (
-                <div style={style}>
-                    <ReadItemComponent
-                        item={item}
-                        isSelected={selectedReadIds.has(item.readId)}
-                        isFocused={isFocused}
-                        isEvenRow={index % 2 === 0}
-                        nameColumnWidth={nameColumnWidth}
-                        detailsColumnWidth={detailsColumnWidth}
-                        onPlotRead={onPlotRead}
-                        onClick={onSelectRead}
-                    />
-                </div>
-            );
-        }
-    });
+    // Per-render data handed to the (stable, module-level) ReadRow renderer.
+    const itemData = React.useMemo<ReadRowData>(
+        () => ({
+            items,
+            focusedIndex: localFocusedIndex,
+            selectedReadIds,
+            nameColumnWidth,
+            detailsColumnWidth,
+            onPlotRead,
+            onSelectRead,
+            onToggleReference,
+        }),
+        [
+            items,
+            localFocusedIndex,
+            selectedReadIds,
+            nameColumnWidth,
+            detailsColumnWidth,
+            onPlotRead,
+            onSelectRead,
+            onToggleReference,
+        ]
+    );
 
     return (
         <div className="reads-instance-container" ref={containerRef}>
@@ -298,8 +357,9 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                         overscanCount={CONSTANTS.OVERSCAN_COUNT}
                         onItemsRendered={handleItemsRendered}
                         onScroll={handleScroll}
+                        itemData={itemData}
                     >
-                        {Row}
+                        {ReadRow}
                     </List>
 
                     {/* Sticky header overlay */}

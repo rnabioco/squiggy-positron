@@ -154,6 +154,14 @@ export const ReadsCore: React.FC = () => {
                     setIsLoading(message.isLoading);
                     setLoadingMessage(message.message || '');
                     break;
+                case 'setColumnWidths':
+                    // Restore previously persisted column widths
+                    setState((prev) => ({
+                        ...prev,
+                        nameColumnWidth: message.nameWidth,
+                        detailsColumnWidth: message.detailsWidth,
+                    }));
+                    break;
                 case 'updateSearch':
                     handleSearch(message.searchText);
                     break;
