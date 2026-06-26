@@ -14,6 +14,7 @@ import {
     CONSTANTS,
 } from '../../types/squiggy-reads-types';
 import { ReadsInstance } from './squiggy-reads-instance';
+import { filterItems } from './reads-filter';
 import { vscode } from './vscode-api';
 import './squiggy-reads-core.css';
 
@@ -636,66 +637,6 @@ export const ReadsCore: React.FC = () => {
         </div>
     );
 };
-
-/**
- * Filter items based on search text
- * NOTE: This is only used for flat POD5-only mode
- * For BAM+POD5 grouped mode, rebuildItemsList handles filtering
- */
-function filterItems(
-    items: ReadListItem[],
-    searchText: string,
-    referenceToReads: Map<string, ReadItem[]>,
-    searchMode: 'reference' | 'read'
-): ReadListItem[] {
-    if (!searchText) {
-        return items;
-    }
-
-    const searchLower = searchText.toLowerCase();
-    const filtered: ReadListItem[] = [];
-
-    for (const item of items) {
-        if (item.type === 'reference') {
-            const refMatches = item.referenceName.toLowerCase().includes(searchLower);
-
-            // In reference mode, only match reference names
-            if (searchMode === 'reference') {
-                if (refMatches) {
-                    filtered.push(item);
-                }
-            } else {
-                // In read mode, check individual reads
-                const reads = referenceToReads.get(item.referenceName) || [];
-                const matchingReads = reads.filter((read) =>
-                    read.readId.toLowerCase().includes(searchLower)
-                );
-
-                if (matchingReads.length > 0) {
-                    filtered.push({
-                        ...item,
-                        readCount: matchingReads.length,
-                    });
-                }
-            }
-        } else {
-            // For flat list (POD5-only)
-            if (searchMode === 'reference') {
-                // Search in reference name if available
-                if (item.referenceName && item.referenceName.toLowerCase().includes(searchLower)) {
-                    filtered.push(item);
-                }
-            } else {
-                // Search in read ID
-                if (item.readId.toLowerCase().includes(searchLower)) {
-                    filtered.push(item);
-                }
-            }
-        }
-    }
-
-    return filtered;
-}
 
 /**
  * Sort reference headers in place (for lazy-loading mode)
