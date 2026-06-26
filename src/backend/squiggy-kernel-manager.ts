@@ -38,6 +38,8 @@ export class SquiggyKernelManager implements RuntimeClient {
     private extensionPath: string;
     private isDisposed = false;
     private context: vscode.ExtensionContext | undefined;
+    // Coalesces concurrent start() calls so we never create two sessions
+    private startPromise: Promise<void> | null = null;
 
     readonly onDidChangeState = this.stateChangeEmitter.event;
 
@@ -104,6 +106,25 @@ export class SquiggyKernelManager implements RuntimeClient {
             return;
         }
 
+        // Coalesce concurrent start() calls. Until startLanguageRuntime()
+        // resolves, this.session is still undefined, so a second concurrent
+        // call would otherwise pass the guard above and create a second
+        // session, leaking the first.
+        if (this.startPromise) {
+            return this.startPromise;
+        }
+
+        this.startPromise = this.doStart().finally(() => {
+            this.startPromise = null;
+        });
+        return this.startPromise;
+    }
+
+    /**
+     * Internal kernel-start implementation. Always invoked via start(), which
+     * guards against concurrent and post-dispose calls.
+     */
+    private async doStart(): Promise<void> {
         this.setState(SquiggyKernelState.Starting);
 
         // Try to reconnect to an existing session first
@@ -567,10 +588,30 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
 
     /**
      * Dispose of resources
+     *
+     * dispose() is synchronous (VSCode Disposable contract), but tearing down
+     * the kernel session is async. Mark disposed and drop the session reference
+     * synchronously first so any state-change/session-end handlers that fire
+     * during the async deletion short-circuit (see setState) instead of firing
+     * on the disposed emitter, then start the fire-and-forget deletion.
      */
     dispose(): void {
+        if (this.isDisposed) {
+            return;
+        }
         this.isDisposed = true;
-        this.shutdown();
+
+        const sessionId = this.getSessionId();
+        this.session = undefined;
+        this.reconnectedSessionId = undefined;
+
+        if (sessionId) {
+            logger.info('Shutting down Squiggy dedicated kernel (dispose)...');
+            Promise.resolve(positron.runtime.deleteSession(sessionId)).catch((error) =>
+                logger.error(`Error shutting down kernel during dispose: ${error}`)
+            );
+        }
+
         this.stateChangeEmitter.dispose();
     }
 
@@ -583,13 +624,27 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             throw new Error('No session to wait for');
         }
 
+        const sessionId = this.session.metadata.sessionId;
+
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
+            let settled = false;
+
+            const finish = (action: () => void): void => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timeout);
+                disposable.dispose();
+                action();
+            };
 
             // Set up timeout
             const timeout = setTimeout(() => {
-                disposable.dispose();
-                reject(new Error(`Timeout waiting for kernel to be ready (${timeoutMs}ms)`));
+                finish(() =>
+                    reject(new Error(`Timeout waiting for kernel to be ready (${timeoutMs}ms)`))
+                );
             }, timeoutMs);
 
             // Listen for state changes
@@ -597,19 +652,37 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
                 logger.debug(`Waiting for ready: current state = ${state}`);
 
                 if (state === positron.RuntimeState.Ready || state === positron.RuntimeState.Idle) {
-                    clearTimeout(timeout);
-                    disposable.dispose();
-                    logger.debug(`Kernel ready after ${Date.now() - startTime}ms`);
-                    resolve();
+                    finish(() => {
+                        logger.debug(`Kernel ready after ${Date.now() - startTime}ms`);
+                        resolve();
+                    });
                 } else if (
                     state === positron.RuntimeState.Exited ||
                     state === positron.RuntimeState.Offline
                 ) {
-                    clearTimeout(timeout);
-                    disposable.dispose();
-                    reject(new Error(`Kernel failed to start (state: ${state})`));
+                    finish(() => reject(new Error(`Kernel failed to start (state: ${state})`)));
                 }
             });
+
+            // Probe the kernel immediately in case it is already idle/ready: no
+            // further state-change event would fire, so the listener alone could
+            // block until the timeout. A successful execution means it is ready.
+            Promise.resolve(
+                positron.runtime.executeCode(
+                    'python',
+                    '1+1',
+                    false, // focus
+                    true, // allowIncomplete
+                    positron.RuntimeCodeExecutionMode.Silent,
+                    positron.RuntimeErrorBehavior.Continue,
+                    undefined, // observer
+                    sessionId
+                )
+            )
+                .then(() => finish(resolve))
+                .catch(() => {
+                    // Not ready yet — the state-change listener resolves/rejects.
+                });
         });
     }
 
@@ -715,6 +788,11 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
      * Set state and emit event
      */
     private setState(newState: SquiggyKernelState): void {
+        // Once disposed, never touch the (disposed) emitter. State-change and
+        // session-end handlers can still fire during async teardown.
+        if (this.isDisposed) {
+            return;
+        }
         if (this.state !== newState) {
             this.state = newState;
             this.stateChangeEmitter.fire(newState);

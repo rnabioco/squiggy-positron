@@ -9,7 +9,24 @@ export const runtime = {
     executeCode: jest.fn(),
     evaluateCode: jest.fn(),
     getSessionVariables: jest.fn(),
+    getRegisteredRuntimes: jest.fn(),
+    getPreferredRuntime: jest.fn(),
+    getActiveSessions: jest.fn(),
+    startLanguageRuntime: jest.fn(),
+    deleteSession: jest.fn(),
 };
+
+export enum RuntimeState {
+    Uninitialized = 'uninitialized',
+    Initializing = 'initializing',
+    Starting = 'starting',
+    Ready = 'ready',
+    Idle = 'idle',
+    Busy = 'busy',
+    Restarting = 'restarting',
+    Exited = 'exited',
+    Offline = 'offline',
+}
 
 export enum RuntimeCodeExecutionMode {
     Interactive = 'interactive',
