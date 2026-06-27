@@ -420,33 +420,26 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
     // Set initial context for modifications panel (hidden by default)
     vscode.commands.executeCommand('setContext', 'squiggy.hasModifications', false);
 
-    // Listen for plot option changes and refresh current plot
+    // Listen for plot option changes and refresh current plot. replayLastPlot()
+    // re-runs the exact last plot command (any mode), and that command re-reads
+    // the live options/theme/filters, so the refreshed plot reflects the change.
     context.subscriptions.push(
         plotOptionsProvider.onDidChangeOptions(() => {
-            if (state.currentPlotReadIds && state.currentPlotReadIds.length > 0) {
-                // Re-plot with new options
-                vscode.commands.executeCommand('squiggy.plotRead', state.currentPlotReadIds[0]);
-            }
+            void state.replayLastPlot();
         })
     );
 
     // Listen for modification filter changes and refresh current plot
     context.subscriptions.push(
         modificationsProvider.onDidChangeFilters(() => {
-            if (state.currentPlotReadIds && state.currentPlotReadIds.length > 0) {
-                // Re-plot with new modification filters
-                vscode.commands.executeCommand('squiggy.plotRead', state.currentPlotReadIds[0]);
-            }
+            void state.replayLastPlot();
         })
     );
 
     // Listen for theme changes and refresh current plot
     context.subscriptions.push(
         vscode.window.onDidChangeActiveColorTheme(() => {
-            if (state.currentPlotReadIds && state.currentPlotReadIds.length > 0) {
-                // Re-plot with new theme
-                vscode.commands.executeCommand('squiggy.plotRead', state.currentPlotReadIds[0]);
-            }
+            void state.replayLastPlot();
         })
     );
 
@@ -645,38 +638,35 @@ async function registerAllPanelsAndCommands(context: vscode.ExtensionContext): P
 
                     statusBarMessenger.show(`Aggregate: ${options.reference}`, 'graph');
                 } else if (options.sampleNames.length > 1) {
-                    // Multi-sample aggregate plot
-                    if (options.viewStyle === 'overlay') {
-                        // Use aggregate comparison (overlays mean signals)
-                        // Convert boolean flags to metrics array
-                        const metrics: string[] = [];
-                        if (options.showSignal) {
-                            metrics.push('signal');
-                        }
-                        if (options.showDwellTime) {
-                            metrics.push('dwell_time');
-                        }
-                        if (options.showQuality) {
-                            metrics.push('quality');
-                        }
-
-                        await vscode.commands.executeCommand('squiggy.plotAggregateComparison', {
-                            sampleNames: options.sampleNames,
-                            reference: options.reference,
-                            metrics: metrics,
-                            maxReads: options.maxReads,
-                        });
-
-                        statusBarMessenger.show(
-                            `Comparison: ${options.sampleNames.length} samples`,
-                            'graph'
-                        );
-                    } else {
-                        // Multi-track mode (separate detailed tracks per sample)
-                        vscode.window.showWarningMessage(
-                            'Multi-track aggregate view not yet implemented. Use overlay mode for now.'
-                        );
+                    // Multi-sample aggregate plot. Both 'overlay' and 'multi-track'
+                    // use the aggregate-comparison strategy; the layout is selected
+                    // in Python via the view_style parameter.
+                    // Convert boolean flags to metrics array
+                    const metrics: string[] = [];
+                    if (options.showSignal) {
+                        metrics.push('signal');
                     }
+                    if (options.showDwellTime) {
+                        metrics.push('dwell_time');
+                    }
+                    if (options.showQuality) {
+                        metrics.push('quality');
+                    }
+
+                    await vscode.commands.executeCommand('squiggy.plotAggregateComparison', {
+                        sampleNames: options.sampleNames,
+                        reference: options.reference,
+                        metrics: metrics,
+                        maxReads: options.maxReads,
+                        viewStyle: options.viewStyle,
+                    });
+
+                    const styleLabel =
+                        options.viewStyle === 'multi-track' ? 'multi-track' : 'overlay';
+                    statusBarMessenger.show(
+                        `Comparison (${styleLabel}): ${options.sampleNames.length} samples`,
+                        'graph'
+                    );
                 } else {
                     statusBarMessenger.showError('No samples selected');
                 }

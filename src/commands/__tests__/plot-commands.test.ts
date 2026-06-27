@@ -108,6 +108,7 @@ describe('Plot Commands', () => {
             const expectedCommands = [
                 'squiggy.plotRead',
                 'squiggy.plotAggregate',
+                'squiggy.plotMotifAggregate',
                 'squiggy.plotMotifAggregateAll',
                 'squiggy.plotSignalOverlayComparison',
                 'squiggy.plotDeltaComparison',
@@ -124,8 +125,8 @@ describe('Plot Commands', () => {
         it('should add all command disposables to context', () => {
             registerCommands();
 
-            // Verify registerCommand was called 9 times (once per command)
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(9);
+            // Verify registerCommand was called 10 times (once per command)
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(10);
         });
     });
 

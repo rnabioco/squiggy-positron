@@ -1741,6 +1741,7 @@ def plot_aggregate_comparison(
     trim_primers: bool = True,
     show_pileup: bool = True,
     rna_mode: bool = False,
+    view_style: str = "overlay",
 ) -> str:
     """
     Generate aggregate comparison plot for multiple samples
@@ -1766,6 +1767,9 @@ def plot_aggregate_comparison(
         trim_primers: Trim primer/adapter regions using FASTA body bounds (default True)
         show_pileup: Add one base-call pileup track per sample (default True)
         rna_mode: Display U instead of T in pileup tracks for RNA sequences (default False)
+        view_style: Layout style for the comparison. 'overlay' (default) superimposes
+                    all samples on shared axes; 'multi-track' renders one complete,
+                    labelled track group per sample, stacked vertically.
 
     Returns:
         Bokeh HTML string with aggregate comparison visualization
@@ -1960,6 +1964,7 @@ def plot_aggregate_comparison(
         "primer_trim_bounds": primer_trim_bounds,
         "show_pileup": show_pileup,
         "rna_mode": rna_mode,
+        "view_style": view_style,
     }
 
     options = {"normalization": norm_method}

@@ -390,12 +390,13 @@ squiggy.load_bam(${toPyStr(filePath)})
             const readIdsJson = JSON.stringify(readIds);
             const enabledModTypesJson = JSON.stringify(enabledModTypes);
 
-            // Build sample name parameter if in multi-sample mode
-            const sampleNameParam = sampleName ? `, sample_name='${sampleName}'` : '';
+            // Build sample name parameter if in multi-sample mode.
+            // Use toPyStr so names containing quotes/backslashes are escaped safely.
+            const sampleNameParam = sampleName ? `, sample_name=${toPyStr(sampleName)}` : '';
 
             // Build coordinate space parameter if specified
             const coordinateSpaceParam = coordinateSpace
-                ? `, coordinate_space='${coordinateSpace}'`
+                ? `, coordinate_space=${toPyStr(coordinateSpace)}`
                 : '';
 
             // Build the plot function call with proper multi-line formatting
@@ -1084,11 +1085,16 @@ if '_result' in globals():
                 references: data.references || [],
             };
         } catch (error) {
-            logger.warning(
+            // Re-throw rather than returning empty: this is the initial-load path,
+            // and swallowing here makes a genuine kernel/IO failure indistinguishable
+            // from a legitimately empty sample (the caller would show a misleading
+            // "No reads found" message). The caller (loadReadsForSample) surfaces
+            // this to the user via showErrorMessage.
+            logger.error(
                 `Failed to get read IDs and references for sample '${sampleName}'`,
                 error
             );
-            return { readIds: [], references: [] };
+            throw error;
         }
     }
 
@@ -1425,7 +1431,8 @@ squiggy.plot_delta_comparison(
         sampleColors?: Record<string, string>,
         trimPrimers: boolean = true,
         showPileup: boolean = true,
-        rnaMode: boolean = false
+        rnaMode: boolean = false,
+        viewStyle: 'overlay' | 'multi-track' = 'overlay'
     ): Promise<void> {
         // Validate input
         if (!sampleNames || sampleNames.length < 2) {
@@ -1465,7 +1472,8 @@ squiggy.plot_aggregate_comparison(
     theme='${theme}',
     trim_primers=${trimPrimers ? 'True' : 'False'},
     show_pileup=${showPileup ? 'True' : 'False'},
-    rna_mode=${rnaMode ? 'True' : 'False'}${maxReadsParam}${sampleColorsParam}
+    rna_mode=${rnaMode ? 'True' : 'False'},
+    view_style=${toPyStr(viewStyle)}${maxReadsParam}${sampleColorsParam}
 )
 `;
 

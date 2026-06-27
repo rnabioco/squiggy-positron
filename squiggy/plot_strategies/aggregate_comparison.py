@@ -108,13 +108,17 @@ class AggregateComparisonStrategy(PlotStrategy):
         if "enabled_metrics" not in data:
             raise ValueError("Missing required key: 'enabled_metrics'")
 
-    def _create_signal_track(self, samples: list[dict], reference_name: str):
+    def _create_signal_track(
+        self, samples: list[dict], reference_name: str, title: str | None = None
+    ):
         """
         Create signal statistics comparison track
 
         Args:
             samples: List of sample data dicts with 'signal_stats'
             reference_name: Reference name for plot title
+            title: Optional explicit title (overrides the default comparison title;
+                used by the multi-track layout to label per-sample groups)
 
         Returns:
             Bokeh figure or None if no signal data
@@ -125,7 +129,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         # Create themed figure
         p = self.theme_manager.create_figure(
-            title=f"Signal Statistics Comparison - {reference_name}",
+            title=title or f"Signal Statistics Comparison - {reference_name}",
             x_label="Reference Position (bp)",
             y_label="Normalized Signal",
         )
@@ -206,13 +210,16 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
-    def _create_dwell_track(self, samples: list[dict], reference_name: str):
+    def _create_dwell_track(
+        self, samples: list[dict], reference_name: str, title: str | None = None
+    ):
         """
         Create dwell time statistics comparison track
 
         Args:
             samples: List of sample data dicts with 'dwell_stats'
             reference_name: Reference name for plot title
+            title: Optional explicit title (overrides the default comparison title)
 
         Returns:
             Bokeh figure or None if no dwell data
@@ -223,7 +230,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         # Create themed figure
         p = self.theme_manager.create_figure(
-            title=f"Dwell Time Statistics Comparison - {reference_name}",
+            title=title or f"Dwell Time Statistics Comparison - {reference_name}",
             x_label="Reference Position (bp)",
             y_label="Dwell Time (samples)",
         )
@@ -304,13 +311,16 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return p
 
-    def _create_quality_track(self, samples: list[dict], reference_name: str):
+    def _create_quality_track(
+        self, samples: list[dict], reference_name: str, title: str | None = None
+    ):
         """
         Create quality statistics comparison track
 
         Args:
             samples: List of sample data dicts with 'quality_stats'
             reference_name: Reference name for plot title
+            title: Optional explicit title (overrides the default comparison title)
 
         Returns:
             Bokeh figure or None if no quality data
@@ -321,7 +331,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         # Create themed figure
         p = self.theme_manager.create_figure(
-            title=f"Quality Statistics Comparison - {reference_name}",
+            title=title or f"Quality Statistics Comparison - {reference_name}",
             x_label="Reference Position (bp)",
             y_label="Quality Score",
         )
@@ -436,13 +446,90 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         return tracks
 
-    def _create_coverage_track(self, samples: list[dict], reference_name: str):
+    def _create_multitrack_layout(
+        self,
+        samples: list[dict],
+        reference_name: str,
+        enabled_metrics: list[str],
+        show_pileup: bool,
+        rna_mode: bool,
+    ) -> list:
+        """
+        Build a detailed per-sample layout: one complete group of tracks per sample
+
+        Unlike the overlay layout (which superimposes every sample on shared axes),
+        this gives each sample its own signal / pileup / dwell / quality / coverage
+        block, stacked vertically and grouped together. This makes it easier to read
+        each sample's full profile at the cost of direct visual overlap.
+
+        The per-sample track builders are reused by passing a single-element sample
+        list, then the figure title is prefixed with the sample name so the group
+        boundaries are obvious in the stacked layout.
+
+        Args:
+            samples: List of sample data dicts
+            reference_name: Reference name for plot titles
+            enabled_metrics: Metrics to render (signal, dwell_time, quality)
+            show_pileup: Whether to include a base-call pileup track per sample
+            rna_mode: Display U instead of T in pileup tracks for RNA sequences
+
+        Returns:
+            Ordered list of Bokeh figures (sample groups concatenated)
+        """
+        tracks = []
+
+        for sample in samples:
+            name = sample["name"]
+            group = []
+
+            if "signal" in enabled_metrics:
+                signal_track = self._create_signal_track(
+                    [sample], reference_name, title=f"{name} — Signal"
+                )
+                if signal_track:
+                    group.append(signal_track)
+
+            if show_pileup:
+                pileup_stats = sample.get("pileup_stats")
+                if pileup_stats and len(pileup_stats.get("positions", [])) > 0:
+                    group.extend(
+                        self._create_pileup_tracks([sample], rna_mode=rna_mode)
+                    )
+
+            if "dwell_time" in enabled_metrics:
+                dwell_track = self._create_dwell_track(
+                    [sample], reference_name, title=f"{name} — Dwell Time"
+                )
+                if dwell_track:
+                    group.append(dwell_track)
+
+            if "quality" in enabled_metrics:
+                quality_track = self._create_quality_track(
+                    [sample], reference_name, title=f"{name} — Quality"
+                )
+                if quality_track:
+                    group.append(quality_track)
+
+            coverage_track = self._create_coverage_track(
+                [sample], reference_name, title=f"{name} — Coverage"
+            )
+            if coverage_track:
+                group.append(coverage_track)
+
+            tracks.extend(group)
+
+        return tracks
+
+    def _create_coverage_track(
+        self, samples: list[dict], reference_name: str, title: str | None = None
+    ):
         """
         Create coverage comparison track
 
         Args:
             samples: List of sample data dicts with coverage data
             reference_name: Reference name for plot title
+            title: Optional explicit title (overrides the default comparison title)
 
         Returns:
             Bokeh figure or None if no coverage data
@@ -453,7 +540,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
         # Create themed figure (smaller height for coverage)
         p = self.theme_manager.create_figure(
-            title=f"Coverage Comparison - {reference_name}",
+            title=title or f"Coverage Comparison - {reference_name}",
             x_label="Reference Position (bp)",
             y_label="Read Count",
             height=350,  # Slightly shorter than default
@@ -553,37 +640,49 @@ class AggregateComparisonStrategy(PlotStrategy):
         enabled_metrics = data.get(
             "enabled_metrics", ["signal", "dwell_time", "quality"]
         )
+        # 'overlay' (default): superimpose all samples on shared axes.
+        # 'multi-track': one complete, labelled track group per sample.
+        view_style = data.get("view_style", "overlay")
+        show_pileup = bool(data.get("show_pileup"))
+        rna_mode = data.get("rna_mode", False)
 
-        # Create tracks based on enabled metrics
-        tracks = []
-
-        if "signal" in enabled_metrics:
-            signal_track = self._create_signal_track(samples, reference_name)
-            if signal_track:
-                tracks.append(signal_track)
-
-        # Per-sample base-call pileup tracks (the most important comparison panel)
-        if data.get("show_pileup"):
-            tracks.extend(
-                self._create_pileup_tracks(
-                    samples, rna_mode=data.get("rna_mode", False)
-                )
+        if view_style == "multi-track":
+            tracks = self._create_multitrack_layout(
+                samples,
+                reference_name,
+                enabled_metrics,
+                show_pileup,
+                rna_mode,
             )
+        else:
+            # Overlay layout: each track superimposes every sample
+            tracks = []
 
-        if "dwell_time" in enabled_metrics:
-            dwell_track = self._create_dwell_track(samples, reference_name)
-            if dwell_track:
-                tracks.append(dwell_track)
+            if "signal" in enabled_metrics:
+                signal_track = self._create_signal_track(samples, reference_name)
+                if signal_track:
+                    tracks.append(signal_track)
 
-        if "quality" in enabled_metrics:
-            quality_track = self._create_quality_track(samples, reference_name)
-            if quality_track:
-                tracks.append(quality_track)
+            # Per-sample base-call pileup tracks (the most important comparison panel)
+            if show_pileup:
+                tracks.extend(
+                    self._create_pileup_tracks(samples, rna_mode=rna_mode)
+                )
 
-        # Always try to add coverage track if data available
-        coverage_track = self._create_coverage_track(samples, reference_name)
-        if coverage_track:
-            tracks.append(coverage_track)
+            if "dwell_time" in enabled_metrics:
+                dwell_track = self._create_dwell_track(samples, reference_name)
+                if dwell_track:
+                    tracks.append(dwell_track)
+
+            if "quality" in enabled_metrics:
+                quality_track = self._create_quality_track(samples, reference_name)
+                if quality_track:
+                    tracks.append(quality_track)
+
+            # Always try to add coverage track if data available
+            coverage_track = self._create_coverage_track(samples, reference_name)
+            if coverage_track:
+                tracks.append(coverage_track)
 
         if not tracks:
             raise ValueError("No tracks could be created with the provided data")
