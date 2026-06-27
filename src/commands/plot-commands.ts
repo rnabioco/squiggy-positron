@@ -52,6 +52,11 @@ export function registerPlotCommands(
                     return;
                 }
 
+                // Remember this plot so option/theme/filter changes can replay it
+                state.lastPlotAction = {
+                    command: 'squiggy.plotRead',
+                    args: [readIdOrItem, coordinateSpace],
+                };
                 await plotReads(readIds, state, coordinateSpace);
             }
         )
@@ -99,7 +104,28 @@ export function registerPlotCommands(
                 return;
             }
 
+            state.lastPlotAction = {
+                command: 'squiggy.plotAggregate',
+                args: [referenceName],
+            };
             await plotAggregate(referenceName, state);
+        })
+    );
+
+    // Plot motif aggregate (command-palette entry point). A motif aggregate
+    // plot needs a motif sequence and flank sizes, which are entered in the
+    // Motif Explorer panel — so reveal that panel where the actual plotting
+    // controls live, rather than failing silently.
+    context.subscriptions.push(
+        vscode.commands.registerCommand('squiggy.plotMotifAggregate', async () => {
+            if (!state.currentFastaFile) {
+                vscode.window.showWarningMessage(
+                    'Motif aggregate plots require a FASTA reference. Open a FASTA file first, ' +
+                        'then enter a motif in the Motif Explorer panel.'
+                );
+            }
+            // Reveal the Motif Explorer where the user enters a motif and plots.
+            await vscode.commands.executeCommand('squiggyMotifSearch.focus');
         })
     );
 
@@ -141,6 +167,10 @@ export function registerPlotCommands(
                     return;
                 }
 
+                state.lastPlotAction = {
+                    command: 'squiggy.plotMotifAggregateAll',
+                    args: [params],
+                };
                 await plotMotifAggregateAll(params, state);
             }
         )
@@ -174,6 +204,10 @@ export function registerPlotCommands(
                     return;
                 }
 
+                state.lastPlotAction = {
+                    command: 'squiggy.plotSignalOverlayComparison',
+                    args: [sampleNames, maxReads],
+                };
                 await plotSignalOverlayComparison(sampleNames, state, maxReads);
             }
         )
@@ -228,6 +262,10 @@ export function registerPlotCommands(
                     return;
                 }
 
+                state.lastPlotAction = {
+                    command: 'squiggy.plotDeltaComparison',
+                    args: [sampleNames, referenceName, maxReads],
+                };
                 await plotDeltaComparison(sampleNames, referenceName, state, maxReads);
             }
         )
@@ -242,6 +280,7 @@ export function registerPlotCommands(
                 reference: string;
                 metrics: string[];
                 maxReads?: number;
+                viewStyle?: 'overlay' | 'multi-track';
             }) => {
                 // If no params provided, validate and prompt user
                 if (!params) {
@@ -275,6 +314,10 @@ export function registerPlotCommands(
                     return;
                 }
 
+                state.lastPlotAction = {
+                    command: 'squiggy.plotAggregateComparison',
+                    args: [params],
+                };
                 await plotAggregateComparison(params, state);
             }
         )
@@ -301,6 +344,10 @@ export function registerPlotCommands(
                 const maxReadsPerSample = maxReads || 10;
                 const coordSpace = coordinateSpace || 'signal';
 
+                state.lastPlotAction = {
+                    command: 'squiggy.plotMultiReadOverlay',
+                    args: [sampleNames, maxReadsPerSample, coordSpace],
+                };
                 await plotMultiReadOverlay(sampleNames, maxReadsPerSample, coordSpace, state);
             }
         )
@@ -327,6 +374,10 @@ export function registerPlotCommands(
                 const maxReadsPerSample = maxReads || 5;
                 const coordSpace = coordinateSpace || 'signal';
 
+                state.lastPlotAction = {
+                    command: 'squiggy.plotMultiReadStacked',
+                    args: [sampleNames, maxReadsPerSample, coordSpace],
+                };
                 await plotMultiReadStacked(sampleNames, maxReadsPerSample, coordSpace, state);
             }
         )
@@ -352,6 +403,10 @@ export function registerPlotCommands(
                 }
 
                 const maxReadsPerSample = maxReads || 10;
+                state.lastPlotAction = {
+                    command: 'squiggy.plotReferenceOverlay',
+                    args: [sampleNames, maxReadsPerSample, reference],
+                };
                 await plotReferenceOverlay(sampleNames, maxReadsPerSample, reference, state);
             }
         )
@@ -452,24 +507,28 @@ async function plotAggregate(referenceName: string, state: ExtensionState): Prom
                 enabledModTypes: [],
             };
 
+            // Honor the user's Plot Options panel selections instead of
+            // hardcoding the track set (the panel is the single source of truth).
             await api.generateAggregatePlot(
                 referenceName,
                 maxReads,
                 normalization,
                 theme,
-                true, // showModifications
+                options.showModifications,
                 modFilters.minProbability,
                 modFilters.enabledModTypes,
-                true, // showPileup
-                true, // showDwellTime
-                true, // showSignal
-                true, // showQuality
-                false, // showCoverage (off by default)
-                true, // clipXAxisToAlignment
-                true, // transformCoordinates
-                undefined, // Pass current sample for multi-sample mode
+                options.showPileup,
+                options.showDwellTime,
+                options.showSignal,
+                options.showQuality,
+                false, // showCoverage: not exposed in the Plot Options getter; off by default
+                options.clipXAxisToAlignment,
+                options.transformCoordinates,
+                state.selectedReadExplorerSample ?? undefined, // current sample for multi-sample mode
                 modFilters.minFrequency,
-                modFilters.minModifiedReads
+                modFilters.minModifiedReads,
+                options.rnaMode,
+                options.trimPrimers ?? true
             );
         },
         ErrorContext.PLOT_GENERATE,
@@ -732,6 +791,7 @@ async function plotAggregateComparison(
         reference: string;
         metrics: string[];
         maxReads?: number;
+        viewStyle?: 'overlay' | 'multi-track';
     },
     state: ExtensionState
 ): Promise<void> {
@@ -806,7 +866,8 @@ async function plotAggregateComparison(
                 Object.keys(sampleColors).length > 0 ? sampleColors : undefined,
                 options?.trimPrimers ?? true,
                 showPileup,
-                rnaMode
+                rnaMode,
+                params.viewStyle ?? 'overlay'
             );
         },
         ErrorContext.PLOT_GENERATE,

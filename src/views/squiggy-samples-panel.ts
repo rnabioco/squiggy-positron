@@ -580,11 +580,59 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
     }
 
     /**
-     * Prompt user to confirm and customize sample names
+     * Ensure every queued sample has a unique name, suffixing collisions
+     * (_2, _3, ...). Used for the "accept suggested names" paths so a batch
+     * import never fails or silently overwrites on duplicate filenames.
+     */
+    private dedupeSampleNames(
+        items: { pod5Path: string; bamPath?: string; sampleName: string }[],
+        takenNames: string[] = []
+    ): { pod5Path: string; bamPath?: string; sampleName: string }[] {
+        const used = new Set(takenNames);
+        return items.map((item) => {
+            let name = item.sampleName.trim() || path.basename(item.pod5Path);
+            if (used.has(name)) {
+                let n = 2;
+                while (used.has(`${name}_${n}`)) {
+                    n++;
+                }
+                name = `${name}_${n}`;
+            }
+            used.add(name);
+            return { ...item, sampleName: name };
+        });
+    }
+
+    /**
+     * Prompt user to confirm and customize sample names.
+     *
+     * Offers an up-front "use suggested names for all" fast path so a single
+     * Escape doesn't discard the whole batch. If the user names samples
+     * individually and then cancels midway, the already-confirmed names are
+     * kept and the remaining files fall back to their suggested names rather
+     * than dropping the entire import.
      */
     private async confirmSampleNames(
         fileQueue: { pod5Path: string; bamPath?: string; sampleName: string }[]
     ): Promise<{ pod5Path: string; bamPath?: string; sampleName: string }[]> {
+        const USE_SUGGESTED = 'Use suggested names for all';
+        const NAME_INDIVIDUALLY = 'Name each sample individually';
+
+        // For a single file, skip the chooser and go straight to the prompt.
+        if (fileQueue.length > 1) {
+            const choice = await vscode.window.showQuickPick([USE_SUGGESTED, NAME_INDIVIDUALLY], {
+                placeHolder: `Name ${fileQueue.length} samples`,
+            });
+
+            if (choice === undefined) {
+                return []; // Cancelled the whole import at the first prompt
+            }
+
+            if (choice === USE_SUGGESTED) {
+                return this.dedupeSampleNames(fileQueue);
+            }
+        }
+
         const confirmed: { pod5Path: string; bamPath?: string; sampleName: string }[] = [];
 
         for (let i = 0; i < fileQueue.length; i++) {
@@ -611,8 +659,15 @@ export class SamplesPanelProvider extends BaseWebviewProvider {
             });
 
             if (customName === undefined) {
-                // User cancelled
-                return [];
+                // User cancelled mid-batch: keep what's confirmed and accept
+                // suggested names for this and the remaining files rather than
+                // discarding the whole import.
+                const remaining = this.dedupeSampleNames(
+                    fileQueue.slice(i),
+                    confirmed.map((c) => c.sampleName)
+                );
+                confirmed.push(...remaining);
+                return confirmed;
             }
 
             confirmed.push({

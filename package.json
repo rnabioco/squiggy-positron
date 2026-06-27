@@ -282,6 +282,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "squiggy.debugModificationsPanel",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "squiggy.refreshReads",

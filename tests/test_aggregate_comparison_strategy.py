@@ -885,3 +885,102 @@ class TestPerSamplePileupTracks:
 
         assert isinstance(html, str)
         assert len(html) > 0
+
+
+class TestMultiTrackLayout:
+    """Tests for the 'multi-track' view style (per-sample track groups)"""
+
+    @pytest.fixture
+    def sample_data(self):
+        """Two samples, all metrics, no pileup data"""
+        positions = np.arange(25)
+        return {
+            "samples": [
+                {
+                    "name": "control",
+                    "signal_stats": {
+                        "positions": positions,
+                        "mean_signal": np.sin(positions / 5),
+                        "std_signal": np.full(25, 0.2),
+                    },
+                    "dwell_stats": {
+                        "positions": positions,
+                        "mean_dwell": np.full(25, 10.0),
+                        "std_dwell": np.full(25, 2.0),
+                    },
+                    "quality_stats": {
+                        "positions": positions,
+                        "mean_quality": np.full(25, 30.0),
+                        "std_quality": np.full(25, 3.0),
+                    },
+                    "coverage": {"positions": positions, "coverage": np.full(25, 25)},
+                },
+                {
+                    "name": "treatment",
+                    "signal_stats": {
+                        "positions": positions,
+                        "mean_signal": np.sin(positions / 5) + 0.5,
+                        "std_signal": np.full(25, 0.3),
+                    },
+                    "dwell_stats": {
+                        "positions": positions,
+                        "mean_dwell": np.full(25, 12.0),
+                        "std_dwell": np.full(25, 2.5),
+                    },
+                    "quality_stats": {
+                        "positions": positions,
+                        "mean_quality": np.full(25, 28.0),
+                        "std_quality": np.full(25, 4.0),
+                    },
+                    "coverage": {"positions": positions, "coverage": np.full(25, 30)},
+                },
+            ],
+            "reference_name": "test_ref:100-125",
+            "enabled_metrics": ["signal", "dwell_time", "quality"],
+            "view_style": "multi-track",
+        }
+
+    def test_multitrack_has_per_sample_track_groups(self, sample_data):
+        """Multi-track renders one full track group per sample.
+
+        2 samples x (signal + dwell + quality + coverage) = 8 tracks, versus
+        4 tracks for the overlay layout of the same data.
+        """
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        _, grid = strategy.create_plot(sample_data, {})
+
+        assert isinstance(grid, GridPlot)
+        assert len(grid.children) == 8
+
+    def test_multitrack_titles_are_prefixed_with_sample_name(self, sample_data):
+        """Each track is labelled with its sample so groups are distinguishable"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        _, grid = strategy.create_plot(sample_data, {})
+
+        titles = [fig.title.text for fig, _row, _col in grid.children]
+        assert "control — Signal" in titles
+        assert "treatment — Signal" in titles
+        assert "control — Coverage" in titles
+        assert "treatment — Coverage" in titles
+
+    def test_multitrack_tracks_share_x_range(self, sample_data):
+        """All multi-track figures are x-linked for synchronized zoom/pan"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        _, grid = strategy.create_plot(sample_data, {})
+
+        figures = [fig for fig, _row, _col in grid.children]
+        first_x_range = figures[0].x_range
+        for fig in figures[1:]:
+            assert fig.x_range is first_x_range
+
+    def test_overlay_remains_default_view_style(self, sample_data):
+        """Without view_style='multi-track', the overlay layout is used (4 tracks)"""
+        strategy = AggregateComparisonStrategy(Theme.LIGHT)
+
+        sample_data.pop("view_style")
+        _, grid = strategy.create_plot(sample_data, {})
+
+        assert len(grid.children) == 4

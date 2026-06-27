@@ -255,8 +255,10 @@ export class PlotOptionsViewProvider extends BaseWebviewProvider {
         }
 
         if (message.type === 'requestReferences') {
-            // Request will be handled by extension.ts which listens to this event
-            this._onDidChangeOptions.fire();
+            // The webview (re)opened and needs the current reference list to
+            // populate its dropdown. Push back what we already have instead of
+            // firing a change event (which would trigger a re-plot, not a fetch).
+            this.updateReferences(this._availableReferences);
         }
 
         if (message.type === 'generateAggregatePlot') {

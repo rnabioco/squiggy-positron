@@ -26,6 +26,7 @@ interface SamplesState {
     sessionFastaPath: string | null; // Session-level FASTA file path
     editingSampleName: string | null; // Which sample name is being edited
     editInputValue: string; // Current value in edit input
+    nameEditError: string | null; // Inline validation error for the name edit input
     sampleColors: Map<string, string>; // Map of sample names to hex colors
     expandedSamples: Set<string>; // Which samples have their details expanded
     selectedSamplesForVisualization: Set<string>; // Which samples are selected for plotting
@@ -37,6 +38,7 @@ export const SamplesCore: React.FC = () => {
         sessionFastaPath: null,
         editingSampleName: null,
         editInputValue: '',
+        nameEditError: null,
         sampleColors: new Map(),
         expandedSamples: new Set(), // Start with all samples collapsed
         selectedSamplesForVisualization: new Set(), // Start with no samples selected
@@ -144,6 +146,7 @@ export const SamplesCore: React.FC = () => {
                         sessionFastaPath: null,
                         editingSampleName: null,
                         editInputValue: '',
+                        nameEditError: null,
                         sampleColors: new Map(),
                         expandedSamples: new Set(),
                         selectedSamplesForVisualization: new Set(),
@@ -217,12 +220,15 @@ export const SamplesCore: React.FC = () => {
             ...prev,
             editingSampleName: sampleName,
             editInputValue: sampleName,
+            nameEditError: null,
         }));
     };
 
     const handleSaveNameEdit = (oldName: string, newName: string) => {
         if (!newName.trim()) {
-            alert('Sample name cannot be empty');
+            // Inline validation error (renders below the input). A native alert()
+            // would pop a non-themed OS dialog that clashes with the Positron UI.
+            setState((prev) => ({ ...prev, nameEditError: 'Sample name cannot be empty' }));
             return;
         }
 
@@ -232,13 +238,17 @@ export const SamplesCore: React.FC = () => {
                 ...prev,
                 editingSampleName: null,
                 editInputValue: '',
+                nameEditError: null,
             }));
             return;
         }
 
         // Check for duplicate names
         if (state.samples.some((s) => s.name === newName)) {
-            alert('A sample with this name already exists');
+            setState((prev) => ({
+                ...prev,
+                nameEditError: 'A sample with this name already exists',
+            }));
             return;
         }
 
@@ -254,6 +264,7 @@ export const SamplesCore: React.FC = () => {
             ...prev,
             editingSampleName: null,
             editInputValue: '',
+            nameEditError: null,
         }));
     };
 
@@ -262,6 +273,7 @@ export const SamplesCore: React.FC = () => {
             ...prev,
             editingSampleName: null,
             editInputValue: '',
+            nameEditError: null,
         }));
     };
 
@@ -674,86 +686,100 @@ export const SamplesCore: React.FC = () => {
                                         <div
                                             style={{
                                                 display: 'flex',
-                                                gap: '4px',
+                                                flexDirection: 'column',
+                                                gap: '2px',
                                                 flex: 1,
                                             }}
                                             onClick={(e) => e.stopPropagation()}
                                         >
-                                            <input
-                                                ref={editInputRef}
-                                                type="text"
-                                                value={state.editInputValue}
-                                                onChange={(e) =>
-                                                    setState((prev) => ({
-                                                        ...prev,
-                                                        editInputValue: e.target.value,
-                                                    }))
-                                                }
-                                                onKeyDown={(e) => {
-                                                    e.stopPropagation();
-                                                    if (e.key === 'Enter') {
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <input
+                                                    ref={editInputRef}
+                                                    type="text"
+                                                    value={state.editInputValue}
+                                                    onChange={(e) =>
+                                                        setState((prev) => ({
+                                                            ...prev,
+                                                            editInputValue: e.target.value,
+                                                            nameEditError: null,
+                                                        }))
+                                                    }
+                                                    onKeyDown={(e) => {
+                                                        e.stopPropagation();
+                                                        if (e.key === 'Enter') {
+                                                            handleSaveNameEdit(
+                                                                sample.name,
+                                                                state.editInputValue
+                                                            );
+                                                        } else if (e.key === 'Escape') {
+                                                            handleCancelNameEdit();
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '3px',
+                                                        backgroundColor:
+                                                            'var(--vscode-input-background)',
+                                                        color: 'var(--vscode-input-foreground)',
+                                                        border: '1px solid var(--vscode-input-border)',
+                                                        borderRadius: '2px',
+                                                        fontWeight: 'bold',
+                                                        fontFamily: 'var(--vscode-font-family)',
+                                                        fontSize: '0.95em',
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleSaveNameEdit(
                                                             sample.name,
                                                             state.editInputValue
                                                         );
-                                                    } else if (e.key === 'Escape') {
+                                                    }}
+                                                    style={{
+                                                        padding: '2px 4px',
+                                                        backgroundColor:
+                                                            'var(--vscode-button-background)',
+                                                        color: 'var(--vscode-button-foreground)',
+                                                        border: 'none',
+                                                        borderRadius: '2px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.85em',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    ✓
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleCancelNameEdit();
-                                                    }
-                                                }}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '3px',
-                                                    backgroundColor:
-                                                        'var(--vscode-input-background)',
-                                                    color: 'var(--vscode-input-foreground)',
-                                                    border: '1px solid var(--vscode-input-border)',
-                                                    borderRadius: '2px',
-                                                    fontWeight: 'bold',
-                                                    fontFamily: 'var(--vscode-font-family)',
-                                                    fontSize: '0.95em',
-                                                }}
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSaveNameEdit(
-                                                        sample.name,
-                                                        state.editInputValue
-                                                    );
-                                                }}
-                                                style={{
-                                                    padding: '2px 4px',
-                                                    backgroundColor:
-                                                        'var(--vscode-button-background)',
-                                                    color: 'var(--vscode-button-foreground)',
-                                                    border: 'none',
-                                                    borderRadius: '2px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.85em',
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                ✓
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCancelNameEdit();
-                                                }}
-                                                style={{
-                                                    padding: '2px 4px',
-                                                    backgroundColor:
-                                                        'var(--vscode-errorForeground)',
-                                                    color: 'var(--vscode-editor-background)',
-                                                    border: 'none',
-                                                    borderRadius: '2px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.85em',
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                ✕
-                                            </button>
+                                                    }}
+                                                    style={{
+                                                        padding: '2px 4px',
+                                                        backgroundColor:
+                                                            'var(--vscode-errorForeground)',
+                                                        color: 'var(--vscode-editor-background)',
+                                                        border: 'none',
+                                                        borderRadius: '2px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.85em',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                            {state.nameEditError && (
+                                                <span
+                                                    style={{
+                                                        color: 'var(--vscode-errorForeground)',
+                                                        fontSize: '0.8em',
+                                                    }}
+                                                >
+                                                    {state.nameEditError}
+                                                </span>
+                                            )}
                                         </div>
                                     ) : (
                                         <label

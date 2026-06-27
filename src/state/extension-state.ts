@@ -96,6 +96,11 @@ export class ExtensionState {
     private _currentBamFile?: string;
     private _currentFastaFile?: string;
     private _currentPlotReadIds?: string[];
+    // The last plot the user generated, captured as the command + args that
+    // produced it. Used to re-plot when options/theme/mod-filters change. The
+    // commands re-read live options at execution time, so replaying picks up the
+    // new settings automatically.
+    private _lastPlotAction?: { command: string; args: unknown[] };
 
     // Lazy loading context
     private _pod5LoadContext?: {
@@ -212,6 +217,7 @@ export class ExtensionState {
         this._currentBamFile = undefined;
         this._currentFastaFile = undefined;
         this._currentPlotReadIds = undefined;
+        this._lastPlotAction = undefined;
 
         // Reset installation check flags
         this._squiggyInstallChecked = false;
@@ -298,6 +304,27 @@ squiggy.close_fasta()
 
     set currentPlotReadIds(value: string[] | undefined) {
         this._currentPlotReadIds = value;
+    }
+
+    get lastPlotAction(): { command: string; args: unknown[] } | undefined {
+        return this._lastPlotAction;
+    }
+
+    set lastPlotAction(value: { command: string; args: unknown[] } | undefined) {
+        this._lastPlotAction = value;
+    }
+
+    /**
+     * Re-run the most recent plot command (if any). Used by the auto-replot
+     * listeners when plot options, theme, or modification filters change.
+     */
+    async replayLastPlot(): Promise<void> {
+        if (this._lastPlotAction) {
+            await vscode.commands.executeCommand(
+                this._lastPlotAction.command,
+                ...this._lastPlotAction.args
+            );
+        }
     }
 
     get selectedReadExplorerSample(): string | null {

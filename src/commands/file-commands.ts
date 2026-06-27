@@ -902,20 +902,23 @@ async function loadSampleForComparison(
 
     const pod5Path = pod5Uris[0].fsPath;
 
-    // Optionally select BAM file
+    // Optionally select BAM file. Cancelling skips it (the POD5 + name already
+    // entered are kept) rather than aborting the whole flow.
     const bamUris = await vscode.window.showOpenDialog({
         canSelectMany: false,
         filters: { 'BAM Files': ['bam'] },
-        title: 'Select BAM file (optional)',
+        title: 'Select BAM file — or Cancel to skip (optional)',
+        openLabel: 'Select BAM',
     });
 
     const bamPath = bamUris?.[0]?.fsPath;
 
-    // Optionally select FASTA file
+    // Optionally select FASTA file. Cancelling skips it.
     const fastaUris = await vscode.window.showOpenDialog({
         canSelectMany: false,
         filters: { 'FASTA Files': ['fa', 'fasta', 'fna'] },
-        title: 'Select FASTA file (optional)',
+        title: 'Select FASTA file — or Cancel to skip (optional)',
+        openLabel: 'Select FASTA',
     });
 
     const fastaPath = fastaUris?.[0]?.fsPath;

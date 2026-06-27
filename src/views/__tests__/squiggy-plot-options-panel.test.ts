@@ -173,13 +173,17 @@ describe('PlotOptionsViewProvider', () => {
             expect(options.showQuality).toBe(false);
         });
 
-        it('should handle requestReferences message', async () => {
+        it('should handle requestReferences message by pushing references to webview', async () => {
             const messageHandler = mockWebviewView.webview.onDidReceiveMessage.mock.calls[0][0];
 
             await messageHandler({ type: 'requestReferences' });
 
-            // Should fire change event for extension.ts to handle
-            expect(optionsChangeListener).toHaveBeenCalled();
+            // Should push the current reference list back to the webview rather
+            // than firing a change event (which would trigger a re-plot, not a fetch)
+            expect(mockWebviewView.webview.postMessage).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'updateReferences' })
+            );
+            expect(optionsChangeListener).not.toHaveBeenCalled();
         });
 
         it('should handle generateAggregatePlot message', async () => {
