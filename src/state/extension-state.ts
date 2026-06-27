@@ -104,8 +104,10 @@ export class ExtensionState {
         totalReads: number;
     };
 
-    // Multi-sample state
-    private _loadedSamples: Map<string, SampleInfo> = new Map();
+    // Multi-sample state.
+    // Samples are stored in the unified _loadedItems registry (Issue #187);
+    // the SampleInfo API below is a derived view over the sample-type items, so
+    // there is a single source of truth instead of two hand-synced maps.
     private _selectedSamplesForComparison: string[] = [];
     private _samplesForVisualization: Set<string> = new Set(); // Samples selected for plotting
     private _sessionFastaPath: string | null = null; // Session-level FASTA for all comparisons
@@ -555,22 +557,59 @@ squiggy.close_fasta()
     }
 
     // ========== Multi-Sample Management ==========
+    //
+    // Samples live in the unified _loadedItems registry (type === 'sample').
+    // The methods below present the legacy SampleInfo view over those items so
+    // existing callers are unchanged, while there is only one backing store.
+
+    /**
+     * Map a sample-type LoadedItem to the SampleInfo view.
+     */
+    private _itemToSampleInfo(item: LoadedItem): SampleInfo {
+        return {
+            sampleId: item.id,
+            displayName: item.sampleName ?? item.id,
+            pod5Path: item.pod5Path,
+            bamPath: item.bamPath,
+            fastaPath: item.fastaPath,
+            readCount: item.readCount,
+            hasBam: item.hasAlignments,
+            hasFasta: item.hasReference,
+            hasMods: item.hasMods,
+            hasEvents: item.hasEvents,
+            hasPrimers: item.hasPrimers,
+            references: item.references,
+            isLoaded: item.isLoaded ?? false,
+            metadata: item.metadata,
+        };
+    }
+
+    /**
+     * Iterate the sample-type items in insertion order.
+     */
+    private _sampleItems(): LoadedItem[] {
+        return Array.from(this._loadedItems.values()).filter((i) => i.type === 'sample');
+    }
 
     get loadedSamples(): Map<string, SampleInfo> {
-        return this._loadedSamples;
+        const map = new Map<string, SampleInfo>();
+        for (const item of this._sampleItems()) {
+            map.set(item.id, this._itemToSampleInfo(item));
+        }
+        return map;
     }
 
     getSample(nameOrId: string): SampleInfo | undefined {
-        // First try direct lookup by sampleId
-        const bySampleId = this._loadedSamples.get(nameOrId);
-        if (bySampleId) {
-            return bySampleId;
+        // Direct lookup by sampleId (== item id)
+        const byId = this._loadedItems.get(nameOrId);
+        if (byId && byId.type === 'sample') {
+            return this._itemToSampleInfo(byId);
         }
 
-        // Fall back to search by displayName
-        for (const sample of this._loadedSamples.values()) {
-            if (sample.displayName === nameOrId) {
-                return sample;
+        // Fall back to search by displayName (sampleName)
+        for (const item of this._sampleItems()) {
+            if (item.sampleName === nameOrId) {
+                return this._itemToSampleInfo(item);
             }
         }
 
@@ -578,27 +617,54 @@ squiggy.close_fasta()
     }
 
     addSample(sample: SampleInfo): void {
-        // Use sampleId as the key to preserve insertion order during renames
-        // displayName can be edited in Sample Manager without moving the sample in the list
-        this._loadedSamples.set(sample.sampleId, sample);
+        // Merge the sample's fields into the unified registry, preserving any
+        // LoadedItem-only fields (fileSize, isDeferred, …) already set by a
+        // prior addLoadedItem() call for the same id. Keyed by sampleId so a
+        // displayName rename does not move the item in the list.
+        const existing = this._loadedItems.get(sample.sampleId);
+        const merged: LoadedItem = {
+            // Defaults for LoadedItem-only fields when no prior item exists
+            fileSize: 0,
+            fileSizeFormatted: '',
+            ...existing,
+            // Sample-derived fields (authoritative)
+            id: sample.sampleId,
+            type: 'sample',
+            sampleName: sample.displayName,
+            pod5Path: sample.pod5Path,
+            bamPath: sample.bamPath,
+            fastaPath: sample.fastaPath,
+            readCount: sample.readCount,
+            hasAlignments: sample.hasBam,
+            hasReference: sample.hasFasta,
+            hasMods: sample.hasMods ?? existing?.hasMods ?? false,
+            hasEvents: sample.hasEvents ?? existing?.hasEvents ?? false,
+            hasPrimers: sample.hasPrimers ?? existing?.hasPrimers,
+            references: sample.references ?? existing?.references,
+            isLoaded: sample.isLoaded,
+            metadata: sample.metadata ?? existing?.metadata,
+        };
+        // Does not fire onLoadedItemsChanged (matches the previous addSample,
+        // which was paired with an addLoadedItem call by callers).
+        this._loadedItems.set(merged.id, merged);
     }
 
     removeSample(name: string): void {
         // Also clean up deferred session data
         this._deferredSessionData.delete(name);
 
-        // Support removal by displayName (for backward compatibility) or by sampleId
-        // First try direct lookup by sampleId
-        if (this._loadedSamples.has(name)) {
-            this._loadedSamples.delete(name);
+        // Remove by sampleId (== item id) ...
+        const byId = this._loadedItems.get(name);
+        if (byId && byId.type === 'sample') {
+            this._loadedItems.delete(name);
             return;
         }
 
-        // Fall back to search by displayName
-        for (const [sampleId, sample] of this._loadedSamples) {
-            if (sample.displayName === name) {
-                this._deferredSessionData.delete(sample.displayName);
-                this._loadedSamples.delete(sampleId);
+        // ... or by displayName (sampleName)
+        for (const item of this._sampleItems()) {
+            if (item.sampleName === name) {
+                this._deferredSessionData.delete(item.sampleName);
+                this._loadedItems.delete(item.id);
                 return;
             }
         }
@@ -606,7 +672,7 @@ squiggy.close_fasta()
 
     getAllSampleNames(): string[] {
         // Return displayNames (user-facing names) in insertion order
-        return Array.from(this._loadedSamples.values()).map((sample) => sample.displayName);
+        return this._sampleItems().map((item) => item.sampleName ?? item.id);
     }
 
     get selectedSamplesForComparison(): string[] {
@@ -734,15 +800,6 @@ squiggy.close_fasta()
                     }
                 }
             }
-        } else if (this._loadedSamples.size > 0) {
-            // Fall back to legacy multi-sample mode
-            for (const [sampleName, sampleInfo] of this._loadedSamples.entries()) {
-                samples[sampleName] = {
-                    pod5Paths: [sampleInfo.pod5Path],
-                    bamPath: sampleInfo.bamPath,
-                    fastaPath: sampleInfo.fastaPath,
-                };
-            }
         } else {
             // Fall back to legacy single-file mode
             if (this._currentPod5File) {
@@ -866,7 +923,7 @@ squiggy.close_fasta()
                 extensionUri,
             });
 
-            // Also create a skeleton SampleInfo entry in legacy state
+            // Merge skeleton sample fields onto the unified item created above
             const skeletonSampleInfo: SampleInfo = {
                 sampleId: itemId,
                 displayName: sampleName,
@@ -882,7 +939,7 @@ squiggy.close_fasta()
                     sourceType: 'manual',
                 },
             };
-            this._loadedSamples.set(sampleName, skeletonSampleInfo);
+            this.addSample(skeletonSampleInfo);
         }
 
         // Update samples panel to show skeletons immediately
@@ -1313,22 +1370,9 @@ squiggy.close_fasta()
 
         // ========== Update State with Final Data ==========
 
-        // Update SampleInfo in legacy state
-        const sampleInfo = this._loadedSamples.get(sampleName);
-        if (sampleInfo) {
-            sampleInfo.pod5Path = resolvedPod5Paths[0];
-            sampleInfo.bamPath = resolvedBamPath;
-            sampleInfo.fastaPath = resolvedFastaPath;
-            sampleInfo.readCount = numReads;
-            sampleInfo.hasBam = !!resolvedBamPath;
-            sampleInfo.hasFasta = !!resolvedFastaPath;
-            sampleInfo.hasMods = bamResult?.hasModifications ?? false;
-            sampleInfo.hasEvents = bamResult?.hasEventAlignment ?? false;
-            sampleInfo.hasPrimers = bamResult?.hasPrimers ?? false;
-            sampleInfo.isLoaded = true;
-        }
-
-        // Update LoadedItem with final data and mark as complete
+        // Update the unified item with final data and mark as complete.
+        // (The SampleInfo view derives from this item, so a single update keeps
+        // the sample API and the registry in sync.)
         this.updateLoadedItemData(itemId, {
             pod5Path: resolvedPod5Paths[0],
             bamPath: resolvedBamPath,
@@ -1340,6 +1384,7 @@ squiggy.close_fasta()
             hasEvents: bamResult?.hasEventAlignment ?? false,
             hasPrimers: bamResult?.hasPrimers ?? false,
             isRna: bamResult?.isRna ?? false,
+            isLoaded: true,
             isLoading: false, // Mark as complete
             isDeferred: false, // No longer deferred
             loadingMessage: undefined,

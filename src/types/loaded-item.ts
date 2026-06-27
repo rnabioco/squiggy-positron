@@ -125,4 +125,30 @@ export interface LoadedItem {
      * (deferred loading - session paths loaded but kernel work deferred until user clicks Load)
      */
     isDeferred?: boolean;
+
+    // ========== Sample fields (type === 'sample') ==========
+    // These let a SampleInfo be derived losslessly from a LoadedItem, so the
+    // unified registry is the single source of truth (Issue #187). They are
+    // unset/ignored for standalone pod5-type items.
+
+    /**
+     * References this sample aligns to (from BAM), with per-reference read counts
+     */
+    references?: { name: string; readCount: number; length?: number }[];
+
+    /**
+     * Whether the sample's files have been loaded into the kernel
+     */
+    isLoaded?: boolean;
+
+    /**
+     * Extensible sample metadata (display color, source type, tags, …)
+     */
+    metadata?: {
+        autoDetected?: boolean;
+        displayColor?: string;
+        sourceType?: 'manual' | 'tsv';
+        tsvGroup?: string;
+        tags?: string[];
+    };
 }
