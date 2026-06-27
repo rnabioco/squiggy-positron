@@ -1090,10 +1090,7 @@ if '_result' in globals():
             // from a legitimately empty sample (the caller would show a misleading
             // "No reads found" message). The caller (loadReadsForSample) surfaces
             // this to the user via showErrorMessage.
-            logger.error(
-                `Failed to get read IDs and references for sample '${sampleName}'`,
-                error
-            );
+            logger.error(`Failed to get read IDs and references for sample '${sampleName}'`, error);
             throw error;
         }
     }

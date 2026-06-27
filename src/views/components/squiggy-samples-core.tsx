@@ -692,94 +692,94 @@ export const SamplesCore: React.FC = () => {
                                             }}
                                             onClick={(e) => e.stopPropagation()}
                                         >
-                                          <div style={{ display: 'flex', gap: '4px' }}>
-                                            <input
-                                                ref={editInputRef}
-                                                type="text"
-                                                value={state.editInputValue}
-                                                onChange={(e) =>
-                                                    setState((prev) => ({
-                                                        ...prev,
-                                                        editInputValue: e.target.value,
-                                                        nameEditError: null,
-                                                    }))
-                                                }
-                                                onKeyDown={(e) => {
-                                                    e.stopPropagation();
-                                                    if (e.key === 'Enter') {
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <input
+                                                    ref={editInputRef}
+                                                    type="text"
+                                                    value={state.editInputValue}
+                                                    onChange={(e) =>
+                                                        setState((prev) => ({
+                                                            ...prev,
+                                                            editInputValue: e.target.value,
+                                                            nameEditError: null,
+                                                        }))
+                                                    }
+                                                    onKeyDown={(e) => {
+                                                        e.stopPropagation();
+                                                        if (e.key === 'Enter') {
+                                                            handleSaveNameEdit(
+                                                                sample.name,
+                                                                state.editInputValue
+                                                            );
+                                                        } else if (e.key === 'Escape') {
+                                                            handleCancelNameEdit();
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '3px',
+                                                        backgroundColor:
+                                                            'var(--vscode-input-background)',
+                                                        color: 'var(--vscode-input-foreground)',
+                                                        border: '1px solid var(--vscode-input-border)',
+                                                        borderRadius: '2px',
+                                                        fontWeight: 'bold',
+                                                        fontFamily: 'var(--vscode-font-family)',
+                                                        fontSize: '0.95em',
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleSaveNameEdit(
                                                             sample.name,
                                                             state.editInputValue
                                                         );
-                                                    } else if (e.key === 'Escape') {
+                                                    }}
+                                                    style={{
+                                                        padding: '2px 4px',
+                                                        backgroundColor:
+                                                            'var(--vscode-button-background)',
+                                                        color: 'var(--vscode-button-foreground)',
+                                                        border: 'none',
+                                                        borderRadius: '2px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.85em',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    ✓
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         handleCancelNameEdit();
-                                                    }
-                                                }}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '3px',
-                                                    backgroundColor:
-                                                        'var(--vscode-input-background)',
-                                                    color: 'var(--vscode-input-foreground)',
-                                                    border: '1px solid var(--vscode-input-border)',
-                                                    borderRadius: '2px',
-                                                    fontWeight: 'bold',
-                                                    fontFamily: 'var(--vscode-font-family)',
-                                                    fontSize: '0.95em',
-                                                }}
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSaveNameEdit(
-                                                        sample.name,
-                                                        state.editInputValue
-                                                    );
-                                                }}
-                                                style={{
-                                                    padding: '2px 4px',
-                                                    backgroundColor:
-                                                        'var(--vscode-button-background)',
-                                                    color: 'var(--vscode-button-foreground)',
-                                                    border: 'none',
-                                                    borderRadius: '2px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.85em',
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                ✓
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCancelNameEdit();
-                                                }}
-                                                style={{
-                                                    padding: '2px 4px',
-                                                    backgroundColor:
-                                                        'var(--vscode-errorForeground)',
-                                                    color: 'var(--vscode-editor-background)',
-                                                    border: 'none',
-                                                    borderRadius: '2px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.85em',
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                ✕
-                                            </button>
-                                          </div>
-                                          {state.nameEditError && (
-                                              <span
-                                                  style={{
-                                                      color: 'var(--vscode-errorForeground)',
-                                                      fontSize: '0.8em',
-                                                  }}
-                                              >
-                                                  {state.nameEditError}
-                                              </span>
-                                          )}
+                                                    }}
+                                                    style={{
+                                                        padding: '2px 4px',
+                                                        backgroundColor:
+                                                            'var(--vscode-errorForeground)',
+                                                        color: 'var(--vscode-editor-background)',
+                                                        border: 'none',
+                                                        borderRadius: '2px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.85em',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                            {state.nameEditError && (
+                                                <span
+                                                    style={{
+                                                        color: 'var(--vscode-errorForeground)',
+                                                        fontSize: '0.8em',
+                                                    }}
+                                                >
+                                                    {state.nameEditError}
+                                                </span>
+                                            )}
                                         </div>
                                     ) : (
                                         <label
