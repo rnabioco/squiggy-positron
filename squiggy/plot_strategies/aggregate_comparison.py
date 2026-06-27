@@ -665,9 +665,7 @@ class AggregateComparisonStrategy(PlotStrategy):
 
             # Per-sample base-call pileup tracks (the most important comparison panel)
             if show_pileup:
-                tracks.extend(
-                    self._create_pileup_tracks(samples, rna_mode=rna_mode)
-                )
+                tracks.extend(self._create_pileup_tracks(samples, rna_mode=rna_mode))
 
             if "dwell_time" in enabled_metrics:
                 dwell_track = self._create_dwell_track(samples, reference_name)
