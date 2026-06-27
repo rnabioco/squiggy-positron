@@ -4,9 +4,10 @@
  * React-based UI for managing samples (loading, naming, coloring, metadata)
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { vscode } from './vscode-api';
 import { SampleItem } from '../../types/messages';
+import { SampleRow } from './squiggy-sample-row';
 import './squiggy-samples-core.css';
 
 // Okabe-Ito colorblind-friendly palette
@@ -179,12 +180,15 @@ export const SamplesCore: React.FC = () => {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
-    const handleUnloadSample = (sampleName: string) => {
+    // Handlers passed to SampleRow are wrapped in useCallback so the memoized
+    // row only re-renders when its own data changes (not when an unrelated row
+    // expands or a sample is renamed elsewhere).
+    const handleUnloadSample = useCallback((sampleName: string) => {
         vscode.postMessage({
             type: 'unloadSample',
             sampleName,
         });
-    };
+    }, []);
 
     const handleUnloadAllSamples = () => {
         vscode.postMessage({
@@ -215,69 +219,81 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
-    const handleEditSampleName = (sampleName: string) => {
+    const handleEditSampleName = useCallback((sampleName: string) => {
         setState((prev) => ({
             ...prev,
             editingSampleName: sampleName,
             editInputValue: sampleName,
             nameEditError: null,
         }));
-    };
+    }, []);
 
-    const handleSaveNameEdit = (oldName: string, newName: string) => {
-        if (!newName.trim()) {
-            // Inline validation error (renders below the input). A native alert()
-            // would pop a non-themed OS dialog that clashes with the Positron UI.
-            setState((prev) => ({ ...prev, nameEditError: 'Sample name cannot be empty' }));
-            return;
-        }
+    const handleSaveNameEdit = useCallback(
+        (oldName: string, newName: string) => {
+            if (!newName.trim()) {
+                // Inline validation error (renders below the input). A native alert()
+                // would pop a non-themed OS dialog that clashes with the Positron UI.
+                setState((prev) => ({ ...prev, nameEditError: 'Sample name cannot be empty' }));
+                return;
+            }
 
-        if (newName === oldName) {
-            // No change, just exit edit mode
+            if (newName === oldName) {
+                // No change, just exit edit mode
+                setState((prev) => ({
+                    ...prev,
+                    editingSampleName: null,
+                    editInputValue: '',
+                    nameEditError: null,
+                }));
+                return;
+            }
+
+            // Check for duplicate names
+            if (state.samples.some((s) => s.name === newName)) {
+                setState((prev) => ({
+                    ...prev,
+                    nameEditError: 'A sample with this name already exists',
+                }));
+                return;
+            }
+
+            // Send update to extension
+            vscode.postMessage({
+                type: 'updateSampleName',
+                oldName: oldName,
+                newName: newName.trim(),
+            });
+
+            // Exit edit mode
             setState((prev) => ({
                 ...prev,
                 editingSampleName: null,
                 editInputValue: '',
                 nameEditError: null,
             }));
-            return;
-        }
+        },
+        [state.samples]
+    );
 
-        // Check for duplicate names
-        if (state.samples.some((s) => s.name === newName)) {
-            setState((prev) => ({
-                ...prev,
-                nameEditError: 'A sample with this name already exists',
-            }));
-            return;
-        }
-
-        // Send update to extension
-        vscode.postMessage({
-            type: 'updateSampleName',
-            oldName: oldName,
-            newName: newName.trim(),
-        });
-
-        // Exit edit mode
+    const handleCancelNameEdit = useCallback(() => {
         setState((prev) => ({
             ...prev,
             editingSampleName: null,
             editInputValue: '',
             nameEditError: null,
         }));
-    };
+    }, []);
 
-    const handleCancelNameEdit = () => {
+    // Update the rename input value (passed to the editing SampleRow).
+    const handleEditInputChange = useCallback((value: string) => {
         setState((prev) => ({
             ...prev,
-            editingSampleName: null,
-            editInputValue: '',
+            editInputValue: value,
             nameEditError: null,
         }));
-    };
+    }, []);
 
-    const handleSampleColorChange = (sampleName: string, color: string) => {
+    const handleSampleColorChange = useCallback((sampleName: string, color: string) => {
         setState((prev) => {
             const newColors = new Map(prev.sampleColors);
             newColors.set(sampleName, color);
@@ -293,9 +309,9 @@ export const SamplesCore: React.FC = () => {
             sampleName: sampleName,
             color: color || null,
         });
-    };
+    }, []);
 
-    const toggleSampleExpanded = (sampleName: string) => {
+    const toggleSampleExpanded = useCallback((sampleName: string) => {
         setState((prev) => {
             const newExpanded = new Set(prev.expandedSamples);
             if (newExpanded.has(sampleName)) {
@@ -308,9 +324,9 @@ export const SamplesCore: React.FC = () => {
                 expandedSamples: newExpanded,
             };
         });
-    };
+    }, []);
 
-    const handleToggleSampleSelection = (sampleName: string) => {
+    const handleToggleSampleSelection = useCallback((sampleName: string) => {
         setState((prev) => {
             const newSelected = new Set(prev.selectedSamplesForVisualization);
             if (newSelected.has(sampleName)) {
@@ -329,7 +345,7 @@ export const SamplesCore: React.FC = () => {
             type: 'toggleSampleSelection',
             sampleName: sampleName,
         });
-    };
+    }, []);
 
     const handleSetFastaForAll = () => {
         vscode.postMessage({
@@ -337,26 +353,26 @@ export const SamplesCore: React.FC = () => {
         });
     };
 
-    const handleAddFastaForSample = (sampleName: string) => {
+    const handleAddFastaForSample = useCallback((sampleName: string) => {
         vscode.postMessage({
             type: 'requestChangeSampleFasta',
             sampleName,
         });
-    };
+    }, []);
 
-    const handleChangeBam = (sampleName: string) => {
+    const handleChangeBam = useCallback((sampleName: string) => {
         vscode.postMessage({
             type: 'requestChangeSampleBam',
             sampleName,
         });
-    };
+    }, []);
 
-    const handleChangeFasta = (sampleName: string) => {
+    const handleChangeFasta = useCallback((sampleName: string) => {
         vscode.postMessage({
             type: 'requestChangeSampleFasta',
             sampleName,
         });
-    };
+    }, []);
 
     return (
         <div className="samples-core-container">
@@ -550,725 +566,31 @@ export const SamplesCore: React.FC = () => {
                 )}
 
                 <div className="samples-list-container">
-                    {state.samples.map((sample) => {
-                        const isExpanded = state.expandedSamples.has(sample.name);
-                        const isLoading = sample.isLoading ?? false;
-                        const isDeferred = sample.isDeferred ?? false;
-                        return (
-                            <div
-                                key={sample.name}
-                                className={
-                                    isLoading
-                                        ? 'sample-row loading'
-                                        : isDeferred
-                                          ? 'sample-row deferred'
-                                          : 'sample-row'
-                                }
-                                style={{
-                                    backgroundColor: 'var(--vscode-editor-background)',
-                                    border: '1px solid var(--vscode-widget-border)',
-                                    borderRadius: '4px',
-                                    overflow: 'hidden',
-                                    opacity: isLoading ? 0.7 : 1,
-                                    transition: 'opacity 0.3s ease',
-                                }}
-                            >
-                                {/* Collapsed Header Row */}
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '5px',
-                                        cursor: 'pointer',
-                                        backgroundColor: isExpanded
-                                            ? 'var(--vscode-input-background)'
-                                            : 'var(--vscode-editor-background)',
-                                        borderBottom: isExpanded
-                                            ? '1px solid var(--vscode-widget-border)'
-                                            : 'none',
-                                    }}
-                                    onClick={() => toggleSampleExpanded(sample.name)}
-                                >
-                                    {/* Selection Checkbox with Eye Icon (hidden for deferred) */}
-                                    {!isDeferred && (
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '3px',
-                                                cursor: 'pointer',
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleSampleSelection(sample.name);
-                                            }}
-                                            title="Include this sample in plot visualizations"
-                                        >
-                                            <span
-                                                style={{
-                                                    fontSize: '0.85em',
-                                                    opacity:
-                                                        state.selectedSamplesForVisualization.has(
-                                                            sample.name
-                                                        )
-                                                            ? 1
-                                                            : 0.3,
-                                                    transition: 'opacity 0.2s',
-                                                }}
-                                            >
-                                                👁️
-                                            </span>
-                                            <input
-                                                type="checkbox"
-                                                checked={state.selectedSamplesForVisualization.has(
-                                                    sample.name
-                                                )}
-                                                onChange={(e) => {
-                                                    e.stopPropagation();
-                                                    handleToggleSampleSelection(sample.name);
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{
-                                                    width: '16px',
-                                                    height: '16px',
-                                                    cursor: 'pointer',
-                                                    flexShrink: 0,
-                                                    margin: 0,
-                                                }}
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Expand/Collapse Toggle */}
-                                    <div
-                                        style={{
-                                            width: '18px',
-                                            height: '18px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: 'var(--vscode-descriptionForeground)',
-                                            fontSize: '0.9em',
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {isExpanded ? '▼' : '▶'}
-                                    </div>
-
-                                    {/* Color Picker (hidden for deferred) */}
-                                    {!isDeferred && (
-                                        <input
-                                            type="color"
-                                            value={state.sampleColors.get(sample.name) || '#808080'}
-                                            onChange={(e) => {
-                                                e.stopPropagation();
-                                                handleSampleColorChange(
-                                                    sample.name,
-                                                    e.target.value
-                                                );
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                            style={{
-                                                width: '20px',
-                                                height: '20px',
-                                                border: 'none',
-                                                borderRadius: '2px',
-                                                cursor: 'pointer',
-                                                flexShrink: 0,
-                                            }}
-                                            title="Sample color for plots"
-                                        />
-                                    )}
-
-                                    {/* Sample Name - Editable */}
-                                    {state.editingSampleName === sample.name ? (
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '2px',
-                                                flex: 1,
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                <input
-                                                    ref={editInputRef}
-                                                    type="text"
-                                                    value={state.editInputValue}
-                                                    onChange={(e) =>
-                                                        setState((prev) => ({
-                                                            ...prev,
-                                                            editInputValue: e.target.value,
-                                                            nameEditError: null,
-                                                        }))
-                                                    }
-                                                    onKeyDown={(e) => {
-                                                        e.stopPropagation();
-                                                        if (e.key === 'Enter') {
-                                                            handleSaveNameEdit(
-                                                                sample.name,
-                                                                state.editInputValue
-                                                            );
-                                                        } else if (e.key === 'Escape') {
-                                                            handleCancelNameEdit();
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        flex: 1,
-                                                        padding: '3px',
-                                                        backgroundColor:
-                                                            'var(--vscode-input-background)',
-                                                        color: 'var(--vscode-input-foreground)',
-                                                        border: '1px solid var(--vscode-input-border)',
-                                                        borderRadius: '2px',
-                                                        fontWeight: 'bold',
-                                                        fontFamily: 'var(--vscode-font-family)',
-                                                        fontSize: '0.95em',
-                                                    }}
-                                                />
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleSaveNameEdit(
-                                                            sample.name,
-                                                            state.editInputValue
-                                                        );
-                                                    }}
-                                                    style={{
-                                                        padding: '2px 4px',
-                                                        backgroundColor:
-                                                            'var(--vscode-button-background)',
-                                                        color: 'var(--vscode-button-foreground)',
-                                                        border: 'none',
-                                                        borderRadius: '2px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.85em',
-                                                        flexShrink: 0,
-                                                    }}
-                                                >
-                                                    ✓
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCancelNameEdit();
-                                                    }}
-                                                    style={{
-                                                        padding: '2px 4px',
-                                                        backgroundColor:
-                                                            'var(--vscode-errorForeground)',
-                                                        color: 'var(--vscode-editor-background)',
-                                                        border: 'none',
-                                                        borderRadius: '2px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.85em',
-                                                        flexShrink: 0,
-                                                    }}
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            {state.nameEditError && (
-                                                <span
-                                                    style={{
-                                                        color: 'var(--vscode-errorForeground)',
-                                                        fontSize: '0.8em',
-                                                    }}
-                                                >
-                                                    {state.nameEditError}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <label
-                                            htmlFor={`sample-${sample.name}`}
-                                            style={{
-                                                fontWeight: isDeferred ? 'normal' : 'bold',
-                                                color: isDeferred
-                                                    ? 'var(--vscode-descriptionForeground)'
-                                                    : undefined,
-                                                flex: 1,
-                                                cursor: 'pointer',
-                                                userSelect: 'none',
-                                            }}
-                                            onDoubleClick={(e) => {
-                                                e.stopPropagation();
-                                                handleEditSampleName(sample.name);
-                                            }}
-                                        >
-                                            {sample.name}
-                                        </label>
-                                    )}
-
-                                    {/* Load Button / Loading Spinner / Read Count Badge */}
-                                    {isDeferred ? (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                vscode.postMessage({
-                                                    type: 'loadDeferredSample',
-                                                    sampleName: sample.name,
-                                                });
-                                            }}
-                                            style={{
-                                                padding: '2px 8px',
-                                                fontSize: '0.75em',
-                                                backgroundColor: 'var(--vscode-button-background)',
-                                                color: 'var(--vscode-button-foreground)',
-                                                border: 'none',
-                                                borderRadius: '2px',
-                                                cursor: 'pointer',
-                                                flexShrink: 0,
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                (
-                                                    e.target as HTMLButtonElement
-                                                ).style.backgroundColor =
-                                                    'var(--vscode-button-hoverBackground)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                (
-                                                    e.target as HTMLButtonElement
-                                                ).style.backgroundColor =
-                                                    'var(--vscode-button-background)';
-                                            }}
-                                            title="Load this sample's data from disk"
-                                        >
-                                            Load
-                                        </button>
-                                    ) : isLoading ? (
-                                        <span
-                                            className="loading-spinner"
-                                            style={{
-                                                fontSize: '0.75em',
-                                                backgroundColor: 'var(--vscode-badge-background)',
-                                                color: 'var(--vscode-badge-foreground)',
-                                                padding: '2px 6px',
-                                                borderRadius: '2px',
-                                                flexShrink: 0,
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                            }}
-                                            title={sample.loadingMessage || 'Loading...'}
-                                        >
-                                            <span className="spinner-icon">⟳</span>
-                                            {sample.loadingMessage || 'Loading...'}
-                                        </span>
-                                    ) : (
-                                        <span
-                                            style={{
-                                                fontSize: '0.75em',
-                                                backgroundColor: 'var(--vscode-badge-background)',
-                                                color: 'var(--vscode-badge-foreground)',
-                                                padding: '2px 4px',
-                                                borderRadius: '2px',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            {sample.readCount.toLocaleString()} reads
-                                        </span>
-                                    )}
-
-                                    {/* Delete/Remove Sample Button (Trash Icon) */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleUnloadSample(sample.name);
-                                        }}
-                                        style={{
-                                            width: '22px',
-                                            height: '22px',
-                                            padding: '2px',
-                                            backgroundColor: 'transparent',
-                                            color: 'var(--vscode-errorForeground)',
-                                            border: '1px solid transparent',
-                                            borderRadius: '2px',
-                                            cursor: 'pointer',
-                                            flexShrink: 0,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '0.9em',
-                                            transition: 'all 0.2s',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            (e.target as HTMLButtonElement).style.backgroundColor =
-                                                'var(--vscode-inputValidation-errorBackground)';
-                                            (e.target as HTMLButtonElement).style.borderColor =
-                                                'var(--vscode-errorForeground)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            (e.target as HTMLButtonElement).style.backgroundColor =
-                                                'transparent';
-                                            (e.target as HTMLButtonElement).style.borderColor =
-                                                'transparent';
-                                        }}
-                                        title="Remove this sample"
-                                    >
-                                        🗑️
-                                    </button>
-                                </div>
-
-                                {/* Expanded Details */}
-                                {isExpanded && (
-                                    <div
-                                        style={{
-                                            padding: '5px',
-                                            backgroundColor: 'var(--vscode-input-background)',
-                                            fontSize: '0.85em',
-                                            color: 'var(--vscode-foreground)',
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {/* POD5 File */}
-                                        <div style={{ marginBottom: '4px' }}>
-                                            <div
-                                                style={{
-                                                    color: 'var(--vscode-descriptionForeground)',
-                                                    fontSize: '0.8em',
-                                                    marginBottom: '2px',
-                                                }}
-                                            >
-                                                POD5
-                                            </div>
-                                            <div
-                                                style={{
-                                                    padding: '3px 4px',
-                                                    backgroundColor:
-                                                        'var(--vscode-editor-background)',
-                                                    borderRadius: '2px',
-                                                    wordBreak: 'break-all',
-                                                }}
-                                            >
-                                                {sample.pod5Path.split('/').pop()}
-                                            </div>
-                                        </div>
-
-                                        {/* BAM File */}
-                                        <div style={{ marginBottom: '4px' }}>
-                                            <div
-                                                style={{
-                                                    color: 'var(--vscode-descriptionForeground)',
-                                                    fontSize: '0.8em',
-                                                    marginBottom: '2px',
-                                                }}
-                                            >
-                                                BAM {sample.bamPath ? '' : '(not set)'}
-                                            </div>
-                                            {sample.bamPath ? (
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        gap: '4px',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '3px 4px',
-                                                            backgroundColor:
-                                                                'var(--vscode-editor-background)',
-                                                            borderRadius: '2px',
-                                                            wordBreak: 'break-all',
-                                                        }}
-                                                    >
-                                                        {sample.bamPath.split('/').pop()}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleChangeBam(sample.name)}
-                                                        style={{
-                                                            padding: '2px 5px',
-                                                            fontSize: '0.75em',
-                                                            backgroundColor:
-                                                                'var(--vscode-button-background)',
-                                                            color: 'var(--vscode-button-foreground)',
-                                                            border: 'none',
-                                                            borderRadius: '2px',
-                                                            cursor: 'pointer',
-                                                            flexShrink: 0,
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            (
-                                                                e.target as HTMLButtonElement
-                                                            ).style.backgroundColor =
-                                                                'var(--vscode-button-hoverBackground)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            (
-                                                                e.target as HTMLButtonElement
-                                                            ).style.backgroundColor =
-                                                                'var(--vscode-button-background)';
-                                                        }}
-                                                        title="Change BAM file for this sample"
-                                                    >
-                                                        [Change]
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleChangeBam(sample.name)}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '3px',
-                                                        fontSize: '0.85em',
-                                                        backgroundColor:
-                                                            'var(--vscode-button-background)',
-                                                        color: 'var(--vscode-button-foreground)',
-                                                        border: 'none',
-                                                        borderRadius: '2px',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        (
-                                                            e.target as HTMLButtonElement
-                                                        ).style.backgroundColor =
-                                                            'var(--vscode-button-hoverBackground)';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        (
-                                                            e.target as HTMLButtonElement
-                                                        ).style.backgroundColor =
-                                                            'var(--vscode-button-background)';
-                                                    }}
-                                                    title="Add BAM file for this sample"
-                                                >
-                                                    + Add BAM
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* FASTA File - Show sample FASTA or session FASTA */}
-                                        <div style={{ marginBottom: '4px' }}>
-                                            {(() => {
-                                                const fastaPath =
-                                                    sample.fastaPath || state.sessionFastaPath;
-                                                const isSessionFasta =
-                                                    !sample.fastaPath && state.sessionFastaPath;
-                                                return (
-                                                    <>
-                                                        <div
-                                                            style={{
-                                                                color: 'var(--vscode-descriptionForeground)',
-                                                                fontSize: '0.8em',
-                                                                marginBottom: '2px',
-                                                            }}
-                                                        >
-                                                            FASTA{' '}
-                                                            {fastaPath
-                                                                ? isSessionFasta
-                                                                    ? '(session)'
-                                                                    : ''
-                                                                : '(not set)'}
-                                                        </div>
-                                                        {fastaPath ? (
-                                                            <div
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    gap: '3px',
-                                                                    alignItems: 'center',
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        flex: 1,
-                                                                        padding: '3px 4px',
-                                                                        backgroundColor:
-                                                                            'var(--vscode-editor-background)',
-                                                                        borderRadius: '2px',
-                                                                        wordBreak: 'break-all',
-                                                                    }}
-                                                                >
-                                                                    {fastaPath.split('/').pop()}
-                                                                    {isSessionFasta && (
-                                                                        <span
-                                                                            style={{
-                                                                                fontSize: '0.75em',
-                                                                                color: 'var(--vscode-descriptionForeground)',
-                                                                                marginLeft: '3px',
-                                                                            }}
-                                                                        >
-                                                                            (session)
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleChangeFasta(
-                                                                            sample.name
-                                                                        )
-                                                                    }
-                                                                    style={{
-                                                                        padding: '2px 5px',
-                                                                        fontSize: '0.75em',
-                                                                        backgroundColor:
-                                                                            'var(--vscode-button-background)',
-                                                                        color: 'var(--vscode-button-foreground)',
-                                                                        border: 'none',
-                                                                        borderRadius: '2px',
-                                                                        cursor: 'pointer',
-                                                                        flexShrink: 0,
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        (
-                                                                            e.target as HTMLButtonElement
-                                                                        ).style.backgroundColor =
-                                                                            'var(--vscode-button-hoverBackground)';
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        (
-                                                                            e.target as HTMLButtonElement
-                                                                        ).style.backgroundColor =
-                                                                            'var(--vscode-button-background)';
-                                                                    }}
-                                                                    title="Change FASTA file for this sample"
-                                                                >
-                                                                    [Change]
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() =>
-                                                                    handleAddFastaForSample(
-                                                                        sample.name
-                                                                    )
-                                                                }
-                                                                style={{
-                                                                    width: '100%',
-                                                                    padding: '3px',
-                                                                    fontSize: '0.85em',
-                                                                    backgroundColor:
-                                                                        'var(--vscode-button-background)',
-                                                                    color: 'var(--vscode-button-foreground)',
-                                                                    border: 'none',
-                                                                    borderRadius: '2px',
-                                                                    cursor: 'pointer',
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    (
-                                                                        e.target as HTMLButtonElement
-                                                                    ).style.backgroundColor =
-                                                                        'var(--vscode-button-hoverBackground)';
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    (
-                                                                        e.target as HTMLButtonElement
-                                                                    ).style.backgroundColor =
-                                                                        'var(--vscode-button-background)';
-                                                                }}
-                                                            >
-                                                                + Add FASTA
-                                                            </button>
-                                                        )}
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
-
-                                        {/* References (from BAM alignment) */}
-                                        {sample.references && sample.references.length > 0 && (
-                                            <div style={{ marginBottom: '4px' }}>
-                                                <div
-                                                    style={{
-                                                        color: 'var(--vscode-descriptionForeground)',
-                                                        fontSize: '0.8em',
-                                                        marginBottom: '2px',
-                                                    }}
-                                                >
-                                                    References ({sample.references.length})
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '3px 4px',
-                                                        backgroundColor:
-                                                            'var(--vscode-editor-background)',
-                                                        borderRadius: '2px',
-                                                        fontSize: '0.85em',
-                                                        maxHeight: '80px',
-                                                        overflowY: 'auto',
-                                                    }}
-                                                >
-                                                    {sample.references.map((ref, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            style={{
-                                                                padding: '1px 0',
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                gap: '4px',
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    flex: 1,
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis',
-                                                                    whiteSpace: 'nowrap',
-                                                                }}
-                                                                title={ref.name}
-                                                            >
-                                                                {ref.name}
-                                                            </span>
-                                                            <span
-                                                                style={{
-                                                                    color: 'var(--vscode-descriptionForeground)',
-                                                                    fontSize: '0.9em',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            >
-                                                                {ref.readCount} reads
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Unload Button */}
-                                        <div
-                                            style={{
-                                                marginTop: '5px',
-                                                borderTop: '1px solid var(--vscode-widget-border)',
-                                                paddingTop: '5px',
-                                            }}
-                                        >
-                                            <button
-                                                onClick={() => handleUnloadSample(sample.name)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '3px',
-                                                    fontSize: '0.85em',
-                                                    backgroundColor:
-                                                        'var(--vscode-button-background)',
-                                                    color: 'var(--vscode-button-foreground)',
-                                                    border: 'none',
-                                                    borderRadius: '2px',
-                                                    cursor: 'pointer',
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    (
-                                                        e.target as HTMLButtonElement
-                                                    ).style.backgroundColor =
-                                                        'var(--vscode-button-hoverBackground)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    (
-                                                        e.target as HTMLButtonElement
-                                                    ).style.backgroundColor =
-                                                        'var(--vscode-button-background)';
-                                                }}
-                                            >
-                                                Unload Sample
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                    {state.samples.map((sample) => (
+                        <SampleRow
+                            key={sample.name}
+                            sample={sample}
+                            color={state.sampleColors.get(sample.name) || '#808080'}
+                            isExpanded={state.expandedSamples.has(sample.name)}
+                            isSelected={state.selectedSamplesForVisualization.has(sample.name)}
+                            sessionFastaPath={state.sessionFastaPath}
+                            isEditing={state.editingSampleName === sample.name}
+                            editInputValue={state.editInputValue}
+                            nameEditError={state.nameEditError}
+                            editInputRef={editInputRef}
+                            onToggleExpanded={toggleSampleExpanded}
+                            onToggleSelection={handleToggleSampleSelection}
+                            onColorChange={handleSampleColorChange}
+                            onStartEdit={handleEditSampleName}
+                            onSaveEdit={handleSaveNameEdit}
+                            onCancelEdit={handleCancelNameEdit}
+                            onEditInputChange={handleEditInputChange}
+                            onChangeBam={handleChangeBam}
+                            onChangeFasta={handleChangeFasta}
+                            onAddFasta={handleAddFastaForSample}
+                            onUnload={handleUnloadSample}
+                        />
+                    ))}
                 </div>
             </div>
         </div>
