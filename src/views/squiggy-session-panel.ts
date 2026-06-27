@@ -9,6 +9,7 @@ import { BaseWebviewProvider } from './base-webview-provider';
 import { SessionStateManager } from '../state/session-state-manager';
 import { ExtensionState } from '../state/extension-state';
 import { SessionPanelIncomingMessage, UpdateSessionMessage } from '../types/messages';
+import { logger } from '../utils/logger';
 
 export class SessionPanelProvider extends BaseWebviewProvider {
     public static readonly viewType = 'squiggySessionPanel';
@@ -80,8 +81,10 @@ export class SessionPanelProvider extends BaseWebviewProvider {
 
                 this.postMessage(message);
             })
-            .catch(() => {
-                // Session load failure is non-critical; panel will show default state
+            .catch((err) => {
+                // Session load failure is non-critical; panel will show default
+                // state. Log it so session-restore issues are diagnosable.
+                logger.warning('[SessionPanel] Failed to load saved session:', err);
             });
     }
 }

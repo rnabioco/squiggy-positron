@@ -781,7 +781,29 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
         logger.warning(`Dedicated kernel session ended: ${JSON.stringify(exit)}`);
         this.session = undefined;
         this.setState(SquiggyKernelState.Error);
-        // TODO: Implement auto-restart logic
+        this.promptRestart();
+    }
+
+    /**
+     * Notify the user that the Squiggy kernel stopped and offer a one-click
+     * restart, instead of leaving the extension silently broken until they
+     * discover the restart command themselves. Skipped during disposal (the
+     * extension is shutting down, so a prompt would be noise).
+     */
+    private promptRestart(): void {
+        if (this.isDisposed) {
+            return;
+        }
+        vscode.window
+            .showErrorMessage(
+                'The Squiggy kernel stopped. Plots and data loading are unavailable.',
+                'Restart Kernel'
+            )
+            .then((choice) => {
+                if (choice === 'Restart Kernel') {
+                    vscode.commands.executeCommand('squiggy.restartBackgroundKernel');
+                }
+            });
     }
 
     /**
