@@ -464,5 +464,34 @@ describe('MotifSearchPanelProvider', () => {
             expect(html).toContain('plusStrandOnly');
             expect(html).toContain('+ strand only');
         });
+
+        it('should set a nonce-based Content Security Policy', () => {
+            provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+            const html: string = mockWebviewView.webview.html;
+            const nonceMatch = html.match(/script-src 'nonce-([0-9a-f]+)'/);
+
+            expect(html).toContain('Content-Security-Policy');
+            expect(html).toContain("default-src 'none'");
+            expect(nonceMatch).not.toBeNull();
+            expect(html).toContain(`<script nonce="${nonceMatch![1]}">`);
+        });
+
+        it('should not use inline event handlers (blocked by CSP)', () => {
+            provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+            const html: string = mockWebviewView.webview.html;
+
+            expect(html).not.toMatch(/\son(click|input|keypress|keydown)=/);
+        });
+
+        it('should escape match fields before inserting them as HTML', () => {
+            provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+            const html: string = mockWebviewView.webview.html;
+
+            expect(html).toContain('escapeHtml(match.chrom)');
+            expect(html).toContain('escapeHtml(match.sequence)');
+        });
     });
 });

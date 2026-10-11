@@ -5,6 +5,7 @@
  */
 
 import * as vscode from 'vscode';
+import { getNonce } from '../utils/webview-utils';
 import { MotifMatch } from '../types/motif-types';
 import { ExtensionState } from '../state/extension-state';
 
@@ -30,10 +31,11 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [this.extensionUri],
+            // Self-contained HTML; no local resources are loaded.
+            localResourceRoots: [],
         };
 
-        webviewView.webview.html = this.getHtmlContent();
+        webviewView.webview.html = this.getHtmlContent(webviewView.webview);
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(async (message) => {
@@ -48,11 +50,16 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    private getHtmlContent(): string {
+    private getHtmlContent(webview: vscode.Webview): string {
+        const nonce = getNonce();
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none';
+                   style-src ${webview.cspSource} 'unsafe-inline';
+                   script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Motif Search</title>
     <style>
@@ -172,7 +179,7 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
         <label>Motif Pattern (IUPAC):</label><br/>
         <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="motifInput" value="" placeholder="e.g., DRACH or CCA" style="width: 50%;"/>
-            <button onclick="searchMotif()">Search</button>
+            <button id="searchButton">Search</button>
             <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
                 <input type="checkbox" id="plusStrandOnly" checked style="width: auto; margin: 0;"/>
                 + strand only
@@ -186,8 +193,18 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
 
     <div id="resultsContainer"></div>
 
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+
+        // Escape untrusted text (FASTA headers, sequences) before inserting as HTML
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
         let currentMotif = '';
 
         function searchMotif() {
@@ -277,9 +294,9 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                                 <span class="slider-label">Upstream: <span id="upstreamValue">10</span>bp</span>
                                 <div style="display: flex; gap: 5px; align-items: center;">
                                     <input type="number" id="upstreamInput" min="0" max="50" value="10"
-                                           style="width: 50px; padding: 2px;" oninput="updateUpstreamFromInput()" />
+                                           style="width: 50px; padding: 2px;" />
                                     <input type="range" id="upstreamSlider" min="0" max="50" value="10"
-                                           style="flex: 1;" oninput="updateUpstreamValue()" />
+                                           style="flex: 1;" />
                                 </div>
                             </div>
                             <span class="slider-center">Motif<br/>Center</span>
@@ -287,14 +304,14 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
                                 <span class="slider-label">Downstream: <span id="downstreamValue">10</span>bp</span>
                                 <div style="display: flex; gap: 5px; align-items: center;">
                                     <input type="range" id="downstreamSlider" min="0" max="50" value="10"
-                                           style="flex: 1;" oninput="updateDownstreamValue()" />
+                                           style="flex: 1;" />
                                     <input type="number" id="downstreamInput" min="0" max="50" value="10"
-                                           style="width: 50px; padding: 2px;" oninput="updateDownstreamFromInput()" />
+                                           style="width: 50px; padding: 2px;" />
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <button class="plot-all-btn" onclick="plotAllMotifs()">Plot All Matches</button>
+                    <button class="plot-all-btn" id="plotAllButton">Plot All Matches</button>
                 </div>
             \`;
             windowControlContainer.innerHTML = windowHtml;
@@ -306,10 +323,10 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             matches.forEach((match, index) => {
                 html += \`<tr>
                     <td>\${index + 1}</td>
-                    <td>\${match.chrom}</td>
-                    <td>\${match.position.toLocaleString()}</td>
-                    <td class="sequence">\${match.sequence}</td>
-                    <td>\${match.strand}</td>
+                    <td>\${escapeHtml(match.chrom)}</td>
+                    <td>\${escapeHtml(match.position.toLocaleString())}</td>
+                    <td class="sequence">\${escapeHtml(match.sequence)}</td>
+                    <td>\${escapeHtml(match.strand)}</td>
                 </tr>\`;
             });
 
@@ -317,8 +334,34 @@ export class MotifSearchPanelProvider implements vscode.WebviewViewProvider {
             containerEl.innerHTML = html;
         }
 
+        // Event listeners (inline on* handlers are blocked by the CSP)
+        document.getElementById('searchButton').addEventListener('click', searchMotif);
+
+        const windowControls = document.getElementById('windowControlContainer');
+        windowControls.addEventListener('input', function(e) {
+            switch (e.target.id) {
+                case 'upstreamSlider':
+                    updateUpstreamValue();
+                    break;
+                case 'downstreamSlider':
+                    updateDownstreamValue();
+                    break;
+                case 'upstreamInput':
+                    updateUpstreamFromInput();
+                    break;
+                case 'downstreamInput':
+                    updateDownstreamFromInput();
+                    break;
+            }
+        });
+        windowControls.addEventListener('click', function(e) {
+            if (e.target.id === 'plotAllButton') {
+                plotAllMotifs();
+            }
+        });
+
         // Allow Enter key to search
-        document.getElementById('motifInput').addEventListener('keypress', function(e) {
+        document.getElementById('motifInput').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 searchMotif();
             }

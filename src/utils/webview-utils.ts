@@ -5,19 +5,19 @@
  * from individual webview providers.
  */
 
+import { randomBytes } from 'crypto';
 import * as vscode from 'vscode';
 
 /**
  * Generate a cryptographically random nonce for Content Security Policy
- * @returns 32-character random string
+ *
+ * Uses Node's CSPRNG (the extension host runs in Node) rather than
+ * Math.random(), which is not suitable for security tokens.
+ *
+ * @returns 32-character hex string (128 bits of entropy)
  */
 export function getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+    return randomBytes(16).toString('hex');
 }
 
 /**
@@ -50,8 +50,7 @@ export function getReactWebviewHtml(
           content="default-src 'none';
                    style-src ${webview.cspSource} 'unsafe-inline';
                    font-src ${webview.cspSource};
-                   script-src 'nonce-${nonce}';
-                   connect-src 'self';">
+                   script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
     <style>
@@ -91,6 +90,8 @@ export function getReactWebviewHtml(
 export function getWebviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
     return {
         enableScripts: true,
-        localResourceRoots: [extensionUri],
+        // Only the bundled webview script is loaded from disk; restrict access
+        // to the build output rather than the whole extension directory.
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'build')],
     };
 }
