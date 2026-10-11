@@ -5,10 +5,22 @@
   "version": "0.2.0",
   "publisher": "rnabioco",
   "icon": "resources/icon-128.png",
+  "license": "MIT",
+  "homepage": "https://github.com/rnabioco/squiggy-positron#readme",
+  "bugs": {
+    "url": "https://github.com/rnabioco/squiggy-positron/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/rnabioco/squiggy-positron.git"
   },
+  "keywords": [
+    "positron",
+    "nanopore",
+    "pod5",
+    "squiggle",
+    "bioinformatics"
+  ],
   "engines": {
     "vscode": "^1.96.0",
     "positron": "^2025.6.0"
@@ -21,6 +33,19 @@
     "onStartupFinished"
   ],
   "main": "./build/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Squiggy creates a Python environment and executes code in a Python kernel, which requires a trusted workspace."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Squiggy reads POD5/BAM/FASTA files from the local file system."
+    }
+  },
   "contributes": {
     "commands": [
       {
@@ -293,18 +318,6 @@
           "command": "squiggy.refreshReads",
           "when": "view == squiggyReadList",
           "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "squiggy.plotRead",
-          "when": "view == squiggyReadList && viewItem == read",
-          "group": "inline"
-        },
-        {
-          "command": "squiggy.plotAggregate",
-          "when": "view == squiggyReadList && viewItem == reference",
-          "group": "inline"
         }
       ]
     },
