@@ -61,10 +61,9 @@ export class PositronRuntimeClient implements RuntimeClient {
             throw new KernelNotAvailableError();
         }
 
-        // Check if session has onDidChangeRuntimeState event (may not exist in all Positron versions)
-        const hasStateEvent = session && typeof session.onDidChangeRuntimeState === 'function';
-
-        if (hasStateEvent) {
+        // onDidChangeRuntimeState is optional on BaseLanguageRuntimeSession
+        // (only guaranteed on Positron 2026.09+)
+        if (typeof session.onDidChangeRuntimeState === 'function') {
             return this.ensureKernelReadyViaEvents(session);
         } else {
             return this.ensureKernelReadyViaPolling();
@@ -75,7 +74,7 @@ export class PositronRuntimeClient implements RuntimeClient {
      * Ensure kernel ready using event-based approach (Positron API with onDidChangeRuntimeState)
      */
     private async ensureKernelReadyViaEvents(
-        session: positron.LanguageRuntimeSession
+        session: positron.BaseLanguageRuntimeSession
     ): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
@@ -109,7 +108,8 @@ export class PositronRuntimeClient implements RuntimeClient {
             };
 
             // Listen for state changes
-            const disposable = session.onDidChangeRuntimeState((state: string) => {
+            // Caller verified the optional event exists
+            const disposable = session.onDidChangeRuntimeState!((state: string) => {
                 if (checkState(state)) {
                     disposable.dispose();
                 }
