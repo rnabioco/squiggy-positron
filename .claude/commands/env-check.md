@@ -14,7 +14,7 @@ Verify the development environment is properly configured:
    - Run `ls node_modules | wc -l` to count installed packages (should be ~730+)
 
 3. **Check build tools**
-   - Run `npx tsc --version` to verify TypeScript
+   - Run `node node_modules/typescript/bin/tsc --version` (6.x, JS API) and `node node_modules/@typescript/native/lib/tsc.js --version` (7.x, native) to verify TypeScript
    - Run `npx webpack --version` to verify webpack
    - Run `npx jest --version` to verify jest
 

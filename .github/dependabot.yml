@@ -35,6 +35,9 @@ updates:
       prefix-development: chore
       include: scope
     groups:
+      # Includes @typescript/native (npm alias of typescript@7, used only for
+      # `npm run typecheck`), so TS 7 minor/patch bumps land with the other
+      # dev updates. `typescript` itself stays on 6.x for the JS-API tools.
       npm-dev-minor-patch:
         dependency-type: development
         update-types:
