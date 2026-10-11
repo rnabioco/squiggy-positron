@@ -142,6 +142,9 @@ export const CONSTANTS = {
     // Virtualization
     ROW_HEIGHT: 26, // px
     OVERSCAN_COUNT: 5, // Number of items to render outside visible area
+    // List height used for the first render, before ResizeObserver reports the
+    // real size (matches the previous 600px container default minus the 32px header)
+    DEFAULT_LIST_HEIGHT: 568, // px
 
     // Default column widths
     DEFAULT_NAME_WIDTH: 180, // px - fits typical read IDs
