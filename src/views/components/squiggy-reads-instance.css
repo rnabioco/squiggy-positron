@@ -10,6 +10,18 @@
     min-height: 0; /* Critical for flex children */
 }
 
+/* Scroll viewport below the header. A column flex container with min-height 0
+   so react-window's List (flex-grow: 1, max-height: 100%, overflow-y: auto)
+   fills the remaining height and scrolls instead of growing to its content. */
+.reads-list-viewport {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative; /* Anchor for the sticky reference header overlay */
+    outline: none;
+}
+
 /* Column headers - matches row structure exactly */
 .reads-header {
     display: flex;

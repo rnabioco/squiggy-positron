@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import { List, RowComponentProps, useListRef } from 'react-window';
 import {
     ReadsInstanceProps,
     CONSTANTS,
@@ -19,11 +19,12 @@ import { ColumnResizer } from './column-resizer';
 import './squiggy-reads-instance.css';
 
 /**
- * Data passed to each virtualized row via react-window's `itemData`.
+ * Props passed to each virtualized row via react-window's `rowProps`.
  * Keeping the row renderer module-level (instead of nested in ReadsInstance)
  * means its component identity is stable across renders, so react-window does
  * not unmount/remount every visible row on each parent render (scroll, resize,
- * sort). All per-render values flow through this object instead.
+ * sort). All per-render values flow through `rowProps` instead; react-window
+ * memoizes the row component and re-renders rows when these values change.
  */
 interface ReadRowData {
     items: ReadListItem[];
@@ -36,27 +37,25 @@ interface ReadRowData {
     onToggleReference: (referenceName: string) => void;
 }
 
-const ReadRow = React.memo(function ReadRow({
+function ReadRow({
+    ariaAttributes,
     index,
     style,
-    data,
-}: ListChildComponentProps<ReadRowData>) {
-    const {
-        items,
-        focusedIndex,
-        selectedReadIds,
-        nameColumnWidth,
-        detailsColumnWidth,
-        onPlotRead,
-        onSelectRead,
-        onToggleReference,
-    } = data;
+    items,
+    focusedIndex,
+    selectedReadIds,
+    nameColumnWidth,
+    detailsColumnWidth,
+    onPlotRead,
+    onSelectRead,
+    onToggleReference,
+}: RowComponentProps<ReadRowData>) {
     const item = items[index];
     const isFocused = index === focusedIndex;
 
     if (item.type === 'reference') {
         return (
-            <div style={style}>
+            <div style={style} {...ariaAttributes}>
                 <ReferenceGroupComponent
                     item={item}
                     isEvenRow={index % 2 === 0}
@@ -68,7 +67,7 @@ const ReadRow = React.memo(function ReadRow({
         );
     }
     return (
-        <div style={style}>
+        <div style={style} {...ariaAttributes}>
             <ReadItemComponent
                 item={item}
                 isSelected={selectedReadIds.has(item.readId)}
@@ -81,7 +80,7 @@ const ReadRow = React.memo(function ReadRow({
             />
         </div>
     );
-});
+}
 
 export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     items,
@@ -100,8 +99,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     onSort,
 }) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
-    const listRef = React.useRef<any>(null);
-    const [containerHeight, setContainerHeight] = React.useState(600);
+    const listRef = useListRef(null);
     const [localFocusedIndex, setLocalFocusedIndex] = React.useState<number | null>(focusedIndex);
 
     // Track scroll position for sticky headers
@@ -144,58 +142,35 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
         setStickyHeaderIndex(currentReferenceIndex);
     }, [scrollTop, items]);
 
-    // Handle scroll events from react-window
-    const handleScroll = React.useCallback(
-        ({ scrollOffset }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
-            setScrollTop(scrollOffset);
-        },
-        []
-    );
+    // react-window 2 has no onScroll callback of its own; the List forwards DOM
+    // props to its scroll container, so read the offset from the native event.
+    const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        setScrollTop(e.currentTarget.scrollTop);
+    }, []);
+
+    // Latest values for the rows-rendered callback, kept in refs so the callback
+    // identity stays stable. react-window 2 re-invokes onRowsRendered whenever the
+    // callback identity changes (not only when the rendered range changes, as
+    // react-window 1 did), which would re-trigger load more right after each
+    // append if the callback depended on items.length.
+    const itemCountRef = React.useRef(items.length);
+    itemCountRef.current = items.length;
+    const onLoadMoreRef = React.useRef(onLoadMore);
+    onLoadMoreRef.current = onLoadMore;
 
     // Handle infinite scroll - trigger load more when near bottom
-    const handleItemsRendered = React.useCallback(
-        ({ visibleStopIndex }: { visibleStartIndex: number; visibleStopIndex: number }) => {
-            const itemsRemaining = items.length - visibleStopIndex;
+    const handleRowsRendered = React.useCallback(
+        (visibleRows: { startIndex: number; stopIndex: number }) => {
+            const itemsRemaining = itemCountRef.current - visibleRows.stopIndex;
 
             // Trigger load more when within 50 items of the end
             if (itemsRemaining < 50 && !loadMoreTriggeredRef.current) {
                 loadMoreTriggeredRef.current = true;
-                onLoadMore();
+                onLoadMoreRef.current();
             }
         },
-        [items.length, onLoadMore]
+        []
     );
-
-    // Measure container height
-    React.useEffect(() => {
-        const updateHeight = () => {
-            if (containerRef.current) {
-                const height = containerRef.current.clientHeight;
-                if (height > 100) {
-                    // Only update if we got a reasonable height
-                    setContainerHeight(height);
-                }
-            }
-        };
-
-        // Try multiple times to get the height (handles async layout)
-        const rafId = requestAnimationFrame(() => {
-            updateHeight();
-            // Try again after a short delay if height is still small
-            setTimeout(() => {
-                updateHeight();
-            }, 100);
-        });
-
-        window.addEventListener('resize', updateHeight);
-        return () => {
-            cancelAnimationFrame(rafId);
-            window.removeEventListener('resize', updateHeight);
-        };
-    }, []);
-
-    // Items change triggers automatic re-render (no manual reset needed for FixedSizeList)
-    // resetAfterIndex is only for VariableSizeList
 
     // Handle column resizing with MIN/MAX boundaries
     const handleColumnResize = (deltaX: number) => {
@@ -210,7 +185,11 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
         onUpdateColumnWidths(newNameWidth, newDetailsWidth);
     };
 
-    // Handle keyboard navigation
+    // Handle keyboard navigation.
+    // Arrow/Page keys scroll with align 'auto' (minimal scroll to bring the row
+    // into view). react-window 1's 'smart' did the same for targets within one
+    // viewport; react-window 2's 'smart' centers any row that is not already
+    // visible, which would re-center on every ArrowDown past the bottom edge.
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!containerRef.current?.contains(document.activeElement)) {
@@ -225,7 +204,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     if (currentIndex < items.length - 1) {
                         const newIndex = currentIndex + 1;
                         setLocalFocusedIndex(newIndex);
-                        listRef.current?.scrollToItem(newIndex, 'smart');
+                        listRef.current?.scrollToRow({ index: newIndex, align: 'auto' });
                     }
                     break;
 
@@ -234,21 +213,21 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     if (currentIndex > 0) {
                         const newIndex = currentIndex - 1;
                         setLocalFocusedIndex(newIndex);
-                        listRef.current?.scrollToItem(newIndex, 'smart');
+                        listRef.current?.scrollToRow({ index: newIndex, align: 'auto' });
                     }
                     break;
 
                 case 'Home':
                     e.preventDefault();
                     setLocalFocusedIndex(0);
-                    listRef.current?.scrollToItem(0, 'start');
+                    listRef.current?.scrollToRow({ index: 0, align: 'start' });
                     break;
 
                 case 'End': {
                     e.preventDefault();
                     const lastIndex = items.length - 1;
                     setLocalFocusedIndex(lastIndex);
-                    listRef.current?.scrollToItem(lastIndex, 'end');
+                    listRef.current?.scrollToRow({ index: lastIndex, align: 'end' });
                     break;
                 }
 
@@ -256,7 +235,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     e.preventDefault();
                     const pageDownIndex = Math.min(items.length - 1, currentIndex + 10);
                     setLocalFocusedIndex(pageDownIndex);
-                    listRef.current?.scrollToItem(pageDownIndex, 'smart');
+                    listRef.current?.scrollToRow({ index: pageDownIndex, align: 'auto' });
                     break;
                 }
 
@@ -264,7 +243,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
                     e.preventDefault();
                     const pageUpIndex = Math.max(0, currentIndex - 10);
                     setLocalFocusedIndex(pageUpIndex);
-                    listRef.current?.scrollToItem(pageUpIndex, 'smart');
+                    listRef.current?.scrollToRow({ index: pageUpIndex, align: 'auto' });
                     break;
                 }
 
@@ -298,7 +277,7 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
     }, [localFocusedIndex, items, onPlotRead, onToggleReference]);
 
     // Per-render data handed to the (stable, module-level) ReadRow renderer.
-    const itemData = React.useMemo<ReadRowData>(
+    const rowProps = React.useMemo<ReadRowData>(
         () => ({
             items,
             focusedIndex: localFocusedIndex,
@@ -347,20 +326,19 @@ export const ReadsInstance: React.FC<ReadsInstanceProps> = ({
 
             {/* Virtualized list */}
             {items.length > 0 ? (
-                <div tabIndex={0} style={{ outline: 'none', flex: 1, position: 'relative' }}>
+                <div tabIndex={0} className="reads-list-viewport">
+                    {/* List sizes itself to this flex container via ResizeObserver */}
                     <List
-                        ref={listRef}
-                        height={Math.max(100, containerHeight - 32)} // Subtract header height
-                        itemCount={items.length}
-                        itemSize={CONSTANTS.ROW_HEIGHT}
-                        width="100%"
+                        listRef={listRef}
+                        rowComponent={ReadRow}
+                        rowProps={rowProps}
+                        rowCount={items.length}
+                        rowHeight={CONSTANTS.ROW_HEIGHT}
+                        defaultHeight={CONSTANTS.DEFAULT_LIST_HEIGHT}
                         overscanCount={CONSTANTS.OVERSCAN_COUNT}
-                        onItemsRendered={handleItemsRendered}
+                        onRowsRendered={handleRowsRendered}
                         onScroll={handleScroll}
-                        itemData={itemData}
-                    >
-                        {ReadRow}
-                    </List>
+                    />
 
                     {/* Sticky header overlay */}
                     {stickyHeaderIndex !== null &&
