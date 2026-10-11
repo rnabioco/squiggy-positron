@@ -13,6 +13,7 @@ export const runtime = {
     getPreferredRuntime: jest.fn(),
     getActiveSessions: jest.fn(),
     startLanguageRuntime: jest.fn(),
+    restartSession: jest.fn(),
     deleteSession: jest.fn(),
 };
 
