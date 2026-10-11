@@ -23,7 +23,7 @@ Squiggy is a Positron IDE extension for visualizing Oxford Nanopore sequencing d
 
 ## System Requirements
 
-- **Positron IDE**: Version 2025.6.0 or later
+- **Positron IDE**: Version 2025.10.0 or later
 - **Operating Systems**: macOS (Intel/Apple Silicon), Linux, Windows
 - **Python**: 3.12 or later
 - **Memory**: 4GB RAM minimum (8GB recommended for large POD5 files)
