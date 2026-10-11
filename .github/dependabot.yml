@@ -54,6 +54,12 @@ updates:
         update-types:
           - version-update:semver-minor
           - version-update:semver-major
+      # TypeScript 7 is not yet supported by typescript-eslint (peer range is
+      # <6.1) or ts-jest; npm install fails with ERESOLVE. Drop this once both
+      # support it.
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
       # Keep @types/node on the Node line used by the Positron extension host.
       - dependency-name: "@types/node"
         update-types:
