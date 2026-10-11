@@ -27,7 +27,7 @@ Squiggy is a Positron extension that integrates nanopore signal visualization in
 
 ### Prerequisites
 
-- **Positron IDE** (version 2025.6.0+)
+- **Positron IDE** (version 2025.10.0+)
 - **Python 3.12+** available on your system
 - **uv** - Fast Python package manager ([install uv](https://docs.astral.sh/uv/getting-started/installation/))
 
@@ -151,7 +151,7 @@ See the [Developer Guide](https://rnabioco.github.io/squiggy-positron/developer-
 
 ## Requirements
 
-- **Positron IDE** (version 2025.6.0+)
+- **Positron IDE** (version 2025.10.0+)
 - **Python 3.12+** available on your system
 - **uv** for automatic Python environment setup
 

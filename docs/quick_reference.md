@@ -386,7 +386,7 @@ wc -l file.fasta
 
 ### Extension Won't Load
 
-- [ ] Positron 2025.6.0 or later?
+- [ ] Positron 2025.10.0 or later?
 - [ ] Python 3.12+?
 - [ ] Virtual environment activated?
 - [ ] Reload extension: View → Extensions → Reload

@@ -4,7 +4,7 @@ This guide covers setting up the development environment, understanding the arch
 
 ## Prerequisites
 
-- **Positron IDE** (version 2025.6.0+) - Download from [Positron releases](https://github.com/posit-dev/positron/releases)
+- **Positron IDE** (version 2025.10.0+) - Download from [Positron releases](https://github.com/posit-dev/positron/releases)
 - **Git** with Git LFS enabled
 
 **Choose ONE environment manager:**
