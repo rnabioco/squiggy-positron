@@ -141,6 +141,7 @@ pixi run docs     # Serve documentation locally (zensical serve)
 ```bash
 # TypeScript only
 npm run compile         # Compile TypeScript once
+npm run typecheck       # Type-check only (native TypeScript 7 compiler, --noEmit)
 npm test                # Run TypeScript tests only
 npm run lint            # Lint TypeScript
 npm run format          # Format TypeScript
@@ -162,6 +163,7 @@ pytest tests/test_io.py -v                     # Run specific test file
 **Pixi-specific granular commands:**
 ```bash
 pixi run compile    # Compile TypeScript once
+pixi run typecheck  # Type-check with the native TypeScript 7 compiler
 pixi run test-ts    # Run TypeScript tests only
 pixi run test-py    # Run Python tests only
 pixi run lint-ts    # Lint TypeScript
@@ -171,6 +173,21 @@ pixi run format-ts  # Format TypeScript
 pixi run format-py  # Format Python
 pixi run format     # Format Python + TypeScript
 ```
+
+### Two TypeScript Versions
+
+Like Positron and VS Code, the project installs two TypeScript packages:
+
+- `typescript` (6.x): the JavaScript compiler API, used by ts-loader (webpack),
+  ts-jest and typescript-eslint. These tools do not support TypeScript 7 yet, so
+  this package must stay on 6.x; do not accept TypeScript 7 major bumps for it.
+- `@typescript/native` (an npm alias of `typescript@7`): the native Go compiler,
+  used only by `npm run typecheck` to type-check `tsconfig.json` and
+  `tsconfig.jest.json` with `--noEmit`.
+
+Both packages ship a `tsc` bin, so `npx tsc` is ambiguous. Scripts call the
+native compiler by path (`node node_modules/@typescript/native/lib/tsc.js`), as
+VS Code does; use `node node_modules/typescript/bin/tsc` for TypeScript 6.
 
 ### Quality Checks
 

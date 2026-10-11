@@ -10,6 +10,7 @@
 
 - **Dependency Updates**: Bumped Python (bokeh 3.10, numpy 2.x, pysam 0.24, ruff 0.17, pytest 9), npm (TypeScript 6.0, ESLint 10, webpack-cli 7, css-loader 7, style-loader 4, vsce 4, ovsx 1, jest-dom 7, React 19.3), and GitHub Actions (checkout v7, setup-node v7, setup-pixi v0.11, upload-artifact v7, codecov v7); CI now runs on Node.js 24. `@types/vscode` is pinned to the `engines.vscode` floor (1.96)
 - **react-window 2**: Migrated the Read Explorer table from react-window 1.8 to 2.x (`List` with `rowComponent`/`rowProps`, built-in ResizeObserver sizing replaces manual container measurement); dropped `@types/react-window` since v2 ships its own types
+- **Native TypeScript 7 type-check**: Added `@typescript/native` (npm alias of `typescript@7`) and an `npm run typecheck` / `pixi run typecheck` script (also run in CI); `typescript` stays on 6.x for ts-loader, ts-jest, and typescript-eslint, mirroring Positron and VS Code
 - **Dependabot**: Weekly grouped updates for npm, GitHub Actions, and pip (`pyproject.toml`), plus a scheduled workflow that runs `pixi update` and opens a PR for `pixi.lock` (Dependabot does not support pixi)
 
 ## v0.2.0 (2026-06-29)

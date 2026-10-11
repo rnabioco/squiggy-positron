@@ -15,7 +15,7 @@ sync = "node scripts/sync-version.js"
 # === Main Development Workflow ===
 dev = "npm run watch"
 test = { depends-on = ["test-py", "test-ts"] }
-check = { depends-on = ["format-check", "lint", "test"] }
+check = { depends-on = ["format-check", "lint", "typecheck", "test"] }
 build = "npm run package"
 clean = "rm -rf build/ .pytest_cache/ .ruff_cache/ site/ squiggy.egg-info/ squiggy/__pycache__/ src/squiggy.egg-info/ src/squiggy/ test-*/ tests/__pycache__/ .DS_Store"
 docs = "pixi run -e docs docs-serve"
@@ -23,6 +23,7 @@ docs-build = "pixi run -e docs docs-build"
 # === Granular Tasks ===
 # TypeScript
 compile = "npm run compile"
+typecheck = "npm run typecheck"
 test-ts = "npm test"
 lint-ts = "npm run lint"
 format-ts = "npm run format"
