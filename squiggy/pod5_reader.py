@@ -60,10 +60,12 @@ def open_reader(path: str | PathLike[str]) -> Reader:
 
 
 def close_reader(reader: Reader | None) -> None:
-    """Release a reader opened with :func:`open_reader`
+    """Exit a reader opened with :func:`open_reader`
 
-    escapepod readers have no ``close()``; leaving the context-manager protocol
-    is the supported way to release per-reader state. Safe to call on ``None``.
+    escapepod readers have no ``close()``. This calls the context-manager
+    ``__exit__``, which does not by itself release the file handle: the handle
+    is released when the last reference to the reader is dropped, so callers
+    must also discard their own reference. Safe to call on ``None``.
     """
     if reader is not None:
         reader.__exit__(None, None, None)
