@@ -17,10 +17,10 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v7
 
             - name: Setup pixi
-              uses: prefix-dev/setup-pixi@v0.8.1
+              uses: prefix-dev/setup-pixi@v0.11.0
               with:
                   pixi-version: latest
                   cache: true
@@ -29,9 +29,9 @@ jobs:
               run: pixi install
 
             - name: Setup Node.js with npm cache
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v7
               with:
-                  node-version: '20'
+                  node-version: '24'
                   cache: 'npm'
 
             - name: Install npm dependencies
@@ -41,7 +41,7 @@ jobs:
               run: pixi run build
 
             - name: Upload .vsix artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: squiggy-positron-extension
                   path: "build/*.vsix"
