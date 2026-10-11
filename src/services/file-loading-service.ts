@@ -144,7 +144,9 @@ export class FileLoadingService {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             logger.error(`[loadSampleIntoRegistry] Error caught: ${errorMessage}`);
-            throw new Error(`Failed to load sample into registry: ${errorMessage}`);
+            throw new Error(`Failed to load sample into registry: ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 

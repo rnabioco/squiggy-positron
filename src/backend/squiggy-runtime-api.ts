@@ -807,7 +807,7 @@ if '_squiggy_motif_matches_json' in globals():
             return (matches as MotifMatch[]) || [];
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to search motif: ${errorMessage}`);
+            throw new Error(`Failed to search motif: ${errorMessage}`, { cause: error });
         }
     }
 
@@ -842,7 +842,9 @@ squiggy.plot_motif_aggregate_all(
             await this.runPlotCode(code, 'motif aggregate plot');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to generate motif aggregate all plot: ${errorMessage}`);
+            throw new Error(`Failed to generate motif aggregate all plot: ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 
@@ -926,7 +928,9 @@ del _s
         } catch (error) {
             logger.error(`[loadSample] Error loading sample '${sampleName}'`, error);
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to load sample '${sampleName}': ${errorMessage}`);
+            throw new Error(`Failed to load sample '${sampleName}': ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 
@@ -943,7 +947,7 @@ del _s
             return (sampleNames as string[]) || [];
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to list samples: ${errorMessage}`);
+            throw new Error(`Failed to list samples: ${errorMessage}`, { cause: error });
         }
     }
 
@@ -991,7 +995,7 @@ if '_sample_info' in globals():
             return sampleInfo;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to get sample info: ${errorMessage}`);
+            throw new Error(`Failed to get sample info: ${errorMessage}`, { cause: error });
         }
     }
 
@@ -1011,7 +1015,9 @@ squiggy.remove_sample(${sampleNameLiteral})
             await this._client.executeSilent(code);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to remove sample '${sampleName}': ${errorMessage}`);
+            throw new Error(`Failed to remove sample '${sampleName}': ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 
@@ -1351,11 +1357,14 @@ squiggy.plot_signal_overlay_comparison(
                 throw new Error(
                     `Sample not found in Python session. ` +
                         `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
-                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`,
+                    { cause: error }
                 );
             }
 
-            throw new Error(`Failed to generate signal overlay comparison plot: ${errorMessage}`);
+            throw new Error(`Failed to generate signal overlay comparison plot: ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 
@@ -1398,7 +1407,9 @@ squiggy.plot_delta_comparison(
             await this.runPlotCode(code, 'delta comparison plot');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to generate delta comparison plot: ${errorMessage}`);
+            throw new Error(`Failed to generate delta comparison plot: ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 
@@ -1485,11 +1496,14 @@ squiggy.plot_aggregate_comparison(
                 throw new Error(
                     `Sample not found in Python session. ` +
                         `This can happen if samples were loaded through the UI but the Python backend needs to be re-synchronized. ` +
-                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`
+                        `Try loading the samples again using "Load Sample Data" in the File Explorer.`,
+                    { cause: error }
                 );
             }
 
-            throw new Error(`Failed to generate aggregate comparison plot: ${errorMessage}`);
+            throw new Error(`Failed to generate aggregate comparison plot: ${errorMessage}`, {
+                cause: error,
+            });
         }
     }
 }

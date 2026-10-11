@@ -405,7 +405,9 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             );
             logger.info('Squiggy package verified in reconnected session');
         } catch (error) {
-            throw new Error(`Squiggy package not available in reconnected session: ${error}`);
+            throw new Error(`Squiggy package not available in reconnected session: ${error}`, {
+                cause: error,
+            });
         }
     }
 
@@ -541,7 +543,7 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
                 );
                 return JSON.parse(result.result);
             } catch (error) {
-                throw new Error(`Failed to get variable ${varName}: ${error}`);
+                throw new Error(`Failed to get variable ${varName}: ${error}`, { cause: error });
             }
         }
 
@@ -565,7 +567,7 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
             await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`).catch(
                 () => {}
             );
-            throw new Error(`Failed to get variable ${varName}: ${error}`);
+            throw new Error(`Failed to get variable ${varName}: ${error}`, { cause: error });
         }
     }
 
@@ -736,7 +738,9 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
 `);
             logger.info('Squiggy package verified in dedicated kernel');
         } catch (error) {
-            throw new Error(`Squiggy package not available in dedicated kernel: ${error}`);
+            throw new Error(`Squiggy package not available in dedicated kernel: ${error}`, {
+                cause: error,
+            });
         }
     }
 

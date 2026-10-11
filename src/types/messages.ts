@@ -57,11 +57,7 @@ export interface FileItem {
 }
 
 export type FilePanelIncomingMessage =
-    | OpenFileMessage
-    | CloseFileMessage
-    | AddFilesMessage
-    | AddReferenceMessage
-    | ReadyMessage;
+    OpenFileMessage | CloseFileMessage | AddFilesMessage | AddReferenceMessage | ReadyMessage;
 export type FilePanelOutgoingMessage = UpdateFilesMessage;
 
 // ========== Reads View Messages ==========
@@ -573,10 +569,7 @@ export interface UpdateSetupStatusMessage extends BaseMessage {
 }
 
 export type SetupPanelIncomingMessage =
-    | ReadyMessage
-    | InstallSquiggyMessage
-    | SelectInterpreterMessage
-    | RetryInstallCheckMessage;
+    ReadyMessage | InstallSquiggyMessage | SelectInterpreterMessage | RetryInstallCheckMessage;
 
 export type SetupPanelOutgoingMessage = UpdateSetupStatusMessage;
 
