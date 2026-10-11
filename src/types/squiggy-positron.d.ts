@@ -5,15 +5,25 @@
  * is only available when running in Positron's Extension Development Host.
  *
  * Synced with: posit-dev/positron src/positron-dts/positron.d.ts
- * (upstream commit 1212541, 2026-06-26)
+ * (main as of 2026-10-11; Positron 2026.10.0 release)
  *
  * This is intentionally a minimal subset of the upstream API — only the
  * declarations the extension actually consumes. Add to it when adopting a
- * new Positron API rather than vendoring the full 3,600-line upstream file.
+ * new Positron API rather than vendoring the full ~5,500-line upstream file.
+ *
+ * Members added in recent Positron releases are marked with the release that
+ * introduced them. Callers must feature-detect (or rely on the extra argument
+ * being ignored) when engines.positron allows older versions.
  */
 
 declare module 'positron' {
     import * as vscode from 'vscode';
+
+    /** The current Positron calendar version, e.g. "2026.10.0". */
+    export const version: string;
+
+    /** Monotonically increasing build number within a release. */
+    export const buildNumber: number;
 
     // --- Execution Observer ---
 
@@ -61,11 +71,39 @@ declare module 'positron' {
         Transient = 'transient',
         /** NOT displayed, not combined, NOT stored in history. */
         Silent = 'silent',
+        /** Like Interactive, but completeness is checked by the session. (2026.09+) */
+        Unprocessed = 'unprocessed',
     }
 
+    /** Error disposition. Upstream notes this is currently ignored by kernels. */
     export enum RuntimeErrorBehavior {
         Stop = 'stop',
         Continue = 'continue',
+    }
+
+    /** What evaluateCode() does when the target runtime is busy. (2026.09+) */
+    export enum RuntimeBusyBehavior {
+        Queue = 'queue',
+        Reject = 'reject',
+    }
+
+    export enum LanguageRuntimeSessionMode {
+        Console = 'console',
+        Notebook = 'notebook',
+        /** Not creatable through the public API (startLanguageRuntime). */
+        Background = 'background',
+    }
+
+    export enum RuntimeExitReason {
+        StartupFailed = 'startupFailed',
+        Shutdown = 'shutdown',
+        ForcedQuit = 'forcedQuit',
+        Restart = 'restart',
+        SwitchRuntime = 'switchRuntime',
+        Error = 'error',
+        Transferred = 'transferred',
+        ExtensionHost = 'extensionHost',
+        Unknown = 'unknown',
     }
 
     export enum RuntimeState {
@@ -103,25 +141,57 @@ declare module 'positron' {
 
     // --- Interfaces ---
 
-    export interface BaseLanguageRuntimeSession {
-        metadata: {
-            sessionId: string;
-            sessionName: string;
-            sessionMode: string;
-        };
-        runtimeMetadata: {
-            languageId: string;
-            languageName: string;
-            runtimeId: string;
-            runtimeName: string;
-            runtimeVersion: string;
-        };
+    /** Who a session belongs to. (2026.10+) */
+    export type RuntimeSessionOwner = 'user' | 'agent';
+
+    /** Options for {@link runtime.startLanguageRuntime}. (2026.10+) */
+    export interface RuntimeSessionStartOptions {
+        /** Who the session belongs to. Defaults to `user`. */
+        readonly owner?: RuntimeSessionOwner;
+        /**
+         * Whether the session becomes the foreground session once started.
+         * Defaults to `true`. Pass `false` to leave the user's session in place.
+         */
+        readonly activate?: boolean;
     }
 
-    // Upstream models this as `LanguageRuntimeSession extends BaseLanguageRuntimeSession`.
+    export interface LanguageRuntimeExit {
+        runtime_name: string;
+        session_name: string;
+        exit_code: number;
+        reason: RuntimeExitReason;
+        message: string;
+    }
+
+    export interface BaseLanguageRuntimeSession {
+        // Upstream: `readonly metadata: RuntimeSessionMetadata`. `sessionName` is
+        // not part of upstream RuntimeSessionMetadata (it lives in getDynState()),
+        // so it is optional here.
+        readonly metadata: {
+            readonly sessionId: string;
+            readonly sessionMode: LanguageRuntimeSessionMode;
+            readonly sessionName?: string;
+            readonly notebookUri?: vscode.Uri;
+            readonly workingDirectory?: string;
+        };
+        readonly runtimeMetadata: LanguageRuntimeMetadata;
+
+        /** Last known runtime state; synchronous. (2026.09+) */
+        getRuntimeState?(): RuntimeState;
+
+        /** Fires on runtime state transitions. (2026.09+ on the base interface) */
+        onDidChangeRuntimeState?: vscode.Event<RuntimeState>;
+
+        /** Fires when the connection to the runtime is lost. (2026.09+) */
+        onDidDisconnect?: vscode.Event<void>;
+
+        /** Fires when the connection is re-established. (2026.09+) */
+        onDidReconnect?: vscode.Event<void>;
+    }
+
     export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession {
         onDidChangeRuntimeState: vscode.Event<RuntimeState>;
-        onDidEndSession: vscode.Event<any>;
+        onDidEndSession: vscode.Event<LanguageRuntimeExit>;
     }
 
     export interface RuntimeVariable {
@@ -173,10 +243,14 @@ declare module 'positron' {
     }
 
     export interface LanguageRuntimeMetadata {
+        /** Absolute, fully expanded path to the runtime executable (never contains ~). */
+        runtimePath: string;
         runtimeId: string;
         runtimeName: string;
-        runtimePath: string;
+        runtimeShortName: string;
         runtimeVersion: string;
+        /** e.g. "Venv", "Conda", "uv", "System". */
+        runtimeSource: string;
         languageId: string;
         languageName: string;
         languageVersion: string;
@@ -195,24 +269,26 @@ declare module 'positron' {
             observer?: ExecutionObserver,
             sessionId?: string,
             documentUri?: vscode.Uri,
-            executionMetadata?: Record<string, any>
+            executionMetadata?: Record<string, any>,
+            /** (2026.09+) */
+            attributionMetadata?: Record<string, any>
         ): Thenable<Record<string, any>>;
 
+        /** (2026.04+) */
         export function evaluateCode(
             languageId: string,
             code: string,
             cancellationToken?: vscode.CancellationToken,
-            sessionId?: string
+            sessionId?: string,
+            /** (2026.09+) */
+            whenBusy?: RuntimeBusyBehavior
         ): Thenable<EvalResult>;
 
-        // Upstream returns BaseLanguageRuntimeSession; deliberately widened to
-        // LanguageRuntimeSession because callers defensively access the optional
-        // onDidChangeRuntimeState event (guarded by typeof checks at runtime).
-        export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+        export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
         export function getNotebookSession(
             notebookUri: vscode.Uri
-        ): Thenable<LanguageRuntimeSession | undefined>;
+        ): Thenable<BaseLanguageRuntimeSession | undefined>;
 
         export function getSessionVariables(
             sessionId: string,
@@ -236,15 +312,22 @@ declare module 'positron' {
         export function startLanguageRuntime(
             runtimeId: string,
             sessionName: string,
-            notebookUri?: vscode.Uri
+            notebookUri?: vscode.Uri,
+            /** (2026.10+; ignored by older versions) */
+            options?: RuntimeSessionStartOptions
         ): Thenable<LanguageRuntimeSession>;
 
         export function interruptSession(sessionId: string): Thenable<void>;
 
+        /**
+         * Resolves `true` if restarted, `false` if the user declined to
+         * interrupt a busy session. (Returned `void` before 2026.04.)
+         */
         export function restartSession(sessionId: string): Thenable<boolean>;
 
         export function focusSession(sessionId: string): void;
 
+        /** (2025.10+) Resolves `false` if the user declines to interrupt a busy session. */
         export function deleteSession(sessionId: string): Thenable<boolean>;
 
         export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;

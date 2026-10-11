@@ -189,11 +189,14 @@ export class SquiggyKernelManager implements RuntimeClient {
             // Start a dedicated console session for Squiggy
             // NOTE: positron.runtime.startLanguageRuntime() only supports Console and Notebook modes
             // Background mode is not exposed through the public API
-            // This creates a Console session which is separate from the foreground session
+            // This creates a Console session which is separate from the foreground session.
+            // `activate: false` (Positron 2026.10+) keeps the user's current
+            // foreground session selected; older versions ignore the argument.
             this.session = await positron.runtime.startLanguageRuntime(
                 runtimeId,
                 SquiggyKernelManager.SESSION_NAME,
-                undefined // notebookUri - undefined means Console mode
+                undefined, // notebookUri - undefined means Console mode
+                { activate: false }
             );
 
             if (!this.session) {
@@ -425,8 +428,15 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
         try {
             const sessionId = this.getSessionId();
             if (sessionId) {
-                // Use Positron API to restart the session
-                await positron.runtime.restartSession(sessionId);
+                // Use Positron API to restart the session. Resolves `false`
+                // when the session is busy and the user declines to interrupt
+                // it (Positron 2026.04+; older versions resolve undefined).
+                const restarted = await positron.runtime.restartSession(sessionId);
+                if (restarted === false) {
+                    logger.info('Kernel restart declined by user; keeping existing session');
+                    this.setState(SquiggyKernelState.Ready);
+                    return;
+                }
 
                 // For sessions with full object (has event listeners), wait for ready
                 if (this.session) {
@@ -628,6 +638,18 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
 
         const sessionId = this.session.metadata.sessionId;
 
+        // Positron 2026.09+ exposes the last known state synchronously; if the
+        // kernel is already idle/ready, no further state-change event will fire.
+        const currentState = this.session.getRuntimeState?.();
+        if (
+            currentState === positron.RuntimeState.Ready ||
+            currentState === positron.RuntimeState.Idle
+        ) {
+            // No transition event will arrive to drive handleRuntimeStateChange
+            this.setState(SquiggyKernelState.Ready);
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
             let settled = false;
@@ -681,7 +703,14 @@ assert hasattr(squiggy, 'plot_read'), "squiggy.plot_read not found"
                     sessionId
                 )
             )
-                .then(() => finish(resolve))
+                .then(() =>
+                    finish(() => {
+                        // A successful probe may not be accompanied by a state
+                        // event, so record readiness here as well.
+                        this.setState(SquiggyKernelState.Ready);
+                        resolve();
+                    })
+                )
                 .catch(() => {
                     // Not ready yet — the state-change listener resolves/rejects.
                 });

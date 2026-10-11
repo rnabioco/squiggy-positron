@@ -91,4 +91,61 @@ describe('SquiggyKernelManager', () => {
         expect(positron.runtime.deleteSession).toHaveBeenCalledTimes(1);
         expect(mgr.getSessionId()).toBeUndefined();
     });
+
+    it('starts the session without taking the foreground (activate: false)', async () => {
+        (positron.runtime.startLanguageRuntime as any).mockResolvedValue(makeSession());
+
+        const mgr = new SquiggyKernelManager('/ext/path');
+        await mgr.start();
+
+        expect(positron.runtime.startLanguageRuntime).toHaveBeenCalledWith(
+            'rt-squiggy',
+            'Squiggy Dedicated Kernel',
+            undefined,
+            { activate: false }
+        );
+    });
+
+    it('becomes Ready via getRuntimeState() when no state event fires', async () => {
+        const session = {
+            ...makeSession(),
+            // Never emits: the kernel was already idle before we subscribed
+            onDidChangeRuntimeState: jest.fn(() => ({ dispose: jest.fn() })),
+            getRuntimeState: jest.fn(() => positron.RuntimeState.Idle),
+        };
+        (positron.runtime.startLanguageRuntime as any).mockResolvedValue(session);
+
+        const mgr = new SquiggyKernelManager('/ext/path');
+        await mgr.start();
+
+        expect(mgr.getState()).toBe(SquiggyKernelState.Ready);
+    });
+
+    it('becomes Ready when the readiness probe succeeds without a state event', async () => {
+        const session = {
+            ...makeSession(),
+            onDidChangeRuntimeState: jest.fn(() => ({ dispose: jest.fn() })),
+        };
+        (positron.runtime.startLanguageRuntime as any).mockResolvedValue(session);
+        (positron.runtime.executeCode as any).mockResolvedValue({});
+
+        const mgr = new SquiggyKernelManager('/ext/path');
+        await mgr.start();
+
+        expect(mgr.getState()).toBe(SquiggyKernelState.Ready);
+    });
+
+    it('keeps the existing session when the user declines a restart', async () => {
+        (positron.runtime.startLanguageRuntime as any).mockResolvedValue(makeSession());
+        (positron.runtime.restartSession as any).mockResolvedValue(false);
+
+        const mgr = new SquiggyKernelManager('/ext/path');
+        await mgr.start();
+        await mgr.restart();
+
+        expect(positron.runtime.restartSession).toHaveBeenCalledWith('sess-1');
+        expect(positron.runtime.startLanguageRuntime).toHaveBeenCalledTimes(1);
+        expect(mgr.getState()).toBe(SquiggyKernelState.Ready);
+        expect(mgr.getSessionId()).toBe('sess-1');
+    });
 });
