@@ -739,8 +739,10 @@ npm run package
   `reader.get_signal(record)` and sample rate from `reader.run_infos[record.run_info_index]`;
   `iter_reads()` bundles these into a `SignalRead` (`read_id`, `signal`, `sample_rate`)
 - `Reader.read_ids()` is a method and `read_count` replaces pod5's `num_reads`
-- escapepod readers have no `close()`; use `close_reader()` (exits the context manager).
-  Opened files stay in escapepod's process-wide reader cache
+- escapepod readers have no `close()`. The file handle is released when the last
+  reference to the `Reader` is dropped (verified with `lsof`); `close_reader()` only
+  calls `__exit__`, which does not release it. To release a file, drop every reference
+  (reader and any lazily-held reads), as `close_pod5()` does
 - VBZ decompression is built in (no `vbz_h5py_plugin` needed)
 
 ### BAM Files
