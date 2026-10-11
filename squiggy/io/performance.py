@@ -2,72 +2,67 @@
 
 from collections.abc import Iterator
 
-import pod5
+from ..pod5_reader import Reader, read_count, read_ids
 
 
 class LazyReadList:
     """
-    Virtual list of read IDs backed by pod5.Reader's Arrow metadata
+    Virtual list of read IDs backed by a POD5 reader's metadata
 
-    Uses pod5.Reader.num_reads (O(1)) for length and reader.read_ids
-    (Arrow column read, no signal decompression) for ID access. This is
-    orders of magnitude faster than iterating reader.reads() which
-    decompresses signal data.
+    Uses the reader's O(1) read count for ``len()`` and its read-ID metadata
+    (no signal decompression) for ID access. The ID list is fetched once on
+    first access and reused for subsequent slices.
 
     Attributes:
         _reader: POD5 Reader instance
         _materialized_ids: Optional fully materialized list (for search)
 
     Examples:
-        >>> reader = pod5.Reader('file.pod5')
+        >>> from squiggy.pod5_reader import open_reader
+        >>> reader = open_reader('file.pod5')
         >>> lazy_list = LazyReadList(reader)
-        >>> len(lazy_list)  # O(1) via reader.num_reads
+        >>> len(lazy_list)  # O(1) read count
         1000000
-        >>> lazy_list[0:100]  # Arrow metadata read
+        >>> lazy_list[0:100]  # metadata only
         ['read1', 'read2', ...]
     """
 
-    def __init__(self, reader: pod5.Reader):
+    def __init__(self, reader: Reader):
         self._reader = reader
         self._materialized_ids: list[str] | None = None
+        self._id_cache: list[str] | None = None
+
+    def _ids(self) -> list[str]:
+        if self._materialized_ids is not None:
+            return self._materialized_ids
+        if self._id_cache is None:
+            self._id_cache = read_ids(self._reader)
+        return self._id_cache
 
     def __len__(self) -> int:
-        """Total read count via reader.num_reads (O(1))"""
+        """Total read count (O(1))"""
         if self._materialized_ids is not None:
             return len(self._materialized_ids)
-        return self._reader.num_reads
+        return read_count(self._reader)
 
     def __getitem__(self, key: int | slice) -> str | list[str]:
-        """Get read ID(s) at index/slice via Arrow metadata"""
-        if self._materialized_ids is not None:
-            return self._materialized_ids[key]
-
-        # Use reader.read_ids (Arrow metadata, no signal decompression)
-        all_ids = self._reader.read_ids
-        if isinstance(key, slice):
-            return [str(rid) for rid in all_ids[key]]
-        else:
-            return str(all_ids[key])
+        """Get read ID(s) at index/slice"""
+        return self._ids()[key]
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over all read IDs"""
-        if self._materialized_ids is not None:
-            yield from self._materialized_ids
-        else:
-            for rid in self._reader.read_ids:
-                yield str(rid)
+        yield from self._ids()
 
     def materialize(self) -> list[str]:
         """
         Fully materialize the list (for search/caching)
 
-        Uses reader.read_ids (Arrow metadata) instead of iterating reads().
-
         Returns:
             Complete list of all read IDs as strings
         """
         if self._materialized_ids is None:
-            self._materialized_ids = [str(rid) for rid in self._reader.read_ids]
+            self._materialized_ids = list(self._ids())
+            self._id_cache = None
         return self._materialized_ids
 
     def __repr__(self) -> str:

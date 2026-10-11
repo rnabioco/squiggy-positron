@@ -26,17 +26,15 @@ class TestSample:
 
     def test_sample_repr_with_pod5(self, sample_pod5_file):
         """Test Sample repr with POD5 loaded"""
-        import pod5
-
         from squiggy.io import Sample
+        from squiggy.pod5_reader import open_reader, read_ids
 
         sample = Sample("model_v4.2")
-        reader = pod5.Reader(str(sample_pod5_file))
-        read_ids = [str(read.read_id) for read in reader.reads()]
+        reader = open_reader(sample_pod5_file)
 
         sample._pod5_path = str(sample_pod5_file)
         sample._pod5_reader = reader
-        sample._read_ids = read_ids
+        sample._read_ids = read_ids(reader)
 
         repr_str = repr(sample)
         assert "model_v4.2" in repr_str
@@ -44,17 +42,15 @@ class TestSample:
 
     def test_sample_close(self, sample_pod5_file):
         """Test that sample.close() properly cleans up"""
-        import pod5
-
         from squiggy.io import Sample
+        from squiggy.pod5_reader import open_reader, read_ids
 
         sample = Sample("test")
-        reader = pod5.Reader(str(sample_pod5_file))
-        read_ids = [str(read.read_id) for read in reader.reads()]
+        reader = open_reader(sample_pod5_file)
 
         sample._pod5_path = str(sample_pod5_file)
         sample._pod5_reader = reader
-        sample._read_ids = read_ids
+        sample._read_ids = read_ids(reader)
 
         sample.close()
 

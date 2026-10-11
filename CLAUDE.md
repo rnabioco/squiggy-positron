@@ -53,7 +53,7 @@ The extension provides interactive Bokeh visualizations with support for base an
 - **webpack**: Module bundler (dual bundle: extension + webview)
 
 **Python Package (Backend)**:
-- **pod5**: Reading Oxford Nanopore POD5 files
+- **escapepod**: Reading Oxford Nanopore POD5 files (Rust-backed reader from [rnabioco/escapepod-rs](https://github.com/rnabioco/escapepod-rs))
 - **pysam**: BAM file parsing for base annotations
 - **bokeh**: Interactive visualization library
 - **numpy**: Signal processing and normalization
@@ -75,6 +75,7 @@ squiggy-positron-extension/
 │   ├── api.py                         # Object-oriented API for notebooks
 │   ├── io.py                          # POD5/BAM file loading with kernel state
 │   ├── plot_factory.py                # Factory for creating plot strategies
+│   ├── pod5_reader.py                 # POD5 access via escapepod (SignalRead adapter)
 │   ├── alignment.py                   # Base annotation extraction from BAM
 │   ├── constants.py                   # Enums and constants
 │   ├── modifications.py               # Base modification parsing
@@ -732,9 +733,15 @@ npm run package
 
 ### POD5 Files
 
-- Require `vbz_h5py_plugin` for VBZ compression (installed with pod5)
-- Use context managers: `with pod5.Reader(path) as reader:`
-- Read objects are temporary - store IDs, not objects
+- Read with escapepod, always through `squiggy/pod5_reader.py` (`open_reader`,
+  `iter_reads`, `get_read`, `close_reader`) rather than calling escapepod directly
+- escapepod read records (`ReadData`) are metadata only: signal comes from
+  `reader.get_signal(record)` and sample rate from `reader.run_infos[record.run_info_index]`;
+  `iter_reads()` bundles these into a `SignalRead` (`read_id`, `signal`, `sample_rate`)
+- `Reader.read_ids()` is a method and `read_count` replaces pod5's `num_reads`
+- escapepod readers have no `close()`; use `close_reader()` (exits the context manager).
+  Opened files stay in escapepod's process-wide reader cache
+- VBZ decompression is built in (no `vbz_h5py_plugin` needed)
 
 ### BAM Files
 

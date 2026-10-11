@@ -26,7 +26,8 @@ Examples:
 
 import argparse
 import pysam
-import pod5
+import escapepod
+from _pod5_copy import ReadCopier
 from pathlib import Path
 from typing import List, Dict, Any, Union
 
@@ -183,27 +184,26 @@ def extract_reads_from_pod5(
     remaining_read_ids = set(read_ids)
     skipped_end_reason = {}  # Track reads skipped due to end_reason
 
-    with pod5.Writer(output_path) as writer:
+    with escapepod.Writer(output_path) as writer:
+        copier = ReadCopier(writer)
         # Search through all POD5 files
         for pod5_file in pod5_files:
             if not remaining_read_ids:
                 break  # All reads found
 
             try:
-                with pod5.Reader(pod5_file) as reader:
+                with escapepod.Reader(pod5_file) as reader:
                     # Use selection parameter to efficiently get only the requested reads
                     for read_record in reader.reads(selection=list(remaining_read_ids), missing_ok=True):
-                        read_id_str = str(read_record.read_id)
+                        read_id_str = read_record.read_id
 
                         # Check end_reason - only include signal_positive reads
-                        if read_record.end_reason.name != "signal_positive":
-                            skipped_end_reason[read_id_str] = read_record.end_reason.name
+                        if read_record.end_reason != "signal_positive":
+                            skipped_end_reason[read_id_str] = read_record.end_reason
                             remaining_read_ids.remove(read_id_str)
                             continue
 
-                        # Convert ReadRecord to Read object before adding to writer
-                        writer.add_read(read_record.to_read())
-                        # Convert UUID to string for comparison with BAM read IDs
+                        copier.copy(reader, read_record)
                         remaining_read_ids.remove(read_id_str)
                         extracted_count += 1
 

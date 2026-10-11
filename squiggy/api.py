@@ -39,7 +39,6 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
-import pod5
 import pysam
 from bokeh.plotting import figure as BokehFigure
 
@@ -48,6 +47,8 @@ from .constants import NormalizationMethod, PlotMode, Theme
 from .motif import MotifMatch, search_motif
 from .normalization import normalize_signal
 from .plot_factory import create_plot_strategy
+from .pod5_reader import SignalRead, close_reader, get_read, iter_reads, open_reader
+from .pod5_reader import read_ids as _reader_read_ids
 
 
 class Pod5File:
@@ -77,7 +78,7 @@ class Pod5File:
         self.path = str(resolved_path)
 
         # Open reader
-        self._reader = pod5.Reader(self.path)
+        self._reader = open_reader(self.path)
 
         # Cache read IDs (lazy loaded on first access)
         self._read_ids: list[str] | None = None
@@ -86,8 +87,8 @@ class Pod5File:
     def read_ids(self) -> list[str]:
         """Get list of all read IDs in the file"""
         if self._read_ids is None:
-            # Use read_ids attribute for O(1) indexed access instead of O(n) iteration
-            self._read_ids = [str(rid) for rid in self._reader.read_ids]
+            # Read IDs come from metadata only (no signal decoding)
+            self._read_ids = _reader_read_ids(self._reader)
         return self._read_ids
 
     def __len__(self) -> int:
@@ -107,14 +108,10 @@ class Pod5File:
         Raises:
             ValueError: If read ID not found
         """
-        # Use POD5's native indexed selection for O(1) access
-        try:
-            for read_obj in self._reader.reads(selection=[read_id]):
-                return Read(read_obj, self)
-        except RuntimeError:
-            pass  # Invalid read ID - fall through to ValueError
-
-        raise ValueError(f"Read not found: {read_id}")
+        read_obj = get_read(self._reader, read_id)
+        if read_obj is None:
+            raise ValueError(f"Read not found: {read_id}")
+        return Read(read_obj, self)
 
     def iter_reads(self, limit: int | None = None) -> Iterator["Read"]:
         """
@@ -130,17 +127,15 @@ class Pod5File:
             >>> for read in pod5.iter_reads(limit=100):
             ...     print(f"{read.read_id}: {len(read.signal)} samples")
         """
-        count = 0
-        for read_obj in self._reader.reads():
+        for count, read_obj in enumerate(iter_reads(self._reader)):
             if limit is not None and count >= limit:
                 break
             yield Read(read_obj, self)
-            count += 1
 
     def close(self):
         """Close the POD5 file"""
         if self._reader is not None:
-            self._reader.close()
+            close_reader(self._reader)
             self._reader = None
 
     def __enter__(self):
@@ -168,20 +163,20 @@ class Read:
         sample_rate: Sampling rate in Hz
     """
 
-    def __init__(self, pod5_read: pod5.ReadRecord, parent_file: Pod5File):
+    def __init__(self, pod5_read: SignalRead, parent_file: Pod5File):
         """
-        Initialize Read from pod5.Read object
+        Initialize Read from a loaded POD5 read
 
         Args:
-            pod5_read: pod5.ReadRecord object
+            pod5_read: SignalRead from squiggy.pod5_reader
             parent_file: Parent Pod5File object
         """
         self._parent = parent_file
 
-        # Cache all properties immediately (pod5 read handle is temporary)
-        self._read_id = str(pod5_read.read_id)
-        self._signal = pod5_read.signal  # Must cache now, handle closes later
-        self._sample_rate = pod5_read.run_info.sample_rate
+        # Cache all properties immediately (independent of the reader's lifetime)
+        self._read_id = pod5_read.read_id
+        self._signal = pod5_read.signal
+        self._sample_rate = pod5_read.sample_rate
 
     @property
     def read_id(self) -> str:

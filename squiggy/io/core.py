@@ -5,9 +5,9 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
-import pod5
 import pysam
 
+from ..pod5_reader import SignalRead, get_read, iter_reads, open_reader
 from .kernel import squiggy_kernel
 from .performance import LazyReadList
 from .samples import Sample
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def get_reads_batch(
     read_ids: list[str], sample_name: str | None = None
-) -> dict[str, pod5.ReadRecord]:
+) -> dict[str, SignalRead]:
     """
     Fetch multiple reads in a single pass (O(n) instead of O(m×n))
 
@@ -31,7 +31,7 @@ def get_reads_batch(
                      If None, uses global session reader.
 
     Returns:
-        Dict mapping read_id to ReadRecord for found reads
+        Dict mapping read_id to SignalRead for found reads
 
     Raises:
         RuntimeError: If no POD5 file is loaded
@@ -55,17 +55,16 @@ def get_reads_batch(
             raise RuntimeError("No POD5 file is currently loaded")
         reader = squiggy_kernel._reader
 
-    # Use selection parameter for O(1) indexed access instead of O(n) iteration
-    found = {}
-    for read in reader.reads(selection=read_ids, missing_ok=True):
-        found[str(read.read_id)] = read
-
-    return found
+    # Indexed selection: only the requested reads' signal is decoded
+    return {
+        read.read_id: read
+        for read in iter_reads(reader, selection=read_ids, missing_ok=True)
+    }
 
 
 def get_reads_batch_multi_sample(
     read_sample_map: dict[str, str],
-) -> dict[str, pod5.ReadRecord]:
+) -> dict[str, SignalRead]:
     """
     Fetch multiple reads from different samples in optimized batches
 
@@ -76,7 +75,7 @@ def get_reads_batch_multi_sample(
         read_sample_map: Dict mapping read_id → sample_name
 
     Returns:
-        Dict mapping read_id to ReadRecord for found reads
+        Dict mapping read_id to SignalRead for found reads
 
     Raises:
         RuntimeError: If a sample is not loaded or has no POD5 file
@@ -108,13 +107,11 @@ def get_reads_batch_multi_sample(
     return all_reads
 
 
-def get_read_by_id(
-    read_id: str, sample_name: str | None = None
-) -> pod5.ReadRecord | None:
+def get_read_by_id(read_id: str, sample_name: str | None = None) -> SignalRead | None:
     """
     Get a single read by ID using index if available
 
-    Uses pod5's native indexed selection for O(1) lookup.
+    Uses the reader's indexed read-ID lookup.
 
     Args:
         read_id: Read ID to fetch
@@ -122,7 +119,7 @@ def get_read_by_id(
                      If None, uses global session reader.
 
     Returns:
-        ReadRecord or None if not found
+        SignalRead or None if not found
 
     Raises:
         RuntimeError: If no POD5 file is loaded
@@ -146,13 +143,7 @@ def get_read_by_id(
             raise RuntimeError("No POD5 file is currently loaded")
         reader = squiggy_kernel._reader
 
-    # Use POD5's native indexed selection for O(1) access
-    try:
-        for read in reader.reads(selection=[read_id]):
-            return read
-    except RuntimeError:
-        pass  # Invalid read ID
-    return None
+    return get_read(reader, read_id)
 
 
 def load_pod5(file_path: str) -> None:
@@ -162,8 +153,8 @@ def load_pod5(file_path: str) -> None:
     This function mutates the global squiggy_kernel object, making
     POD5 data available for subsequent plotting and analysis calls.
 
-    Uses pod5.Reader.num_reads (O(1)) and reader.read_ids (Arrow metadata)
-    for instant loading regardless of file size. No iteration over reads
+    Uses the reader's O(1) read count and read-ID metadata for fast
+    loading regardless of file size. No iteration over reads
     or signal decompression is performed.
 
     Args:
@@ -178,7 +169,7 @@ def load_pod5(file_path: str) -> None:
         >>> load_pod5('data.pod5')
         >>> print(f"Loaded {len(squiggy_kernel._read_ids)} reads")
         >>> # Session is available as squiggy_kernel in kernel
-        >>> first_read = next(squiggy_kernel._reader.reads())
+        >>> first_read = squiggy_kernel._reader.reads()[0]
     """
     # Convert to absolute path
     abs_path = Path(file_path).resolve()
@@ -190,10 +181,9 @@ def load_pod5(file_path: str) -> None:
     squiggy_kernel.close_pod5()
 
     # Open new reader
-    reader = pod5.Reader(str(abs_path))
+    reader = open_reader(abs_path)
 
-    # Create lazy read list (uses reader.num_reads and reader.read_ids
-    # internally - O(1) count, Arrow metadata for ID access)
+    # Create lazy read list (O(1) count; read IDs come from metadata only)
     lazy_read_list = LazyReadList(reader)
 
     # Store state in session

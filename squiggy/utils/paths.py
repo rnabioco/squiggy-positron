@@ -16,15 +16,17 @@ logger = logging.getLogger(__name__)
 def writable_working_directory():
     """Context manager to temporarily change to a writable working directory
 
-    The pod5 library creates temporary directories in the current working directory
-    during format migration. When running from a PyInstaller bundle or other read-only
-    location, the CWD may not be writable. This context manager temporarily changes
-    to a writable temp directory, then restores the original CWD.
+    Some tools write temporary files to the current working directory. When
+    running from a PyInstaller bundle or other read-only location, the CWD may
+    not be writable. This context manager temporarily changes to a writable
+    temp directory, then restores the original CWD.
+
+    (Originally needed for the ``pod5`` library's format-migration temp files;
+    squiggy now reads POD5 with escapepod, which does not need it.)
 
     Usage:
         with writable_working_directory():
-            with pod5.Reader(pod5_file) as reader:
-                # Process reads...
+            ...  # code that writes to the CWD
     """
     original_cwd = os.getcwd()
     temp_dir = Path(tempfile.gettempdir()) / "squiggy_workdir"

@@ -131,7 +131,7 @@ def plot_read(
         data = {
             "signal": read_obj.signal,
             "read_id": read_id,
-            "sample_rate": read_obj.run_info.sample_rate,
+            "sample_rate": read_obj.sample_rate,
         }
 
         # If sequence coordinate space requested, get alignment data
@@ -219,7 +219,7 @@ def plot_read(
             )
 
         data = {
-            "reads": [(read_id, signal, read_obj.run_info.sample_rate)],
+            "reads": [(read_id, signal, read_obj.sample_rate)],
             "aligned_reads": [aligned_read],
             "reference_sequence": reference_sequence,  # Add reference sequence
         }
@@ -351,7 +351,7 @@ def plot_reads(
 
     # Build reads_data list in original order
     reads_data = [
-        (read_id, read_objs[read_id].signal, read_objs[read_id].run_info.sample_rate)
+        (read_id, read_objs[read_id].signal, read_objs[read_id].sample_rate)
         for read_id in read_ids
     ]
 

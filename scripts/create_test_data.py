@@ -20,8 +20,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-import pod5
+import escapepod
 import pysam
+from _pod5_copy import ReadCopier
 
 
 def parse_args():
@@ -244,16 +245,14 @@ def extract_pod5_subset(input_path, output_path, selected_reads):
     reads_found = 0
     reads_written = 0
 
-    with pod5.Reader(str(input_path)) as reader:
-        with pod5.Writer(str(output_path)) as writer:
+    with escapepod.Reader(str(input_path)) as reader:
+        with escapepod.Writer(str(output_path)) as writer:
+            copier = ReadCopier(writer)
             for read in reader.reads():
                 reads_found += 1
 
-                # Convert UUID to string for comparison
-                read_id = str(read.read_id)
-
-                if read_id in selected_reads:
-                    writer.add_read(read.to_read())
+                if read.read_id in selected_reads:
+                    copier.copy(reader, read)
                     reads_written += 1
 
                 # Progress indicator

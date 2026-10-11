@@ -27,7 +27,7 @@ Short, actionable guidance to help an AI coding agent be productive in this repo
   - Positron runtime is required for full integration; extension behavior differs when running in plain VS Code (subprocess fallback used).
   - Python state is kept in kernel globals — functions like `load_pod5()` set `_current_pod5_reader` in `squiggy/io.py`.
   - BAM files must be indexed (`.bai`) and use MM/ML tags for modification support.
-  - POD5 VBZ compressed files may require `vbz_h5py_plugin` (installed via pod5 package).
+  - POD5 files are read with escapepod via `squiggy/pod5_reader.py` (VBZ decompression built in).
   - Version sync: `npm run sync` updates `squiggy/__init__.py` from `package.json` — keep both in sync when releasing.
 
 5) Where to add tests & what to run
