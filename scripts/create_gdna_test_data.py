@@ -27,8 +27,9 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import pod5
+import escapepod
 import pysam
+from _pod5_copy import ReadCopier
 
 
 def parse_args():
@@ -410,17 +411,18 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads, target_count=None
     extracted_reads = set()
     corrupted_files = []
 
-    with pod5.Writer(str(output_path)) as writer:
+    with escapepod.Writer(str(output_path)) as writer:
+        copier = ReadCopier(writer)
         for pod5_file in pod5_files:
             if len(extracted_reads) >= target_count:
                 break  # Reached target
 
             try:
-                with pod5.Reader(str(pod5_file)) as reader:
-                    for read in reader.reads(selection=candidate_reads, missing_ok=True):
-                        read_id = str(read.read_id)
+                with escapepod.Reader(str(pod5_file)) as reader:
+                    for read in reader.reads(selection=list(candidate_reads), missing_ok=True):
+                        read_id = read.read_id
                         if read_id in candidate_reads and read_id not in extracted_reads:
-                            writer.add_read(read.to_read())
+                            copier.copy(reader, read)
                             extracted_reads.add(read_id)
                             candidate_reads.discard(read_id)
                             print(
@@ -429,11 +431,8 @@ def extract_pod5_subset(pod5_dir, output_path, selected_reads, target_count=None
                             )
                             if len(extracted_reads) >= target_count:
                                 break
-            except RuntimeError as e:
-                if "Invalid signature" in str(e) or "IOError" in str(e):
-                    corrupted_files.append(pod5_file.name)
-                else:
-                    raise
+            except (escapepod.Pod5Error, OSError):
+                corrupted_files.append(pod5_file.name)
 
     if corrupted_files:
         print(f"  WARNING: Skipped {len(corrupted_files)} corrupted POD5 files")

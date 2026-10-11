@@ -394,8 +394,8 @@ wc -l file.fasta
 ### POD5 Won't Open
 
 - [ ] File exists and readable?
-- [ ] VBZ codec available? (`pip install pod5`)
-- [ ] Not corrupted? (`pod5 inspect summary file.pod5`)
+- [ ] escapepod installed? (squiggy's POD5 reader; VBZ support is built in)
+- [ ] Not corrupted? (`python -c "import escapepod; print(len(escapepod.Reader('file.pod5')))"`)
 
 ### BAM Won't Load
 

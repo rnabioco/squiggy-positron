@@ -3,8 +3,9 @@
 import os
 from pathlib import Path
 
-import pod5
 import pysam
+
+from ..pod5_reader import Reader, close_reader, open_reader, read_ids
 
 
 class Sample:
@@ -36,7 +37,7 @@ class Sample:
         """Initialize a new sample with the given name"""
         self.name = name
         self._pod5_path: str | None = None
-        self._pod5_reader: pod5.Reader | None = None
+        self._pod5_reader: Reader | None = None
         self._read_ids: list[str] = []
         self._bam_path: str | None = None
         self._bam_info: dict | None = None
@@ -72,7 +73,7 @@ class Sample:
     def close(self):
         """Close all resources and clear sample state"""
         if self._pod5_reader is not None:
-            self._pod5_reader.close()
+            close_reader(self._pod5_reader)
             self._pod5_reader = None
         self._pod5_path = None
         self._read_ids = []
@@ -122,13 +123,13 @@ def _load_sample_files(
     if not os.path.exists(abs_pod5_path):
         raise FileNotFoundError(f"POD5 file not found: {abs_pod5_path}")
 
-    reader = pod5.Reader(abs_pod5_path)
-    # Use read_ids attribute for O(1) indexed access instead of O(n) iteration
-    read_ids = [str(rid) for rid in reader.read_ids]
+    reader = open_reader(abs_pod5_path)
+    # Read IDs come from metadata only (no signal decoding)
+    sample_read_ids = read_ids(reader)
 
     sample._pod5_path = abs_pod5_path
     sample._pod5_reader = reader
-    sample._read_ids = read_ids
+    sample._read_ids = sample_read_ids
 
     # Load BAM if provided
     if bam_path:

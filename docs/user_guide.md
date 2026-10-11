@@ -678,8 +678,8 @@ samtools index your_file.bam
 **Problem**: POD5 file is corrupted or uses an incompatible format
 
 **Solution**:
-- Verify file integrity: `pod5 inspect summary your_file.pod5`
-- Ensure you have the latest version of the pod5 Python package
+- Verify the file opens: `python -c "import escapepod; print(len(escapepod.Reader('your_file.pod5')))"`
+- Ensure you have the latest version of the escapepod Python package (squiggy's POD5 reader)
 - Check that the file was completely downloaded (not truncated)
 
 ### "Python package not installed" or "uv not found"

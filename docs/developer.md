@@ -42,7 +42,7 @@ pixi install && pixi run setup
 ```
 
 This installs:
-- **pixi install**: Python 3.12, Node.js 20+, packages from conda-forge (numpy, pytest, ruff), and PyPI packages (pod5, pysam, bokeh, selenium); docs tooling (zensical) lives in the separate `docs` pixi environment
+- **pixi install**: Python 3.12, Node.js 22+, packages from conda-forge (numpy, pytest, ruff), and PyPI packages (escapepod, pysam, bokeh, selenium); docs tooling (zensical) lives in the separate `docs` pixi environment
 - **pixi run setup**: npm packages (TypeScript, Jest, ESLint, Prettier) via `npm install`
 - All dependencies locked via `pixi.lock` and `package-lock.json`
 

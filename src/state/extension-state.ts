@@ -356,8 +356,7 @@ squiggy.close_fasta()
     }
 
     get pod5LoadContext():
-        | { currentOffset: number; pageSize: number; totalReads: number }
-        | undefined {
+        { currentOffset: number; pageSize: number; totalReads: number } | undefined {
         return this._pod5LoadContext;
     }
 

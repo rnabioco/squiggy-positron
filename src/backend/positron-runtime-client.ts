@@ -243,7 +243,7 @@ export class PositronRuntimeClient implements RuntimeClient {
                     errorMessage = String(error);
                 }
 
-                throw new Error(`Failed to execute Python code: ${errorMessage}`);
+                throw new Error(`Failed to execute Python code: ${errorMessage}`, { cause: error });
             }
         };
 
@@ -339,7 +339,7 @@ export class PositronRuntimeClient implements RuntimeClient {
                 );
                 return JSON.parse(result.result);
             } catch (error) {
-                throw new Error(`Failed to get variable ${varName}: ${error}`);
+                throw new Error(`Failed to get variable ${varName}: ${error}`, { cause: error });
             }
         }
 
@@ -374,7 +374,7 @@ export class PositronRuntimeClient implements RuntimeClient {
             await this.executeSilent(`if '${tempVar}' in globals(): del ${tempVar}`).catch(
                 () => {}
             );
-            throw new Error(`Failed to get variable ${varName}: ${error}`);
+            throw new Error(`Failed to get variable ${varName}: ${error}`, { cause: error });
         }
     }
 }

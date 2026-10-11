@@ -684,7 +684,7 @@ function sortReferenceHeaders(
 
     // Sort the blocks
     referenceBlocks.sort((a, b) => {
-        let comparison = 0;
+        let comparison: number;
 
         if (sortBy === 'reads') {
             // Sort by read count
@@ -725,7 +725,7 @@ function rebuildItemsList(
 
     // Apply sorting
     references.sort(([refA, readsA], [refB, readsB]) => {
-        let comparison = 0;
+        let comparison: number;
 
         if (sortBy === 'reads') {
             // Sort by read count

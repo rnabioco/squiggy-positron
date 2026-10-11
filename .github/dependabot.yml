@@ -1,0 +1,96 @@
+# Dependabot configuration
+# https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Coverage:
+#   - npm            package.json / package-lock.json (extension + webview)
+#   - github-actions .github/workflows/*.yml
+#   - pip            pyproject.toml (published Python package metadata)
+#
+# Not covered: pixi.toml / pixi.lock. Dependabot has no pixi ecosystem, so the
+# lockfile is refreshed by .github/workflows/pixi-update.yml instead.
+#
+# PRs get Dependabot's default labels (`dependencies` + language), which
+# .github/release.yml already excludes from generated release notes.
+#
+# Minor and patch updates are grouped per ecosystem (dev and prod separately
+# for npm); major updates arrive as individual PRs so each one can be
+# reviewed against its migration notes.
+#
+# Commit messages: `prefix: chore` + `include: scope` yields
+# `chore(deps): ...` and, for npm devDependencies, `chore(deps-dev): ...`.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Denver
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      npm-dev-minor-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      npm-prod-minor-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # @types/vscode must not exceed engines.vscode in package.json (vsce
+      # rejects the package otherwise). Raise both together, by hand, after
+      # checking which VS Code API version the oldest supported Positron
+      # release is built on.
+      - dependency-name: "@types/vscode"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      # Keep @types/node on the Node line used by the Positron extension host.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Denver
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # pyproject.toml declares lower bounds only (>=), so Dependabot mostly opens
+  # PRs here for security advisories or when a bound needs widening; routine
+  # version refreshes of the dev environment come from the pixi workflow.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Denver
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      python-minor-patch:
+        update-types:
+          - minor
+          - patch

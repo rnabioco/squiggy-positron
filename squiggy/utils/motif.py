@@ -1,8 +1,9 @@
 """Motif extraction utilities for Squiggy"""
 
 import numpy as np
-import pod5
 import pysam
+
+from ..pod5_reader import iter_reads, open_reader
 
 
 def extract_reads_for_motif(
@@ -172,26 +173,25 @@ def extract_reads_for_motif(
         read_id_set = {r["read_id"] for r in reads_info}
         signal_data = {}
 
-        with pod5.Reader(pod5_file) as reader:
-            for pod5_read in reader.reads():
-                read_id_str = str(pod5_read.read_id)
-                if read_id_str in read_id_set:
-                    # Find the corresponding read_info to get signal indices
-                    read_info = next(
-                        r for r in reads_info if r["read_id"] == read_id_str
-                    )
-                    start_idx = read_info.get("signal_start_idx", 0)
-                    end_idx = read_info.get("signal_end_idx", len(pod5_read.signal))
+        info_by_id = {}
+        for r in reads_info:
+            info_by_id.setdefault(r["read_id"], r)  # first window per read
+        with open_reader(pod5_file) as reader:
+            # Indexed selection instead of scanning (and decoding) every read
+            for pod5_read in iter_reads(
+                reader, selection=list(read_id_set), missing_ok=True
+            ):
+                read_info = info_by_id[pod5_read.read_id]
+                start_idx = read_info.get("signal_start_idx", 0)
+                end_idx = read_info.get("signal_end_idx", len(pod5_read.signal))
 
-                    # Extract only the signal for the window
-                    signal_data[read_id_str] = {
-                        "signal": pod5_read.signal[start_idx:end_idx]
-                        if start_idx is not None and end_idx is not None
-                        else pod5_read.signal,
-                        "sample_rate": pod5_read.run_info.sample_rate,
-                    }
-                    if len(signal_data) == len(read_id_set):
-                        break
+                # Extract only the signal for the window
+                signal_data[pod5_read.read_id] = {
+                    "signal": pod5_read.signal[start_idx:end_idx]
+                    if start_idx is not None and end_idx is not None
+                    else pod5_read.signal,
+                    "sample_rate": pod5_read.sample_rate,
+                }
 
         # Combine BAM and POD5 data
         result = []

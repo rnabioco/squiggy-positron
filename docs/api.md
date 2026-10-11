@@ -270,7 +270,7 @@ Positron Variables pane. Key members:
 - `close_pod5()`, `close_bam()`, `close_fasta()`, `close_all()`
 
 `Sample` represents one POD5/BAM/FASTA set; `LazyReadList` is a virtual list of read IDs
-backed by the POD5 Arrow metadata (`materialize()` to realize it).
+backed by the POD5 reader's read-ID metadata (`materialize()` to realize it).
 
 ---
 

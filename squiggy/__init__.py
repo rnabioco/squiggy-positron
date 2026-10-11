@@ -108,11 +108,11 @@ from .utils import (
     validate_sq_headers,
 )
 
-# Import pod5 for user convenience
+# Import escapepod (POD5 reader) for user convenience
 try:
-    import pod5
+    import escapepod
 except ImportError:
-    pod5 = None
+    escapepod = None
 
 # Import pysam for user convenience
 try:

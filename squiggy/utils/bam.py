@@ -7,10 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import pod5
 import pysam
 
-from .paths import writable_working_directory
+from ..pod5_reader import iter_reads, open_reader, read_ids
 
 logger = logging.getLogger(__name__)
 
@@ -90,11 +89,8 @@ def validate_bam_reads_in_pod5(bam_file: str | Path, pod5_file: str | Path) -> d
         Exception: If files cannot be opened or read
     """
     # Read all read IDs from POD5 file
-    pod5_read_ids = set()
-    with writable_working_directory():
-        with pod5.Reader(pod5_file) as reader:
-            for read in reader.reads():
-                pod5_read_ids.add(str(read.read_id))
+    with open_reader(pod5_file) as reader:
+        pod5_read_ids = set(read_ids(reader))
 
     # Read all read IDs from BAM file
     bam_read_ids = set()
@@ -728,13 +724,14 @@ def extract_reads_for_reference(
         read_id_list = [r["read_id"] for r in reads_info]
         signal_data = {}
 
-        with pod5.Reader(pod5_file) as reader:
-            # Use selection parameter for direct indexed access
-            for pod5_read in reader.reads(selection=read_id_list, missing_ok=True):
-                read_id_str = str(pod5_read.read_id)
-                signal_data[read_id_str] = {
+        with open_reader(pod5_file) as reader:
+            # Indexed selection: only the requested reads' signal is decoded
+            for pod5_read in iter_reads(
+                reader, selection=read_id_list, missing_ok=True
+            ):
+                signal_data[pod5_read.read_id] = {
                     "signal": pod5_read.signal,
-                    "sample_rate": pod5_read.run_info.sample_rate,
+                    "sample_rate": pod5_read.sample_rate,
                 }
 
         # Combine BAM and POD5 data

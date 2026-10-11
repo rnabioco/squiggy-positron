@@ -1,5 +1,16 @@
 # Squiggy Release Notes
 
+## Unreleased
+
+### Improvements
+
+- **escapepod POD5 Reader**: POD5 files are now read with [escapepod](https://github.com/rnabioco/escapepod-rs) (Rust-backed) instead of `pod5`, behind a small `squiggy.pod5_reader` adapter. Signal data is unchanged; the Python environment no longer pulls in `pod5`/`lib-pod5`/`pyarrow`, and escapepod ships current wheels for Intel macOS (pod5 stopped publishing osx-64 wheels after 0.3.28)
+
+### Maintenance
+
+- **Dependency Updates**: Bumped Python (bokeh 3.10, numpy 2.x, pysam 0.24, ruff 0.17, pytest 9), npm (TypeScript 6.0, ESLint 10, webpack-cli 7, css-loader 7, style-loader 4, vsce 4, ovsx 1, jest-dom 7, React 19.3), and GitHub Actions (checkout v7, setup-node v7, setup-pixi v0.11, upload-artifact v7, codecov v7); CI now runs on Node.js 24. `@types/vscode` is pinned to the `engines.vscode` floor (1.96)
+- **Dependabot**: Weekly grouped updates for npm, GitHub Actions, and pip (`pyproject.toml`), plus a scheduled workflow that runs `pixi update` and opens a PR for `pixi.lock` (Dependabot does not support pixi)
+
 ## v0.2.0 (2026-06-29)
 
 First stable (non-alpha) release. Adds multi-track aggregate plots, a large round of

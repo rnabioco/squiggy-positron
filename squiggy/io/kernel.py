@@ -3,8 +3,7 @@
 import os
 from pathlib import Path
 
-import pod5
-
+from ..pod5_reader import Reader, close_reader
 from .performance import LazyReadList
 from .samples import Sample, _load_sample_files
 
@@ -45,7 +44,7 @@ class SquiggyKernel:
         self.samples: dict[str, Sample] = {}
 
         # Single-sample properties (for backward compatibility) - INTERNAL
-        self._reader: pod5.Reader | None = None
+        self._reader: Reader | None = None
         self._pod5_path: str | None = None
         self._read_ids: list[str] | LazyReadList = []
         self._bam_path: str | None = None
@@ -214,7 +213,7 @@ class SquiggyKernel:
     def close_pod5(self):
         """Close POD5 reader and clear POD5 state (backward compat mode)"""
         if self._reader is not None:
-            self._reader.close()
+            close_reader(self._reader)
             self._reader = None
         self._pod5_path = None
         self._read_ids = []
