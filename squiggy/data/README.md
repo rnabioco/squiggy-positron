@@ -61,8 +61,8 @@ import squiggy
 data_dir = squiggy.get_test_data_path()
 
 # Load WT sample
-squiggy.load_pod5(f'{data_dir}/ecoli_trna_wt_reads.pod5')
-squiggy.load_bam(f'{data_dir}/ecoli_trna_wt_mappings.bam')
+squiggy.load_pod5(f"{data_dir}/ecoli_trna_wt_reads.pod5")
+squiggy.load_bam(f"{data_dir}/ecoli_trna_wt_mappings.bam")
 ```
 
 ## Size

@@ -23,10 +23,10 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-  "bokeh>=3.1.1",
-  "numpy>=1.20.0",
-  "pod5>=0.3.0",
-  "pysam>=0.20.0",
+  "bokeh>=3.10",
+  "numpy>=2.0",
+  "pod5>=0.3.28",
+  "pysam>=0.24",
 ]
 
 [project.urls]
@@ -39,17 +39,17 @@ Repository = "https://github.com/rnabioco/squiggy-positron"
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=7.0",
-  "pytest-cov>=4.0",
-  "ruff>=0.1.0",
-  "jupyter>=1.0.0",  # For testing in notebooks
+  "pytest>=9.0",
+  "pytest-cov>=7.0",
+  "ruff>=0.17",
+  "jupyter>=1.1",  # For testing in notebooks
 ]
 docs = [
   "zensical",  # Static site generator by the Material for MkDocs team
 ]
 export = [
   "selenium>=4.6",  # Selenium Manager (auto-downloads geckodriver) requires 4.6+
-  "pillow>=9.0",
+  "pillow>=12.0",
 ]
 
 [build-system]
