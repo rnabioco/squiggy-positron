@@ -417,8 +417,8 @@
     "@vscode/vsce": "^4.1.0",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.5",
-    "eslint": "^10.13.0",
-    "globals": "^17.13.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
@@ -429,7 +429,7 @@
     "ts-loader": "^9.6.2",
     "typescript": "~6.0.3",
     "webpack": "^5.112.2",
-    "webpack-cli": "^7.2.3"
+    "webpack-cli": "^7.3.1"
   },
   "dependencies": {
     "@posit-dev/positron": "^0.2.12",
